@@ -27,7 +27,15 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 ## Notes
 
-- **Upstream tracking**: `v1.5.0` (June 10, 2026) — we need to sync. Major features: bot gateway (Feishu/Weixin/QQ), goal mode, read_skill tool, PDF extraction, themeable workspace, React 19/TypeScript 6, ACP sessions, 100+ fixes.
-- **Implementation plan**: `docs/HERMES-IMPLEMENTATION-PLAN.md` — phased: P0 (sync + bot wiring + tests), P1 (skills hub + memory hooks), P2 (collab-cli + VS Code ext), P3 (portability + vector memory).
+- **Upstream synced**: `v1.5.0` merged (commit e5e8f02, 2026-06-25). Clean merge, zero conflicts. 7 upstream files (workspace layout, dock fixes, site config).
+- **Implementation plan**: `docs/HERMES-IMPLEMENTATION-PLAN.md` — phased: P0 (sync ✅ + bot wiring + tests), P1 (skills hub + memory hooks), P2 (collab-cli + VS Code ext), P3 (portability + vector memory).
 - **Ecosystem reference**: `reasonix-deepseek-ecosystem-2026.md` + `docs/RESEARCH-FINDINGS-JUNE-2026.md` — full survey of MCP bridges, skills, desktop clients, IDE extensions, forks, undocumented features.
 - **Key differentiators for Hermes**: Discord bot with real agent loop (unique in ecosystem), MCP bridge server (5 tools), Hindsight memory server (3 tools), 16-skill curated registry. The bot must use `control.Controller` like every other frontend — not inline chat.
+
+## Next Session TODOs
+
+- **P1: Wire Discord bot → `control.Controller`** — `bot/main.go` still calls `simulateReasonix()`. Need `DiscordSink` implementing `event.Sink`, `DiscordApprover` implementing `permission.Approver`, per-channel `BotSession` wrapping `control.Controller`. Implementation plan §1.1-1.2 has full design.
+- **P2: Test coverage for custom packages** — `pkg/mcpbridge/`, `pkg/memoryserver/`, `bot/` have zero `_test.go` files. Target 60%+. Implementation plan §2.1-2.3.
+- **P2: HTTP auth for MCP servers** — bridge (port 9090) and memory (port 8080) accept unauthenticated requests. Add API key header check or bearer token.
+- **P3: Skills hub auto-loading** — `skills-hub/` has 16 Markdown skills + `registry.json` but no install mechanism. Need `scripts/install-skills.sh` or `reasonix install-source` integration. Implementation plan §3.1-3.3.
+- **P3: Memory server hook mode** — Reasonix `PreToolUse`/`PostToolUse`/`Stop` hooks for automatic session memory. Implementation plan §4.1.
