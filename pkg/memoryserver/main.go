@@ -22,16 +22,19 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -97,8 +100,7 @@ func (ms *MemoryStore) Retain(sessionID, content string, tags []string) (*Memory
 }
 
 func (ms *MemoryStore) Recall(sessionID, query string, limit int) []MemoryEntry {
-	ms.mu.Lock()
-	defer ms.mu.Unlock()
+	ms.mu.RLock()
 
 	var results []MemoryEntry
 	lower := strings.ToLower(query)
@@ -109,7 +111,6 @@ func (ms *MemoryStore) Recall(sessionID, query string, limit int) []MemoryEntry 
 			strings.Contains(strings.ToLower(e.Content), lower) ||
 			(e.SessionID == sessionID)
 
-		// Also match tags
 		if !match {
 			for _, tag := range e.Tags {
 				if strings.Contains(strings.ToLower(tag), lower) {
@@ -120,19 +121,38 @@ func (ms *MemoryStore) Recall(sessionID, query string, limit int) []MemoryEntry 
 		}
 
 		if match {
-			e.AccessCount++
 			results = append(results, *e)
 		}
 	}
 
-	ms.save() // persist access counts
+	ms.mu.RUnlock()
 
+	// Sort by creation time, newest first
 	sort.Slice(results, func(i, j int) bool {
 		return results[i].CreatedAt.After(results[j].CreatedAt)
 	})
 
 	if limit > 0 && len(results) > limit {
 		results = results[:limit]
+	}
+
+	// Increment access counts asynchronously — don't block reads on disk I/O
+	if len(results) > 0 {
+		go func() {
+			ms.mu.Lock()
+			// Re-find matched entries by ID and bump access count
+			matched := make(map[string]bool, len(results))
+			for _, r := range results {
+				matched[r.ID] = true
+			}
+			for i := range ms.entries {
+				if matched[ms.entries[i].ID] {
+					ms.entries[i].AccessCount++
+				}
+			}
+			_ = ms.save()
+			ms.mu.Unlock()
+		}()
 	}
 
 	return results
@@ -163,10 +183,11 @@ func (ms *MemoryStore) Reflect(sessionID string) string {
 }
 
 func truncateStr(s string, n int) string {
-	if len(s) <= n {
+	runes := []rune(s)
+	if len(runes) <= n {
 		return s
 	}
-	return s[:n-3] + "..."
+	return string(runes[:n-3]) + "..."
 }
 
 // ── MCP Server ────────────────────────────────────────────────────
@@ -233,8 +254,24 @@ func (s *MCPServer) ServeHTTP(addr string) error {
 		fmt.Fprintf(w, `{"status":"ok","name":"hindsight-reasonix"}`)
 	})
 
+	srv := &http.Server{
+		Addr:    addr,
+		Handler: mux,
+	}
+
+	// Graceful shutdown on signal
+	go func() {
+		sc := make(chan os.Signal, 1)
+		signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM)
+		<-sc
+		log.Println("Shutting down HTTP server...")
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		srv.Shutdown(ctx)
+	}()
+
 	log.Printf("Hindsight Memory MCP server listening on %s", addr)
-	return http.ListenAndServe(addr, mux)
+	return srv.ListenAndServe()
 }
 
 func (s *MCPServer) handleMessage(data []byte) []byte {

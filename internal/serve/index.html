@@ -1093,8 +1093,7 @@ document.addEventListener('keydown',e=>{
   if(e.key==='/'&&e.target!==input){e.preventDefault();input.focus();return;}
 });
 
-// mode helpers — plan is a user-decision gate; bypass/full access only skips
-// tool approvals, so they can be enabled together.
+// mode helpers — plan toggles via Shift+Tab; YOLO is a separate toolbar button.
 function updateModeButtons(){
   const auto=!planMode&&!bypassMode;
   $('#btn-auto').classList.toggle('toolbar__btn--ok',auto);
@@ -1103,7 +1102,7 @@ function updateModeButtons(){
 }
 async function setPlan(on){planMode=on;updateModeButtons();await post('/plan',{on});}
 async function setBypass(on){bypassMode=on;updateModeButtons();await post('/auto-approve-tools',{on});}
-async function cycleMode(){if(!planMode&&!bypassMode)await setPlan(true);else if(planMode&&!bypassMode){await setPlan(false);await setBypass(true);}else if(!planMode&&bypassMode)await setPlan(true);else{await setPlan(false);await setBypass(false);}setTimeout(fetchStatus,200);}
+async function cycleMode(){await setPlan(!planMode);setTimeout(fetchStatus,200);}
 async function setMode(m){if(m==='auto'){if(planMode)await setPlan(false);if(bypassMode)await setBypass(false);}else if(m==='plan'){await setPlan(true);}else if(m==='yolo'){await setBypass(true);}}
 
 // toolbar buttons

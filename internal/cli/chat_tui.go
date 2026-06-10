@@ -938,12 +938,10 @@ func (m chatTUI) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "esc":
 			// "Back out" of the most specific in-progress state: un-send a just-sent
 			// turn (server not yet replied), cancel a streaming turn, or clear
-			// typed-but-unsent input. Mode switches (normal/plan/YOLO) are
-			// exclusively driven by Shift+Tab — Esc must not silently flip a
-			// session from plan or YOLO back to a less-permissive mode. PR #3051
-			// removed the YOLO half of this; plan mode was missed and is fixed
-			// here. Scrollback is the terminal's now, so there's no viewport to
-			// dismiss.
+			// typed-but-unsent input. Plan mode is toggled by Shift+Tab only —
+			// Esc must not silently flip the session back to a less-permissive
+			// mode. YOLO is a startup flag, not in the cycle. Scrollback is the
+			// terminal's now, so there's no viewport to dismiss.
 			switch {
 			case m.state == tuiRunning && m.bubblePending:
 				m.unsendPending()
@@ -1031,7 +1029,7 @@ func (m chatTUI) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.toggleShellOutput()
 			return m, finalize(m, cmds)
 		case "shift+tab":
-			// Cycle auto → plan → YOLO; allowed mid-turn so the user can flip the
+			// Toggle plan mode on/off; allowed mid-turn so the user can flip the
 			// gate while a run is in flight (the controller's mode is atomic).
 			m.cycleMode()
 			return m, nil
