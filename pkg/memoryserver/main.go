@@ -3,51 +3,38 @@
 //
 // Usage:
 //
-//	go run ./pkg/memoryserver [--port 8080]
+//	go run ./pkg/memoryserver [--http] [--port 8080]
 //
-// Can be connected to Reasonix as an MCP plugin:
-//
-//	[[plugins]]
-//	name    = "hindsight"
-//	command = "python"
-//	args    = ["/path/to/hindsight_mcp.py"]
-//
-// Or via HTTP:
-//
-//	[[plugins]]
-//	name    = "hindsight"
-//	type    = "http"
-//	url     = "http://localhost:8080/mcp"
+// Can be connected to Reasonix as an MCP plugin (stdio or HTTP).
 package main
 
 import (
-	"bufio"
-	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
-	"net/http"
 	"os"
-	"os/signal"
 	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
-	"syscall"
+	"sync/atomic"
 	"time"
 
-	"reasonix/pkg/httputil"
+	"reasonix/pkg/mcputil"
+)
+
+const (
+	maxContentLength = 32768 // 32KB max per memory entry
 )
 
 // MemoryEntry is a single stored memory.
 type MemoryEntry struct {
-	ID        string    `json:"id"`
-	SessionID string    `json:"session_id"`
-	Content   string    `json:"content"`
-	Tags      []string  `json:"tags,omitempty"`
-	CreatedAt time.Time `json:"created_at"`
-	AccessCount int     `json:"access_count"`
+	ID          string    `json:"id"`
+	SessionID   string    `json:"session_id"`
+	Content     string    `json:"content"`
+	Tags        []string  `json:"tags,omitempty"`
+	CreatedAt   time.Time `json:"created_at"`
+	AccessCount int       `json:"access_count"`
 }
 
 // MemoryStore persists memories to disk.
@@ -55,6 +42,7 @@ type MemoryStore struct {
 	mu      sync.RWMutex
 	dir     string
 	entries []MemoryEntry
+	nextID  atomic.Int64
 }
 
 func NewMemoryStore(dir string) (*MemoryStore, error) {
@@ -70,9 +58,22 @@ func (ms *MemoryStore) load() {
 	path := filepath.Join(ms.dir, "memories.json")
 	data, err := os.ReadFile(path)
 	if err != nil {
+		ms.nextID.Store(1)
 		return
 	}
 	json.Unmarshal(data, &ms.entries)
+
+	// Find highest ID number for monotonic counter
+	var maxID int64
+	for _, e := range ms.entries {
+		// Parse numeric suffix from "mem-<N>-<timestamp>"
+		var n int64
+		fmt.Sscanf(e.ID, "mem-%d-", &n)
+		if n > maxID {
+			maxID = n
+		}
+	}
+	ms.nextID.Store(maxID + 1)
 }
 
 func (ms *MemoryStore) save() error {
@@ -80,15 +81,30 @@ func (ms *MemoryStore) save() error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(ms.dir, "memories.json"), data, 0644)
+	// Atomic write: write to temp, rename
+	tmp := filepath.Join(ms.dir, "memories.json.tmp")
+	if err := os.WriteFile(tmp, data, 0600); err != nil {
+		return err
+	}
+	return os.Rename(tmp, filepath.Join(ms.dir, "memories.json"))
 }
 
 func (ms *MemoryStore) Retain(sessionID, content string, tags []string) (*MemoryEntry, error) {
+	// Validate content
+	content = strings.TrimSpace(content)
+	if content == "" {
+		return nil, fmt.Errorf("content must not be empty")
+	}
+	if len(content) > maxContentLength {
+		return nil, fmt.Errorf("content exceeds maximum length of %d bytes", maxContentLength)
+	}
+
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
 
+	id := ms.nextID.Add(1) - 1
 	entry := MemoryEntry{
-		ID:        fmt.Sprintf("mem-%d-%d", len(ms.entries)+1, time.Now().Unix()),
+		ID:        fmt.Sprintf("mem-%d-%d", id, time.Now().Unix()),
 		SessionID: sessionID,
 		Content:   content,
 		Tags:      tags,
@@ -96,29 +112,44 @@ func (ms *MemoryStore) Retain(sessionID, content string, tags []string) (*Memory
 	}
 	ms.entries = append(ms.entries, entry)
 	if err := ms.save(); err != nil {
-		return nil, err
+		// Rollback
+		ms.entries = ms.entries[:len(ms.entries)-1]
+		return nil, fmt.Errorf("persist memory: %w", err)
 	}
 	return &entry, nil
 }
 
-func (ms *MemoryStore) Recall(sessionID, query string, limit int) []MemoryEntry {
-	ms.mu.RLock()
+func (ms *MemoryStore) Recall(sessionID, query string, limit int) ([]MemoryEntry, error) {
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
 
 	var results []MemoryEntry
 	lower := strings.ToLower(query)
 
 	for i := range ms.entries {
 		e := &ms.entries[i]
-		match := query == "" ||
-			strings.Contains(strings.ToLower(e.Content), lower) ||
-			(e.SessionID == sessionID)
+		var match bool
 
-		if !match {
-			for _, tag := range e.Tags {
-				if strings.Contains(strings.ToLower(tag), lower) {
-					match = true
-					break
+		if query == "" && sessionID == "" {
+			// No filters — return all
+			match = true
+		} else if query == "" && sessionID != "" {
+			// Session filter only
+			match = e.SessionID == sessionID
+		} else {
+			// Query-based matching (content + tags)
+			match = strings.Contains(strings.ToLower(e.Content), lower)
+			if !match {
+				for _, tag := range e.Tags {
+					if strings.Contains(strings.ToLower(tag), lower) {
+						match = true
+						break
+					}
 				}
+			}
+			// If sessionID also provided, require BOTH query match AND session match
+			if match && sessionID != "" {
+				match = e.SessionID == sessionID
 			}
 		}
 
@@ -126,8 +157,6 @@ func (ms *MemoryStore) Recall(sessionID, query string, limit int) []MemoryEntry 
 			results = append(results, *e)
 		}
 	}
-
-	ms.mu.RUnlock()
 
 	// Sort by creation time, newest first
 	sort.Slice(results, func(i, j int) bool {
@@ -138,26 +167,23 @@ func (ms *MemoryStore) Recall(sessionID, query string, limit int) []MemoryEntry 
 		results = results[:limit]
 	}
 
-	// Increment access counts asynchronously — don't block reads on disk I/O
+	// Increment access counts synchronously (under same lock, atomic save)
 	if len(results) > 0 {
-		go func() {
-			ms.mu.Lock()
-			// Re-find matched entries by ID and bump access count
-			matched := make(map[string]bool, len(results))
-			for _, r := range results {
-				matched[r.ID] = true
+		matched := make(map[string]bool, len(results))
+		for _, r := range results {
+			matched[r.ID] = true
+		}
+		for i := range ms.entries {
+			if matched[ms.entries[i].ID] {
+				ms.entries[i].AccessCount++
 			}
-			for i := range ms.entries {
-				if matched[ms.entries[i].ID] {
-					ms.entries[i].AccessCount++
-				}
-			}
-			_ = ms.save()
-			ms.mu.Unlock()
-		}()
+		}
+		if err := ms.save(); err != nil {
+			log.Printf("[hindsight] warning: failed to persist access counts: %v", err)
+		}
 	}
 
-	return results
+	return results, nil
 }
 
 func (ms *MemoryStore) Reflect(sessionID string) string {
@@ -192,154 +218,39 @@ func truncateStr(s string, n int) string {
 	return string(runes[:n-3]) + "..."
 }
 
-// ── MCP Server ────────────────────────────────────────────────────
+// ── MCP Tool Definitions ──────────────────────────────────────────
 
-type MCPServer struct {
-	store *MemoryStore
-	mu    sync.Mutex
-}
-
-func NewMCPServer(store *MemoryStore) *MCPServer {
-	return &MCPServer{store: store}
-}
-
-type jsonRPCRequest struct {
-	JSONRPC string          `json:"jsonrpc"`
-	ID      int             `json:"id"`
-	Method  string          `json:"method"`
-	Params  json.RawMessage `json:"params,omitempty"`
-}
-
-type jsonRPCResponse struct {
-	JSONRPC string          `json:"jsonrpc"`
-	ID      int             `json:"id"`
-	Result  json.RawMessage `json:"result,omitempty"`
-	Error   *jsonRPCError   `json:"error,omitempty"`
-}
-
-type jsonRPCError struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-}
-
-func (s *MCPServer) ServeStdio() error {
-	reader := bufio.NewReader(os.Stdin)
-	log.SetOutput(os.Stderr)
-
-	for {
-		line, err := reader.ReadBytes('\n')
-		if err != nil {
-			if err == io.EOF {
-				return nil
-			}
-			return err
-		}
-		resp := s.handleMessage(line)
-		if resp != nil {
-			resp = append(resp, '\n')
-			os.Stdout.Write(resp)
-		}
-	}
-}
-
-// ServeHTTP runs the memory server over HTTP.
-// If MEMORY_API_KEY env var is set, requires Authorization: Bearer <key> header
-// for all endpoints except /health.
-func (s *MCPServer) ServeHTTP(addr string) error {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/mcp", func(w http.ResponseWriter, r *http.Request) {
-		body, _ := io.ReadAll(r.Body)
-		defer r.Body.Close()
-		resp := s.handleMessage(body)
-		w.Header().Set("Content-Type", "application/json")
-		w.Write(resp)
-	})
-	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, `{"status":"ok","name":"hindsight-reasonix"}`)
-	})
-
-	auth := &httputil.AuthMiddleware{
-		APIKey: httputil.LoadAPIKey("MEMORY_API_KEY"),
-		KeyEnv: "MEMORY_API_KEY",
-	}
-	handler := auth.Wrap(mux)
-
-	srv := &http.Server{
-		Addr:    addr,
-		Handler: handler,
-	}
-
-	// Graceful shutdown on signal
-	go func() {
-		sc := make(chan os.Signal, 1)
-		signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM)
-		<-sc
-		log.Println("Shutting down HTTP server...")
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		srv.Shutdown(ctx)
-	}()
-
-	log.Printf("Hindsight Memory MCP server listening on %s", addr)
-	return srv.ListenAndServe()
-}
-
-func (s *MCPServer) handleMessage(data []byte) []byte {
-	var req jsonRPCRequest
-	if err := json.Unmarshal(data, &req); err != nil {
-		return s.errorResp(0, -32700, "Parse error")
-	}
-
-	switch req.Method {
-	case "initialize":
-		return s.successResp(req.ID, map[string]any{
-			"protocolVersion": "2024-11-05",
-			"serverInfo":      map[string]string{"name": "hindsight-reasonix", "version": "1.0.0"},
-			"capabilities":    map[string]any{"tools": map[string]bool{}},
-		})
-	case "notifications/initialized":
-		return nil
-	case "tools/list":
-		return s.listTools(req.ID)
-	case "tools/call":
-		return s.callTool(req.ID, req.Params)
-	default:
-		return s.errorResp(req.ID, -32601, "Method not found")
-	}
-}
-
-func (s *MCPServer) listTools(id int) []byte {
-	tools := []map[string]any{
+func memoryTools() []mcputil.Tool {
+	return []mcputil.Tool{
 		{
-			"name":        "hindsight_retain",
-			"description": "Store a new memory fact for later recall. Use after important decisions or discoveries.",
-			"inputSchema": map[string]any{
+			Name:        "hindsight_retain",
+			Description: "Store a new memory fact for later recall. Use after important decisions or discoveries.",
+			InputSchema: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
 					"session_id": map[string]any{"type": "string", "description": "Current session identifier"},
-					"content":    map[string]any{"type": "string", "description": "The memory content to store"},
+					"content":    map[string]any{"type": "string", "description": "The memory content to store (max 32KB)"},
 					"tags":       map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Optional tags for categorization"},
 				},
 				"required": []string{"content"},
 			},
 		},
 		{
-			"name":        "hindsight_recall",
-			"description": "Search and retrieve memories by keyword, session, or tags.",
-			"inputSchema": map[string]any{
+			Name:        "hindsight_recall",
+			Description: "Search and retrieve memories by keyword, session, or tags.",
+			InputSchema: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
-					"session_id": map[string]any{"type": "string", "description": "Filter by session ID"},
-					"query":      map[string]any{"type": "string", "description": "Search keyword (empty = all)"},
+					"session_id": map[string]any{"type": "string", "description": "Filter by session ID (combined with query if both set)"},
+					"query":      map[string]any{"type": "string", "description": "Search keyword (empty + no session_id = all)"},
 					"limit":      map[string]any{"type": "integer", "description": "Max results (default 10)"},
 				},
 			},
 		},
 		{
-			"name":        "hindsight_reflect",
-			"description": "Reflect on all memories from a session. Summarizes what was learned and retained.",
-			"inputSchema": map[string]any{
+			Name:        "hindsight_reflect",
+			Description: "Reflect on all memories from a session. Summarizes what was learned and retained.",
+			InputSchema: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
 					"session_id": map[string]any{"type": "string", "description": "Session to reflect on"},
@@ -348,86 +259,64 @@ func (s *MCPServer) listTools(id int) []byte {
 			},
 		},
 	}
-	return s.successResp(id, map[string]any{"tools": tools})
 }
 
-func (s *MCPServer) callTool(id int, params json.RawMessage) []byte {
-	var call struct {
-		Name      string         `json:"name"`
-		Arguments map[string]any `json:"arguments"`
-	}
-	if err := json.Unmarshal(params, &call); err != nil {
-		return s.errorResp(id, -32602, "Invalid params")
-	}
+// ── Handler ───────────────────────────────────────────────────────
 
-	var result string
-	var err error
+type memoryHandler struct {
+	store *MemoryStore
+}
 
-	switch call.Name {
+func (h *memoryHandler) handle(name string, args map[string]any) (string, error) {
+	switch name {
 	case "hindsight_retain":
-		sessionID, _ := call.Arguments["session_id"].(string)
-		content, _ := call.Arguments["content"].(string)
+		sessionID, _ := args["session_id"].(string)
+		content, _ := args["content"].(string)
 		var tags []string
-		if t, ok := call.Arguments["tags"].([]interface{}); ok {
+		if t, ok := args["tags"].([]interface{}); ok {
 			for _, tag := range t {
 				if ts, ok := tag.(string); ok {
 					tags = append(tags, ts)
 				}
 			}
 		}
-		entry, e := s.store.Retain(sessionID, content, tags)
-		if e != nil {
-			err = e
-		} else {
-			result = fmt.Sprintf("Memory retained: %s", entry.ID)
+		entry, err := h.store.Retain(sessionID, content, tags)
+		if err != nil {
+			return "", err
 		}
+		return fmt.Sprintf("Memory retained: %s", entry.ID), nil
 
 	case "hindsight_recall":
-		sessionID, _ := call.Arguments["session_id"].(string)
-		query, _ := call.Arguments["query"].(string)
+		sessionID, _ := args["session_id"].(string)
+		query, _ := args["query"].(string)
 		limit := 10
-		if l, ok := call.Arguments["limit"].(float64); ok {
+		if l, ok := args["limit"].(float64); ok {
 			limit = int(l)
 		}
-		entries := s.store.Recall(sessionID, query, limit)
-		if len(entries) == 0 {
-			result = "No matching memories found."
-		} else {
-			var sb strings.Builder
-			sb.WriteString(fmt.Sprintf("# Found %d memories:\n\n", len(entries)))
-			for _, e := range entries {
-				sb.WriteString(fmt.Sprintf("- [%s] %s\n", e.ID, e.Content))
-			}
-			result = sb.String()
+		entries, err := h.store.Recall(sessionID, query, limit)
+		if err != nil {
+			return "", err
 		}
+		if len(entries) == 0 {
+			return "No matching memories found.", nil
+		}
+		var sb strings.Builder
+		sb.WriteString(fmt.Sprintf("# Found %d memories:\n\n", len(entries)))
+		for _, e := range entries {
+			sb.WriteString(fmt.Sprintf("- [%s] %s\n", e.ID, e.Content))
+		}
+		return sb.String(), nil
 
 	case "hindsight_reflect":
-		sessionID, _ := call.Arguments["session_id"].(string)
-		result = s.store.Reflect(sessionID)
+		sessionID, _ := args["session_id"].(string)
+		if sessionID == "" {
+			return "", fmt.Errorf("session_id is required")
+		}
+		return h.store.Reflect(sessionID), nil
 
 	default:
-		return s.errorResp(id, -32601, "Unknown tool: "+call.Name)
+		return "", fmt.Errorf("unknown tool: %s", name)
 	}
-
-	if err != nil {
-		return s.errorResp(id, -32000, err.Error())
-	}
-
-	content := []map[string]string{{"type": "text", "text": result}}
-	return s.successResp(id, map[string]any{"content": content})
-}
-
-func (s *MCPServer) successResp(id int, result any) []byte {
-	r, _ := json.Marshal(result)
-	resp := jsonRPCResponse{JSONRPC: "2.0", ID: id, Result: r}
-	data, _ := json.Marshal(resp)
-	return data
-}
-
-func (s *MCPServer) errorResp(id, code int, message string) []byte {
-	resp := jsonRPCResponse{JSONRPC: "2.0", ID: id, Error: &jsonRPCError{Code: code, Message: message}}
-	data, _ := json.Marshal(resp)
-	return data
 }
 
 // ── Main ──────────────────────────────────────────────────────────
@@ -443,21 +332,26 @@ func main() {
 		log.Fatalf("Failed to create memory store: %v", err)
 	}
 
-	server := NewMCPServer(store)
+	h := &memoryHandler{store: store}
+
+	srv := &mcputil.Server{
+		Name:    "hindsight-reasonix",
+		Version: "1.1.0",
+		Tools:   memoryTools(),
+		Handle:  h.handle,
+	}
 
 	if len(os.Args) > 1 && os.Args[1] == "--http" {
 		port := "8080"
 		if len(os.Args) > 3 && os.Args[2] == "--port" {
 			port = os.Args[3]
 		}
-		log.Fatal(server.ServeHTTP(":" + port))
+		log.Fatal(srv.ServeHTTP(":"+port, "MEMORY_API_KEY"))
 	}
 
 	log.SetPrefix("[hindsight] ")
 	log.Println("Starting in stdio mode (MCP)...")
-	if err := server.ServeStdio(); err != nil {
+	if err := srv.ServeStdio(); err != nil {
 		log.Fatal(err)
 	}
 }
-
-

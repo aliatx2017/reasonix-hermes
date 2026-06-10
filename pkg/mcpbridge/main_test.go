@@ -15,12 +15,13 @@ import (
 	"time"
 
 	"reasonix/pkg/httputil"
+	"reasonix/pkg/mcputil"
 )
 
 // ── doctorCheck ──────────────────────────────────────────────────
 
 func TestDoctorCheck_ReasonixBinary(t *testing.T) {
-	bs := NewBridgeServer(t.TempDir())
+	bs := NewBridge(t.TempDir())
 	report, err := bs.doctorCheck()
 	if err != nil {
 		t.Fatalf("doctorCheck returned error: %v", err)
@@ -50,7 +51,7 @@ func TestDoctorCheck_APIKeySet(t *testing.T) {
 	key := "sk-test-key-12345"
 	t.Setenv("DEEPSEEK_API_KEY", key)
 
-	bs := NewBridgeServer(t.TempDir())
+	bs := NewBridge(t.TempDir())
 	report, err := bs.doctorCheck()
 	if err != nil {
 		t.Fatalf("doctorCheck returned error: %v", err)
@@ -67,7 +68,7 @@ func TestDoctorCheck_APIKeySet(t *testing.T) {
 func TestDoctorCheck_APIKeyUnset(t *testing.T) {
 	os.Unsetenv("DEEPSEEK_API_KEY")
 
-	bs := NewBridgeServer(t.TempDir())
+	bs := NewBridge(t.TempDir())
 	report, err := bs.doctorCheck()
 	if err != nil {
 		t.Fatalf("doctorCheck returned error: %v", err)
@@ -84,7 +85,7 @@ func TestDoctorCheck_ReasonixFound(t *testing.T) {
 	}
 	t.Logf("reasonix found at: %s", path)
 
-	bs := NewBridgeServer(t.TempDir())
+	bs := NewBridge(t.TempDir())
 	report, err := bs.doctorCheck()
 	if err != nil {
 		t.Fatalf("doctorCheck returned error: %v", err)
@@ -120,7 +121,7 @@ func TestListSkills_FromDirectory(t *testing.T) {
 	// Create a directory that should be skipped
 	os.MkdirAll(filepath.Join(skillsDir, "subdir"), 0o755)
 
-	bs := NewBridgeServer(t.TempDir())
+	bs := NewBridge(t.TempDir())
 	result, err := bs.listSkills()
 	if err != nil {
 		t.Fatalf("listSkills returned error: %v", err)
@@ -158,7 +159,7 @@ func TestListSkills_ProjectLocalFallback(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	bs := NewBridgeServer(workDir)
+	bs := NewBridge(workDir)
 	result, err := bs.listSkills()
 	if err != nil {
 		t.Fatalf("listSkills returned error: %v", err)
@@ -175,7 +176,7 @@ func TestListSkills_NoSkillsDir(t *testing.T) {
 
 	workDir := t.TempDir()
 	// Ensure no .reasonix/skills in workDir
-	bs := NewBridgeServer(workDir)
+	bs := NewBridge(workDir)
 	_, err := bs.listSkills()
 	if err == nil {
 		t.Error("expected error when no skills directory exists")
@@ -197,7 +198,7 @@ func TestListSkills_EmptySkillsDir(t *testing.T) {
 	os.MkdirAll(skillsDir, 0o755)
 
 	workDir := t.TempDir()
-	bs := NewBridgeServer(workDir)
+	bs := NewBridge(workDir)
 	result, err := bs.listSkills()
 	if err != nil {
 		t.Fatalf("listSkills returned error: %v", err)
@@ -211,7 +212,7 @@ func TestListSkills_EmptySkillsDir(t *testing.T) {
 
 func TestPlanTask_NoAPIKey(t *testing.T) {
 	os.Unsetenv("DEEPSEEK_API_KEY")
-	bs := NewBridgeServer(t.TempDir())
+	bs := NewBridge(t.TempDir())
 	_, err := bs.planTask("refactor auth module")
 	if err == nil {
 		t.Fatal("expected error when DEEPSEEK_API_KEY not set")
@@ -223,7 +224,7 @@ func TestPlanTask_NoAPIKey(t *testing.T) {
 
 func TestPlanTask_EmptyObjective_NoAPIKey(t *testing.T) {
 	os.Unsetenv("DEEPSEEK_API_KEY")
-	bs := NewBridgeServer(t.TempDir())
+	bs := NewBridge(t.TempDir())
 	_, err := bs.planTask("")
 	if err == nil {
 		t.Fatal("expected error when DEEPSEEK_API_KEY not set")
@@ -242,7 +243,7 @@ func TestPlanTask_WithTestServer(t *testing.T) {
 	defer ts.Close()
 
 	t.Setenv("DEEPSEEK_API_KEY", "sk-test")
-	bs := NewBridgeServer(t.TempDir())
+	bs := NewBridge(t.TempDir())
 	bs.apiBase = ts.URL
 
 	result, err := bs.planTask("refactor auth module")
@@ -264,7 +265,7 @@ func TestPlanTask_APIError(t *testing.T) {
 	defer ts.Close()
 
 	t.Setenv("DEEPSEEK_API_KEY", "sk-test")
-	bs := NewBridgeServer(t.TempDir())
+	bs := NewBridge(t.TempDir())
 	bs.apiBase = ts.URL
 
 	_, err := bs.planTask("refactor auth module")
@@ -280,7 +281,7 @@ func TestPlanTask_APIError(t *testing.T) {
 
 func TestOrchestrateTask_NoReasonixBinary(t *testing.T) {
 	os.Unsetenv("DEEPSEEK_API_KEY")
-	bs := NewBridgeServer(t.TempDir())
+	bs := NewBridge(t.TempDir())
 	// Even with API key, orchestrateTask needs reasonix binary
 	// Test with missing key first (simpler)
 	_, err := bs.orchestrateTask("build microservice")
@@ -300,7 +301,7 @@ func TestOrchestrateTask_WithTestServer(t *testing.T) {
 	defer ts.Close()
 
 	t.Setenv("DEEPSEEK_API_KEY", "sk-test")
-	bs := NewBridgeServer(t.TempDir())
+	bs := NewBridge(t.TempDir())
 	bs.apiBase = ts.URL
 
 	// reasonix binary won't exist, so steps will fail — but we test decomposition
@@ -322,7 +323,7 @@ func TestOrchestrateTask_WithTestServer(t *testing.T) {
 
 func TestOrchestrateTask_EmptyTask_NoAPIKey(t *testing.T) {
 	os.Unsetenv("DEEPSEEK_API_KEY")
-	bs := NewBridgeServer(t.TempDir())
+	bs := NewBridge(t.TempDir())
 	_, err := bs.orchestrateTask("")
 	if err == nil {
 		t.Fatal("expected error, got nil")
@@ -332,8 +333,8 @@ func TestOrchestrateTask_EmptyTask_NoAPIKey(t *testing.T) {
 // ── runTask (executeTool "reasonix_run") ──────────────────────────
 
 func TestExecuteTool_Run_MissingTask(t *testing.T) {
-	bs := NewBridgeServer(t.TempDir())
-	_, err := bs.executeTool("reasonix_run", map[string]any{})
+	bs := NewBridge(t.TempDir())
+	_, err := bs.handle("reasonix_run", map[string]any{})
 	if err == nil {
 		t.Error("expected error for missing task, got nil")
 	}
@@ -343,8 +344,8 @@ func TestExecuteTool_Run_MissingTask(t *testing.T) {
 }
 
 func TestExecuteTool_Run_EmptyTask(t *testing.T) {
-	bs := NewBridgeServer(t.TempDir())
-	_, err := bs.executeTool("reasonix_run", map[string]any{"task": ""})
+	bs := NewBridge(t.TempDir())
+	_, err := bs.handle("reasonix_run", map[string]any{"task": ""})
 	if err == nil {
 		t.Error("expected error for empty task, got nil")
 	}
@@ -357,8 +358,8 @@ func TestExecuteTool_Run_BinaryNotFound(t *testing.T) {
 	// Ensure reasonix is not on PATH by using a clean PATH
 	t.Setenv("PATH", t.TempDir())
 
-	bs := NewBridgeServer(t.TempDir())
-	result, err := bs.executeTool("reasonix_run", map[string]any{"task": "echo hello"})
+	bs := NewBridge(t.TempDir())
+	result, err := bs.handle("reasonix_run", map[string]any{"task": "echo hello"})
 	// runReasonix returns the error output as a string result, not a Go error
 	if err != nil {
 		t.Fatalf("unexpected Go error: %v", err)
@@ -382,8 +383,8 @@ echo "WORKDIR=$(pwd)"
 	workDir := t.TempDir()
 	t.Setenv("PATH", binDir)
 
-	bs := NewBridgeServer(workDir)
-	result, err := bs.executeTool("reasonix_run", map[string]any{
+	bs := NewBridge(workDir)
+	result, err := bs.handle("reasonix_run", map[string]any{
 		"task": "test task",
 	})
 	if err != nil {
@@ -410,8 +411,8 @@ echo "ARGS=$*"
 
 	t.Setenv("PATH", binDir)
 
-	bs := NewBridgeServer(t.TempDir())
-	result, err := bs.executeTool("reasonix_run", map[string]any{
+	bs := NewBridge(t.TempDir())
+	result, err := bs.handle("reasonix_run", map[string]any{
 		"task":  "do something",
 		"model": "deepseek-flash",
 	})
@@ -426,8 +427,8 @@ echo "ARGS=$*"
 // ── executeTool dispatch ──────────────────────────────────────────
 
 func TestExecuteTool_UnknownTool(t *testing.T) {
-	bs := NewBridgeServer(t.TempDir())
-	_, err := bs.executeTool("nonexistent_tool", map[string]any{})
+	bs := NewBridge(t.TempDir())
+	_, err := bs.handle("nonexistent_tool", map[string]any{})
 	if err == nil {
 		t.Error("expected error for unknown tool")
 	}
@@ -437,8 +438,8 @@ func TestExecuteTool_UnknownTool(t *testing.T) {
 }
 
 func TestExecuteTool_Doctor(t *testing.T) {
-	bs := NewBridgeServer(t.TempDir())
-	result, err := bs.executeTool("reasonix_doctor", map[string]any{})
+	bs := NewBridge(t.TempDir())
+	result, err := bs.handle("reasonix_doctor", map[string]any{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -450,20 +451,20 @@ func TestExecuteTool_Doctor(t *testing.T) {
 // ── JSON-RPC handling ─────────────────────────────────────────────
 
 func TestHandleMessage_Initialize(t *testing.T) {
-	bs := NewBridgeServer(t.TempDir())
-	req := jsonRPCRequest{
+	bs := NewBridge(t.TempDir())
+	req := mcputil.Request{
 		JSONRPC: "2.0",
-		ID:      1,
+		ID:      json.RawMessage(`1`),
 		Method:  "initialize",
 	}
 	data, _ := json.Marshal(req)
-	resp := bs.handleMessage(data)
+	resp := bs.Server().HandleMessage(data)
 
-	var parsed jsonRPCResponse
+	var parsed mcputil.Response
 	if err := json.Unmarshal(resp, &parsed); err != nil {
 		t.Fatalf("failed to parse response: %v", err)
 	}
-	if parsed.ID != 1 {
+	if string(parsed.ID) != "1" {
 		t.Errorf("expected id 1, got %d", parsed.ID)
 	}
 	if parsed.Error != nil {
@@ -480,16 +481,16 @@ func TestHandleMessage_Initialize(t *testing.T) {
 }
 
 func TestHandleMessage_ListTools(t *testing.T) {
-	bs := NewBridgeServer(t.TempDir())
-	req := jsonRPCRequest{
+	bs := NewBridge(t.TempDir())
+	req := mcputil.Request{
 		JSONRPC: "2.0",
-		ID:      2,
+		ID:      json.RawMessage(`2`),
 		Method:  "tools/list",
 	}
 	data, _ := json.Marshal(req)
-	resp := bs.handleMessage(data)
+	resp := bs.Server().HandleMessage(data)
 
-	var parsed jsonRPCResponse
+	var parsed mcputil.Response
 	if err := json.Unmarshal(resp, &parsed); err != nil {
 		t.Fatalf("failed to parse response: %v", err)
 	}
@@ -511,10 +512,10 @@ func TestHandleMessage_ListTools(t *testing.T) {
 }
 
 func TestHandleMessage_InvalidJSON(t *testing.T) {
-	bs := NewBridgeServer(t.TempDir())
-	resp := bs.handleMessage([]byte("{invalid}"))
+	bs := NewBridge(t.TempDir())
+	resp := bs.Server().HandleMessage([]byte("{invalid}"))
 
-	var parsed jsonRPCResponse
+	var parsed mcputil.Response
 	if err := json.Unmarshal(resp, &parsed); err != nil {
 		t.Fatalf("failed to parse response: %v", err)
 	}
@@ -527,16 +528,16 @@ func TestHandleMessage_InvalidJSON(t *testing.T) {
 }
 
 func TestHandleMessage_MethodNotFound(t *testing.T) {
-	bs := NewBridgeServer(t.TempDir())
-	req := jsonRPCRequest{
+	bs := NewBridge(t.TempDir())
+	req := mcputil.Request{
 		JSONRPC: "2.0",
-		ID:      3,
+		ID:      json.RawMessage(`3`),
 		Method:  "nonexistent/method",
 	}
 	data, _ := json.Marshal(req)
-	resp := bs.handleMessage(data)
+	resp := bs.Server().HandleMessage(data)
 
-	var parsed jsonRPCResponse
+	var parsed mcputil.Response
 	if err := json.Unmarshal(resp, &parsed); err != nil {
 		t.Fatalf("failed to parse response: %v", err)
 	}
@@ -549,35 +550,35 @@ func TestHandleMessage_MethodNotFound(t *testing.T) {
 }
 
 func TestHandleMessage_NotificationsInitialized(t *testing.T) {
-	bs := NewBridgeServer(t.TempDir())
-	req := jsonRPCRequest{
+	bs := NewBridge(t.TempDir())
+	req := mcputil.Request{
 		JSONRPC: "2.0",
-		ID:      0,
+		ID:      json.RawMessage(`0`),
 		Method:  "notifications/initialized",
 	}
 	data, _ := json.Marshal(req)
-	resp := bs.handleMessage(data)
+	resp := bs.Server().HandleMessage(data)
 	if resp != nil {
 		t.Errorf("expected nil response for notification, got: %s", string(resp))
 	}
 }
 
 func TestHandleMessage_CallTool_Doctor(t *testing.T) {
-	bs := NewBridgeServer(t.TempDir())
+	bs := NewBridge(t.TempDir())
 	params, _ := json.Marshal(map[string]any{
 		"name":      "reasonix_doctor",
 		"arguments": map[string]any{},
 	})
-	req := jsonRPCRequest{
+	req := mcputil.Request{
 		JSONRPC: "2.0",
-		ID:      4,
+		ID:      json.RawMessage(`4`),
 		Method:  "tools/call",
 		Params:  params,
 	}
 	data, _ := json.Marshal(req)
-	resp := bs.handleMessage(data)
+	resp := bs.Server().HandleMessage(data)
 
-	var parsed jsonRPCResponse
+	var parsed mcputil.Response
 	if err := json.Unmarshal(resp, &parsed); err != nil {
 		t.Fatalf("failed to parse response: %v", err)
 	}
@@ -606,23 +607,23 @@ func TestHandleMessage_CallTool_Doctor(t *testing.T) {
 }
 
 func TestHandleMessage_CallTool_PlanTask(t *testing.T) {
-	bs := NewBridgeServer(t.TempDir())
+	bs := NewBridge(t.TempDir())
 	params, _ := json.Marshal(map[string]any{
 		"name": "plan_task",
 		"arguments": map[string]any{
 			"objective": "refactor everything",
 		},
 	})
-	req := jsonRPCRequest{
+	req := mcputil.Request{
 		JSONRPC: "2.0",
-		ID:      5,
+		ID:      json.RawMessage(`5`),
 		Method:  "tools/call",
 		Params:  params,
 	}
 	data, _ := json.Marshal(req)
-	resp := bs.handleMessage(data)
+	resp := bs.Server().HandleMessage(data)
 
-	var parsed jsonRPCResponse
+	var parsed mcputil.Response
 	if err := json.Unmarshal(resp, &parsed); err != nil {
 		t.Fatalf("failed to parse response: %v", err)
 	}
@@ -637,13 +638,13 @@ func TestHandleMessage_CallTool_PlanTask(t *testing.T) {
 // ── BridgeServer construction ─────────────────────────────────────
 
 func TestNewBridgeServer_RegistersAllTools(t *testing.T) {
-	bs := NewBridgeServer(t.TempDir())
-	if len(bs.tools) != 5 {
-		t.Errorf("expected 5 tools, got %d", len(bs.tools))
+	bs := NewBridge(t.TempDir())
+	if len(bs.tools()) != 5 {
+		t.Errorf("expected 5 tools, got %d", len(bs.tools()))
 	}
 
 	names := map[string]bool{}
-	for _, tool := range bs.tools {
+	for _, tool := range bs.tools() {
 		names[tool.Name] = true
 	}
 	for _, expected := range []string{"reasonix_run", "reasonix_doctor", "plan_task", "orchestrate_task", "get_skills"} {
@@ -655,7 +656,7 @@ func TestNewBridgeServer_RegistersAllTools(t *testing.T) {
 
 func TestNewBridgeServer_DefaultAPIBase(t *testing.T) {
 	os.Unsetenv("DEEPSEEK_BASE_URL")
-	bs := NewBridgeServer(t.TempDir())
+	bs := NewBridge(t.TempDir())
 	if bs.apiBase != "https://api.deepseek.com" {
 		t.Errorf("expected default apiBase, got: %s", bs.apiBase)
 	}
@@ -663,7 +664,7 @@ func TestNewBridgeServer_DefaultAPIBase(t *testing.T) {
 
 func TestNewBridgeServer_CustomAPIBase(t *testing.T) {
 	t.Setenv("DEEPSEEK_BASE_URL", "https://custom.api.example.com")
-	bs := NewBridgeServer(t.TempDir())
+	bs := NewBridge(t.TempDir())
 	if bs.apiBase != "https://custom.api.example.com" {
 		t.Errorf("expected custom apiBase, got: %s", bs.apiBase)
 	}
@@ -673,7 +674,7 @@ func TestNewBridgeServer_CustomAPIBase(t *testing.T) {
 
 func TestCallDeepSeek_NoAPIKey(t *testing.T) {
 	os.Unsetenv("DEEPSEEK_API_KEY")
-	bs := NewBridgeServer(t.TempDir())
+	bs := NewBridge(t.TempDir())
 	_, err := bs.callDeepSeek("system prompt", "user prompt")
 	if err == nil {
 		t.Fatal("expected error without API key")
@@ -695,7 +696,7 @@ func TestCallDeepSeek_CustomModel(t *testing.T) {
 
 	t.Setenv("DEEPSEEK_API_KEY", "sk-test")
 	t.Setenv("DEEPSEEK_MODEL", "deepseek-v4-pro")
-	bs := NewBridgeServer(t.TempDir())
+	bs := NewBridge(t.TempDir())
 	bs.apiBase = ts.URL
 
 	result, err := bs.callDeepSeek("sys", "user")
@@ -715,7 +716,7 @@ func TestCallDeepSeek_EmptyResponse(t *testing.T) {
 	defer ts.Close()
 
 	t.Setenv("DEEPSEEK_API_KEY", "sk-test")
-	bs := NewBridgeServer(t.TempDir())
+	bs := NewBridge(t.TempDir())
 	bs.apiBase = ts.URL
 
 	_, err := bs.callDeepSeek("sys", "user")
@@ -729,7 +730,7 @@ func TestCallDeepSeek_EmptyResponse(t *testing.T) {
 
 func TestCallDeepSeek_ConnectionError(t *testing.T) {
 	t.Setenv("DEEPSEEK_API_KEY", "sk-test")
-	bs := NewBridgeServer(t.TempDir())
+	bs := NewBridge(t.TempDir())
 	bs.apiBase = "http://127.0.0.1:1" // unreachable port
 
 	_, err := bs.callDeepSeek("sys", "user")
@@ -741,13 +742,13 @@ func TestCallDeepSeek_ConnectionError(t *testing.T) {
 // ── HTTP handler ──────────────────────────────────────────────────
 
 func TestServeHTTP_HealthEndpoint(t *testing.T) {
-	bs := NewBridgeServer(t.TempDir())
+	bs := NewBridge(t.TempDir())
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintf(w, `{"status":"ok","version":"%s"}`, version)
 	})
-	mux.HandleFunc("/mcp", bs.handleHTTPMCP)
+	mux.HandleFunc("/mcp", bs.Server().HandleHTTP)
 
 	auth := &httputil.AuthMiddleware{APIKey: "", KeyEnv: ""}
 	handler := auth.Wrap(mux)
@@ -766,13 +767,13 @@ func TestServeHTTP_HealthEndpoint(t *testing.T) {
 }
 
 func TestHandleHTTPMCP(t *testing.T) {
-	bs := NewBridgeServer(t.TempDir())
-	req := jsonRPCRequest{JSONRPC: "2.0", ID: 1, Method: "initialize"}
+	bs := NewBridge(t.TempDir())
+	req := mcputil.Request{JSONRPC: "2.0", ID: json.RawMessage(`1`), Method: "initialize"}
 	data, _ := json.Marshal(req)
 
 	req2 := httptest.NewRequest(http.MethodPost, "/mcp", bytes.NewReader(data))
 	w := httptest.NewRecorder()
-	bs.handleHTTPMCP(w, req2)
+	bs.Server().HandleHTTP(w, req2)
 
 	if w.Code != http.StatusOK {
 		t.Errorf("expected 200, got %d", w.Code)
@@ -783,10 +784,10 @@ func TestHandleHTTPMCP(t *testing.T) {
 }
 
 func TestHandleHTTPMCP_BadBody(t *testing.T) {
-	bs := NewBridgeServer(t.TempDir())
+	bs := NewBridge(t.TempDir())
 	req2 := httptest.NewRequest(http.MethodPost, "/mcp", nil)
 	w := httptest.NewRecorder()
-	bs.handleHTTPMCP(w, req2)
+	bs.Server().HandleHTTP(w, req2)
 	// Should still get 200 with error in JSON body (IO error handled)
 }
 
@@ -875,10 +876,10 @@ func TestStripStepPrefix(t *testing.T) {
 // ── ServeHTTP integration ─────────────────────────────────────────
 
 func TestServeHTTP_Integration(t *testing.T) {
-	bs := NewBridgeServer(t.TempDir())
+	bs := NewBridge(t.TempDir())
 
 	go func() {
-		_ = bs.ServeHTTP(":0")
+		_ = bs.Server().ServeHTTP(":0", "MCP_API_KEY")
 	}()
 
 	// Give server a moment to start
@@ -887,14 +888,14 @@ func TestServeHTTP_Integration(t *testing.T) {
 
 func TestServeHTTP_AuthEnabled(t *testing.T) {
 	t.Setenv("MCP_API_KEY", "test-secret-key")
-	bs := NewBridgeServer(t.TempDir())
+	bs := NewBridge(t.TempDir())
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintf(w, `{"status":"ok"}`)
 	})
-	mux.HandleFunc("/mcp", bs.handleHTTPMCP)
+	mux.HandleFunc("/mcp", bs.Server().HandleHTTP)
 
 	auth := &httputil.AuthMiddleware{APIKey: "test-secret-key", KeyEnv: "MCP_API_KEY"}
 	handler := auth.Wrap(mux)

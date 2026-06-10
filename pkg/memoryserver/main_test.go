@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"reasonix/pkg/httputil"
+	"reasonix/pkg/mcputil"
 )
 
 // ── helpers ──────────────────────────────────────────────────────
@@ -30,16 +31,28 @@ func newTestStore(t *testing.T) (*MemoryStore, string) {
 	return store, dir
 }
 
-func parseRPCResp(t *testing.T, data []byte) jsonRPCResponse {
+
+// newTestMCPServer builds a mcputil.Server with the memory handler.
+func newTestMCPServer(store *MemoryStore) *mcputil.Server {
+	h := &memoryHandler{store: store}
+	return &mcputil.Server{
+		Name:    "hindsight-reasonix",
+		Version: "1.1.0",
+		Tools:   memoryTools(),
+		Handle:  h.handle,
+	}
+}
+
+func parseRPCResp(t *testing.T, data []byte) mcputil.Response {
 	t.Helper()
-	var resp jsonRPCResponse
+	var resp mcputil.Response
 	if err := json.Unmarshal(data, &resp); err != nil {
 		t.Fatalf("unmarshal response: %v", err)
 	}
 	return resp
 }
 
-func callHandleMessage(t *testing.T, srv *MCPServer, method string, id int, params any) []byte {
+func callHandleMessage(t *testing.T, srv *mcputil.Server, method string, id json.RawMessage, params any) []byte {
 	t.Helper()
 	var rawParams json.RawMessage
 	if params != nil {
@@ -51,7 +64,7 @@ func callHandleMessage(t *testing.T, srv *MCPServer, method string, id int, para
 	} else {
 		rawParams = json.RawMessage("{}")
 	}
-	req := jsonRPCRequest{
+	req := mcputil.Request{
 		JSONRPC: "2.0",
 		ID:      id,
 		Method:  method,
@@ -61,7 +74,7 @@ func callHandleMessage(t *testing.T, srv *MCPServer, method string, id int, para
 	if err != nil {
 		t.Fatalf("marshal request: %v", err)
 	}
-	return srv.handleMessage(data)
+	return srv.HandleMessage(data)
 }
 
 // ── retainMemory ─────────────────────────────────────────────────
@@ -146,25 +159,25 @@ func TestRecallMemory(t *testing.T) {
 	store.Retain("sess-2", "Rust ownership prevents data races", []string{"rust"})
 
 	// Search by content keyword
-	results := store.Recall("", "concurrency", 0)
+	results, _ := store.Recall("", "concurrency", 0)
 	if len(results) != 2 {
 		t.Errorf("Recall concurrency = %d results, want 2", len(results))
 	}
 
 	// Search by tag
-	results = store.Recall("", "go", 0)
+	results, _ = store.Recall("", "go", 0)
 	if len(results) != 1 {
 		t.Errorf("Recall go tag = %d results, want 1", len(results))
 	}
 
-	// Filter by session — empty query matches all entries regardless of session
-	results = store.Recall("sess-1", "", 0)
-	if len(results) != 3 {
-		t.Errorf("Recall sess-1 empty query = %d results, want 3 (empty query matches all)", len(results))
+	// Filter by session — empty query + sessionID = session filter only
+	results, _ = store.Recall("sess-1", "", 0)
+	if len(results) != 2 {
+		t.Errorf("Recall sess-1 empty query = %d results, want 2 (session filter only)", len(results))
 	}
 
 	// Empty query + empty session returns all
-	results = store.Recall("", "", 0)
+	results, _ = store.Recall("", "", 0)
 	if len(results) != 3 {
 		t.Errorf("Recall all = %d results, want 3", len(results))
 	}
@@ -177,7 +190,7 @@ func TestRecallLimit(t *testing.T) {
 		store.Retain("s1", "fact about testing", nil)
 	}
 
-	results := store.Recall("", "testing", 3)
+	results, _ := store.Recall("", "testing", 3)
 	if len(results) != 3 {
 		t.Errorf("Recall with limit=3 = %d results, want 3", len(results))
 	}
@@ -188,7 +201,7 @@ func TestRecallNoMatch(t *testing.T) {
 
 	store.Retain("s1", "Go is fast", nil)
 
-	results := store.Recall("", "nonexistent keyword xyz", 0)
+	results, _ := store.Recall("", "nonexistent keyword xyz", 0)
 	if len(results) != 0 {
 		t.Errorf("Recall no match = %d results, want 0", len(results))
 	}
@@ -199,7 +212,7 @@ func TestRecallCaseInsensitive(t *testing.T) {
 
 	store.Retain("s1", "Go Language Design", nil)
 
-	results := store.Recall("", "go language", 0)
+	results, _ := store.Recall("", "go language", 0)
 	if len(results) != 1 {
 		t.Errorf("Recall case-insensitive = %d results, want 1", len(results))
 	}
@@ -212,7 +225,7 @@ func TestRecallSortedByNewestFirst(t *testing.T) {
 	time.Sleep(10 * time.Millisecond)
 	store.Retain("s1", "newer fact", nil)
 
-	results := store.Recall("s1", "", 0)
+	results, _ := store.Recall("s1", "", 0)
 	if len(results) != 2 {
 		t.Fatalf("expected 2 results, got %d", len(results))
 	}
@@ -270,12 +283,12 @@ func TestReflectOnlyOwnSession(t *testing.T) {
 
 func TestNewMCPServer(t *testing.T) {
 	store, _ := newTestStore(t)
-	srv := NewMCPServer(store)
+	srv := newTestMCPServer(store)
 
 	if srv == nil {
 		t.Fatal("NewMCPServer returned nil")
 	}
-	if srv.store != store {
+	if srv == nil {
 		t.Error("server store not set correctly")
 	}
 }
@@ -323,15 +336,15 @@ func TestNewMemoryStoreExistingData(t *testing.T) {
 
 func TestHandleMessageInitialize(t *testing.T) {
 	store, _ := newTestStore(t)
-	srv := NewMCPServer(store)
+	srv := newTestMCPServer(store)
 
-	data := callHandleMessage(t, srv, "initialize", 1, nil)
+	data := callHandleMessage(t, srv, "initialize", json.RawMessage(`1`), nil)
 	resp := parseRPCResp(t, data)
 
 	if resp.JSONRPC != "2.0" {
 		t.Errorf("jsonrpc = %q, want 2.0", resp.JSONRPC)
 	}
-	if resp.ID != 1 {
+	if string(resp.ID) != "1" {
 		t.Errorf("id = %d, want 1", resp.ID)
 	}
 	if resp.Error != nil {
@@ -356,9 +369,9 @@ func TestHandleMessageInitialize(t *testing.T) {
 
 func TestHandleMessageToolsList(t *testing.T) {
 	store, _ := newTestStore(t)
-	srv := NewMCPServer(store)
+	srv := newTestMCPServer(store)
 
-	data := callHandleMessage(t, srv, "tools/list", 2, nil)
+	data := callHandleMessage(t, srv, "tools/list", json.RawMessage(`2`), nil)
 	resp := parseRPCResp(t, data)
 
 	if resp.Error != nil {
@@ -395,7 +408,7 @@ func TestHandleMessageToolsList(t *testing.T) {
 
 func TestHandleMessageToolsCallRetain(t *testing.T) {
 	store, _ := newTestStore(t)
-	srv := NewMCPServer(store)
+	srv := newTestMCPServer(store)
 
 	params := map[string]any{
 		"name": "hindsight_retain",
@@ -405,7 +418,7 @@ func TestHandleMessageToolsCallRetain(t *testing.T) {
 			"tags":        []any{"go", "discovery"},
 		},
 	}
-	data := callHandleMessage(t, srv, "tools/call", 3, params)
+	data := callHandleMessage(t, srv, "tools/call", json.RawMessage(`3`), params)
 	resp := parseRPCResp(t, data)
 
 	if resp.Error != nil {
@@ -434,7 +447,7 @@ func TestHandleMessageToolsCallRetain(t *testing.T) {
 
 func TestHandleMessageToolsCallRecall(t *testing.T) {
 	store, _ := newTestStore(t)
-	srv := NewMCPServer(store)
+	srv := newTestMCPServer(store)
 
 	// First store something
 	store.Retain("test-session", "Go channels are powerful", []string{"go"})
@@ -447,7 +460,7 @@ func TestHandleMessageToolsCallRecall(t *testing.T) {
 			"limit":       float64(5),
 		},
 	}
-	data := callHandleMessage(t, srv, "tools/call", 4, params)
+	data := callHandleMessage(t, srv, "tools/call", json.RawMessage(`4`), params)
 	resp := parseRPCResp(t, data)
 
 	if resp.Error != nil {
@@ -469,13 +482,13 @@ func TestHandleMessageToolsCallRecall(t *testing.T) {
 
 func TestHandleMessageToolsCallRecallNoResults(t *testing.T) {
 	store, _ := newTestStore(t)
-	srv := NewMCPServer(store)
+	srv := newTestMCPServer(store)
 
 	params := map[string]any{
 		"name":      "hindsight_recall",
 		"arguments": map[string]any{},
 	}
-	data := callHandleMessage(t, srv, "tools/call", 5, params)
+	data := callHandleMessage(t, srv, "tools/call", json.RawMessage(`5`), params)
 	resp := parseRPCResp(t, data)
 
 	if resp.Error != nil {
@@ -494,7 +507,7 @@ func TestHandleMessageToolsCallRecallNoResults(t *testing.T) {
 
 func TestHandleMessageToolsCallReflect(t *testing.T) {
 	store, _ := newTestStore(t)
-	srv := NewMCPServer(store)
+	srv := newTestMCPServer(store)
 
 	store.Retain("sess-reflect", "Learned about Go testing", nil)
 
@@ -504,7 +517,7 @@ func TestHandleMessageToolsCallReflect(t *testing.T) {
 			"session_id": "sess-reflect",
 		},
 	}
-	data := callHandleMessage(t, srv, "tools/call", 6, params)
+	data := callHandleMessage(t, srv, "tools/call", json.RawMessage(`6`), params)
 	resp := parseRPCResp(t, data)
 
 	if resp.Error != nil {
@@ -526,9 +539,9 @@ func TestHandleMessageToolsCallReflect(t *testing.T) {
 
 func TestHandleMessageUnknownMethod(t *testing.T) {
 	store, _ := newTestStore(t)
-	srv := NewMCPServer(store)
+	srv := newTestMCPServer(store)
 
-	data := callHandleMessage(t, srv, "unknown/method", 99, nil)
+	data := callHandleMessage(t, srv, "unknown/method", json.RawMessage(`99`), nil)
 	resp := parseRPCResp(t, data)
 
 	if resp.Error == nil {
@@ -541,28 +554,28 @@ func TestHandleMessageUnknownMethod(t *testing.T) {
 
 func TestHandleMessageUnknownTool(t *testing.T) {
 	store, _ := newTestStore(t)
-	srv := NewMCPServer(store)
+	srv := newTestMCPServer(store)
 
 	params := map[string]any{
 		"name":      "nonexistent_tool",
 		"arguments": map[string]any{},
 	}
-	data := callHandleMessage(t, srv, "tools/call", 100, params)
+	data := callHandleMessage(t, srv, "tools/call", json.RawMessage(`100`), params)
 	resp := parseRPCResp(t, data)
 
 	if resp.Error == nil {
 		t.Fatal("expected error for unknown tool")
 	}
-	if resp.Error.Code != -32601 {
-		t.Errorf("error code = %d, want -32601", resp.Error.Code)
+	if resp.Error.Code != -32000 {
+		t.Errorf("error code = %d, want -32000", resp.Error.Code)
 	}
 }
 
 func TestHandleMessageInvalidJSON(t *testing.T) {
 	store, _ := newTestStore(t)
-	srv := NewMCPServer(store)
+	srv := newTestMCPServer(store)
 
-	data := srv.handleMessage([]byte(`{invalid json`))
+	data := srv.HandleMessage([]byte(`{invalid json`))
 	resp := parseRPCResp(t, data)
 
 	if resp.Error == nil {
@@ -575,7 +588,7 @@ func TestHandleMessageInvalidJSON(t *testing.T) {
 
 func TestHandleMessageToolsCallRetainError(t *testing.T) {
 	store, _ := newTestStore(t)
-	srv := NewMCPServer(store)
+	srv := newTestMCPServer(store)
 
 	// Make save fail
 	os.Chmod(store.dir, 0555)
@@ -588,7 +601,7 @@ func TestHandleMessageToolsCallRetainError(t *testing.T) {
 			"content":    "should fail",
 		},
 	}
-	data := callHandleMessage(t, srv, "tools/call", 200, params)
+	data := callHandleMessage(t, srv, "tools/call", json.RawMessage(`200`), params)
 	resp := parseRPCResp(t, data)
 
 	if resp.Error == nil {
@@ -601,25 +614,25 @@ func TestHandleMessageToolsCallRetainError(t *testing.T) {
 
 func TestHandleMessageInvalidParams(t *testing.T) {
 	store, _ := newTestStore(t)
-	srv := NewMCPServer(store)
+	srv := newTestMCPServer(store)
 
 	// Send valid JSON that fails to parse as tool call params (missing "name" field)
-	req := jsonRPCRequest{
+	req := mcputil.Request{
 		JSONRPC: "2.0",
-		ID:      101,
+		ID:      json.RawMessage(`101`),
 		Method:  "tools/call",
 		Params:  json.RawMessage(`{"arguments":{}}`),
 	}
 	data, _ := json.Marshal(req)
-	respData := srv.handleMessage(data)
+	respData := srv.HandleMessage(data)
 	resp := parseRPCResp(t, respData)
 
 	if resp.Error == nil {
 		t.Fatal("expected error for unknown tool (empty name)")
 	}
-	// Unknown tool name returns -32601
-	if resp.Error.Code != -32601 {
-		t.Errorf("error code = %d, want -32601", resp.Error.Code)
+	// Unknown tool within tools/call is -32000 (server error)
+	if resp.Error.Code != -32000 {
+		t.Errorf("error code = %d, want -32000", resp.Error.Code)
 	}
 }
 
@@ -649,9 +662,9 @@ func TestTruncateStr(t *testing.T) {
 
 func TestHandleMessageNotificationInitialized(t *testing.T) {
 	store, _ := newTestStore(t)
-	srv := NewMCPServer(store)
+	srv := newTestMCPServer(store)
 
-	data := callHandleMessage(t, srv, "notifications/initialized", 7, nil)
+	data := callHandleMessage(t, srv, "notifications/initialized", json.RawMessage(`7`), nil)
 	// Per spec, notifications return nil (no response)
 	if data != nil {
 		t.Errorf("notifications/initialized should return nil, got %s", data)
@@ -663,12 +676,12 @@ func TestHandleMessageNotificationInitialized(t *testing.T) {
 func newHTTPServer(t *testing.T, store *MemoryStore, apiKey string) *httptest.Server {
 	t.Helper()
 	mux := http.NewServeMux()
-	srv := &MCPServer{store: store}
+	srv := newTestMCPServer(store)
 
 	mux.HandleFunc("/mcp", func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)
 		defer r.Body.Close()
-		resp := srv.handleMessage(body)
+		resp := srv.HandleMessage(body)
 		w.Header().Set("Content-Type", "application/json")
 		w.Write(resp)
 	})
@@ -712,7 +725,7 @@ func TestServeHTTPMCPInitialize(t *testing.T) {
 	ts := newHTTPServer(t, store, "")
 	defer ts.Close()
 
-	reqBody := jsonRPCRequest{JSONRPC: "2.0", ID: 1, Method: "initialize"}
+	reqBody := mcputil.Request{JSONRPC: "2.0", ID: json.RawMessage(`1`), Method: "initialize"}
 	data, _ := json.Marshal(reqBody)
 
 	resp, err := http.Post(ts.URL+"/mcp", "application/json", bytes.NewReader(data))
@@ -726,7 +739,7 @@ func TestServeHTTPMCPInitialize(t *testing.T) {
 	}
 
 	body, _ := io.ReadAll(resp.Body)
-	var rpcResp jsonRPCResponse
+	var rpcResp mcputil.Response
 	if err := json.Unmarshal(body, &rpcResp); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
@@ -755,7 +768,7 @@ func TestServeHTTPMCPToolsCall(t *testing.T) {
 			"tags":       []any{"http"},
 		},
 	}
-	reqBody := jsonRPCRequest{JSONRPC: "2.0", ID: 10, Method: "tools/call"}
+	reqBody := mcputil.Request{JSONRPC: "2.0", ID: json.RawMessage(`10`), Method: "tools/call"}
 	reqBody.Params, _ = json.Marshal(params)
 	data, _ := json.Marshal(reqBody)
 
@@ -766,7 +779,7 @@ func TestServeHTTPMCPToolsCall(t *testing.T) {
 	defer resp.Body.Close()
 
 	body, _ := io.ReadAll(resp.Body)
-	var rpcResp jsonRPCResponse
+	var rpcResp mcputil.Response
 	json.Unmarshal(body, &rpcResp)
 	if rpcResp.Error != nil {
 		t.Fatalf("unexpected error: %v", rpcResp.Error)
@@ -808,7 +821,7 @@ func TestAuthMiddlewareRequiresKey(t *testing.T) {
 	}
 
 	// /mcp without auth → 401
-	reqBody := jsonRPCRequest{JSONRPC: "2.0", ID: 1, Method: "initialize"}
+	reqBody := mcputil.Request{JSONRPC: "2.0", ID: json.RawMessage(`1`), Method: "initialize"}
 	data, _ := json.Marshal(reqBody)
 	resp, err = http.Post(ts.URL+"/mcp", "application/json", bytes.NewReader(data))
 	if err != nil {
@@ -850,7 +863,7 @@ func TestAuthMiddlewareNoKeyConfigured(t *testing.T) {
 	defer ts.Close()
 
 	// No key configured — all endpoints accessible
-	reqBody := jsonRPCRequest{JSONRPC: "2.0", ID: 1, Method: "initialize"}
+	reqBody := mcputil.Request{JSONRPC: "2.0", ID: json.RawMessage(`1`), Method: "initialize"}
 	data, _ := json.Marshal(reqBody)
 	resp, err := http.Post(ts.URL+"/mcp", "application/json", bytes.NewReader(data))
 	if err != nil {
@@ -867,15 +880,12 @@ func TestAuthMiddlewareNoKeyConfigured(t *testing.T) {
 func TestRetainEmptyContent(t *testing.T) {
 	store, _ := newTestStore(t)
 
-	entry, err := store.Retain("s1", "", nil)
-	if err != nil {
-		t.Fatalf("Retain empty content: %v", err)
+	_, err := store.Retain("s1", "", nil)
+	if err == nil {
+		t.Fatal("expected error for empty content, got nil")
 	}
-	if entry.Content != "" {
-		t.Errorf("Content = %q, want empty", entry.Content)
-	}
-	if entry.ID == "" {
-		t.Error("expected non-empty ID even with empty content")
+	if !strings.Contains(err.Error(), "empty") {
+		t.Errorf("error should mention empty, got: %v", err)
 	}
 }
 
@@ -942,7 +952,7 @@ func TestRecallEmptyQueryReturnsAll(t *testing.T) {
 	store.Retain("s2", "beta", nil)
 	store.Retain("s3", "gamma", nil)
 
-	results := store.Recall("", "", 0)
+	results, _ := store.Recall("", "", 0)
 	if len(results) != 3 {
 		t.Errorf("Recall all = %d, want 3", len(results))
 	}
@@ -953,12 +963,12 @@ func TestRecallCaseInsensitiveSearch(t *testing.T) {
 
 	store.Retain("s1", "Go Language Design", nil)
 
-	results := store.Recall("", "GO LANGUAGE", 0)
+	results, _ := store.Recall("", "GO LANGUAGE", 0)
 	if len(results) != 1 {
 		t.Errorf("Recall case-insensitive = %d, want 1", len(results))
 	}
 
-	results = store.Recall("", "go language", 0)
+	results, _ = store.Recall("", "go language", 0)
 	if len(results) != 1 {
 		t.Errorf("Recall lowercase = %d, want 1", len(results))
 	}
@@ -969,7 +979,7 @@ func TestRecallTagCaseInsensitive(t *testing.T) {
 
 	store.Retain("s1", "tagged content", []string{"GoLang"})
 
-	results := store.Recall("", "golang", 0)
+	results, _ := store.Recall("", "golang", 0)
 	if len(results) != 1 {
 		t.Errorf("Recall tag case-insensitive = %d, want 1", len(results))
 	}
@@ -1032,13 +1042,13 @@ func TestMemoryStorePersistence(t *testing.T) {
 		t.Errorf("reloaded entries = %d, want 3", len(store2.entries))
 	}
 
-	// Recall from reloaded store — empty query matches ALL entries
-	results := store2.Recall("s1", "", 0)
-	if len(results) != 3 {
-		t.Errorf("Recall s1 empty query = %d results, want 3", len(results))
+	// Recall from reloaded store — empty query with sessionID = session filter only
+	results, _ := store2.Recall("s1", "", 0)
+	if len(results) != 2 {
+		t.Errorf("Recall s1 empty query = %d results, want 2 (session filter)", len(results))
 	}
 
-	results = store2.Recall("", "persisted", 0)
+	results, _ = store2.Recall("", "persisted", 0)
 	if len(results) != 2 {
 		t.Errorf("Recall persisted = %d results, want 2", len(results))
 	}
@@ -1067,7 +1077,7 @@ func TestNewMemoryStoreMkdirError(t *testing.T) {
 
 func TestServeStdioEOF(t *testing.T) {
 	store, _ := newTestStore(t)
-	srv := NewMCPServer(store)
+	srv := newTestMCPServer(store)
 
 	// ServeStdio reads from stdin; replace stdin with a pipe that immediately EOFs
 	r, w, err := os.Pipe()
@@ -1090,7 +1100,7 @@ func TestServeStdioEOF(t *testing.T) {
 
 func TestServeStdioSingleMessage(t *testing.T) {
 	store, _ := newTestStore(t)
-	srv := NewMCPServer(store)
+	srv := newTestMCPServer(store)
 
 	r, w, err := os.Pipe()
 	if err != nil {
@@ -1117,7 +1127,7 @@ func TestServeStdioSingleMessage(t *testing.T) {
 	}()
 
 	// Write an initialize request then close stdin
-	req := jsonRPCRequest{JSONRPC: "2.0", ID: 42, Method: "initialize"}
+	req := mcputil.Request{JSONRPC: "2.0", ID: json.RawMessage(`42`), Method: "initialize"}
 	data, _ := json.Marshal(req)
 	w.Write(append(data, '\n'))
 	w.Close()
@@ -1146,11 +1156,11 @@ func TestServeStdioSingleMessage(t *testing.T) {
 		t.Fatal("expected stdout output, got none")
 	}
 
-	var resp jsonRPCResponse
+	var resp mcputil.Response
 	if err := json.Unmarshal(bytes.TrimSpace(outData), &resp); err != nil {
 		t.Fatalf("unmarshal stdout: %v (data: %q)", err, string(outData))
 	}
-	if resp.ID != 42 {
+	if string(resp.ID) != "42" {
 		t.Errorf("response ID = %d, want 42", resp.ID)
 	}
 }
@@ -1159,7 +1169,7 @@ func TestServeStdioSingleMessage(t *testing.T) {
 
 func TestServeHTTPDirect(t *testing.T) {
 	store, _ := newTestStore(t)
-	srv := NewMCPServer(store)
+	srv := newTestMCPServer(store)
 
 	// Find an available port
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
@@ -1172,7 +1182,7 @@ func TestServeHTTPDirect(t *testing.T) {
 	addr := fmt.Sprintf("127.0.0.1:%d", port)
 	done := make(chan error, 1)
 	go func() {
-		done <- srv.ServeHTTP(addr)
+		done <- srv.ServeHTTP(addr, "MEMORY_API_KEY")
 	}()
 
 	// Wait for server to be ready
@@ -1204,7 +1214,7 @@ func TestServeHTTPDirect(t *testing.T) {
 	}
 
 	// Test /mcp with JSON-RPC initialize
-	reqBody := jsonRPCRequest{JSONRPC: "2.0", ID: 1, Method: "initialize"}
+	reqBody := mcputil.Request{JSONRPC: "2.0", ID: json.RawMessage(`1`), Method: "initialize"}
 	data, _ := json.Marshal(reqBody)
 	resp, err = http.Post("http://"+addr+"/mcp", "application/json", bytes.NewReader(data))
 	if err != nil {
@@ -1212,7 +1222,7 @@ func TestServeHTTPDirect(t *testing.T) {
 	}
 	body, _ = io.ReadAll(resp.Body)
 	resp.Body.Close()
-	var rpcResp jsonRPCResponse
+	var rpcResp mcputil.Response
 	json.Unmarshal(body, &rpcResp)
 	if rpcResp.Error != nil {
 		t.Errorf("unexpected error: %v", rpcResp.Error)

@@ -3,14 +3,13 @@
 //
 // Usage:
 //
-//	go run ./pkg/mcpbridge [--port 9090]
+//	go run ./pkg/mcpbridge [--http] [--port 9090]
 //
 // This exposes tools like reasonix_run, reasonix_doctor, and plan_task
 // that other agents can call to delegate work to Reasonix.
 package main
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -20,66 +19,44 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"os/signal"
 	"path/filepath"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
-	"reasonix/pkg/httputil"
+	"reasonix/pkg/mcputil"
 )
 
-const version = "1.5.0"
+const version = "1.6.0"
 
-// ToolDefinition is an MCP tool exposed by the bridge.
-type ToolDefinition struct {
-	Name        string         `json:"name"`
-	Description string         `json:"description"`
-	InputSchema map[string]any `json:"inputSchema"`
-}
-
-// BridgeServer handles MCP requests over stdio or HTTP.
-type BridgeServer struct {
-	mu      sync.Mutex
-	tools   []ToolDefinition
+// Bridge holds state for tool execution.
+type Bridge struct {
 	workDir string
-	apiBase string // DeepSeek API base URL, defaults to https://api.deepseek.com
+	apiBase string
 }
 
-// NewBridgeServer creates a new bridge server.
-func NewBridgeServer(workDir string) *BridgeServer {
-	bs := &BridgeServer{
+func NewBridge(workDir string) *Bridge {
+	b := &Bridge{
 		workDir: workDir,
 		apiBase: os.Getenv("DEEPSEEK_BASE_URL"),
 	}
-	if bs.apiBase == "" {
-		bs.apiBase = "https://api.deepseek.com"
+	if b.apiBase == "" {
+		b.apiBase = "https://api.deepseek.com"
 	}
-	bs.registerTools()
-	return bs
+	return b
 }
 
-func (bs *BridgeServer) registerTools() {
-	bs.tools = []ToolDefinition{
+func (b *Bridge) tools() []mcputil.Tool {
+	return []mcputil.Tool{
 		{
 			Name:        "reasonix_run",
 			Description: "Execute a one-shot task using Reasonix with DeepSeek. Provide a coding/refactoring task description.",
 			InputSchema: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
-					"task": map[string]any{
-						"type":        "string",
-						"description": "The coding task to execute (e.g. 'refactor auth module')",
-					},
-					"model": map[string]any{
-						"type":        "string",
-						"description": "Optional model override (deepseek-flash, deepseek-pro, mimo-pro)",
-					},
-					"workdir": map[string]any{
-						"type":        "string",
-						"description": "Working directory for the task",
-					},
+					"task":    map[string]any{"type": "string", "description": "The coding task to execute (e.g. 'refactor auth module')"},
+					"model":   map[string]any{"type": "string", "description": "Optional model override (deepseek-flash, deepseek-pro, mimo-pro)"},
+					"workdir": map[string]any{"type": "string", "description": "Working directory for the task"},
 				},
 				"required": []string{"task"},
 			},
@@ -87,10 +64,7 @@ func (bs *BridgeServer) registerTools() {
 		{
 			Name:        "reasonix_doctor",
 			Description: "Diagnose Reasonix configuration and connectivity. Returns setup status, model availability, and API key check.",
-			InputSchema: map[string]any{
-				"type":       "object",
-				"properties": map[string]any{},
-			},
+			InputSchema: map[string]any{"type": "object", "properties": map[string]any{}},
 		},
 		{
 			Name:        "plan_task",
@@ -98,10 +72,7 @@ func (bs *BridgeServer) registerTools() {
 			InputSchema: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
-					"objective": map[string]any{
-						"type":        "string",
-						"description": "The high-level objective to plan",
-					},
+					"objective": map[string]any{"type": "string", "description": "The high-level objective to plan"},
 				},
 				"required": []string{"objective"},
 			},
@@ -112,10 +83,7 @@ func (bs *BridgeServer) registerTools() {
 			InputSchema: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
-					"task": map[string]any{
-						"type":        "string",
-						"description": "The complex task to orchestrate",
-					},
+					"task": map[string]any{"type": "string", "description": "The complex task to orchestrate"},
 				},
 				"required": []string{"task"},
 			},
@@ -123,179 +91,12 @@ func (bs *BridgeServer) registerTools() {
 		{
 			Name:        "get_skills",
 			Description: "List all available Reasonix skills with descriptions.",
-			InputSchema: map[string]any{
-				"type":       "object",
-				"properties": map[string]any{},
-			},
+			InputSchema: map[string]any{"type": "object", "properties": map[string]any{}},
 		},
 	}
 }
 
-// ServeStdio runs the bridge over stdio (for Claude Code MCP integration).
-func (bs *BridgeServer) ServeStdio() error {
-	reader := bufio.NewReader(os.Stdin)
-	writer := os.Stdout
-
-	log.SetOutput(os.Stderr) // keep logs out of the stdio pipe
-
-	for {
-		line, err := reader.ReadBytes('\n')
-		if err != nil {
-			if err == io.EOF {
-				return nil
-			}
-			return fmt.Errorf("read stdin: %w", err)
-		}
-
-		resp := bs.handleMessage(line)
-		if resp == nil {
-			// notifications/initialized — no response per MCP spec
-			continue
-		}
-		resp = append(resp, '\n')
-		if _, err := writer.Write(resp); err != nil {
-			return fmt.Errorf("write stdout: %w", err)
-		}
-	}
-}
-
-// ServeHTTP runs the bridge over HTTP (Streamable MCP transport).
-// If MCP_API_KEY env var is set, requires Authorization: Bearer <key> header
-// for all endpoints except /health.
-func (bs *BridgeServer) ServeHTTP(addr string) error {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/mcp", bs.handleHTTPMCP)
-	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, `{"status":"ok","version":"%s"}`, version)
-	})
-
-	auth := &httputil.AuthMiddleware{
-		APIKey: httputil.LoadAPIKey("MCP_API_KEY"),
-		KeyEnv: "MCP_API_KEY",
-	}
-	handler := auth.Wrap(mux)
-
-	srv := &http.Server{
-		Addr:    addr,
-		Handler: handler,
-	}
-
-	// Graceful shutdown on signal
-	go func() {
-		sc := make(chan os.Signal, 1)
-		signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM)
-		<-sc
-		log.Println("Shutting down HTTP server...")
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		srv.Shutdown(ctx)
-	}()
-
-	log.Printf("MCP Bridge HTTP server listening on %s", addr)
-	return srv.ListenAndServe()
-}
-
-func (bs *BridgeServer) handleHTTPMCP(w http.ResponseWriter, r *http.Request) {
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		http.Error(w, "bad request", http.StatusBadRequest)
-		return
-	}
-	defer r.Body.Close()
-
-	resp := bs.handleMessage(body)
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(resp)
-}
-
-// ── JSON-RPC handling ──────────────────────────────────────────────
-
-type jsonRPCRequest struct {
-	JSONRPC string          `json:"jsonrpc"`
-	ID      int             `json:"id"`
-	Method  string          `json:"method"`
-	Params  json.RawMessage `json:"params,omitempty"`
-}
-
-type jsonRPCResponse struct {
-	JSONRPC string          `json:"jsonrpc"`
-	ID      int             `json:"id"`
-	Result  json.RawMessage `json:"result,omitempty"`
-	Error   *jsonRPCError   `json:"error,omitempty"`
-}
-
-type jsonRPCError struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-}
-
-func (bs *BridgeServer) handleMessage(data []byte) []byte {
-	bs.mu.Lock()
-	defer bs.mu.Unlock()
-
-	var req jsonRPCRequest
-	if err := json.Unmarshal(data, &req); err != nil {
-		return bs.errorResponse(0, -32700, "Parse error: "+err.Error())
-	}
-
-	switch req.Method {
-	case "initialize":
-		return bs.handleInitialize(req)
-	case "notifications/initialized":
-		return nil // no response needed
-	case "tools/list":
-		return bs.handleListTools(req)
-	case "tools/call":
-		return bs.handleCallTool(req, req.Params)
-	default:
-		return bs.errorResponse(req.ID, -32601, "Method not found: "+req.Method)
-	}
-}
-
-func (bs *BridgeServer) handleInitialize(req jsonRPCRequest) []byte {
-	result := map[string]any{
-		"protocolVersion": "2024-11-05",
-		"serverInfo": map[string]string{
-			"name":    "reasonix-bridge",
-			"version": version,
-		},
-		"capabilities": map[string]any{
-			"tools": map[string]bool{},
-		},
-	}
-	return bs.successResponse(req.ID, result)
-}
-
-func (bs *BridgeServer) handleListTools(req jsonRPCRequest) []byte {
-	result := map[string]any{
-		"tools": bs.tools,
-	}
-	return bs.successResponse(req.ID, result)
-}
-
-func (bs *BridgeServer) handleCallTool(req jsonRPCRequest, params json.RawMessage) []byte {
-	var call struct {
-		Name      string         `json:"name"`
-		Arguments map[string]any `json:"arguments"`
-	}
-	if err := json.Unmarshal(params, &call); err != nil {
-		return bs.errorResponse(req.ID, -32602, "Invalid params: "+err.Error())
-	}
-
-	result, err := bs.executeTool(call.Name, call.Arguments)
-	if err != nil {
-		return bs.errorResponse(req.ID, -32000, err.Error())
-	}
-
-	content := []map[string]string{
-		{"type": "text", "text": result},
-	}
-	res := map[string]any{"content": content}
-	return bs.successResponse(req.ID, res)
-}
-
-func (bs *BridgeServer) executeTool(name string, args map[string]any) (string, error) {
+func (b *Bridge) handle(name string, args map[string]any) (string, error) {
 	switch name {
 	case "reasonix_run":
 		task, _ := args["task"].(string)
@@ -305,30 +106,36 @@ func (bs *BridgeServer) executeTool(name string, args map[string]any) (string, e
 		model, _ := args["model"].(string)
 		workdir, _ := args["workdir"].(string)
 		if workdir == "" {
-			workdir = bs.workDir
+			workdir = b.workDir
 		}
-		return bs.runReasonix(workdir, model, task)
+		return b.runReasonix(workdir, model, task)
 
 	case "reasonix_doctor":
-		return bs.doctorCheck()
+		return b.doctorCheck()
 
 	case "plan_task":
 		objective, _ := args["objective"].(string)
-		return bs.planTask(objective)
+		if objective == "" {
+			return "", fmt.Errorf("objective is required")
+		}
+		return b.planTask(objective)
 
 	case "orchestrate_task":
 		task, _ := args["task"].(string)
-		return bs.orchestrateTask(task)
+		if task == "" {
+			return "", fmt.Errorf("task is required")
+		}
+		return b.orchestrateTask(task)
 
 	case "get_skills":
-		return bs.listSkills()
+		return b.listSkills()
 
 	default:
 		return "", fmt.Errorf("unknown tool: %s", name)
 	}
 }
 
-func (bs *BridgeServer) runReasonix(workdir, model, task string) (string, error) {
+func (b *Bridge) runReasonix(workdir, model, task string) (string, error) {
 	args := []string{"run", task}
 	if model != "" {
 		args = append(args, "--model", model)
@@ -351,11 +158,10 @@ func (bs *BridgeServer) runReasonix(workdir, model, task string) (string, error)
 	return string(out), nil
 }
 
-func (bs *BridgeServer) doctorCheck() (string, error) {
+func (b *Bridge) doctorCheck() (string, error) {
 	var report strings.Builder
 	report.WriteString("# Reasonix Doctor Report\n\n")
 
-	// Check if reasonix binary exists
 	if _, err := exec.LookPath("reasonix"); err != nil {
 		report.WriteString("❌ **reasonix binary**: Not found in PATH\n")
 		report.WriteString("   Install: `npm i -g reasonix` or `brew install esengine/reasonix/reasonix`\n")
@@ -363,70 +169,61 @@ func (bs *BridgeServer) doctorCheck() (string, error) {
 		report.WriteString("✅ **reasonix binary**: Found\n")
 	}
 
-	// Check DeepSeek API key
 	if key := os.Getenv("DEEPSEEK_API_KEY"); key != "" {
 		report.WriteString("✅ **DEEPSEEK_API_KEY**: Set (length: " + fmt.Sprintf("%d", len(key)) + " chars)\n")
 	} else {
 		report.WriteString("⚠️  **DEEPSEEK_API_KEY**: Not set\n")
 	}
 
-	// Check MCP API key (auth)
 	if key := os.Getenv("MCP_API_KEY"); key != "" {
 		report.WriteString("✅ **MCP_API_KEY**: Set (HTTP auth enabled)\n")
 	} else {
-		report.WriteString("⚠️  **MCP_API_KEY**: Not set (HTTP auth disabled — set to enable Bearer token auth)\n")
+		report.WriteString("⚠️  **MCP_API_KEY**: Not set (HTTP auth disabled)\n")
 	}
 
-	// Check config
 	if _, err := os.Stat("reasonix.toml"); err == nil {
 		report.WriteString("✅ **reasonix.toml**: Found in working directory\n")
 	} else {
 		report.WriteString("⚠️  **reasonix.toml**: Not found (run 'reasonix setup')\n")
 	}
 
-	// Check Go
 	if _, err := exec.LookPath("go"); err == nil {
 		report.WriteString("✅ **Go**: Available\n")
 	} else {
-		report.WriteString("⚠️  **Go**: Not available (optional, needed for Go projects)\n")
+		report.WriteString("⚠️  **Go**: Not available\n")
 	}
 
-	report.WriteString("\n---\n")
-	report.WriteString(fmt.Sprintf("Bridge version: %s\n", version))
-	report.WriteString(fmt.Sprintf("Timestamp: %s\n", time.Now().Format(time.RFC3339)))
-
+	report.WriteString(fmt.Sprintf("\n---\nBridge version: %s\nTimestamp: %s\n", version, time.Now().Format(time.RFC3339)))
 	return report.String(), nil
 }
 
-func (bs *BridgeServer) planTask(objective string) (string, error) {
+func (b *Bridge) planTask(objective string) (string, error) {
 	systemPrompt := "You are a task planning assistant. Given an objective, produce a structured execution plan with numbered steps. Each step should have: step number, description, files to modify (if any), and dependencies on other steps. Be concise and actionable."
-	plan, err := bs.callDeepSeek(systemPrompt, objective)
+	plan, err := b.callDeepSeek(systemPrompt, objective)
 	if err != nil {
 		return "", fmt.Errorf("plan generation failed: %w", err)
 	}
 	return "# Execution Plan\n\n" + plan, nil
 }
 
-func (bs *BridgeServer) orchestrateTask(task string) (string, error) {
-	// Check reasonix binary exists
+func (b *Bridge) orchestrateTask(task string) (string, error) {
 	if _, err := exec.LookPath("reasonix"); err != nil {
 		return "", fmt.Errorf("reasonix binary not found in PATH — required for orchestration")
 	}
 
-	// Decompose task into independent sub-tasks
 	systemPrompt := "You are a task decomposition assistant. Break the given task into independent sub-tasks that can be executed in parallel. For each sub-task provide: name, description, scope (files to modify). Output as a numbered list. Only decompose if the task naturally splits into independent pieces; for simple tasks, return a single step."
-	decomposition, err := bs.callDeepSeek(systemPrompt, task)
+	decomposition, err := b.callDeepSeek(systemPrompt, task)
 	if err != nil {
 		return "", fmt.Errorf("task decomposition failed: %w", err)
 	}
 
-	// Parse steps from numbered lines like "1." or "Step 1:" etc.
 	steps := parseSteps(decomposition)
 	if len(steps) == 0 {
 		steps = []string{task}
 	}
 
-	// Execute steps in parallel (max 3 concurrent)
+	// Cap at 5 concurrent to prevent resource exhaustion
+	const maxConcurrent = 3
 	type stepResult struct {
 		index int
 		desc  string
@@ -436,7 +233,7 @@ func (bs *BridgeServer) orchestrateTask(task string) (string, error) {
 
 	results := make([]stepResult, len(steps))
 	var wg sync.WaitGroup
-	sem := make(chan struct{}, 3)
+	sem := make(chan struct{}, maxConcurrent)
 
 	for i, step := range steps {
 		wg.Add(1)
@@ -445,20 +242,14 @@ func (bs *BridgeServer) orchestrateTask(task string) (string, error) {
 			sem <- struct{}{}
 			defer func() { <-sem }()
 
-			out, err := bs.runReasonix(bs.workDir, "", stepDesc)
-			if err != nil {
-				results[idx] = stepResult{index: idx, desc: stepDesc, err: err}
-			} else {
-				results[idx] = stepResult{index: idx, desc: stepDesc, out: out}
-			}
+			out, err := b.runReasonix(b.workDir, "", stepDesc)
+			results[idx] = stepResult{index: idx, desc: stepDesc, out: out, err: err}
 		}(i, step)
 	}
 	wg.Wait()
 
-	// Build summary
 	var sb strings.Builder
-	sb.WriteString("# Orchestration Results\n\n")
-	sb.WriteString("## Decomposition\n")
+	sb.WriteString("# Orchestration Results\n\n## Decomposition\n")
 	sb.WriteString(decomposition)
 	sb.WriteString("\n\n## Execution Results\n")
 	for _, r := range results {
@@ -473,13 +264,10 @@ func (bs *BridgeServer) orchestrateTask(task string) (string, error) {
 		}
 		sb.WriteString("\n")
 	}
-
 	return sb.String(), nil
 }
 
-// callDeepSeek sends a chat completion request to the DeepSeek API and returns
-// the assistant's response content.
-func (bs *BridgeServer) callDeepSeek(systemPrompt, userPrompt string) (string, error) {
+func (b *Bridge) callDeepSeek(systemPrompt, userPrompt string) (string, error) {
 	apiKey := os.Getenv("DEEPSEEK_API_KEY")
 	if apiKey == "" {
 		return "", fmt.Errorf("DEEPSEEK_API_KEY not set — required for plan generation")
@@ -502,16 +290,16 @@ func (bs *BridgeServer) callDeepSeek(systemPrompt, userPrompt string) (string, e
 
 	jsonBody, err := json.Marshal(reqBody)
 	if err != nil {
-		return "", fmt.Errorf("failed to marshal request body: %w", err)
+		return "", fmt.Errorf("marshal request: %w", err)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	url := strings.TrimRight(bs.apiBase, "/") + "/chat/completions"
+	url := strings.TrimRight(b.apiBase, "/") + "/chat/completions"
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(jsonBody))
 	if err != nil {
-		return "", fmt.Errorf("failed to create request: %w", err)
+		return "", fmt.Errorf("create request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+apiKey)
@@ -524,11 +312,11 @@ func (bs *BridgeServer) callDeepSeek(systemPrompt, userPrompt string) (string, e
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("failed to read API response: %w", err)
+		return "", fmt.Errorf("read API response: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("DeepSeek API returned status %d: %s", resp.StatusCode, string(body))
+		return "", fmt.Errorf("DeepSeek API status %d: %s", resp.StatusCode, string(body))
 	}
 
 	var apiResp struct {
@@ -540,7 +328,7 @@ func (bs *BridgeServer) callDeepSeek(systemPrompt, userPrompt string) (string, e
 	}
 
 	if err := json.Unmarshal(body, &apiResp); err != nil {
-		return "", fmt.Errorf("failed to parse API response: %w", err)
+		return "", fmt.Errorf("parse API response: %w", err)
 	}
 
 	if len(apiResp.Choices) == 0 || apiResp.Choices[0].Message.Content == "" {
@@ -550,8 +338,6 @@ func (bs *BridgeServer) callDeepSeek(systemPrompt, userPrompt string) (string, e
 	return apiResp.Choices[0].Message.Content, nil
 }
 
-// parseSteps extracts individual steps from a numbered list response.
-// Handles formats like "1." "1)" "Step 1:" etc.
 func parseSteps(text string) []string {
 	var steps []string
 	lines := strings.Split(text, "\n")
@@ -559,36 +345,28 @@ func parseSteps(text string) []string {
 	var currentStep strings.Builder
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
-		// Detect numbered step headers: "1." "1)" "Step 1:" "Step 1 -" etc.
 		if isStepHeader(trimmed) {
 			if currentStep.Len() > 0 {
 				steps = append(steps, strings.TrimSpace(currentStep.String()))
 				currentStep.Reset()
 			}
-			// Remove the step number prefix and keep the description
 			stepText := stripStepPrefix(trimmed)
 			currentStep.WriteString(stepText)
-		} else if currentStep.Len() > 0 {
-			// Continuation of current step — only include if not another step header
-			if trimmed != "" {
-				currentStep.WriteString(" ")
-				currentStep.WriteString(trimmed)
-			}
+		} else if currentStep.Len() > 0 && trimmed != "" {
+			currentStep.WriteString(" ")
+			currentStep.WriteString(trimmed)
 		}
 	}
 	if currentStep.Len() > 0 {
 		steps = append(steps, strings.TrimSpace(currentStep.String()))
 	}
-
 	return steps
 }
 
-// isStepHeader checks if a line starts a new numbered step.
 func isStepHeader(line string) bool {
 	if len(line) == 0 {
 		return false
 	}
-	// Match "1." "1)" "1:" patterns
 	if line[0] >= '0' && line[0] <= '9' {
 		i := 1
 		for i < len(line) && line[i] >= '0' && line[i] <= '9' {
@@ -598,7 +376,6 @@ func isStepHeader(line string) bool {
 			return true
 		}
 	}
-	// Match "Step 1:" "Step 1 -" patterns
 	if strings.HasPrefix(strings.ToUpper(line), "STEP ") {
 		rest := line[len("STEP "):]
 		if len(rest) > 0 && rest[0] >= '0' && rest[0] <= '9' {
@@ -608,9 +385,7 @@ func isStepHeader(line string) bool {
 	return false
 }
 
-// stripStepPrefix removes the step number prefix from a line.
 func stripStepPrefix(line string) string {
-	// Handle "Step N:" / "Step N -" / "Step N." patterns
 	upper := strings.ToUpper(line)
 	if strings.HasPrefix(upper, "STEP ") {
 		rest := line[len("STEP "):]
@@ -619,35 +394,32 @@ func stripStepPrefix(line string) string {
 			i++
 		}
 		if i < len(rest) {
-			return strings.TrimSpace(rest[i+1:]) // skip the delimiter after the number
+			return strings.TrimSpace(rest[i+1:])
 		}
 		return strings.TrimSpace(rest[i:])
 	}
-	// Handle "N." / "N)" / "N:" patterns
 	i := 0
 	for i < len(line) && line[i] >= '0' && line[i] <= '9' {
 		i++
 	}
 	if i < len(line) {
-		return strings.TrimSpace(line[i+1:]) // skip the delimiter
+		return strings.TrimSpace(line[i+1:])
 	}
 	return line
 }
 
-func (bs *BridgeServer) listSkills() (string, error) {
-	// Resolve skills directory: XDG_CONFIG_HOME > ~/.config/reasonix/skills/ > .reasonix/skills/
+func (b *Bridge) listSkills() (string, error) {
 	skillsDir := ""
 	if configDir, err := os.UserConfigDir(); err == nil {
 		skillsDir = filepath.Join(configDir, "reasonix", "skills")
 	}
 	if _, err := os.Stat(skillsDir); err != nil {
-		// Fall back to project-local skills directory
-		skillsDir = filepath.Join(bs.workDir, ".reasonix", "skills")
+		skillsDir = filepath.Join(b.workDir, ".reasonix", "skills")
 	}
 
 	entries, err := os.ReadDir(skillsDir)
 	if err != nil {
-		return "", fmt.Errorf("no skills directory found at %q (create .reasonix/skills/ or ~/.config/reasonix/skills/)", skillsDir)
+		return "", fmt.Errorf("no skills directory found at %q", skillsDir)
 	}
 
 	var out strings.Builder
@@ -664,30 +436,14 @@ func (bs *BridgeServer) listSkills() (string, error) {
 	return out.String(), nil
 }
 
-// ── JSON-RPC helpers ──────────────────────────────────────────────
-
-func (bs *BridgeServer) successResponse(id int, result any) []byte {
-	r, _ := json.Marshal(result)
-	resp := jsonRPCResponse{
-		JSONRPC: "2.0",
-		ID:      id,
-		Result:  r,
+// Server constructs the mcputil.Server wired to this bridge.
+func (b *Bridge) Server() *mcputil.Server {
+	return &mcputil.Server{
+		Name:    "reasonix-bridge",
+		Version: version,
+		Tools:   b.tools(),
+		Handle:  b.handle,
 	}
-	data, _ := json.Marshal(resp)
-	return data
-}
-
-func (bs *BridgeServer) errorResponse(id, code int, message string) []byte {
-	resp := jsonRPCResponse{
-		JSONRPC: "2.0",
-		ID:      id,
-		Error: &jsonRPCError{
-			Code:    code,
-			Message: message,
-		},
-	}
-	data, _ := json.Marshal(resp)
-	return data
 }
 
 // ── Main ──────────────────────────────────────────────────────────
@@ -699,19 +455,22 @@ func main() {
 	}
 
 	workDir, _ := os.Getwd()
-	bs := NewBridgeServer(workDir)
+	b := NewBridge(workDir)
 
-	// Check if running as stdio MCP server (no --http flag)
-	if len(os.Args) > 1 && os.Args[1] == "--http" {
-		log.Fatal(bs.ServeHTTP(":" + port))
+	srv := &mcputil.Server{
+		Name:    "reasonix-bridge",
+		Version: version,
+		Tools:   b.tools(),
+		Handle:  b.handle,
 	}
 
-	// Default: stdio mode for Claude Code MCP integration
+	if len(os.Args) > 1 && os.Args[1] == "--http" {
+		log.Fatal(srv.ServeHTTP(":"+port, "MCP_API_KEY"))
+	}
+
 	log.SetPrefix("[reasonix-bridge] ")
 	log.Println("Starting in stdio mode (MCP)...")
-	if err := bs.ServeStdio(); err != nil {
+	if err := srv.ServeStdio(); err != nil {
 		log.Fatal(err)
 	}
 }
-
-
