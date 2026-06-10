@@ -11,8 +11,9 @@ require (
 	github.com/BurntSushi/toml v1.6.0
 	github.com/alecthomas/chroma/v2 v2.26.1
 	github.com/atotto/clipboard v0.1.4
+	github.com/bwmarrin/discordgo v0.29.0
 	github.com/charmbracelet/x/ansi v0.11.7
-	github.com/larksuite/oapi-sdk-go/v3 v3.9.4
+	github.com/larksuite/oapi-sdk-go/v3 v3.9.5
 	github.com/mattn/go-runewidth v0.0.24
 	github.com/sabhiram/go-gitignore v0.0.0-20210923224102-525f6e181f06
 	github.com/yuin/goldmark v1.8.2
@@ -24,7 +25,6 @@ require (
 )
 
 require (
-	github.com/bwmarrin/discordgo v0.29.0 // indirect
 	github.com/charmbracelet/colorprofile v0.4.3 // indirect
 	github.com/charmbracelet/ultraviolet v0.0.0-20260601155805-6cf7526a1b3f // indirect
 	github.com/charmbracelet/x/term v0.2.2 // indirect
