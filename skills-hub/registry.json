@@ -1,0 +1,153 @@
+{
+  "$schema": "https://reasonix.dev/skills-registry-schema.json",
+  "version": "1.0.0",
+  "updated": "2026-06-15T00:00:00Z",
+  "skills": [
+    {
+      "name": "code-review",
+      "description": "Comprehensive code review covering correctness, security, performance, and style.",
+      "category": "quality",
+      "runAs": "subagent",
+      "author": "reasonix-community",
+      "file": "skills/code-review.md"
+    },
+    {
+      "name": "test-generator",
+      "description": "Generate unit tests for a given function or module with TDD patterns.",
+      "category": "testing",
+      "runAs": "subagent",
+      "author": "reasonix-community",
+      "file": "skills/test-generator.md"
+    },
+    {
+      "name": "refactoring",
+      "description": "Systematic code refactoring with safety checks — extract methods, rename symbols, simplify conditionals.",
+      "category": "refactoring",
+      "runAs": "inline",
+      "author": "reasonix-community",
+      "file": "skills/refactoring.md"
+    },
+    {
+      "name": "api-design",
+      "description": "REST API design patterns: resource naming, status codes, pagination, filtering, error responses, versioning.",
+      "category": "architecture",
+      "runAs": "inline",
+      "author": "reasonix-community",
+      "file": "skills/api-design.md"
+    },
+    {
+      "name": "git-commit",
+      "description": "Generate conventional commit messages from staged diffs. Follows conventional commits spec.",
+      "category": "git",
+      "runAs": "inline",
+      "author": "reasonix-community",
+      "file": "skills/git-commit.md"
+    },
+    {
+      "name": "debugger",
+      "description": "Systematic debugging workflow: reproduce, isolate, fix, verify. Stack trace analysis and log correlation.",
+      "category": "debugging",
+      "runAs": "inline",
+      "author": "reasonix-community",
+      "file": "skills/debugger.md"
+    },
+    {
+      "name": "documentation",
+      "description": "Generate or improve code documentation — docstrings, READMEs, API docs, architecture decision records.",
+      "category": "documentation",
+      "runAs": "inline",
+      "author": "reasonix-community",
+      "file": "skills/documentation.md"
+    },
+    {
+      "name": "council",
+      "description": "Multi-agent discussion and decision-making pattern. Simulates a council of experts reviewing a proposal.",
+      "category": "collaboration",
+      "runAs": "subagent",
+      "author": "reasonix-community",
+      "file": "skills/council.md"
+    },
+    {
+      "name": "deep-research",
+      "description": "In-depth research on a topic using web search and codebase analysis. Produces a structured report with citations.",
+      "category": "research",
+      "runAs": "subagent",
+      "author": "reasonix-community",
+      "file": "skills/deep-research.md"
+    },
+    {
+      "name": "security-audit",
+      "description": "Security-focused code audit: injection, authz, secrets, deserialization, path-traversal, crypto.",
+      "category": "security",
+      "runAs": "subagent",
+      "author": "reasonix-community",
+      "file": "skills/security-audit.md"
+    },
+    {
+      "name": "migration-assistant",
+      "description": "Assist with framework/library migrations: analyze breaking changes, update imports, adapt patterns.",
+      "category": "migration",
+      "runAs": "inline",
+      "author": "reasonix-community",
+      "file": "skills/migration-assistant.md"
+    },
+    {
+      "name": "performance-profiler",
+      "description": "Identify performance bottlenecks, suggest optimizations, and measure impact with benchmarks.",
+      "category": "performance",
+      "runAs": "inline",
+      "author": "reasonix-community",
+      "file": "skills/performance-profiler.md"
+    },
+    {
+      "name": "ci-cd-helper",
+      "description": "Generate and fix CI/CD pipeline configurations (GitHub Actions, GitLab CI, Jenkins).",
+      "category": "devops",
+      "runAs": "inline",
+      "author": "reasonix-community",
+      "file": "skills/ci-cd-helper.md"
+    },
+    {
+      "name": "database-helper",
+      "description": "SQL query optimization, schema design review, migration generation, ORM patterns.",
+      "category": "database",
+      "runAs": "inline",
+      "author": "reasonix-community",
+      "file": "skills/database-helper.md"
+    },
+    {
+      "name": "frontend-builder",
+      "description": "Build React/Vue/Svelte components from specifications with accessibility and responsive design.",
+      "category": "frontend",
+      "runAs": "subagent",
+      "author": "reasonix-community",
+      "file": "skills/frontend-builder.md"
+    },
+    {
+      "name": "explore",
+      "description": "Wide-net read-only codebase exploration in an isolated subagent. Returns distilled findings with file:line citations.",
+      "category": "exploration",
+      "runAs": "subagent",
+      "author": "reasonix-community",
+      "file": "skills/explore.md"
+    }
+  ],
+  "categories": [
+    {"name": "quality", "label": "Code Quality"},
+    {"name": "testing", "label": "Testing"},
+    {"name": "refactoring", "label": "Refactoring"},
+    {"name": "architecture", "label": "Architecture & Design"},
+    {"name": "git", "label": "Git & Version Control"},
+    {"name": "debugging", "label": "Debugging"},
+    {"name": "documentation", "label": "Documentation"},
+    {"name": "collaboration", "label": "Collaboration"},
+    {"name": "research", "label": "Research"},
+    {"name": "security", "label": "Security"},
+    {"name": "migration", "label": "Migration"},
+    {"name": "performance", "label": "Performance"},
+    {"name": "devops", "label": "DevOps & CI/CD"},
+    {"name": "database", "label": "Database"},
+    {"name": "frontend", "label": "Frontend"},
+    {"name": "exploration", "label": "Exploration"}
+  ]
+}
