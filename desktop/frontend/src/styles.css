@@ -1440,14 +1440,13 @@ a[href] {
 .app {
   height: 100%;
   min-height: 0;
-  overflow-x: auto;
+  overflow-x: hidden;
   overflow-y: hidden;
 }
 
 .layout {
   --sidebar-width: var(--sidebar-expanded-width, clamp(264px, 18vw, 300px));
   --chat-min-width: 760px;
-  --chat-docked-min-width: 640px;
   --workspace-width: 420px;
   --workspace-resizer-width: 8px;
   --app-chrome-height: 38px;
@@ -1494,16 +1493,16 @@ a[href] {
 }
 .layout--workspace-open {
   --chrome-right-toggle-offset: calc(var(--workspace-width) + var(--workspace-resizer-width));
-  min-width: calc(var(--sidebar-width) + var(--chat-docked-min-width) + var(--workspace-resizer-width) + var(--workspace-width));
-  grid-template-columns: var(--sidebar-width) minmax(var(--chat-docked-min-width), 1fr) var(--workspace-resizer-width) var(--workspace-width);
+  min-width: 0;
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr) var(--workspace-resizer-width) minmax(0, var(--workspace-width));
 }
 .layout--workspace-open:not(.layout--sidebar-collapsed) {
-  min-width: calc(var(--sidebar-expanded-width) + var(--chat-docked-min-width) + var(--workspace-resizer-width) + var(--workspace-width));
-  grid-template-columns: var(--sidebar-expanded-width) minmax(var(--chat-docked-min-width), 1fr) var(--workspace-resizer-width) var(--workspace-width);
+  min-width: 0;
+  grid-template-columns: var(--sidebar-expanded-width) minmax(0, 1fr) var(--workspace-resizer-width) minmax(0, var(--workspace-width));
 }
 .layout--workspace-open.layout--sidebar-collapsed {
-  min-width: calc(var(--chat-docked-min-width) + var(--workspace-resizer-width) + var(--workspace-width));
-  grid-template-columns: 0px minmax(var(--chat-docked-min-width), 1fr) var(--workspace-resizer-width) var(--workspace-width);
+  min-width: 0;
+  grid-template-columns: 0px minmax(0, 1fr) var(--workspace-resizer-width) minmax(0, var(--workspace-width));
 }
 .layout--workspace-maximized {
   min-width: 0;
