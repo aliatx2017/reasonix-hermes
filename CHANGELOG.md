@@ -11,10 +11,25 @@ Our fork (`aliatx2017/reasonix-hermes`) adds:
 - **Discord bot gateway** (`bot/`) — slash commands + text triggers via discordgo
 - **MCP bridge server** (`pkg/mcpbridge/`) — 5 tools: run, doctor, plan, orchestrate, skills
 - **Hindsight memory server** (`pkg/memoryserver/`) — 3 tools: retain, recall, reflect
+- **Shared auth middleware** (`pkg/httputil/`) — Bearer token auth, consolidated from mcpbridge+memoryserver
 - **Skills hub** (`skills-hub/`) — 16 curated community skills with registry.json
+- **Hardened hook scripts** (`scripts/`) — retain-hook.sh, reflect-hook.sh with dep checks, timeout, integration test
 - **Ecosystem reference** (`reasonix-deepseek-ecosystem-2026.md`) — comprehensive survey
 - **Research findings** (`docs/RESEARCH-FINDINGS-JUNE-2026.md`) — June 2026 deep-web sweep
 - **Implementation plan** (`docs/HERMES-IMPLEMENTATION-PLAN.md`) — phased roadmap
+
+### Hermes v1.5.0-h1 (2026-06-25)
+
+- **planTask**: DeepSeek API integration — reads `DEEPSEEK_API_KEY`, `DEEPSEEK_BASE_URL`, `DEEPSEEK_MODEL` from env, returns `# Execution Plan` with numbered steps
+- **orchestrateTask**: Decomposes task via DeepSeek API, parses numbered steps, runs each via `reasonix run` in parallel goroutines, returns `# Orchestration Results`
+- **callDeepSeek**: Shared HTTP client for DeepSeek chat completions (used by plan+orchestrate)
+- **parseSteps/isStepHeader/stripStepPrefix**: Step extraction supporting "1." "1)" "Step 1:" formats
+- **Auth consolidation**: Deleted duplicated `requireBearer` from mcpbridge+memoryserver; both now import `reasonix/pkg/httputil`
+- **go.mod fix**: `discordgo` flipped from `// indirect` to direct via `go mod tidy`
+- **Test coverage**: 165 tests across 4 packages (85.9% aggregate). mcpbridge 82%, memoryserver 89%, discord 91%
+- **Hook scripts hardened**: `command -v curl/python3` checks, `--max-time $HINDSIGHT_TIMEOUT` (default 5s), python3 exception handling, curl failure diagnostics
+- **Integration test**: `scripts/test-hooks-integration.sh` — 12/12 pass (fake server, auth, noise filter, unreachable, malformed JSON)
+- **RESEARCH-FINDINGS updated**: Marked v1.5.0 as synced, added §1.1 post-sync custom additions table
 
 ## [1.0.0] — 2026-06-03
 

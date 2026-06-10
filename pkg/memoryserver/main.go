@@ -36,6 +36,8 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"reasonix/pkg/httputil"
 )
 
 // MemoryEntry is a single stored memory.
@@ -240,6 +242,9 @@ func (s *MCPServer) ServeStdio() error {
 	}
 }
 
+// ServeHTTP runs the memory server over HTTP.
+// If MEMORY_API_KEY env var is set, requires Authorization: Bearer <key> header
+// for all endpoints except /health.
 func (s *MCPServer) ServeHTTP(addr string) error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/mcp", func(w http.ResponseWriter, r *http.Request) {
@@ -254,9 +259,15 @@ func (s *MCPServer) ServeHTTP(addr string) error {
 		fmt.Fprintf(w, `{"status":"ok","name":"hindsight-reasonix"}`)
 	})
 
+	auth := &httputil.AuthMiddleware{
+		APIKey: httputil.LoadAPIKey("MEMORY_API_KEY"),
+		KeyEnv: "MEMORY_API_KEY",
+	}
+	handler := auth.Wrap(mux)
+
 	srv := &http.Server{
 		Addr:    addr,
-		Handler: mux,
+		Handler: handler,
 	}
 
 	// Graceful shutdown on signal
@@ -448,3 +459,5 @@ func main() {
 		log.Fatal(err)
 	}
 }
+
+

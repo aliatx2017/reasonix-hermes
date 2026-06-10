@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"reasonix/internal/bot"
+	"reasonix/internal/bot/discord"
 	"reasonix/internal/bot/feishu"
 	"reasonix/internal/bot/qq"
 	"reasonix/internal/bot/weixin"
@@ -46,7 +47,7 @@ func botCommand(args []string, version string) int {
 
 func botStart(args []string, version string) int {
 	fs := flag.NewFlagSet("bot start", flag.ContinueOnError)
-	channels := fs.String("channels", "", "启用的平台，逗号分隔：qq,feishu,weixin")
+	channels := fs.String("channels", "", "启用的平台，逗号分隔：qq,feishu,weixin,discord")
 	dir := fs.String("dir", "", "工作目录")
 	model := fs.String("model", "", "模型名（空则用 default_model）")
 
@@ -91,6 +92,8 @@ func botStart(args []string, version string) int {
 				enabledPlatforms[bot.PlatformFeishu] = cfg.Bot.Feishu.Enabled
 			case bot.PlatformWeixin:
 				enabledPlatforms[bot.PlatformWeixin] = cfg.Bot.Weixin.Enabled
+			case bot.PlatformDiscord:
+				enabledPlatforms[bot.PlatformDiscord] = cfg.Bot.Discord.Enabled
 			default:
 				fmt.Fprintf(os.Stderr, "warning: unknown channel %q\n", ch)
 			}
@@ -99,6 +102,7 @@ func botStart(args []string, version string) int {
 		enabledPlatforms[bot.PlatformQQ] = cfg.Bot.QQ.Enabled
 		enabledPlatforms[bot.PlatformFeishu] = cfg.Bot.Feishu.Enabled
 		enabledPlatforms[bot.PlatformWeixin] = cfg.Bot.Weixin.Enabled
+		enabledPlatforms[bot.PlatformDiscord] = cfg.Bot.Discord.Enabled
 	}
 
 	hasEnabled := false
@@ -133,14 +137,16 @@ func botStart(args []string, version string) int {
 			Enabled:  cfg.Bot.Allowlist.Enabled,
 			AllowAll: cfg.Bot.Allowlist.AllowAll,
 			Users: map[bot.Platform][]string{
-				bot.PlatformQQ:     cfg.Bot.Allowlist.QQUsers,
-				bot.PlatformFeishu: cfg.Bot.Allowlist.FeishuUsers,
-				bot.PlatformWeixin: cfg.Bot.Allowlist.WeixinUsers,
+				bot.PlatformQQ:      cfg.Bot.Allowlist.QQUsers,
+				bot.PlatformFeishu:  cfg.Bot.Allowlist.FeishuUsers,
+				bot.PlatformWeixin:  cfg.Bot.Allowlist.WeixinUsers,
+				bot.PlatformDiscord: cfg.Bot.Allowlist.DiscordUsers,
 			},
 			Groups: map[bot.Platform][]string{
-				bot.PlatformQQ:     cfg.Bot.Allowlist.QQGroups,
-				bot.PlatformFeishu: cfg.Bot.Allowlist.FeishuGroups,
-				bot.PlatformWeixin: cfg.Bot.Allowlist.WeixinGroups,
+				bot.PlatformQQ:      cfg.Bot.Allowlist.QQGroups,
+				bot.PlatformFeishu:  cfg.Bot.Allowlist.FeishuGroups,
+				bot.PlatformWeixin:  cfg.Bot.Allowlist.WeixinGroups,
+				bot.PlatformDiscord: cfg.Bot.Allowlist.DiscordGroups,
 			},
 		},
 		Debounce: time.Duration(cfg.Bot.DebounceMs) * time.Millisecond,
@@ -156,6 +162,9 @@ func botStart(args []string, version string) int {
 	}
 	if enabledPlatforms[bot.PlatformWeixin] {
 		adapters[bot.PlatformWeixin] = weixin.New(cfg.Bot.Weixin, logger)
+	}
+	if enabledPlatforms[bot.PlatformDiscord] {
+		adapters[bot.PlatformDiscord] = discord.New(cfg.Bot.Discord, logger)
 	}
 
 	gw := bot.NewGateway(gwCfg, adapters, logger)
@@ -275,15 +284,33 @@ func botDoctor(args []string) int {
 		addCheck("bot.weixin", "disabled", "")
 	}
 
+	// Discord 检查
+	if bc.Discord.Enabled {
+		addCheck("bot.discord.enabled", "ok", "")
+		token := os.Getenv(bc.Discord.TokenEnv)
+		if token == "" {
+			// Fallback check
+			token = os.Getenv("DISCORD_BOT_TOKEN")
+		}
+		if token != "" {
+			addCheck("bot.discord.token", "ok", bc.Discord.TokenEnv+" is set")
+		} else {
+			addCheck("bot.discord.token", "missing", bc.Discord.TokenEnv+" is not set")
+		}
+	} else {
+		addCheck("bot.discord", "disabled", "")
+	}
+
 	// Allowlist 检查
 	if bc.Allowlist.AllowAll {
 		addCheck("bot.allowlist", "open", "allow_all=true — every reachable user can trigger local tools")
 	} else if bc.Allowlist.Enabled {
 		addCheck("bot.allowlist", "enabled",
-			fmt.Sprintf("qq=%d feishu=%d weixin=%d users",
+			fmt.Sprintf("qq=%d feishu=%d weixin=%d discord=%d users",
 				len(bc.Allowlist.QQUsers),
 				len(bc.Allowlist.FeishuUsers),
-				len(bc.Allowlist.WeixinUsers)))
+				len(bc.Allowlist.WeixinUsers),
+				len(bc.Allowlist.DiscordUsers)))
 	} else {
 		addCheck("bot.allowlist", "missing", "bot start will refuse without allowlist or allow_all=true")
 	}
@@ -316,7 +343,7 @@ func botDoctor(args []string) int {
 }
 
 func botAllowlistUserCount(a config.BotAllowlist) int {
-	return len(a.QQUsers) + len(a.FeishuUsers) + len(a.WeixinUsers)
+	return len(a.QQUsers) + len(a.FeishuUsers) + len(a.WeixinUsers) + len(a.DiscordUsers)
 }
 
 func botWeixinLogin(args []string) int {
@@ -351,10 +378,10 @@ func botWeixinLogin(args []string) int {
 }
 
 func botUsage() {
-	fmt.Print(`reasonix bot — multi-channel IM bot gateway (QQ / Feishu / WeChat)
+	fmt.Print(`reasonix bot — multi-channel IM bot gateway (QQ / Feishu / WeChat / Discord)
 
 Usage:
-  reasonix bot start   [--channels qq,feishu,weixin] [--dir PATH] [--model NAME]
+  reasonix bot start   [--channels qq,feishu,weixin,discord] [--dir PATH] [--model NAME]
   reasonix bot doctor  [--json]
   reasonix bot weixin-login [--timeout SECONDS]
 
@@ -364,6 +391,7 @@ Subcommands:
   weixin-login  微信 iLink 二维码登录
 
 Examples:
+  reasonix bot start --channels discord
   reasonix bot start --channels qq,feishu
   reasonix bot start --dir /path/to/project --model deepseek-pro
   reasonix bot doctor --json
@@ -371,10 +399,11 @@ Examples:
 Configuration:
   Edit reasonix.toml:
     [bot]           enabled / model / max_steps
-    [bot.allowlist]  enabled / qq_users / feishu_users / weixin_users
+    [bot.allowlist]  enabled / qq_users / feishu_users / weixin_users / discord_users
     [bot.qq]         enabled / app_id / app_secret_env
     [bot.feishu]     enabled / app_id / app_secret_env / verification_token / mode
     [bot.weixin]     enabled / account_id / token_env / api_base
+    [bot.discord]    enabled / token_env / server_id / channel_id / allow_dms
 
   All secrets are read from environment variables; never put keys in config files.
 `)

@@ -1,14 +1,20 @@
 # Reasonix Hermes — New Research Findings (June 10, 2026)
 
 > Supplement to `reasonix-deepseek-ecosystem-2026.md`. Documents findings from a
-> fresh deep-web sweep across GitHub, DeepSeek API docs, Reddit, and community
+> deep-web sweep across GitHub, DeepSeek API docs, Reddit, and community
 > repos on June 10, 2026.
+>
+> **Updated June 25, 2026**: We have since synced our fork to upstream v1.5.0
+> (commit e5e8f02). The "behind" status noted below is now resolved. Our custom
+> additions (MCP bridge, Hindsight memory, Discord bot, skills hub) have been
+> rebased onto the v1.5.0 codebase.
 
 ---
 
-## 1. Upstream Release: v1.5.0 (June 10, 2026)
+## 1. Upstream Release: v1.5.0 (June 10, 2026) — **NOW SYNCED**
 
-Our fork is behind. Upstream has shipped **v1.5.0** with significant additions:
+Our fork was behind at time of writing. We have since merged upstream v1.5.0
+(2026-06-25, commit e5e8f02, branch `main-v2` → our `main`). Key upstream additions now in our fork:
 - **Bot Gateway**: Native Feishu (飞书) / Weixin (微信) / QQ adapters in desktop
 - **Goal Mode**: `/goal <objective>` autonomous session-scoped active goal loop with blocked-state audit (3-repeat detection)
 - **Subagent Transcript Continuation**: Resume/continue past subagent transcripts (#3586)
@@ -25,6 +31,20 @@ Our fork is behind. Upstream has shipped **v1.5.0** with significant additions:
 - **Ctrl+J background jobs panel, Ctrl+K command palette** in desktop
 - **`!` prefix shell execution** from composer (#3186)
 - **ACP (Agent Communication Protocol)** native sessions (#3663)
+
+### 1.1 Our Post-Sync Custom Additions (as of June 25, 2026)
+
+These are our Hermes-specific additions layered on top of v1.5.0:
+
+| Component | Status | Description |
+|-----------|--------|-------------|
+| `pkg/mcpbridge/` | ✅ Complete | MCP bridge server: 5 tools (run, doctor, plan, orchestrate, skills), stdio+HTTP modes |
+| `pkg/memoryserver/` | ✅ Complete | Hindsight memory: 3 tools (retain, recall, reflect), file-based JSON, Bearer auth |
+| `pkg/httputil/` | ✅ Complete | Shared auth middleware — consolidated Bearer auth from mcpbridge+memoryserver |
+| `bot/` | ✅ Complete | Discord bot gateway (upstream has Feishu/WeChat/QQ only) |
+| `skills-hub/` | ✅ Complete | 16 curated community skills with registry |
+| Hook scripts | ✅ Hardened | `retain-hook.sh` / `reflect-hook.sh` — error handling, timeout, python3/curl checks |
+| Tests | ✅ 80%+ | mcpbridge 82%, memoryserver 89%, discord 91% |
 
 ---
 

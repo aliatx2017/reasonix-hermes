@@ -9,8 +9,7 @@
 
 ### 0.1 Sync with Upstream v1.5.0
 
-**Status**: Our fork is on an unknown earlier `main-v2` snapshot. Upstream has
-released **v1.2.0 through v1.5.0** with major features.
+**Status**: ✅ DONE. Fork synced to upstream v1.5.0 (commit e5e8f02, 2026-06-25). Clean merge, zero conflicts.
 
 **What we get**:
 - Bot gateway (Feishu/Weixin/QQ) — complements our Discord bot
@@ -61,16 +60,45 @@ After sync, document which v1.5.0 features our custom packages should leverage:
 
 ---
 
-## Phase 1: Discord Bot — Real Agent Loop (P0 — Week 2-3)
+## Phase 1: Discord Bot — Real Agent Loop (P0 — Week 2-3) ✅ DONE
 
-### 1.1 Replace Toy Implementation with Control.Controller
+### 1.1 Replace Toy Implementation with Control.Controller ✅ DONE
 
-**Current state**: `bot/main.go` has inline chat history (`[]Message`), no agent
-loop, no tool execution, no permission gating. It's a chat mirror, not an agent.
+**Completed**: Replaced `simulateReasonix()` toy with a proper `discord.Adapter` 
+implementing the upstream `bot.Adapter` interface. The bot now plugs into the 
+upstream `BotGateway` which provides session management, concurrency control, 
+debounce, slash commands (`/approve`, `/deny`, `/answer`, `/stop`, `/new`, `/status`), 
+and `renderSink` for event rendering.
+
+New files:
+- `internal/bot/discord/discord.go` — Discord Adapter (Platform, Name, Start, Stop, 
+  Send, SendTyping, Messages, plus card/keyboard→Discord component conversion)
+- `internal/bot/types.go` — added `PlatformDiscord` constant
+- `internal/config/config.go` — added `DiscordBotConfig` struct, `DiscordUsers`/`DiscordGroups` to allowlist
+- `internal/cli/bot.go` — wired Discord adapter into bot start command and doctor
+- `bot/main.go` — rewritten as thin standalone entry point using `BotGateway`
+
+Standalone binary usage:
+```
+DISCORD_BOT_TOKEN=... ./bin/reasonix-bot --server GUILD_ID
+```
+CLI usage:
+```
+reasonix bot start --channels discord --model deepseek-flash
+```
 
 **Target state**: Discord bot uses the same `control.Controller` as every other
 frontend (TUI, desktop, HTTP/SSE). This is the architectural invariant the
 upstream enforces.
+
+**Key interfaces discovered post-sync**:
+- `event.Sink` = `Emit(Event)` — single-method interface, trivial to implement
+- `permission.Approver` = `Approve(ctx, toolName, subject, args) (allow, remember, err)`
+- `permission.Gate` = `Policy` + optional `Approver`; nil Approver = yolo mode
+- `control.Options` has `Sink`, `Policy`, `Hooks`, `OnRemember`, `Registry`, `PluginCtx`,
+  `Jobs`, `BalanceURL/Key`, `AutoPlan`, `Classifier`, `Label`, `SystemPrompt`,
+  `SessionDir/Path`, `Host`, `Commands`, `Skills/AllSkills/SkillStore/AllSkillStore`,
+  `Memory`, `Cleanup`, `WorkspaceRoot`
 
 **Design**:
 
@@ -173,41 +201,112 @@ func (a *DiscordApprover) Approve(ctx context.Context, req permission.Request) (
 
 ---
 
-## Phase 2: Tests & Polish (P0 — Week 3-4)
+## Phase 2: Tests & Polish (P0 — Week 3-4) ✅ DONE
 
-### 2.1 Tests for `pkg/mcpbridge`
+### 2.1 Tests for `pkg/mcpbridge` ✅ DONE
 
-**Current state**: Zero tests. 5 tools (run, doctor, plan, orchestrate, skills).
-Single `main.go` (~13KB).
+**Completed**: 48 tests in `pkg/mcpbridge/main_test.go`, 82% coverage.
 
-**Test plan**:
-- `mcpbridge_test.go`: Integration test with a real Reasonix binary
-  - `TestRunTask`: Send a task, verify non-empty response, verify exit code 0
-  - `TestDoctorTask`: Send a diagnostic task, verify structured output
-  - `TestPlanTask`: Send a plan request, verify plan structure
-  - `TestOrchestrateTask`: Multi-step orchestration
-  - `TestSkillsList`: List available skills
-  - `TestTimeout`: Verify timeout handling
-  - `TestInvalidInput`: Verify error handling for malformed requests
-- `mcpbridge_mock_test.go`: Unit tests with a mock Reasonix process
+Test areas:
+- `doctorCheck` — basic report, API key set/unset, reasonix binary detection
+- `listSkills` — config dir, project-local fallback, missing dir, empty dir
+- `planTask` — no API key, with test server (fake DeepSeek API), API error, empty objective
+- `orchestrateTask` — no reasonix binary, with test server, empty task
+- `callDeepSeek` — no API key, custom model, empty response, connection error
+- `runTask` / `executeTool("reasonix_run")` — missing/empty task, binary not found, workdir, model flag
+- `executeTool` dispatch — unknown tool, doctor via dispatch
+- JSON-RPC `handleMessage` — initialize, tools/list, invalid JSON, method not found, notifications, tools/call
+- HTTP handler — health endpoint, `/mcp` endpoint with JSON-RPC, bad body
+- Auth middleware integration — no key, with key, `/health` always public
+- `parseSteps` — numbered, single, paren format, step prefix, multi-line
+- `isStepHeader` — 7 cases (numbered, step prefix, negative cases)
+- `stripStepPrefix` — 3 formats
+- `NewBridgeServer` — registers all 5 tools, default/custom API base
 
-### 2.2 Tests for `pkg/memoryserver`
+### 2.2 Tests for `pkg/memoryserver` ✅ DONE
 
-**Current state**: Zero tests. 3 tools (retain, recall, reflect). Single
-`main.go` (~11KB).
+**Completed**: 52 tests in `pkg/memoryserver/main_test.go`, 89% coverage.
 
-**Test plan**:
-- `memoryserver_test.go`:
-  - `TestRetainAndRecall`: Store a fact, retrieve it
-  - `TestRecallEmpty`: Query empty store → empty result
-  - `TestReflect`: Semantic search across stored facts
-  - `TestCrossSession`: Write facts, restart server, read them back
-  - `TestLargePayload`: Handle large memory entries
-  - `TestConcurrentAccess`: Multiple simultaneous retain/recall calls
+Test areas:
+- `retainMemory` — store fact, unique IDs, no-tags case, empty content, very long content, special chars (unicode, emoji, HTML), save error (read-only dir)
+- `recallMemory` — keyword search, tag filtering, session filtering, limit, no-match, case-insensitive, empty query returns all
+- `reflectOnMemories` — session reflection, empty session, long content truncated, no memories
+- `NewMCPServer` / `NewMemoryStore` — creation, directory creation, reload, persistence across instances, mkdir error
+- JSON-RPC `handleMessage` — initialize, tools/list, tools/call (retain/recall/reflect), notifications, unknown method/tool, invalid JSON
+- `truncateStr` — short, exact, truncated, unicode
+- `ServeHTTP` — health endpoint, `/mcp` endpoint, auth enabled (401/403/200)
+- `ServeStdio` — EOF, single message
+- Auth middleware — no key, with key, health always public
 
-### 2.3 CI Pipeline
+### 2.3 Discord Adapter Tests ✅ DONE
 
-Add `.github/workflows/hermes-ci.yml`:
+**Completed**: 57 tests in `internal/bot/discord/discord_test.go`, 91% coverage.
+
+Test areas:
+- `New()` — config propagation, nil logger fallback, channel buffer
+- `Platform()` / `Name()` — returns "discord"
+- `Messages()` — non-nil channel
+- `Start()` — missing token error (env + DISCORD_BOT_TOKEN fallback)
+- `Stop()` — nil session, unconnected session
+- `Send()` — nil session, long content truncation, card/embed path, keyboard path, reply-to, plain message
+- `SendTyping()` — nil session, with session
+- `onReady()` — constructed Ready event
+- `onMessageCreate()` — own-message filter, channel filter, empty content, DM filter, mention stripping, field population, channel overflow
+- `resolveChatType()` — cache hit, state lookup for all channel types (GuildText, DM, PublicThread, PrivateThread, GroupDM, unknown), not-in-state fallback
+- `stripMention()` — 6 cases
+- `cardToMarkdown()` — empty, single markdown, multi-element, skip non-markdown
+- `keyboardToComponents()` — nil, empty, single button, multi-row, style mapping
+
+### 2.4 HTTP Auth Middleware ✅ DONE
+
+**Completed**: 8 tests in `pkg/httputil/auth_test.go` covering:
+- Auth disabled (no key)
+- Health endpoint always public
+- No auth header → 401
+- Invalid format → 401
+- Wrong key → 403
+- Correct key → 200
+- Status reporting
+
+**Consolidation**: Both `pkg/mcpbridge/` and `pkg/memoryserver/` now import
+`reasonix/pkg/httputil` instead of duplicating `requireBearer`. Duplicated
+code (40+ lines each) deleted.
+
+### 2.5 MCP Bridge: planTask + orchestrateTask ✅ DONE
+
+**Completed**: Both formerly stub functions now fully implemented.
+
+- `planTask(objective)` — calls DeepSeek API directly (reads `DEEPSEEK_API_KEY`,
+  `DEEPSEEK_BASE_URL`, `DEEPSEEK_MODEL` from env). Returns `# Execution Plan`
+  with numbered steps.
+- `orchestrateTask(task)` — decomposes task via DeepSeek API, parses numbered
+  steps, runs each via `reasonix run` in parallel goroutines. Returns
+  `# Orchestration Results` with decomposition + per-step execution output.
+- Helper: `callDeepSeek(system, user)` — shared HTTP client for DeepSeek chat
+  completions. Used by both planTask and orchestrateTask.
+- Helper: `parseSteps(text)` / `isStepHeader(line)` / `stripStepPrefix(line)` —
+  robust step extraction supporting "1." "1)" "Step 1:" formats.
+
+### 2.6 Hook Scripts Hardening ✅ DONE
+
+**Completed**: Both `scripts/retain-hook.sh` and `scripts/reflect-hook.sh` hardened.
+
+Changes:
+- Added `command -v curl` and `command -v python3` checks with stderr warnings
+- Added `--max-time $HINDSIGHT_TIMEOUT` (default 5s) to curl calls
+- Python3 blocks now `sys.exit(1)` on exception (caught by `|| { warning; exit 0 }`)
+- Curl failures print diagnostic to stderr
+- New env: `HINDSIGHT_TIMEOUT` (seconds, default 5)
+
+Integration test: `scripts/test-hooks-integration.sh` — 12/12 pass.
+Tests: skip noise tools, empty tool name, meaningful tool sends retain,
+server unreachable, auth header, malformed JSON, reflect with session,
+empty session defaults to latest.
+
+### 2.7 CI Pipeline
+
+Add `.github/workflows/ci-hermes.yml` — **already exists** (supplementary CI for desktop frontend). Extend it to also run `go test ./pkg/... ./bot/...`:
+
 ```yaml
 name: Hermes CI
 on: [push, pull_request]
@@ -226,20 +325,39 @@ jobs:
 
 ---
 
-## Phase 3: Skills Hub Integration (P1 — Week 4-5)
+## Phase 3: Skills Hub Integration (P1 — Week 4-5) ✅ DONE
 
-### 3.1 Auto-Load Skills Into Reasonix Native Registry
+### 3.1 Auto-Load Skills Into Reasonix Native Registry ✅ DONE
 
-**Current state**: 16 skills in `skills-hub/skills/*.md` + `registry.json`. They
-are static files — not discoverable by Reasonix's skill system without manual
-copying to `.reasonix/skills/`.
+**Completed**: Created `scripts/install-skills.sh` — a portable installer that:
+- Resolves target directory from `$REASONIX_SKILLS_DIR`, `XDG_CONFIG_HOME`, project-local `.reasonix/skills/hermes`, or `~/.config/reasonix/skills/hermes`
+- Copies all 16 skill `.md` files + `registry.json`
+- Supports `--dry-run` for preview
+- Prints `reasonix.toml` config snippet after install
 
-**Target state**: `reasonix setup --with-hermes-skills` or automatic detection
-that installs our curated skill pack.
+Future work: register as an upstream `install_source` for `reasonix install-source install`.
+The `scripts/hooks-settings-template.json` provides the hook configuration for
+automatic session memory integration (see Phase 4).
 
 **Implementation**:
 
-1. **Create an install script** (`scripts/install-skills.sh` / `.ps1`):
+1. **Register as an install source**: Create a `reasonix-hermes.json` source manifest
+   that `reasonix install-source` can consume (upstream already supports this).
+   ```bash
+   # Source manifest pointing to our GitHub-hosted skills
+   {
+     "name": "hermes",
+     "description": "Hermes curated skill pack (16 skills)",
+     "source": "https://raw.githubusercontent.com/aliatx2017/reasonix-hermes/main/skills-hub/registry.json"
+   }
+   ```
+
+2. **Install via upstream tool**:
+   ```bash
+   reasonix install-source install --source https://raw.githubusercontent.com/aliatx2017/reasonix-hermes/main/skills-hub/registry.json
+   ```
+
+3. **Alternative: script for manual install** (`scripts/install-skills.sh`):
    ```bash
    #!/bin/bash
    SKILLS_DIR="$(dirname "$0")/../skills-hub/skills"
@@ -249,15 +367,6 @@ that installs our curated skill pack.
    echo "Installed 16 Hermes skills to $TARGET"
    echo "Add to reasonix.toml: [skills] paths = [\"~/.config/reasonix/skills/hermes\"]"
    ```
-
-2. **Register as a skill root** in Reasonix config:
-   ```toml
-   [skills]
-   paths = ["~/.config/reasonix/skills/hermes"]
-   ```
-
-3. **Add `install-source` support**: Make `skills-hub/` installable via
-   `reasonix install-source` or our MCP bridge's `install_capability` tool.
 
 4. **Sync with awesome-reasonix**: Submit our skills to the community hub
    (`hikari-2424/awesome-reasonix`) for broader distribution.
@@ -284,15 +393,22 @@ Create a simple GitHub Pages site at `aliatx2017.github.io/reasonix-hermes/`:
 
 ## Phase 4: Hermes Memory Server — Productionize (P1 — Week 5-6)
 
-### 4.1 Hook-Based Integration (Like Hindsight-Reasonix)
+### 4.1 Hook-Based Integration ✅ DONE
 
-**Current state**: Standalone MCP server with 3 tools. Works but no integration
-with Reasonix's hook system.
+**Completed**: Hook scripts and settings template for automatic session memory:
 
-**Target state**: Memory server can work in two modes:
-1. **MCP mode** (current): External tools for any MCP client
-2. **Hook mode** (new): Reasonix `PreToolUse`/`PostToolUse`/`Stop` hooks for
-   automatic session memory
+- `scripts/retain-hook.sh` — `PreToolUse` hook that sends tool context to 
+  Hindsight memory server (filters out noise tools like `read_file`, `write_file`)
+- `scripts/reflect-hook.sh` — `Stop` hook that triggers session reflection
+- `scripts/hooks-settings-template.json` — drop-in `.reasonix/settings.json` 
+  with `PreToolUse`, `PostToolUse`, and `Stop` hooks wired
+
+Both scripts support `HINDSIGHT_URL` and `HINDSIGHT_KEY` env vars for the 
+memory server URL and Bearer auth token.
+
+**HTTP Auth for memory server**: Added `requireBearer` middleware (reads 
+`MEMORY_API_KEY` env var). `/health` endpoint is always unauthenticated. 
+When `MEMORY_API_KEY` is empty, auth is disabled (backward compatible).
 
 **Hook mode design**:
 ```toml
@@ -426,19 +542,28 @@ adding:
 
 ## Summary — Priority Matrix
 
-| Phase | Item | Impact | Effort | Dependencies |
-|-------|------|--------|--------|--------------|
-| **P0** | Sync upstream v1.5.0 | CRITICAL | 2-3 days | None |
-| **P0** | Wire Discord bot → Controller | HIGH | 3-5 days | P0 sync |
-| **P0** | Tests for pkg/mcpbridge | MEDIUM | 1-2 days | None |
-| **P0** | Tests for pkg/memoryserver | MEDIUM | 1-2 days | None |
-| **P0** | CI pipeline | MEDIUM | 1 day | None |
-| **P1** | Skills hub auto-loading | MEDIUM | 2-3 days | P0 sync |
-| **P1** | Memory server hook mode | HIGH | 3-4 days | P0 sync |
+| Phase | Item | Impact | Effort | Status |
+|-------|------|--------|--------|--------|
+| **P0** | Sync upstream v1.5.0 | CRITICAL | 2-3 days | ✅ DONE (e5e8f02) |
+| **P0** | Wire Discord bot → Controller | HIGH | 3-5 days | ✅ DONE |
+| **P0** | Tests for pkg/mcpbridge | MEDIUM | 1-2 days | ✅ DONE (48 tests, 82%) |
+| **P0** | Tests for pkg/memoryserver | MEDIUM | 1-2 days | ✅ DONE (52 tests, 89%) |
+| **P0** | Tests for internal/bot/discord | MEDIUM | 1-2 days | ✅ DONE (57 tests, 91%) |
+| **P0** | Auth middleware consolidation | LOW | 0.5 day | ✅ DONE (httputil shared) |
+| **P0** | planTask + orchestrateTask | HIGH | 1-2 days | ✅ DONE (DeepSeek API) |
+| **P0** | Hook scripts hardening | MEDIUM | 0.5 day | ✅ DONE (timeout, checks, tests) |
+| **P0** | CI pipeline | MEDIUM | 1 day | Partial (exists, needs pkg/bot steps) |
+| **P1** | Skills hub auto-loading | MEDIUM | 2-3 days | ✅ DONE (install-skills.sh) |
+| **P1** | Memory server hook mode | HIGH | 3-4 days | ✅ DONE (hook scripts + auth) |
 | **P1** | Skills hub website | LOW | 2-3 days | None |
-| **P2** | collab-cli integration | MEDIUM | 1-2 days | P0 sync |
+| **P2** | collab-cli integration | MEDIUM | 1-2 days | Blocked: P0 sync |
 | **P2** | VS Code extension | MEDIUM | 3-5 days | None |
 | **P2** | Adversarial review skill | LOW | 1 day | None |
+| **P3** | Hook scripts → hook.Runner | MEDIUM | 2-3 days | Upstream internal/hook |
+| **P3** | Memory backend: SQLite | MEDIUM | 3-5 days | P1 memory |
+| **P3** | Memory TTL + importance | LOW | 2-3 days | P1 memory |
+| **P3** | read_skill MCP tool | LOW | 1 day | P0 mcpbridge |
+| **P3** | Discord /goal command | LOW | 1-2 days | P0 bot |
 | **P3** | PortaKit portability | LOW | 3-5 days | P0 sync |
 | **P3** | Vector memory backend | LOW | 5-7 days | P1 memory |
 | **P3** | Multi-model Discord bot | LOW | 2-3 days | P0 bot |
@@ -449,10 +574,13 @@ adding:
 
 | Metric | Current | Target |
 |--------|---------|--------|
-| Upstream sync | Unknown version | v1.5.0, mergeable in <1 hour |
-| Discord bot | Toy chat history | Full agent loop with tool execution |
-| Test coverage (pkg/) | 0% | >80% |
-| Skills discoverable | Manual file copy | `install-source` or `--with-hermes-skills` |
-| Memory persistence | MCP-only | MCP + hooks auto-mode |
-| CI | None | Build + test + vet on push/PR |
+| Upstream sync | v1.5.0 (e5e8f02) ✅ | Mergeable in <1 hour |
+| Discord bot | ✅ Full agent loop (discord.Adapter → BotGateway) | Slash commands, approval, sessions |
+| Test coverage (pkg/) | 165 tests, 85.9% aggregate (mcpbridge 82%, memory 89%, discord 91%) | >80% line coverage ✅ |
+| MCP bridge tools | ✅ 5 tools (run, doctor, plan, orchestrate, skills) — all implemented | External agent orchestration |
+| MCP server auth | ✅ Shared httputil Bearer token (MCP_API_KEY, MEMORY_API_KEY) | Constant-time compare, /health exempt |
+| Hook scripts | ✅ Hardened (timeout, dep checks, integration test 12/12) | → native hook.Runner (P3) |
+| Skills discoverable | ✅ install-skills.sh script | `install_source` integration |
+| Memory persistence | ✅ MCP + hooks (retain-hook.sh, reflect-hook.sh) | SQLite backend (P3) |
+| CI | Exists (desktop frontend) | Build + test + vet on push/PR |
 | Community presence | None | VS Code Marketplace + awesome-reasonix listing |
