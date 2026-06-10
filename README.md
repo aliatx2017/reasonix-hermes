@@ -129,6 +129,12 @@ commands, `@` references, and two-model setup are all in the
 - **[Checkpoints & rewind](./docs/CHECKPOINTS.md)** — the snapshot-based edit
   safety net (Esc-Esc / `/rewind`).
 
+### Hermes fork docs
+
+- **[Implementation Plan](./docs/HERMES-IMPLEMENTATION-PLAN.md)** — phased roadmap for the Hermes fork.
+- **[Research Findings](./docs/RESEARCH-FINDINGS-JUNE-2026.md)** — June 2026 ecosystem deep-web sweep.
+- **[Ecosystem Reference](./reasonix-deepseek-ecosystem-2026.md)** — full landscape survey of MCP bridges, skills, desktop clients, IDE extensions, forks, and protocols.
+
 <br/>
 
 ## Star History

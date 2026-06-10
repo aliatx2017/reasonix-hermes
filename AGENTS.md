@@ -84,10 +84,18 @@ skills-hub/            Our 16-skill community registry + Markdown files
 | `reasonix-deepseek-ecosystem-2026.md` | Ecosystem reference | Comprehensive survey of integrations and plugins |
 | `.github/workflows/ci-hermes.yml` | Supplementary CI | Desktop frontend build in CI |
 
+## Docs
+
+- **[Implementation Plan](docs/HERMES-IMPLEMENTATION-PLAN.md)** — phased roadmap: P0 upstream sync → P1 Discord bot → P2 tests/CI → P3 skills hub → P4 memory hooks → P5 collab+VS Code → P6 portability
+- **[Research Findings](docs/RESEARCH-FINDINGS-JUNE-2026.md)** — June 2026 deep-web sweep: upstream v1.5.0, 4 new MCP bridges, 4 skill packs, 2 domain apps, 4 desktop clients, 4 IDE extensions, 11 undocumented features
+- **[Ecosystem Reference](reasonix-deepseek-ecosystem-2026.md)** — full landscape: MCP bridges, skills, desktop, IDE, forks, cost model, protocols, use cases
+
 ## Notes
 
 - Upstream remote: `https://github.com/esengine/deepseek-reasonix.git` (branch `main-v2`)
+- **Upstream target**: v1.5.0 (June 10, 2026) — we need to sync. Key additions: bot gateway, goal mode, read_skill, PDF extraction, themeable workspace, React 19/TS 6, ACP sessions, 100+ fixes.
 - Our fork: `https://github.com/aliatx2017/reasonix-hermes.git` (branch `main`)
 - To pull upstream updates: `git fetch upstream && git merge upstream/main-v2`
 - `reasonix.toml` is gitignored (upstream convention) — never commit secrets
 - Discord bot uses `github.com/bwmarrin/discordgo` (added to go.mod)
+- Discord bot must use `control.Controller` like every other frontend — not inline chat history

@@ -26,3 +26,8 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
   index), which loads into the prefix on the next session.
 
 ## Notes
+
+- **Upstream tracking**: `v1.5.0` (June 10, 2026) — we need to sync. Major features: bot gateway (Feishu/Weixin/QQ), goal mode, read_skill tool, PDF extraction, themeable workspace, React 19/TypeScript 6, ACP sessions, 100+ fixes.
+- **Implementation plan**: `docs/HERMES-IMPLEMENTATION-PLAN.md` — phased: P0 (sync + bot wiring + tests), P1 (skills hub + memory hooks), P2 (collab-cli + VS Code ext), P3 (portability + vector memory).
+- **Ecosystem reference**: `reasonix-deepseek-ecosystem-2026.md` + `docs/RESEARCH-FINDINGS-JUNE-2026.md` — full survey of MCP bridges, skills, desktop clients, IDE extensions, forks, undocumented features.
+- **Key differentiators for Hermes**: Discord bot with real agent loop (unique in ecosystem), MCP bridge server (5 tools), Hindsight memory server (3 tools), 16-skill curated registry. The bot must use `control.Controller` like every other frontend — not inline chat.

@@ -4,6 +4,18 @@ All notable changes to the Go line (Reasonix 1.0+) are recorded here. The legacy
 `0.x` TypeScript history lives on the [`v1`](https://github.com/esengine/DeepSeek-Reasonix/tree/v1)
 branch.
 
+## Hermes fork additions
+
+Our fork (`aliatx2017/reasonix-hermes`) adds:
+
+- **Discord bot gateway** (`bot/`) — slash commands + text triggers via discordgo
+- **MCP bridge server** (`pkg/mcpbridge/`) — 5 tools: run, doctor, plan, orchestrate, skills
+- **Hindsight memory server** (`pkg/memoryserver/`) — 3 tools: retain, recall, reflect
+- **Skills hub** (`skills-hub/`) — 16 curated community skills with registry.json
+- **Ecosystem reference** (`reasonix-deepseek-ecosystem-2026.md`) — comprehensive survey
+- **Research findings** (`docs/RESEARCH-FINDINGS-JUNE-2026.md`) — June 2026 deep-web sweep
+- **Implementation plan** (`docs/HERMES-IMPLEMENTATION-PLAN.md`) — phased roadmap
+
 ## [1.0.0] — 2026-06-03
 
 First stable release — a **ground-up rewrite in Go**. Not an upgrade of the `0.x`
