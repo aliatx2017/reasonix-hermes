@@ -42,12 +42,13 @@ These are our Hermes-specific additions layered on top of v1.5.0:
 | `pkg/memoryserver/` | ✅ Complete | Hindsight memory: 3 tools (retain, recall, reflect), SQLite + file backends, TTL/importance scoring, Bearer auth |
 | `pkg/httputil/` | ✅ Complete | Shared auth middleware — consolidated Bearer auth from mcpbridge+memoryserver |
 | `pkg/mcputil/` | ✅ Complete | Shared MCP types and server helpers |
-| `bot/` + `internal/bot/discord/` | ✅ Complete | Discord bot gateway with /goal autonomous loop (upstream has Feishu/WeChat/QQ only) |
-| `skills-hub/` | ✅ Complete | 17 curated community skills with registry (incl. adversarial-review) |
+| `bot/` + `internal/bot/discord/` | ✅ Complete | Discord bot gateway with /goal autonomous loop + /model multi-model switching |
+| `skills-hub/` | ✅ Complete | 17 curated community skills with registry (incl. adversarial-review) + static catalog site |
 | `cmd/reasonix-hooks/` | ✅ Complete | Native Go hook runner — zero-dependency binary replacing shell scripts |
 | Hook scripts | ✅ Hardened | `retain-hook.sh` / `reflect-hook.sh` — error handling, timeout, python3/curl checks |
 | Portable mode | ✅ Complete | `REASONIX_PORTABLE=1` — all data next to binary, USB/sync-drive friendly |
-| Tests | ✅ 80%+ | mcpbridge 82%, memoryserver 89%, discord 91% |
+| Vector search | ✅ Complete | Sparse TF-IDF cosine similarity, `semantic=true` flag on recall |
+| Tests | ✅ 228 tests | hooks 12, mcpbridge 49, memory 63, discord 57, bot 29+, httputil 8, mcputil ~10 |
 
 ---
 

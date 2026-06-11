@@ -29,10 +29,14 @@ go build -o bin/reasonix ./cmd/reasonix
 go build -o bin/reasonix-bridge ./pkg/mcpbridge
 go build -o bin/reasonix-memory ./pkg/memoryserver
 go build -o bin/reasonix-bot ./bot
+go build -o bin/reasonix-hooks ./cmd/reasonix-hooks
 
 # Build + vet everything
 go build ./...
 go vet ./...
+
+# Run tests (228 tests across all custom packages)
+go test ./cmd/... ./pkg/... ./internal/bot/...
 
 # Run the CLI
 ./bin/reasonix chat
@@ -66,36 +70,41 @@ internal/              Upstream Reasonix engine (39 packages)
   lsp/                 Language server integration
   ...                  (30+ more packages)
 pkg/                   ── Our custom additions ──
-  mcpbridge/           MCP bridge server (5 tools: run, doctor, plan, orchestrate, skills)
-  memoryserver/        Hindsight MCP server (3 tools: retain, recall, reflect)
-bot/                   Our Discord bot gateway (slash commands + text triggers)
+  mcpbridge/           MCP bridge server (6 tools: run, doctor, plan, orchestrate, get_skill, get_skills)
+  memoryserver/        Hindsight MCP server (3 tools: retain, recall, reflect; SQLite + file, TTL/importance, vector search)
+  httputil/            Shared Bearer auth middleware
+  mcputil/             Shared MCP types and server helpers
+bot/                   Our Discord bot gateway (slash commands + /goal + /model)
+cmd/reasonix-hooks/    Native Go hook runner (zero-dependency binary)
 desktop/               Wails v2 desktop app (upstream, full-featured)
-skills-hub/            Our 16-skill community registry + Markdown files
+skills-hub/            17-skill community registry + static catalog site
 ```
 
 ## Our Customizations
 
 | Layer | What | Why |
 |-------|------|-----|
-| `pkg/mcpbridge/` | MCP bridge server | Expose Reasonix to Claude Code/Codex via MCP |
-| `pkg/memoryserver/` | Hindsight memory server | Cross-session persistent memory |
-| `bot/` | Discord bot gateway | Discord integration (upstream has Feishu/WeChat/QQ only) |
-| `skills-hub/` | 16 community skills | Curated skill registry with frontmatter playbooks |
+| `pkg/mcpbridge/` | MCP bridge server (6 tools) | Expose Reasonix to Claude Code/Codex via MCP |
+| `pkg/memoryserver/` | Hindsight memory (3 tools, SQLite, TTL, vector) | Cross-session persistent memory with semantic search |
+| `bot/` + `internal/bot/discord/` | Discord bot (+ /goal + /model) | Discord integration (upstream has Feishu/WeChat/QQ only) |
+| `cmd/reasonix-hooks/` | Native Go hook runner | Zero-dependency binary for PreToolUse/Stop hooks |
+| `skills-hub/` | 17 community skills + catalog site | Curated skill registry with frontmatter playbooks |
 | `reasonix-deepseek-ecosystem-2026.md` | Ecosystem reference | Comprehensive survey of integrations and plugins |
 | `.github/workflows/ci-hermes.yml` | Supplementary CI | Desktop frontend build in CI |
 
 ## Docs
 
-- **[Implementation Plan](docs/HERMES-IMPLEMENTATION-PLAN.md)** — phased roadmap: P0 upstream sync → P1 Discord bot → P2 tests/CI → P3 skills hub → P4 memory hooks → P5 collab+VS Code → P6 portability
+- **[Implementation Plan](docs/HERMES-IMPLEMENTATION-PLAN.md)** — phased roadmap: 17/17 items complete across P0–P3
 - **[Research Findings](docs/RESEARCH-FINDINGS-JUNE-2026.md)** — June 2026 deep-web sweep: upstream v1.5.0, 4 new MCP bridges, 4 skill packs, 2 domain apps, 4 desktop clients, 4 IDE extensions, 11 undocumented features
 - **[Ecosystem Reference](reasonix-deepseek-ecosystem-2026.md)** — full landscape: MCP bridges, skills, desktop, IDE, forks, cost model, protocols, use cases
 
 ## Notes
 
 - Upstream remote: `https://github.com/esengine/deepseek-reasonix.git` (branch `main-v2`)
-- **Upstream target**: v1.5.0 (June 10, 2026) — we need to sync. Key additions: bot gateway, goal mode, read_skill, PDF extraction, themeable workspace, React 19/TS 6, ACP sessions, 100+ fixes.
+- **Upstream target**: v1.5.0 (June 10, 2026) — ✅ synced (e5e8f02). Key additions inherited: bot gateway, goal mode, read_skill, PDF extraction, themeable workspace, React 19/TS 6, ACP sessions, 100+ fixes.
 - Our fork: `https://github.com/aliatx2017/reasonix-hermes.git` (branch `main`)
 - To pull upstream updates: `git fetch upstream && git merge upstream/main-v2`
 - `reasonix.toml` is gitignored (upstream convention) — never commit secrets
 - Discord bot uses `github.com/bwmarrin/discordgo` (added to go.mod)
 - Discord bot must use `control.Controller` like every other frontend — not inline chat history
+- **Tests**: 228 tests across 7 packages. `go test ./cmd/... ./pkg/... ./internal/bot/...`
