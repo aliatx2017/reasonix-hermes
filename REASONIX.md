@@ -43,7 +43,8 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 ## Next Session TODOs
 
-- **Skills hub website** — deploy `skills-hub/site/index.html` to GitHub Pages at `aliatx2017.github.io/reasonix-hermes/`
+- **`install_source` integration** — upstream has `internal/installsource/`; skills-hub should register as an install source instead of relying on `scripts/install-skills.sh`. Create a `reasonix-hermes.json` manifest for `reasonix install-source install`.
+- **Skills hub website deployment** — deploy `skills-hub/site/index.html` to GitHub Pages at `aliatx2017.github.io/reasonix-hermes/`
 - **CI: e2e-bot Discord adapter** — extend `.github/workflows/e2e-bot.yml` with Discord smoke test (needs bot token)
 - **VS Code extension** — fork `whishi47/deepseekcode-reasonix-vscode` (separate repo, Hermes branding)
 - **roach-code multi-provider** — study `tmdgusya/roach-code` for MiniMax/GLM/Anthropic provider patterns
