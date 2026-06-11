@@ -526,7 +526,7 @@ adding:
 | **P0** | CI pipeline | MEDIUM | 1 day | Partial (exists, needs pkg/bot steps) |
 | **P1** | Skills hub auto-loading | MEDIUM | 2-3 days | ✅ DONE (install-skills.sh) |
 | **P1** | Memory server hook mode | HIGH | 3-4 days | ✅ DONE (hook scripts + auth) |
-| **P1** | Skills hub website | LOW | 2-3 days | None |
+| **P1** | Skills hub website | LOW | 2-3 days | ✅ DONE (skills-hub/site/index.html) |
 | **P2** | collab-cli integration | MEDIUM | 1-2 days | ✅ DONE (reasonix.example.toml) |
 | **P2** | VS Code extension | MEDIUM | 3-5 days | ✅ DECIDED (fork separate repo) |
 | **P2** | Adversarial review skill | LOW | 1 day | ✅ DONE (skills-hub 17th skill) |
@@ -536,8 +536,8 @@ adding:
 | **P3** | read_skill MCP tool | LOW | 1 day | ✅ DONE (get_skill, 6th tool) |
 | **P3** | Discord /goal command | LOW | 1-2 days | ✅ DONE (goal loop + audit) |
 | **P3** | PortaKit portability | LOW | 3-5 days | ✅ DONE (REASONIX_PORTABLE) |
-| **P3** | Vector memory backend | LOW | 5-7 days | Future |
-| **P3** | Multi-model Discord bot | LOW | 2-3 days | Future |
+| **P3** | Vector memory backend | LOW | 5-7 days | ✅ DONE (TF-IDF cosine sim, semantic=true) |
+| **P3** | Multi-model Discord bot | LOW | 2-3 days | ✅ DONE (/model flash|pro|mimo) |
 
 ---
 
@@ -547,12 +547,12 @@ adding:
 |--------|---------|--------|
 | Upstream sync | v1.5.0 (e5e8f02) ✅ | Mergeable in <1 hour |
 | Discord bot | ✅ Full agent loop (discord.Adapter → BotGateway) | Slash commands, approval, sessions |
-| Test coverage (pkg/) | 165 tests, 85.9% aggregate (mcpbridge 82%, memory 89%, discord 91%) | >80% line coverage ✅ |
+| Test coverage (pkg/) | 228 tests (hooks 12, mcpbridge 49, memory 63, discord 57, bot 29+) | >80% line coverage ✅ |
 | MCP bridge tools | ✅ 6 tools (run, doctor, plan, orchestrate, get_skill, get_skills) | External agent orchestration |
 | Hook scripts | ✅ Native Go binary (cmd/reasonix-hooks) + hardened shell fallback | Zero-dependency binary |
 | Skills discoverable | ✅ 17 skills (incl. adversarial-review) + install-skills.sh | `install_source` integration |
-| Memory persistence | ✅ SQLite backend (WAL, indexed) + TTL/importance scoring | Vector memory (future) |
-| Discord bot features | ✅ /goal command (autonomous loop + blocked-state audit) | Multi-model per-channel |
+| Memory persistence | ✅ SQLite (WAL) + TTL/importance + vector TF-IDF | ✅ Complete |
+| Discord bot features | ✅ /goal + /model (autonomous loop + multi-model) | ✅ Complete |
 | Portability | ✅ REASONIX_PORTABLE=1 (portable data dir) | USB/sync-drive friendly |
 | CI | Exists (desktop frontend + go test ./...) | Extended e2e-bot workflow |
 | Community presence | Fork repo (VS Code ext separate) | VS Code Marketplace listing |

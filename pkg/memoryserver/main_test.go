@@ -1409,3 +1409,161 @@ func TestAuthMiddlewareHealthAlwaysPublic(t *testing.T) {
 		t.Errorf("/mcp without auth = %d, want non-200", resp.StatusCode)
 	}
 }
+
+// ── Vector Search ─────────────────────────────────────────────────
+
+func TestVectorize_BasicTokenization(t *testing.T) {
+	vec := vectorize("hello world refactor auth module")
+	if len(vec) == 0 {
+		t.Fatal("expected non-empty vector")
+	}
+	// Common stop words should be excluded
+	if _, ok := vec["the"]; ok {
+		t.Error("stop word 'the' should be excluded")
+	}
+	// Short words excluded
+	if _, ok := vec["is"]; ok {
+		t.Error("short word 'is' (<3 chars) should be excluded")
+	}
+	// Meaningful words included
+	if _, ok := vec["hello"]; !ok {
+		t.Error("'hello' should be in vector")
+	}
+	if _, ok := vec["refactor"]; !ok {
+		t.Error("'refactor' should be in vector")
+	}
+}
+
+func TestVectorize_EmptyInput(t *testing.T) {
+	vec := vectorize("")
+	if len(vec) != 0 {
+		t.Errorf("empty input should produce empty vector, got %d entries", len(vec))
+	}
+}
+
+func TestVectorize_OnlyStopWords(t *testing.T) {
+	vec := vectorize("the and for are but not you all")
+	if len(vec) != 0 {
+		t.Errorf("only stop words should produce empty vector, got %d entries", len(vec))
+		for k := range vec {
+			t.Logf("  unexpected: %q", k)
+		}
+	}
+}
+
+func TestCosineSimilarity_Identical(t *testing.T) {
+	a := vectorize("refactor auth module for better security")
+	b := vectorize("refactor auth module for better security")
+	sim := cosineSimilarity(a, b)
+	if sim <= 0.9 {
+		t.Errorf("identical vectors should have high similarity, got %.4f", sim)
+	}
+}
+
+func TestCosineSimilarity_Different(t *testing.T) {
+	a := vectorize("database schema migration for postgres")
+	b := vectorize("build frontend react component with typescript")
+	sim := cosineSimilarity(a, b)
+	if sim > 0.3 {
+		t.Errorf("different topics should have low similarity, got %.4f", sim)
+	}
+}
+
+func TestCosineSimilarity_Empty(t *testing.T) {
+	a := vectorize("hello world")
+	b := map[string]float64{}
+	if sim := cosineSimilarity(a, b); sim != 0 {
+		t.Errorf("empty vector should give 0 similarity, got %.4f", sim)
+	}
+	if sim := cosineSimilarity(b, a); sim != 0 {
+		t.Errorf("empty vector should give 0 similarity, got %.4f", sim)
+	}
+}
+
+func TestCosineSimilarity_PartialOverlap(t *testing.T) {
+	a := vectorize("refactor authentication module for api security")
+	b := vectorize("add authentication to login endpoint")
+	sim := cosineSimilarity(a, b)
+	if sim <= 0.1 {
+		t.Errorf("overlapping topic 'authentication' should give moderate similarity, got %.4f", sim)
+	}
+}
+
+func TestSearchSimilar_FindsMatch(t *testing.T) {
+	store, err := NewMemoryStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	store.Retain("s1", "refactor authentication module for api security", []string{"auth"})
+	store.Retain("s1", "build frontend react component for dashboard", []string{"frontend"})
+	store.Retain("s1", "add authentication to login endpoint", []string{"auth"})
+
+	results, err := store.SearchSimilar("authentication login security", "", 5)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(results) == 0 {
+		t.Fatal("expected results for semantic search")
+	}
+	// The auth-related entries should rank above the frontend one
+	if !containsString(results[0].Content, "auth") && !containsString(results[0].Content, "login") {
+		t.Errorf("expected auth-related result first, got: %s", results[0].Content)
+	}
+}
+
+func TestSearchSimilar_SessionFilter(t *testing.T) {
+	store, _ := NewMemoryStore(t.TempDir())
+	store.Retain("s1", "setup database schema for users", nil)
+	store.Retain("s2", "setup database indexes for performance", nil)
+
+	results, err := store.SearchSimilar("database schema", "s1", 5)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range results {
+		if r.SessionID != "s1" {
+			t.Errorf("session filter failed: got session %q in results", r.SessionID)
+		}
+	}
+	if len(results) == 0 {
+		t.Error("expected at least one result for s1")
+	}
+}
+
+func TestSearchSimilar_NoMatch(t *testing.T) {
+	store, _ := NewMemoryStore(t.TempDir())
+	store.Retain("s1", "python flask api for data processing", nil)
+
+	results, _ := store.SearchSimilar("react typescript frontend component", "", 5)
+	if len(results) != 0 {
+		t.Errorf("expected no results for unrelated query, got %d", len(results))
+	}
+}
+
+func TestMemoryEntry_VectorPersisted(t *testing.T) {
+	dir := t.TempDir()
+	store, _ := NewMemoryStore(dir)
+	entry, err := store.Retain("s1", "important security fix for authentication", []string{"security"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entry.Vector) == 0 {
+		t.Error("retained entry should have a vector")
+	}
+
+	// Reload and verify vector persists
+	store2, _ := NewMemoryStore(dir)
+	results, _ := store2.Recall("", "", 10)
+	if len(results) == 0 {
+		t.Fatal("expected reloaded entries")
+	}
+	if len(results[0].Vector) == 0 {
+		t.Error("vector should persist across reload")
+	}
+}
+
+func containsString(s, substr string) bool {
+	return len(s) > 0 && len(substr) > 0 && (s == substr || len(s) >= len(substr) &&
+		(s[:len(substr)] == substr || s[len(s)-len(substr):] == substr ||
+			strings.Contains(s, substr)))
+}

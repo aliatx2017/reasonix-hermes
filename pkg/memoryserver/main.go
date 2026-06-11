@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"path/filepath"
 	"sort"
@@ -78,7 +79,7 @@ func (ms *MemoryStore) Dir() string { return ms.dir }
 
 // ── Vector Search ──────────────────────────────────────────────────
 
-// vectorize tokenizes text into a normalized term-frequency vector.
+// vectorize tokenizes text into a term-frequency vector.
 // Stops words shorter than 3 chars and common English stop words.
 func vectorize(text string) map[string]float64 {
 	vec := make(map[string]float64)
@@ -90,32 +91,28 @@ func vectorize(text string) map[string]float64 {
 		}
 		vec[f]++
 	}
-	// Normalize to unit length
-	var sumSq float64
-	for _, v := range vec {
-		sumSq += v * v
-	}
-	if sumSq > 0 {
-		norm := 1.0 / sumSq // No sqrt needed for cosine similarity with normalized vectors
-		for k := range vec {
-			vec[k] *= norm
-		}
-	}
 	return vec
 }
 
-// cosineSimilarity returns the cosine similarity between two normalized TF vectors.
+// cosineSimilarity returns the cosine similarity between two TF vectors (0.0–1.0).
 func cosineSimilarity(a, b map[string]float64) float64 {
 	if len(a) == 0 || len(b) == 0 {
 		return 0
 	}
-	var dot float64
+	var dot, sumSqA, sumSqB float64
 	for word, aVal := range a {
+		sumSqA += aVal * aVal
 		if bVal, ok := b[word]; ok {
 			dot += aVal * bVal
 		}
 	}
-	return dot // vectors are pre-normalized, so dot = cosine
+	for _, bVal := range b {
+		sumSqB += bVal * bVal
+	}
+	if sumSqA == 0 || sumSqB == 0 {
+		return 0
+	}
+	return dot / (math.Sqrt(sumSqA) * math.Sqrt(sumSqB))
 }
 
 var stopWords = map[string]bool{

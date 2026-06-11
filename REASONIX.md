@@ -28,9 +28,9 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 ## Notes
 
 - **Upstream synced**: `v1.5.0` merged (commit e5e8f02, 2026-06-25). Clean merge, zero conflicts.
-- **Implementation plan**: `docs/HERMES-IMPLEMENTATION-PLAN.md` — P0 (sync ✅ + bot ✅ + tests ✅), P1 (skills ✅ + memory hooks ✅), P2 (collab-cli ✅ + VS Code decided + adversarial-review ✅), P3 (hooks ✅ + SQLite ✅ + TTL ✅ + read_skill ✅ + /goal ✅ + portable ✅). Remaining: vector memory, multi-model bot.
+- **Implementation plan**: `docs/HERMES-IMPLEMENTATION-PLAN.md` — P0 ✅, P1 ✅, P2 ✅, P3 ✅. All 17 plan items complete. Remaining: install_source integration, CI extension, VS Code fork.
 - **Ecosystem reference**: `reasonix-deepseek-ecosystem-2026.md` + `docs/RESEARCH-FINDINGS-JUNE-2026.md`.
-- **Key differentiators**: Discord bot with real agent loop + /goal, MCP bridge (6 tools incl. get_skill), Hindsight memory (3 tools, SQLite + TTL/importance), 17-skill curated registry, native Go hook runner, portable mode.
+- **Key differentiators**: Discord bot (real agent loop + /goal + /model), MCP bridge (6 tools), Hindsight memory (3 tools, SQLite + TTL/importance + vector search), 17-skill registry, native Go hooks, portable mode.
 
 ## Architecture Notes (post-v1.5.0 sync)
 

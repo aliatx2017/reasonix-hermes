@@ -193,3 +193,45 @@ func TestGatewayAllowAll(t *testing.T) {
 		t.Error("allow_all should allow everyone")
 	}
 }
+
+func TestSlashCommands_GoalAndModel(t *testing.T) {
+	// /goal and /model should be recognized as slash bypass commands
+	for _, cmd := range []string{"/goal", "/goal status", "/goal clear", "/goal refactor auth",
+		"/model", "/model flash", "/model pro", "/model mimo"} {
+		if !IsSlashBypass(cmd) {
+			t.Errorf("IsSlashBypass(%q) = false, want true", cmd)
+		}
+	}
+}
+
+func TestGateway_ModelPrefsInitialized(t *testing.T) {
+	cfg := GatewayConfig{
+		Enabled: map[Platform]bool{PlatformQQ: true},
+	}
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	gw := NewGateway(cfg, map[Platform]Adapter{}, logger)
+	if gw.modelPrefs == nil {
+		t.Error("modelPrefs map should be initialized")
+	}
+}
+
+func TestIsSlashBypass_NonCommands(t *testing.T) {
+	for _, cmd := range []string{"hello", "what is /goal?", "/goals", "model flash"} {
+		if IsSlashBypass(cmd) {
+			t.Errorf("IsSlashBypass(%q) = true, want false", cmd)
+		}
+	}
+}
+
+func TestBuildSessionKey_GoalModelUnaffected(t *testing.T) {
+	// Verify BuildSessionKey is stable and doesn't depend on /goal or /model
+	src := SessionSource{Platform: "discord", ChatType: ChatDM, ChatID: "ch1"}
+	key1 := BuildSessionKey(src)
+	key2 := BuildSessionKey(src)
+	if key1 != key2 {
+		t.Error("BuildSessionKey should be deterministic")
+	}
+	if len(key1) != 16 {
+		t.Errorf("expected 16-char hex key, got %d: %s", len(key1), key1)
+	}
+}
