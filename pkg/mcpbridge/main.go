@@ -89,6 +89,17 @@ func (b *Bridge) tools() []mcputil.Tool {
 			},
 		},
 		{
+			Name:        "get_skill",
+			Description: "Read a specific Reasonix skill body by name. Returns the full skill Markdown content. Use get_skills to list available skill names first.",
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"name": map[string]any{"type": "string", "description": "Skill identifier (e.g. 'code-review', 'adversarial-review')"},
+				},
+				"required": []string{"name"},
+			},
+		},
+		{
 			Name:        "get_skills",
 			Description: "List all available Reasonix skills with descriptions.",
 			InputSchema: map[string]any{"type": "object", "properties": map[string]any{}},
@@ -126,6 +137,13 @@ func (b *Bridge) handle(name string, args map[string]any) (string, error) {
 			return "", fmt.Errorf("task is required")
 		}
 		return b.orchestrateTask(task)
+
+	case "get_skill":
+		name, _ := args["name"].(string)
+		if name == "" {
+			return "", fmt.Errorf("name is required")
+		}
+		return b.getSkill(name)
 
 	case "get_skills":
 		return b.listSkills()
@@ -408,30 +426,84 @@ func stripStepPrefix(line string) string {
 	return line
 }
 
-func (b *Bridge) listSkills() (string, error) {
-	skillsDir := ""
-	if configDir, err := os.UserConfigDir(); err == nil {
-		skillsDir = filepath.Join(configDir, "reasonix", "skills")
+// skillDirs returns candidate skill directories to search, in priority order.
+// Respects REASONIX_PORTABLE: when set, uses <binary_dir>/.reasonix/skills instead
+// of the OS user config dir.
+func (b *Bridge) skillDirs() []string {
+	var dirs []string
+	if os.Getenv("REASONIX_PORTABLE") != "" {
+		if exe, err := os.Executable(); err == nil {
+			dirs = append(dirs, filepath.Join(filepath.Dir(exe), ".reasonix", "skills"))
+		}
+	} else if configDir, err := os.UserConfigDir(); err == nil {
+		dirs = append(dirs, filepath.Join(configDir, "reasonix", "skills"))
 	}
-	if _, err := os.Stat(skillsDir); err != nil {
-		skillsDir = filepath.Join(b.workDir, ".reasonix", "skills")
-	}
+	dirs = append(dirs,
+		filepath.Join(b.workDir, ".reasonix", "skills"),
+		filepath.Join(b.workDir, "skills-hub", "skills"),
+	)
+	return dirs
+}
 
-	entries, err := os.ReadDir(skillsDir)
+// findSkillFile looks for <name>.md across skill directories.  Also checks
+// the <name>/SKILL.md layout used by upstream install_source.
+func (b *Bridge) findSkillFile(name string) (string, error) {
+	for _, dir := range b.skillDirs() {
+		path := filepath.Join(dir, name+".md")
+		if _, err := os.Stat(path); err == nil {
+			return path, nil
+		}
+		path = filepath.Join(dir, name, "SKILL.md")
+		if _, err := os.Stat(path); err == nil {
+			return path, nil
+		}
+	}
+	return "", fmt.Errorf("skill %q not found in any skills directory", name)
+}
+
+// getSkill reads a skill body from disk by name.
+func (b *Bridge) getSkill(name string) (string, error) {
+	path, err := b.findSkillFile(name)
 	if err != nil {
-		return "", fmt.Errorf("no skills directory found at %q", skillsDir)
+		return "", err
 	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("read skill %q: %w", name, err)
+	}
+	var out strings.Builder
+	fmt.Fprintf(&out, "# Skill: %s\n\n", name)
+	out.Write(data)
+	return out.String(), nil
+}
 
+func (b *Bridge) listSkills() (string, error) {
 	var out strings.Builder
 	out.WriteString("# Available Skills\n\n")
-	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") {
+	found := false
+	for _, skillsDir := range b.skillDirs() {
+		entries, err := os.ReadDir(skillsDir)
+		if err != nil {
 			continue
 		}
-		fmt.Fprintf(&out, "- %s\n", strings.TrimSuffix(e.Name(), ".md"))
+		for _, e := range entries {
+			name := e.Name()
+			if e.IsDir() {
+				// Check for <name>/SKILL.md layout
+				if _, err := os.Stat(filepath.Join(skillsDir, name, "SKILL.md")); err == nil {
+					fmt.Fprintf(&out, "- %s\n", name)
+					found = true
+				}
+				continue
+			}
+			if strings.HasSuffix(name, ".md") {
+				fmt.Fprintf(&out, "- %s\n", strings.TrimSuffix(name, ".md"))
+				found = true
+			}
+		}
 	}
-	if out.Len() == len("# Available Skills\n\n") {
-		fmt.Fprintf(&out, "No skills found in %s\n", skillsDir)
+	if !found {
+		out.WriteString("No skills found.\n")
 	}
 	return out.String(), nil
 }

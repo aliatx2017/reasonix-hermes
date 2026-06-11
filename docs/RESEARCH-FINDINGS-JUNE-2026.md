@@ -38,12 +38,15 @@ These are our Hermes-specific additions layered on top of v1.5.0:
 
 | Component | Status | Description |
 |-----------|--------|-------------|
-| `pkg/mcpbridge/` | ✅ Complete | MCP bridge server: 5 tools (run, doctor, plan, orchestrate, skills), stdio+HTTP modes |
-| `pkg/memoryserver/` | ✅ Complete | Hindsight memory: 3 tools (retain, recall, reflect), file-based JSON, Bearer auth |
+| `pkg/mcpbridge/` | ✅ Complete | MCP bridge server: 6 tools (run, doctor, plan, orchestrate, get_skill, get_skills), stdio+HTTP modes |
+| `pkg/memoryserver/` | ✅ Complete | Hindsight memory: 3 tools (retain, recall, reflect), SQLite + file backends, TTL/importance scoring, Bearer auth |
 | `pkg/httputil/` | ✅ Complete | Shared auth middleware — consolidated Bearer auth from mcpbridge+memoryserver |
-| `bot/` | ✅ Complete | Discord bot gateway (upstream has Feishu/WeChat/QQ only) |
-| `skills-hub/` | ✅ Complete | 16 curated community skills with registry |
+| `pkg/mcputil/` | ✅ Complete | Shared MCP types and server helpers |
+| `bot/` + `internal/bot/discord/` | ✅ Complete | Discord bot gateway with /goal autonomous loop (upstream has Feishu/WeChat/QQ only) |
+| `skills-hub/` | ✅ Complete | 17 curated community skills with registry (incl. adversarial-review) |
+| `cmd/reasonix-hooks/` | ✅ Complete | Native Go hook runner — zero-dependency binary replacing shell scripts |
 | Hook scripts | ✅ Hardened | `retain-hook.sh` / `reflect-hook.sh` — error handling, timeout, python3/curl checks |
+| Portable mode | ✅ Complete | `REASONIX_PORTABLE=1` — all data next to binary, USB/sync-drive friendly |
 | Tests | ✅ 80%+ | mcpbridge 82%, memoryserver 89%, discord 91% |
 
 ---

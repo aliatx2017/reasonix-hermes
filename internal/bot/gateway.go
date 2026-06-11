@@ -317,11 +317,59 @@ func (gw *BotGateway) handleSlashCommand(ctx context.Context, adapter Adapter, k
 		gw.mu.Unlock()
 		_ = gw.sendText(ctx, adapter, msg, fmt.Sprintf("活跃任务数: %d\n保留会话数: %d", active, sessions))
 
+	case strings.HasPrefix(msg.Text, "/goal"):
+		goalText := strings.TrimSpace(strings.TrimPrefix(msg.Text, "/goal"))
+		// Show current goal status
+		if goalText == "" || goalText == "status" {
+			gw.mu.Lock()
+			state, ok := gw.controllers[key]
+			gw.mu.Unlock()
+			if ok && state.ctrl.Goal() != "" {
+				_ = gw.sendText(ctx, adapter, msg,
+					fmt.Sprintf("当前目标: %s\n状态: %s", state.ctrl.Goal(), state.ctrl.GoalStatus()))
+			} else {
+				_ = gw.sendText(ctx, adapter, msg,
+					"当前没有活跃目标。\n使用 /goal <目标描述> 开始一个自主任务。")
+			}
+			return
+		}
+		// Clear goal
+		if goalText == "clear" || goalText == "stop" || goalText == "off" || goalText == "done" {
+			gw.mu.Lock()
+			state, ok := gw.controllers[key]
+			gw.mu.Unlock()
+			if ok {
+				state.ctrl.ClearGoal()
+				_ = gw.sendText(ctx, adapter, msg, "目标已清除。")
+			} else {
+				_ = gw.sendText(ctx, adapter, msg, "没有活跃会话。")
+			}
+			return
+		}
+		// Set goal and run the goal loop: release any existing lock, prepare the
+		// session, then delegate to runTurn — which calls RunTurn → the controller's
+		// built-in continueGoal loop handles autonomous continuation.
+		gw.sessions.ForceRelease(key)
+		state := gw.getOrCreateSession(ctx, key)
+		if state == nil || state.ctrl == nil {
+			_ = gw.sendText(ctx, adapter, msg, "内部错误：无法创建会话。")
+			return
+		}
+		state.ctrl.SetGoal(goalText)
+		_ = gw.sendText(ctx, adapter, msg, fmt.Sprintf("🎯 开始自主目标: %s", goalText))
+		// Replace message text with the raw goal so the turn knows what to pursue.
+		msg.Text = goalText
+		gw.runTurn(ctx, adapter, key, msg)
+		return
+
 	case strings.HasPrefix(msg.Text, "/help"):
 		help := "可用命令:\n" +
 			"/stop - 停止当前任务\n" +
 			"/new - 开始新会话\n" +
 			"/reset - 重置会话\n" +
+			"/goal <目标> - 开始自主目标追踪\n" +
+			"/goal status - 查看目标状态\n" +
+			"/goal clear - 清除目标\n" +
 			"/approve <id> - 批准操作\n" +
 			"/deny <id> - 拒绝操作\n" +
 			"/answer <id> <选项> - 回答 ask 问题\n" +

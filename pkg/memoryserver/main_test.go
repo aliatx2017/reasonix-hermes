@@ -302,8 +302,8 @@ func TestNewMemoryStore(t *testing.T) {
 	if store == nil {
 		t.Fatal("store is nil")
 	}
-	if store.dir != dir {
-		t.Errorf("dir = %q, want %q", store.dir, dir)
+	if store.Dir() != dir {
+		t.Errorf("Dir() = %q, want %q", store.Dir(), dir)
 	}
 
 	// Verify directory was created
@@ -591,8 +591,8 @@ func TestHandleMessageToolsCallRetainError(t *testing.T) {
 	srv := newTestMCPServer(store)
 
 	// Make save fail
-	os.Chmod(store.dir, 0555)
-	defer os.Chmod(store.dir, 0755)
+	os.Chmod(store.Dir(), 0555)
+	defer os.Chmod(store.Dir(), 0755)
 
 	params := map[string]any{
 		"name": "hindsight_retain",
@@ -918,7 +918,7 @@ func TestRetainSpecialChars(t *testing.T) {
 	}
 
 	// Verify persistence round-trip
-	store2, err := NewMemoryStore(store.dir)
+	store2, err := NewMemoryStore(store.Dir())
 	if err != nil {
 		t.Fatalf("NewMemoryStore reload: %v", err)
 	}
@@ -931,11 +931,11 @@ func TestRetainSaveError(t *testing.T) {
 	store, _ := newTestStore(t)
 
 	// Make the save directory read-only so save() fails
-	memFile := filepath.Join(store.dir, "memories.json")
+	memFile := filepath.Join(store.Dir(), "memories.json")
 	os.WriteFile(memFile, []byte("[]"), 0444)
 	// Also make the directory read-only so WriteFile fails
-	os.Chmod(store.dir, 0555)
-	defer os.Chmod(store.dir, 0755) // restore for cleanup
+	os.Chmod(store.Dir(), 0555)
+	defer os.Chmod(store.Dir(), 0755) // restore for cleanup
 
 	_, err := store.Retain("s1", "should fail", nil)
 	if err == nil {

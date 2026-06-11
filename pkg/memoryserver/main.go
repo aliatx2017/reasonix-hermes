@@ -25,6 +25,19 @@ import (
 
 const (
 	maxContentLength = 32768 // 32KB max per memory entry
+
+	// Default TTL for new memories: 90 days.
+	defaultTTL = 90 * 24 * time.Hour
+
+	// Importance decay factor per day (exponential). Memories lose ~1% importance
+	// per day when not accessed.
+	importanceDecayPerDay = 0.01
+
+	// Importance boost on each recall.
+	importanceBoostOnRecall = 0.05
+
+	// Minimum importance below which expired memories are purged on tidy.
+	minImportanceToKeep = 0.0
 )
 
 // MemoryEntry is a single stored memory.
@@ -35,38 +48,95 @@ type MemoryEntry struct {
 	Tags        []string  `json:"tags,omitempty"`
 	CreatedAt   time.Time `json:"created_at"`
 	AccessCount int       `json:"access_count"`
+	TTL         time.Duration `json:"ttl_ns"`       // nanoseconds; 0 = use default
+	ExpiresAt   time.Time     `json:"expires_at"`   // computed as CreatedAt + TTL
+	Importance  float64        `json:"importance"`   // 0.0–1.0, bumped on recall
 }
 
-// MemoryStore persists memories to disk.
+// Expired reports whether the entry has passed its expiry and should be
+// excluded from recall results.
+func (e *MemoryEntry) Expired() bool { return !e.ExpiresAt.IsZero() && time.Now().After(e.ExpiresAt) }
+
+// Storage abstracts persistence for MemoryStore.
+type Storage interface {
+	Load() ([]MemoryEntry, error)
+	Save(entries []MemoryEntry) error
+}
+
+// MemoryStore persists memories via a pluggable Storage backend.
 type MemoryStore struct {
 	mu      sync.RWMutex
-	dir     string
+	storage Storage
+	dir     string // directory path (for diagnostics)
 	entries []MemoryEntry
 	nextID  atomic.Int64
 }
+
+// Dir returns the storage directory path.
+func (ms *MemoryStore) Dir() string { return ms.dir }
+
+// ── File Storage Backend ───────────────────────────────────────────
+
+// fileStorage persists entries as a JSON file on disk.
+type fileStorage struct {
+	dir string
+}
+
+func newFileStorage(dir string) *fileStorage { return &fileStorage{dir: dir} }
+
+func (fs *fileStorage) Load() ([]MemoryEntry, error) {
+	path := filepath.Join(fs.dir, "memories.json")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var entries []MemoryEntry
+	if err := json.Unmarshal(data, &entries); err != nil {
+		return nil, err
+	}
+	return entries, nil
+}
+
+func (fs *fileStorage) Save(entries []MemoryEntry) error {
+	data, err := json.MarshalIndent(entries, "", "  ")
+	if err != nil {
+		return err
+	}
+	tmp := filepath.Join(fs.dir, "memories.json.tmp")
+	if err := os.WriteFile(tmp, data, 0600); err != nil {
+		return err
+	}
+	return os.Rename(tmp, filepath.Join(fs.dir, "memories.json"))
+}
+
+// ── MemoryStore ────────────────────────────────────────────────────
 
 func NewMemoryStore(dir string) (*MemoryStore, error) {
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return nil, err
 	}
-	ms := &MemoryStore{dir: dir}
-	ms.load()
+	return NewMemoryStoreWithStorage(newFileStorage(dir), dir)
+}
+
+func NewMemoryStoreWithStorage(s Storage, dir string) (*MemoryStore, error) {
+	ms := &MemoryStore{storage: s, dir: dir}
+	if err := ms.load(); err != nil {
+		// Start fresh if load fails (e.g. no file yet).
+		ms.nextID.Store(1)
+	}
 	return ms, nil
 }
 
-func (ms *MemoryStore) load() {
-	path := filepath.Join(ms.dir, "memories.json")
-	data, err := os.ReadFile(path)
+func (ms *MemoryStore) load() error {
+	entries, err := ms.storage.Load()
 	if err != nil {
-		ms.nextID.Store(1)
-		return
+		return err
 	}
-	json.Unmarshal(data, &ms.entries)
+	ms.entries = entries
 
 	// Find highest ID number for monotonic counter
 	var maxID int64
 	for _, e := range ms.entries {
-		// Parse numeric suffix from "mem-<N>-<timestamp>"
 		var n int64
 		fmt.Sscanf(e.ID, "mem-%d-", &n)
 		if n > maxID {
@@ -74,19 +144,40 @@ func (ms *MemoryStore) load() {
 		}
 	}
 	ms.nextID.Store(maxID + 1)
+	return nil
 }
 
 func (ms *MemoryStore) save() error {
-	data, err := json.MarshalIndent(ms.entries, "", "  ")
-	if err != nil {
-		return err
+	return ms.storage.Save(ms.entries)
+}
+
+// Tidy purges expired entries that fall below the minimum importance threshold,
+// then persists. Safe to call periodically.
+func (ms *MemoryStore) Tidy() {
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
+
+	now := time.Now()
+	filtered := ms.entries[:0]
+	for i := range ms.entries {
+		e := &ms.entries[i]
+		if e.Expired() && e.Importance <= minImportanceToKeep {
+			continue // purge
+		}
+		// Apply daily decay to importance
+		if !e.CreatedAt.IsZero() {
+			days := now.Sub(e.CreatedAt).Hours() / 24
+			if days > 0 {
+				e.Importance = max(0, e.Importance-importanceDecayPerDay*days)
+				e.CreatedAt = now // reset anchor so we don't double-decay
+			}
+		}
+		filtered = append(filtered, *e)
 	}
-	// Atomic write: write to temp, rename
-	tmp := filepath.Join(ms.dir, "memories.json.tmp")
-	if err := os.WriteFile(tmp, data, 0600); err != nil {
-		return err
+	ms.entries = filtered
+	if err := ms.save(); err != nil {
+		log.Printf("[hindsight] tidy save failed: %v", err)
 	}
-	return os.Rename(tmp, filepath.Join(ms.dir, "memories.json"))
 }
 
 func (ms *MemoryStore) Retain(sessionID, content string, tags []string) (*MemoryEntry, error) {
@@ -103,12 +194,17 @@ func (ms *MemoryStore) Retain(sessionID, content string, tags []string) (*Memory
 	defer ms.mu.Unlock()
 
 	id := ms.nextID.Add(1) - 1
+	now := time.Now()
+	ttl := defaultTTL
 	entry := MemoryEntry{
-		ID:        fmt.Sprintf("mem-%d-%d", id, time.Now().Unix()),
-		SessionID: sessionID,
-		Content:   content,
-		Tags:      tags,
-		CreatedAt: time.Now(),
+		ID:         fmt.Sprintf("mem-%d-%d", id, now.Unix()),
+		SessionID:  sessionID,
+		Content:    content,
+		Tags:       tags,
+		CreatedAt:  now,
+		TTL:        ttl,
+		ExpiresAt:  now.Add(ttl),
+		Importance: 0.5, // start at medium importance
 	}
 	ms.entries = append(ms.entries, entry)
 	if err := ms.save(); err != nil {
@@ -128,10 +224,16 @@ func (ms *MemoryStore) Recall(sessionID, query string, limit int) ([]MemoryEntry
 
 	for i := range ms.entries {
 		e := &ms.entries[i]
+
+		// Skip expired entries
+		if e.Expired() {
+			continue
+		}
+
 		var match bool
 
 		if query == "" && sessionID == "" {
-			// No filters — return all
+			// No filters — return all (non-expired)
 			match = true
 		} else if query == "" && sessionID != "" {
 			// Session filter only
@@ -167,7 +269,7 @@ func (ms *MemoryStore) Recall(sessionID, query string, limit int) ([]MemoryEntry
 		results = results[:limit]
 	}
 
-	// Increment access counts synchronously (under same lock, atomic save)
+	// Increment access counts and boost importance (under same lock, atomic save)
 	if len(results) > 0 {
 		matched := make(map[string]bool, len(results))
 		for _, r := range results {
@@ -176,6 +278,11 @@ func (ms *MemoryStore) Recall(sessionID, query string, limit int) ([]MemoryEntry
 		for i := range ms.entries {
 			if matched[ms.entries[i].ID] {
 				ms.entries[i].AccessCount++
+				// Boost importance (capped at 1.0); frequently recalled = longer effective TTL
+				ms.entries[i].Importance = min(1.0, ms.entries[i].Importance+importanceBoostOnRecall)
+				// Extend expiry: each recall pushes ExpiresAt forward by boost * defaultTTL
+				boost := time.Duration(importanceBoostOnRecall * float64(defaultTTL))
+				ms.entries[i].ExpiresAt = ms.entries[i].ExpiresAt.Add(boost)
 			}
 		}
 		if err := ms.save(); err != nil {
@@ -192,7 +299,7 @@ func (ms *MemoryStore) Reflect(sessionID string) string {
 
 	var sessionMemories []MemoryEntry
 	for _, e := range ms.entries {
-		if e.SessionID == sessionID {
+		if e.SessionID == sessionID && !e.Expired() {
 			sessionMemories = append(sessionMemories, e)
 		}
 	}
@@ -323,14 +430,38 @@ func (h *memoryHandler) handle(name string, args map[string]any) (string, error)
 
 func main() {
 	storeDir := ".reasonix/hindsight-memory"
-	if home, err := os.UserHomeDir(); err == nil {
+	if os.Getenv("REASONIX_PORTABLE") != "" {
+		if exe, err := os.Executable(); err == nil {
+			storeDir = filepath.Join(filepath.Dir(exe), ".reasonix", "hindsight-memory")
+		}
+	} else if home, err := os.UserHomeDir(); err == nil {
 		storeDir = filepath.Join(home, ".reasonix", "hindsight-memory")
 	}
 
-	store, err := NewMemoryStore(storeDir)
+	// Parse flags: --backend file|sqlite, --http [--port N]
+	backend := "file"
+	for i := 0; i < len(os.Args); i++ {
+		if os.Args[i] == "--backend" && i+1 < len(os.Args) {
+			backend = os.Args[i+1]
+		}
+	}
+
+	var store *MemoryStore
+	var err error
+	switch backend {
+	case "sqlite":
+		ss, sErr := newSQLiteStorage(storeDir)
+		if sErr != nil {
+			log.Fatalf("Failed to create sqlite storage: %v", sErr)
+		}
+		store, err = NewMemoryStoreWithStorage(ss, storeDir)
+	default:
+		store, err = NewMemoryStore(storeDir)
+	}
 	if err != nil {
 		log.Fatalf("Failed to create memory store: %v", err)
 	}
+	store.Tidy() // clean up expired entries on startup
 
 	h := &memoryHandler{store: store}
 

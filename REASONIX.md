@@ -27,10 +27,10 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 ## Notes
 
-- **Upstream synced**: `v1.5.0` merged (commit e5e8f02, 2026-06-25). Clean merge, zero conflicts. 7 upstream files (workspace layout, dock fixes, site config).
-- **Implementation plan**: `docs/HERMES-IMPLEMENTATION-PLAN.md` — phased: P0 (sync ✅ + bot wiring + tests), P1 (skills hub + memory hooks), P2 (collab-cli + VS Code ext), P3 (portability + vector memory).
-- **Ecosystem reference**: `reasonix-deepseek-ecosystem-2026.md` + `docs/RESEARCH-FINDINGS-JUNE-2026.md` — full survey of MCP bridges, skills, desktop clients, IDE extensions, forks, undocumented features.
-- **Key differentiators for Hermes**: Discord bot with real agent loop (unique in ecosystem), MCP bridge server (5 tools), Hindsight memory server (3 tools), 16-skill curated registry. The bot must use `control.Controller` like every other frontend — not inline chat.
+- **Upstream synced**: `v1.5.0` merged (commit e5e8f02, 2026-06-25). Clean merge, zero conflicts.
+- **Implementation plan**: `docs/HERMES-IMPLEMENTATION-PLAN.md` — P0 (sync ✅ + bot ✅ + tests ✅), P1 (skills ✅ + memory hooks ✅), P2 (collab-cli ✅ + VS Code decided + adversarial-review ✅), P3 (hooks ✅ + SQLite ✅ + TTL ✅ + read_skill ✅ + /goal ✅ + portable ✅). Remaining: vector memory, multi-model bot.
+- **Ecosystem reference**: `reasonix-deepseek-ecosystem-2026.md` + `docs/RESEARCH-FINDINGS-JUNE-2026.md`.
+- **Key differentiators**: Discord bot with real agent loop + /goal, MCP bridge (6 tools incl. get_skill), Hindsight memory (3 tools, SQLite + TTL/importance), 17-skill curated registry, native Go hook runner, portable mode.
 
 ## Architecture Notes (post-v1.5.0 sync)
 
@@ -43,13 +43,8 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 ## Next Session TODOs
 
-- **P2: CI pipeline** — extend `.github/workflows/ci-hermes.yml` with `go test ./pkg/... ./bot/... ./internal/bot/...` steps. Current CI only covers desktop frontend.
-- **P2: collab-cli integration** — add as pre-configured MCP plugin in `reasonix.example.toml`. 17 free tools (handshake, tasks, SHARD.md, agent commands, self-review).
-- **P2: VS Code extension** — fork whishi47/deepseekcode-reasonix-vscode, add Hermes branding, publish to Marketplace.
-- **P2: Adversarial review skill** — port kquuen BLOCK:/ALLOW: contract as `skills-hub/skills/adversarial-review.md`.
-- **P3: Hook scripts → upstream `hook.Runner`** — replace `retain-hook.sh`/`reflect-hook.sh` shell scripts with native Go hooks via upstream `internal/hook` package. Shell scripts are hardened but fragile.
-- **P3: Memory backend: SQLite** — current file-based JSON doesn't scale. Add SQLite backend with indexed search for `pkg/memoryserver/`.
-- **P3: Memory TTL + importance scoring** — per-fact TTL (default 90d), frequently recalled facts get longer TTL, project-scoped isolation.
-- **P3: `read_skill` MCP tool** — expose upstream's `read_skill` via mcpbridge so external agents can load skills.
-- **P3: Discord `/goal` command** — leverage upstream goal mode from Discord bot.
-- **P3: PortaKit portability** — `--portable` flag, auto-detect data dir relative to binary.
+- **Vector memory backend** — embedding-based semantic search for `pkg/memoryserver/`
+- **Multi-model Discord bot** — per-channel/per-request model switching (`/model flash|pro|mimo`)
+- **Skills hub website** — GitHub Pages site at `aliatx2017.github.io/reasonix-hermes/`
+- **CI: e2e-bot workflow** — extend `.github/workflows/e2e-bot.yml` with Discord adapter integration tests
+- **VS Code extension** — fork `whishi47/deepseekcode-reasonix-vscode` (separate repo, Hermes branding)

@@ -440,82 +440,53 @@ Add pluggable backends:
 
 ## Phase 5: Multi-Agent & Ecosystem Integration (P2 — Week 6-8)
 
-### 5.1 collab-cli Integration
+### 5.1 collab-cli Integration ✅ DONE
 
-Add collab-cli as a pre-configured MCP plugin:
+Added as pre-configured MCP plugin in `reasonix.example.toml` (2026-06-11).
+Entry includes install instructions (`go install github.com/cejkato/collab-cli@latest`).
 
 ```toml
 [[plugins]]
-name = "collab"
-type = "stdio"
+name    = "collab"
 command = "collab"
-args = ["mcp"]
+args    = ["mcp"]
 ```
 
-**Value**: Hermes gets 17 MCP tools for free — agent handshake, task management,
-shared memory (SHARD.md), agent-to-agent commands, self-review pipeline, LAN
-node sync, web dashboard.
+### 5.2 VS Code Extension Packaging ✅ DECIDED (2026-06-11)
 
-**Steps**:
-1. Add `collab-cli` to our documentation as recommended integration
-2. Pre-configure in `reasonix.example.toml`
-3. Test the multi-agent workflow: Hermes Discord bot + collab-cli + Reasonix CLI
+**Decision**: Fork `whishi47/deepseekcode-reasonix-vscode` (⭐1, MIT) as a
+**separate repository** with Hermes branding — Discord bot status indicator,
+memory server health, Activity Bar integration. Implementation lives outside
+this codebase.
 
-### 5.2 VS Code Extension Packaging
+**Reference**: `whishi47/deepseekcode-reasonix-vscode` — 3 keyboard shortcuts,
+2.5s readiness delay, compatible with Windsurf/Trae.
 
-Based on `whishi47/deepseekcode-reasonix-vscode` (⭐1, MIT):
+### 5.3 Adversarial Review Skill ✅ DONE (2026-06-11)
 
-**Create `vscode-extension/` in our repo**:
-- Fork/adapt the existing extension
-- Add Hermes-specific features: Discord bot status indicator, memory server health
-- Publish to VS Code Marketplace as "Reasonix Hermes"
-- Add to Open VSX Registry for Windsurf/Trae users
+Created `skills-hub/skills/adversarial-review.md` — ported kquuen `BLOCK:`/`ALLOW:`
+review contract. Registered as 17th skill in `registry.json`.
 
-**Minimal viable extension**:
-- Activity Bar whale icon → launch terminal with `reasonix chat`
-- Auto `@file#L10-L20` context injection
-- Three keyboard shortcuts (Ctrl+Esc, Ctrl+Shift+Esc, Ctrl+Alt+K)
-- Hermes branding
-
-### 5.3 Adversarial Review Skill
-
-Port the kquuen `BLOCK:`/`ALLOW:` review contract as a Hermes skill:
-
-```markdown
----
-name: adversarial-review
-description: Adversarial code review with structured BLOCK/ALLOW output and 5 attack surfaces
-runAs: subagent
-model: deepseek-pro
----
-
-You are an adversarial code reviewer. Your default stance is skepticism.
-Review the provided code/diff against 5 attack surfaces:
-
-1. **Security**: Injection vectors, missing authz, exposed secrets, path traversal
-2. **Correctness**: Edge cases, race conditions, null/nil handling, type safety
-3. **Performance**: N+1 queries, unbounded allocations, blocking I/O, memory leaks
-4. **Maintainability**: Coupling, naming clarity, missing comments, testability
-5. **Coverage**: Untested paths, missing edge case tests, integration test gaps
-
-Your response MUST start with exactly:
-BLOCK: <one-line reason>    — if any issue found that should prevent merge
-ALLOW: <one-line reason>    — if safe to proceed
-
-Then list findings with file:line, severity (blocker/high/medium/low/info),
-confidence (high/medium/low), and concrete fix recommendation.
-```
+Key design:
+- 5 attack surfaces: security, correctness, performance, maintainability, coverage
+- Structured `BLOCK:` / `ALLOW:` output format
+- Severity levels: blocker, high, medium, low, info
+- Confidence levels: high, medium, low
+- `runAs: subagent` on `deepseek-pro` model
 
 ---
 
 ## Phase 6: Advanced Features (P3 — Ongoing)
 
-### 6.1 PortaKit-Style Portability
+### 6.1 PortaKit-Style Portability ✅ DONE (2026-06-11)
 
-Add `--portable` flag to Hermes builds:
-- Auto-detect data directory relative to binary (not `~/.config/reasonix/`)
-- Fix path hashes on workspace change (PortaKit's core innovation)
-- USB/sync-drive friendly
+Implemented via `REASONIX_PORTABLE=1` environment variable:
+- `internal/config/config.go`: added `IsPortable()` + `reasonixDir()` helper
+- All reasonix data paths (config, sessions, cache, memory, skills, commands)
+  redirect to `<binary_dir>/.reasonix/` when portable mode is active
+- `pkg/mcpbridge`: `skillDirs()` respects portable mode
+- `pkg/memoryserver`: store directory respects portable mode
+- USB/sync-drive friendly — all data lives next to the binary
 
 ### 6.2 Vector Memory Backend
 
@@ -523,14 +494,14 @@ For `pkg/memoryserver`: add optional embedding-based semantic search using
 DeepSeek's embedding API (or local onnx runtime). Enables "find conversations
 about authentication" style queries.
 
-### 6.3 Multi-Model Discord Bot
+### 6.3 Multi-Model Discord Bot (Future)
 
 Let Discord users choose their model per-channel or per-request:
 - `/reasonix model flash` — DeepSeek V4 Flash (cheap, fast)
 - `/reasonix model pro` — DeepSeek V4 Pro (thorough)
 - `/reasonix model mimo` — MiMo v2.5 Pro (creative/文案)
 
-### 6.4 roach-code Pattern: Add More Providers
+### 6.4 roach-code Pattern: Add More Providers (Future)
 
 Study `tmdgusya/roach-code` (⭐34) for its multi-provider architecture. Consider
 adding:
@@ -556,17 +527,17 @@ adding:
 | **P1** | Skills hub auto-loading | MEDIUM | 2-3 days | ✅ DONE (install-skills.sh) |
 | **P1** | Memory server hook mode | HIGH | 3-4 days | ✅ DONE (hook scripts + auth) |
 | **P1** | Skills hub website | LOW | 2-3 days | None |
-| **P2** | collab-cli integration | MEDIUM | 1-2 days | Blocked: P0 sync |
-| **P2** | VS Code extension | MEDIUM | 3-5 days | None |
-| **P2** | Adversarial review skill | LOW | 1 day | None |
-| **P3** | Hook scripts → hook.Runner | MEDIUM | 2-3 days | Upstream internal/hook |
-| **P3** | Memory backend: SQLite | MEDIUM | 3-5 days | P1 memory |
-| **P3** | Memory TTL + importance | LOW | 2-3 days | P1 memory |
-| **P3** | read_skill MCP tool | LOW | 1 day | P0 mcpbridge |
-| **P3** | Discord /goal command | LOW | 1-2 days | P0 bot |
-| **P3** | PortaKit portability | LOW | 3-5 days | P0 sync |
-| **P3** | Vector memory backend | LOW | 5-7 days | P1 memory |
-| **P3** | Multi-model Discord bot | LOW | 2-3 days | P0 bot |
+| **P2** | collab-cli integration | MEDIUM | 1-2 days | ✅ DONE (reasonix.example.toml) |
+| **P2** | VS Code extension | MEDIUM | 3-5 days | ✅ DECIDED (fork separate repo) |
+| **P2** | Adversarial review skill | LOW | 1 day | ✅ DONE (skills-hub 17th skill) |
+| **P3** | Hook scripts → native Go hooks | MEDIUM | 2-3 days | ✅ DONE (cmd/reasonix-hooks) |
+| **P3** | Memory backend: SQLite | MEDIUM | 3-5 days | ✅ DONE (modernc.org/sqlite, WAL) |
+| **P3** | Memory TTL + importance | LOW | 2-3 days | ✅ DONE (90d TTL, boost/decay) |
+| **P3** | read_skill MCP tool | LOW | 1 day | ✅ DONE (get_skill, 6th tool) |
+| **P3** | Discord /goal command | LOW | 1-2 days | ✅ DONE (goal loop + audit) |
+| **P3** | PortaKit portability | LOW | 3-5 days | ✅ DONE (REASONIX_PORTABLE) |
+| **P3** | Vector memory backend | LOW | 5-7 days | Future |
+| **P3** | Multi-model Discord bot | LOW | 2-3 days | Future |
 
 ---
 
@@ -577,10 +548,11 @@ adding:
 | Upstream sync | v1.5.0 (e5e8f02) ✅ | Mergeable in <1 hour |
 | Discord bot | ✅ Full agent loop (discord.Adapter → BotGateway) | Slash commands, approval, sessions |
 | Test coverage (pkg/) | 165 tests, 85.9% aggregate (mcpbridge 82%, memory 89%, discord 91%) | >80% line coverage ✅ |
-| MCP bridge tools | ✅ 5 tools (run, doctor, plan, orchestrate, skills) — all implemented | External agent orchestration |
-| MCP server auth | ✅ Shared httputil Bearer token (MCP_API_KEY, MEMORY_API_KEY) | Constant-time compare, /health exempt |
-| Hook scripts | ✅ Hardened (timeout, dep checks, integration test 12/12) | → native hook.Runner (P3) |
-| Skills discoverable | ✅ install-skills.sh script | `install_source` integration |
-| Memory persistence | ✅ MCP + hooks (retain-hook.sh, reflect-hook.sh) | SQLite backend (P3) |
-| CI | Exists (desktop frontend) | Build + test + vet on push/PR |
-| Community presence | None | VS Code Marketplace + awesome-reasonix listing |
+| MCP bridge tools | ✅ 6 tools (run, doctor, plan, orchestrate, get_skill, get_skills) | External agent orchestration |
+| Hook scripts | ✅ Native Go binary (cmd/reasonix-hooks) + hardened shell fallback | Zero-dependency binary |
+| Skills discoverable | ✅ 17 skills (incl. adversarial-review) + install-skills.sh | `install_source` integration |
+| Memory persistence | ✅ SQLite backend (WAL, indexed) + TTL/importance scoring | Vector memory (future) |
+| Discord bot features | ✅ /goal command (autonomous loop + blocked-state audit) | Multi-model per-channel |
+| Portability | ✅ REASONIX_PORTABLE=1 (portable data dir) | USB/sync-drive friendly |
+| CI | Exists (desktop frontend + go test ./...) | Extended e2e-bot workflow |
+| Community presence | Fork repo (VS Code ext separate) | VS Code Marketplace listing |

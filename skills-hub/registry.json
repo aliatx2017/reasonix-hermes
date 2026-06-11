@@ -4,6 +4,14 @@
   "updated": "2026-06-15T00:00:00Z",
   "skills": [
     {
+      "name": "adversarial-review",
+      "description": "Adversarial code review with structured BLOCK/ALLOW output and 5 attack surfaces. Ported from kquuen/reasonix-mcp-server review contract.",
+      "category": "security",
+      "runAs": "subagent",
+      "author": "reasonix-community",
+      "file": "skills/adversarial-review.md"
+    },
+    {
       "name": "code-review",
       "description": "Comprehensive code review covering correctness, security, performance, and style.",
       "category": "quality",

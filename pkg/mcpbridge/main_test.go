@@ -175,14 +175,14 @@ func TestListSkills_NoSkillsDir(t *testing.T) {
 	t.Setenv("HOME", homeDir)
 
 	workDir := t.TempDir()
-	// Ensure no .reasonix/skills in workDir
+	// Ensure no .reasonix/skills or skills-hub/skills in workDir
 	bs := NewBridge(workDir)
-	_, err := bs.listSkills()
-	if err == nil {
-		t.Error("expected error when no skills directory exists")
+	result, err := bs.listSkills()
+	if err != nil {
+		t.Fatalf("listSkills should not error when no dirs exist, got: %v", err)
 	}
-	if !strings.Contains(err.Error(), "no skills directory found") {
-		t.Errorf("unexpected error message: %v", err)
+	if !strings.Contains(result, "No skills found") {
+		t.Errorf("expected 'No skills found' message, got:\n%s", result)
 	}
 }
 
@@ -506,8 +506,8 @@ func TestHandleMessage_ListTools(t *testing.T) {
 	if !ok {
 		t.Fatalf("tools not a slice: %T", result["tools"])
 	}
-	if len(tools) != 5 {
-		t.Errorf("expected 5 tools, got %d", len(tools))
+	if len(tools) != 6 {
+		t.Errorf("expected 6 tools, got %d", len(tools))
 	}
 }
 
@@ -639,15 +639,15 @@ func TestHandleMessage_CallTool_PlanTask(t *testing.T) {
 
 func TestNewBridgeServer_RegistersAllTools(t *testing.T) {
 	bs := NewBridge(t.TempDir())
-	if len(bs.tools()) != 5 {
-		t.Errorf("expected 5 tools, got %d", len(bs.tools()))
+	if len(bs.tools()) != 6 {
+		t.Errorf("expected 6 tools, got %d", len(bs.tools()))
 	}
 
 	names := map[string]bool{}
 	for _, tool := range bs.tools() {
 		names[tool.Name] = true
 	}
-	for _, expected := range []string{"reasonix_run", "reasonix_doctor", "plan_task", "orchestrate_task", "get_skills"} {
+	for _, expected := range []string{"reasonix_run", "reasonix_doctor", "plan_task", "orchestrate_task", "get_skill", "get_skills"} {
 		if !names[expected] {
 			t.Errorf("missing tool: %s", expected)
 		}

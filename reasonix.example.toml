@@ -154,6 +154,14 @@ bash_timeout_seconds = 120   # foreground safety cap; set 0 for no tool-local ca
 # # Enabled MCP servers connect automatically in the background after session
 # # start. Use /mcp or the desktop MCP panel to refresh, reconnect, or disable.
 
+# Multi-agent collaboration via collab-cli (17 free tools: handshake, tasks,
+# SHARD.md, agent commands, self-review, LAN sync, web dashboard).
+# Install: go install github.com/cejkato/collab-cli@latest
+# [[plugins]]
+# name    = "collab"
+# command = "collab"
+# args    = ["mcp"]
+
 # Bot gateway: multi-channel IM bot for QQ, Feishu, and WeChat.
 # Start with `reasonix bot start --channels qq,feishu,weixin`.
 # All secrets are read from environment variables; never put keys here.

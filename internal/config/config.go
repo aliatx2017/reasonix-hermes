@@ -1520,12 +1520,36 @@ func retargetDesktopOfficialRef(ref string, access map[string]bool) string {
 	}
 }
 
-func userConfigPath() string {
+// IsPortable reports whether REASONIX_PORTABLE is set, which redirects all
+// reasonix data (config, sessions, cache, memory) to a .reasonix/ directory next
+// to the binary instead of the user config dir. USB/sync-drive friendly.
+func IsPortable() bool { return os.Getenv("REASONIX_PORTABLE") != "" }
+
+// reasonixDir returns the reasonix data root directory:
+//
+//	REASONIX_PORTABLE=1 → <binary_dir>/.reasonix
+//	otherwise            → os.UserConfigDir()/reasonix (> 1.11; e.g. ~/.config/reasonix)
+//
+// When neither resolves, returns "" — callers must handle the empty string.
+func reasonixDir() string {
+	if IsPortable() {
+		if exe, err := os.Executable(); err == nil {
+			return filepath.Join(filepath.Dir(exe), ".reasonix")
+		}
+	}
 	dir, err := os.UserConfigDir()
 	if err != nil {
 		return ""
 	}
-	return filepath.Join(dir, "reasonix", "config.toml")
+	return filepath.Join(dir, "reasonix")
+}
+
+func userConfigPath() string {
+	dir := reasonixDir()
+	if dir == "" {
+		return ""
+	}
+	return filepath.Join(dir, "config.toml")
 }
 
 // UserConfigPath is the user-global config file (~/.config/reasonix/config.toml),
@@ -1540,33 +1564,33 @@ func UserConfigPath() string { return userConfigPath() }
 // committed, and resolve from any working directory. "" when the user config dir
 // can't be resolved.
 func UserCredentialsPath() string {
-	dir, err := os.UserConfigDir()
-	if err != nil {
+	dir := reasonixDir()
+	if dir == "" {
 		return ""
 	}
-	return filepath.Join(dir, "reasonix", "credentials")
+	return filepath.Join(dir, "credentials")
 }
 
 // ArchiveDir is where compacted conversation history is archived for
 // traceability (one timestamped .jsonl per compaction). Empty if the user config
 // directory cannot be resolved, in which case archiving is skipped.
 func ArchiveDir() string {
-	dir, err := os.UserConfigDir()
-	if err != nil {
+	dir := reasonixDir()
+	if dir == "" {
 		return ""
 	}
-	return filepath.Join(dir, "reasonix", "archive")
+	return filepath.Join(dir, "archive")
 }
 
 // SessionDir is where chat sessions are persisted (one .jsonl per session).
 // Used by `reasonix chat --continue` / `--resume` to find the recent ones. Empty
 // if the user config dir can't be resolved — sessions then aren't saved.
 func SessionDir() string {
-	dir, err := os.UserConfigDir()
-	if err != nil {
+	dir := reasonixDir()
+	if dir == "" {
 		return ""
 	}
-	return filepath.Join(dir, "reasonix", "sessions")
+	return filepath.Join(dir, "sessions")
 }
 
 // CacheDir is the per-user cache root for derived/regenerable artefacts: MCP
@@ -1575,23 +1599,17 @@ func SessionDir() string {
 // shares one root the user can wipe in a single rm. Empty when the OS dir is
 // unavailable — callers must tolerate that (caching is best-effort).
 func CacheDir() string {
-	dir, err := os.UserConfigDir()
-	if err != nil {
+	dir := reasonixDir()
+	if dir == "" {
 		return ""
 	}
-	return filepath.Join(dir, "reasonix", "cache")
+	return filepath.Join(dir, "cache")
 }
 
 // MemoryUserDir returns the reasonix user config root (…/reasonix), under which
 // the user-global REASONIX.md and the per-project auto-memory store live. Empty
 // when the user config dir can't be resolved, which disables user-scoped memory.
-func MemoryUserDir() string {
-	dir, err := os.UserConfigDir()
-	if err != nil {
-		return ""
-	}
-	return filepath.Join(dir, "reasonix")
-}
+func MemoryUserDir() string { return reasonixDir() }
 
 // ConventionDirs are the parent directories scanned for agent assets (skills,
 // commands), in canonical-first order. .reasonix is ours; .agents / .agent /
@@ -1633,8 +1651,8 @@ func CommandDirsForRoot(root string) []string {
 	if home, err := os.UserHomeDir(); err == nil {
 		dirs = append(dirs, conventionSubdirsAsc(home, "commands")...)
 	}
-	if dir, err := os.UserConfigDir(); err == nil {
-		dirs = append(dirs, filepath.Join(dir, "reasonix", "commands")) // legacy XDG user dir
+	if dir := reasonixDir(); dir != "" {
+		dirs = append(dirs, filepath.Join(dir, "commands")) // legacy XDG user dir
 	}
 	dirs = append(dirs, conventionSubdirsAsc(root, "commands")...)
 	return dirs

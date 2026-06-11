@@ -8,15 +8,38 @@ branch.
 
 Our fork (`aliatx2017/reasonix-hermes`) adds:
 
-- **Discord bot gateway** (`bot/`) — slash commands + text triggers via discordgo
-- **MCP bridge server** (`pkg/mcpbridge/`) — 5 tools: run, doctor, plan, orchestrate, skills
-- **Hindsight memory server** (`pkg/memoryserver/`) — 3 tools: retain, recall, reflect
+- **Discord bot gateway** (`bot/`, `internal/bot/discord/`) — slash commands + /goal autonomous loop via discordgo
+- **MCP bridge server** (`pkg/mcpbridge/`) — 6 tools: run, doctor, plan, orchestrate, get_skill, get_skills
+- **Hindsight memory server** (`pkg/memoryserver/`) — 3 tools: retain, recall, reflect. SQLite + file backends, TTL/importance scoring
+- **Native Go hook runner** (`cmd/reasonix-hooks/`) — zero-dependency binary for pre/post/stop hooks
 - **Shared auth middleware** (`pkg/httputil/`) — Bearer token auth, consolidated from mcpbridge+memoryserver
-- **Skills hub** (`skills-hub/`) — 16 curated community skills with registry.json
+- **MCP utilities** (`pkg/mcputil/`) — shared MCP types and server helpers
+- **Skills hub** (`skills-hub/`) — 17 curated community skills with registry.json (incl. adversarial-review)
 - **Hardened hook scripts** (`scripts/`) — retain-hook.sh, reflect-hook.sh with dep checks, timeout, integration test
+- **Portable mode** — `REASONIX_PORTABLE=1` redirects all data to `<binary_dir>/.reasonix/`
 - **Ecosystem reference** (`reasonix-deepseek-ecosystem-2026.md`) — comprehensive survey
 - **Research findings** (`docs/RESEARCH-FINDINGS-JUNE-2026.md`) — June 2026 deep-web sweep
 - **Implementation plan** (`docs/HERMES-IMPLEMENTATION-PLAN.md`) — phased roadmap
+
+### Hermes v1.5.0-h2 (2026-06-11)
+
+**P2 — Multi-Agent & Ecosystem:**
+- **collab-cli integration**: Pre-configured MCP plugin in `reasonix.example.toml`
+- **Adversarial review skill**: `skills-hub/skills/adversarial-review.md` — BLOCK:/ALLOW: contract, 5 attack surfaces (17th skill in registry)
+- **VS Code extension**: Decided to fork `whishi47/deepseekcode-reasonix-vscode` as a separate repo
+
+**P3 — Advanced Features:**
+- **`get_skill` MCP tool**: 6th tool in `pkg/mcpbridge` — reads skill bodies from 3 directory sources, supports `<name>.md` and `<name>/SKILL.md` layouts
+- **Discord `/goal` command**: Autonomous goal loop via `BotGateway` — `/goal <obj>` sets + runs, `/goal status`, `/goal clear`. Inherits 50-turn cap + 3-repeat blocked-state audit from controller
+- **Native Go hook runner**: `cmd/reasonix-hooks/main.go` — zero-dependency binary replacing shell scripts. Retain/reflect actions, noise-tool filtering, JSON-RPC POSTs to memory server
+- **Memory: TTL + importance scoring**: 90-day default TTL, `Importance` field (0.5→+0.05/recall, 1%/day decay), `ExpiresAt` auto-computed, `Tidy()` purges expired, `Recall` skips expired + boosts importance + extends expiry
+- **Memory: SQLite backend**: `sqliteStorage` via `modernc.org/sqlite` (pure Go, no CGO). WAL journal mode, 3 indexes (session_id, expires_at, importance). `--backend sqlite` flag. Pluggable `Storage` interface
+- **PortaKit portability**: `REASONIX_PORTABLE=1` redirects all data (config, sessions, cache, memory, skills, commands) to `<binary_dir>/.reasonix/`. Added `IsPortable()` + `reasonixDir()` to config package. mcpbridge + memoryserver respect portable mode
+
+**Docs:**
+- `docs/HERMES-IMPLEMENTATION-PLAN.md` — P2/P3 statuses updated
+- `REASONIX.md` — Next Session TODOs cleared, key differentiators updated
+- `CHANGELOG.md` — this entry
 
 ### Hermes v1.5.0-h1 (2026-06-25)
 

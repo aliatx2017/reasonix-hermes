@@ -45,6 +45,7 @@ var slashCommands = map[string]bool{
 	"/deny":    true,
 	"/answer":  true,
 	"/status":  true,
+	"/goal":    true,
 	"/help":    true,
 }
 

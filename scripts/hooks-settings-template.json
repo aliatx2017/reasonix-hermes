@@ -1,9 +1,10 @@
 {
+  "_comment": "Drop this into .reasonix/settings.json to enable automatic session memory via reasonix-hooks (native Go binary). Install with: go build -o bin/reasonix-hooks ./cmd/reasonix-hooks",
   "hooks": {
     "PreToolUse": [
       {
         "match": "(?!read_file|write_file|edit_file|bash|search|glob).*",
-        "command": "bash scripts/retain-hook.sh",
+        "command": "bin/reasonix-hooks retain",
         "description": "Auto-retain meaningful tool context in Hindsight memory",
         "timeout": 3000
       }
@@ -11,14 +12,14 @@
     "PostToolUse": [
       {
         "match": "bash",
-        "command": "bash scripts/retain-hook.sh",
+        "command": "bin/reasonix-hooks retain",
         "description": "Retain bash command results in Hindsight memory",
         "timeout": 3000
       }
     ],
     "Stop": [
       {
-        "command": "bash scripts/reflect-hook.sh",
+        "command": "bin/reasonix-hooks reflect",
         "description": "Auto-reflect on session in Hindsight memory",
         "timeout": 5000
       }
