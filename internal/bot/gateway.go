@@ -41,6 +41,7 @@ type BotGateway struct {
 
 	mu             sync.Mutex
 	controllers    map[string]*sessionState // session key -> active state
+	modelPrefs     map[string]string        // session key -> model override (survives controller recreation)
 	allowlist      map[Platform]map[string]bool
 	groupAllowlist map[Platform]map[string]bool
 
@@ -89,6 +90,7 @@ func NewGateway(cfg GatewayConfig, adapters map[Platform]Adapter, logger *slog.L
 		adapters:       adapters,
 		sessions:       NewSessionManager(cfg.Debounce),
 		controllers:    make(map[string]*sessionState),
+		modelPrefs:     make(map[string]string),
 		allowlist:      make(map[Platform]map[string]bool),
 		groupAllowlist: make(map[Platform]map[string]bool),
 		logger:         logger.With("component", "bot_gateway"),
@@ -245,17 +247,29 @@ func (gw *BotGateway) handleSlashCommand(ctx context.Context, adapter Adapter, k
 	case strings.HasPrefix(msg.Text, "/new") || strings.HasPrefix(msg.Text, "/reset"):
 		gw.mu.Lock()
 		state, ok := gw.controllers[key]
-		gw.mu.Unlock()
+		hasModelPref := gw.modelPrefs[key] != ""
 		if ok {
 			if state.cancel != nil {
 				state.cancel()
 			}
-			if err := state.ctrl.NewSession(); err != nil {
-				gw.logger.Warn("new session failed", "err", err)
+			// If a model override is set, drop the old controller so the next
+			// turn creates a fresh one with the new model.
+			if hasModelPref {
+				delete(gw.controllers, key)
+			} else {
+				if err := state.ctrl.NewSession(); err != nil {
+					gw.logger.Warn("new session failed", "err", err)
+				}
 			}
 		}
+		gw.mu.Unlock()
 		gw.sessions.ForceRelease(key)
-		_ = gw.sendText(ctx, adapter, msg, "已开始新会话。")
+		if hasModelPref {
+			_ = gw.sendText(ctx, adapter, msg,
+				fmt.Sprintf("已开始新会话（模型: %s）", gw.modelPrefs[key]))
+		} else {
+			_ = gw.sendText(ctx, adapter, msg, "已开始新会话。")
+		}
 
 	case strings.HasPrefix(msg.Text, "/approve"):
 		// 从消息中解析 approval ID
@@ -317,6 +331,37 @@ func (gw *BotGateway) handleSlashCommand(ctx context.Context, adapter Adapter, k
 		gw.mu.Unlock()
 		_ = gw.sendText(ctx, adapter, msg, fmt.Sprintf("活跃任务数: %d\n保留会话数: %d", active, sessions))
 
+	case strings.HasPrefix(msg.Text, "/model"):
+		modelName := strings.TrimSpace(strings.TrimPrefix(msg.Text, "/model"))
+		// Model aliases for convenience
+		aliases := map[string]string{
+			"flash":    "deepseek-flash",
+			"pro":      "deepseek-pro",
+			"mimo":     "mimo-pro",
+			"deepseek": "deepseek-flash",
+		}
+		if resolved, ok := aliases[modelName]; ok {
+			modelName = resolved
+		}
+		// Show current model
+		if modelName == "" {
+			gw.mu.Lock()
+			current := gw.cfg.Model
+			if pref, ok := gw.modelPrefs[key]; ok {
+				current = pref
+			}
+			gw.mu.Unlock()
+			_ = gw.sendText(ctx, adapter, msg,
+				fmt.Sprintf("当前模型: %s\n可用: /model flash | pro | mimo\n切换后使用 /new 生效。", current))
+			return
+		}
+		// Store preference — takes effect on next /new (controller recreation)
+		gw.mu.Lock()
+		gw.modelPrefs[key] = modelName
+		gw.mu.Unlock()
+		_ = gw.sendText(ctx, adapter, msg,
+			fmt.Sprintf("模型已切换为 %s（下次 /new 后生效）", modelName))
+
 	case strings.HasPrefix(msg.Text, "/goal"):
 		goalText := strings.TrimSpace(strings.TrimPrefix(msg.Text, "/goal"))
 		// Show current goal status
@@ -367,6 +412,7 @@ func (gw *BotGateway) handleSlashCommand(ctx context.Context, adapter Adapter, k
 			"/stop - 停止当前任务\n" +
 			"/new - 开始新会话\n" +
 			"/reset - 重置会话\n" +
+			"/model [flash|pro|mimo] - 切换模型\n" +
 			"/goal <目标> - 开始自主目标追踪\n" +
 			"/goal status - 查看目标状态\n" +
 			"/goal clear - 清除目标\n" +
@@ -444,10 +490,18 @@ func (gw *BotGateway) getOrCreateSession(ctx context.Context, key string) *sessi
 	}
 	gw.mu.Unlock()
 
+	// Use per-session model preference if set, otherwise the gateway default.
+	model := gw.cfg.Model
+	gw.mu.Lock()
+	if pref, ok := gw.modelPrefs[key]; ok {
+		model = pref
+	}
+	gw.mu.Unlock()
+
 	// 创建新 Controller
 	sessionSink := &sessionEventSink{}
 	ctrl, err := boot.Build(ctx, boot.Options{
-		Model:         gw.cfg.Model,
+		Model:         model,
 		MaxSteps:      gw.cfg.MaxSteps,
 		RequireKey:    true,
 		Sink:          sessionSink,

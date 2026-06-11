@@ -29,6 +29,8 @@ Our fork (`aliatx2017/reasonix-hermes`) adds:
 - **VS Code extension**: Decided to fork `whishi47/deepseekcode-reasonix-vscode` as a separate repo
 
 **P3 — Advanced Features:**
+- **Multi-model Discord bot**: `/model flash|pro|mimo` command, per-session model preferences stored in `modelPrefs` map, `/new` recreates controller on model switch
+- **Vector memory backend**: Sparse TF-IDF cosine similarity search. `semantic=true` flag on `hindsight_recall`. Vectors auto-computed on retain, persisted in both JSON and SQLite backends
 - **`get_skill` MCP tool**: 6th tool in `pkg/mcpbridge` — reads skill bodies from 3 directory sources, supports `<name>.md` and `<name>/SKILL.md` layouts
 - **Discord `/goal` command**: Autonomous goal loop via `BotGateway` — `/goal <obj>` sets + runs, `/goal status`, `/goal clear`. Inherits 50-turn cap + 3-repeat blocked-state audit from controller
 - **Native Go hook runner**: `cmd/reasonix-hooks/main.go` — zero-dependency binary replacing shell scripts. Retain/reflect actions, noise-tool filtering, JSON-RPC POSTs to memory server
@@ -40,6 +42,7 @@ Our fork (`aliatx2017/reasonix-hermes`) adds:
 - `docs/HERMES-IMPLEMENTATION-PLAN.md` — P2/P3 statuses updated
 - `REASONIX.md` — Next Session TODOs cleared, key differentiators updated
 - `CHANGELOG.md` — this entry
+- `skills-hub/site/index.html` — static browseable skills catalog (GitHub Pages ready)
 
 ### Hermes v1.5.0-h1 (2026-06-25)
 

@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reasonix Hermes — Skills Hub</title>
+<style>
+:root {
+  --bg: #0d1117;
+  --surface: #161b22;
+  --border: #30363d;
+  --text: #c9d1d9;
+  --muted: #8b949e;
+  --accent: #58a6ff;
+  --green: #3fb950;
+  --orange: #d2991d;
+  --purple: #a371f7;
+  --red: #f85149;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6; }
+header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 2rem 1.5rem; text-align: center; }
+header h1 { font-size: 1.8rem; margin-bottom: 0.5rem; }
+header p { color: var(--muted); font-size: 0.95rem; }
+.container { max-width: 960px; margin: 0 auto; padding: 1.5rem; }
+.filters { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+.filter-btn { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 0.4rem 0.9rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem; transition: all 0.15s; }
+.filter-btn:hover { border-color: var(--accent); }
+.filter-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.stats { color: var(--muted); font-size: 0.85rem; margin-bottom: 1rem; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.2rem; margin-bottom: 0.75rem; transition: border-color 0.15s; }
+.card:hover { border-color: var(--accent); }
+.card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; margin-bottom: 0.5rem; }
+.card-name { font-size: 1.05rem; font-weight: 600; color: var(--accent); }
+.card-badges { display: flex; gap: 0.4rem; flex-shrink: 0; flex-wrap: wrap; }
+.badge { font-size: 0.72rem; padding: 0.15rem 0.5rem; border-radius: 4px; font-weight: 500; white-space: nowrap; }
+.badge-cat { background: rgba(88,166,255,0.12); color: var(--accent); }
+.badge-sub { background: rgba(163,113,247,0.12); color: var(--purple); }
+.badge-inline { background: rgba(63,185,80,0.12); color: var(--green); }
+.card-desc { color: var(--muted); font-size: 0.88rem; }
+.card-meta { margin-top: 0.5rem; font-size: 0.78rem; color: var(--muted); display: flex; gap: 1rem; }
+footer { text-align: center; padding: 2rem; color: var(--muted); font-size: 0.82rem; border-top: 1px solid var(--border); margin-top: 2rem; }
+footer a { color: var(--accent); text-decoration: none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🧠 Reasonix Hermes Skills Hub</h1>
+  <p>17 curated community skills for the Reasonix AI coding agent</p>
+</header>
+
+<div class="container">
+  <div class="stats" id="stats"></div>
+  <div class="filters" id="filters"></div>
+  <div id="cards"></div>
+</div>
+
+<footer>
+  <p>Part of <a href="https://github.com/aliatx2017/reasonix-hermes">aliatx2017/reasonix-hermes</a> — install via <code>scripts/install-skills.sh</code> or <code>reasonix install-source</code></p>
+</footer>
+
+<script>
+// Inlined from skills-hub/registry.json
+const REGISTRY = {
+  "skills": [
+    {"name":"adversarial-review","description":"Adversarial code review with structured BLOCK/ALLOW output and 5 attack surfaces. Ported from kquuen/reasonix-mcp-server review contract.","category":"security","runAs":"subagent","author":"reasonix-community"},
+    {"name":"api-design","description":"REST API design patterns: resource naming, status codes, pagination, filtering, error responses, versioning.","category":"architecture","runAs":"inline","author":"reasonix-community"},
+    {"name":"ci-cd-helper","description":"Generate and fix CI/CD pipeline configurations (GitHub Actions, GitLab CI, Jenkins).","category":"devops","runAs":"inline","author":"reasonix-community"},
+    {"name":"code-review","description":"Comprehensive code review covering correctness, security, performance, and style.","category":"quality","runAs":"subagent","author":"reasonix-community"},
+    {"name":"council","description":"Multi-agent discussion and decision-making pattern. Simulates a council of experts reviewing a proposal.","category":"collaboration","runAs":"subagent","author":"reasonix-community"},
+    {"name":"database-helper","description":"SQL query optimization, schema design review, migration generation, ORM patterns.","category":"database","runAs":"inline","author":"reasonix-community"},
+    {"name":"debugger","description":"Systematic debugging workflow: reproduce, isolate, fix, verify. Stack trace analysis and log correlation.","category":"debugging","runAs":"inline","author":"reasonix-community"},
+    {"name":"deep-research","description":"In-depth research on a topic using web search and codebase analysis. Produces a structured report with citations.","category":"research","runAs":"subagent","author":"reasonix-community"},
+    {"name":"documentation","description":"Generate or improve code documentation — docstrings, READMEs, API docs, architecture decision records.","category":"documentation","runAs":"inline","author":"reasonix-community"},
+    {"name":"explore","description":"Wide-net read-only codebase exploration in an isolated subagent. Returns distilled findings with file:line citations.","category":"exploration","runAs":"subagent","author":"reasonix-community"},
+    {"name":"frontend-builder","description":"Build React/Vue/Svelte components from specifications with accessibility and responsive design.","category":"frontend","runAs":"subagent","author":"reasonix-community"},
+    {"name":"git-commit","description":"Generate conventional commit messages from staged diffs. Follows conventional commits spec.","category":"git","runAs":"inline","author":"reasonix-community"},
+    {"name":"migration-assistant","description":"Assist with framework/library migrations: analyze breaking changes, update imports, adapt patterns.","category":"migration","runAs":"inline","author":"reasonix-community"},
+    {"name":"performance-profiler","description":"Identify performance bottlenecks, suggest optimizations, and measure impact with benchmarks.","category":"performance","runAs":"inline","author":"reasonix-community"},
+    {"name":"refactoring","description":"Systematic code refactoring with safety checks — extract methods, rename symbols, simplify conditionals.","category":"refactoring","runAs":"inline","author":"reasonix-community"},
+    {"name":"security-audit","description":"Security-focused code audit: injection, authz, secrets, deserialization, path-traversal, crypto.","category":"security","runAs":"subagent","author":"reasonix-community"},
+    {"name":"test-generator","description":"Generate unit tests for a given function or module with TDD patterns.","category":"testing","runAs":"subagent","author":"reasonix-community"}
+  ],
+  "categories": [
+    {"name":"all","label":"All"},
+    {"name":"architecture","label":"Architecture"},
+    {"name":"collaboration","label":"Collaboration"},
+    {"name":"database","label":"Database"},
+    {"name":"debugging","label":"Debugging"},
+    {"name":"devops","label":"DevOps/CI/CD"},
+    {"name":"documentation","label":"Documentation"},
+    {"name":"exploration","label":"Exploration"},
+    {"name":"frontend","label":"Frontend"},
+    {"name":"git","label":"Git"},
+    {"name":"migration","label":"Migration"},
+    {"name":"performance","label":"Performance"},
+    {"name":"quality","label":"Quality"},
+    {"name":"refactoring","label":"Refactoring"},
+    {"name":"research","label":"Research"},
+    {"name":"security","label":"Security"},
+    {"name":"testing","label":"Testing"}
+  ]
+};
+
+const CAT_LABELS = {};
+REGISTRY.categories.forEach(c => CAT_LABELS[c.name] = c.label);
+
+let activeCat = 'all';
+
+function render() {
+  const filtered = activeCat === 'all'
+    ? REGISTRY.skills
+    : REGISTRY.skills.filter(s => s.category === activeCat);
+
+  document.getElementById('stats').textContent = `Showing ${filtered.length} of ${REGISTRY.skills.length} skills`;
+
+  // Filters
+  const filtersEl = document.getElementById('filters');
+  filtersEl.innerHTML = REGISTRY.categories.map(c =>
+    `<button class="filter-btn${c.name === activeCat ? ' active' : ''}" data-cat="${c.name}">${c.label}</button>`
+  ).join('');
+
+  // Cards
+  document.getElementById('cards').innerHTML = filtered.map(s => `
+    <div class="card">
+      <div class="card-header">
+        <span class="card-name">${s.name}</span>
+        <div class="card-badges">
+          <span class="badge badge-cat">${CAT_LABELS[s.category] || s.category}</span>
+          <span class="badge ${s.runAs === 'subagent' ? 'badge-sub' : 'badge-inline'}">${s.runAs === 'subagent' ? '🧬 subagent' : '📋 inline'}</span>
+        </div>
+      </div>
+      <div class="card-desc">${s.description}</div>
+      <div class="card-meta"><span>by ${s.author}</span></div>
+    </div>
+  `).join('');
+}
+
+document.getElementById('filters').addEventListener('click', e => {
+  const btn = e.target.closest('.filter-btn');
+  if (!btn) return;
+  activeCat = btn.dataset.cat;
+  render();
+});
+
+render();
+</script>
+</body>
+</html>

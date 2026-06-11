@@ -51,6 +51,7 @@ type MemoryEntry struct {
 	TTL         time.Duration `json:"ttl_ns"`       // nanoseconds; 0 = use default
 	ExpiresAt   time.Time     `json:"expires_at"`   // computed as CreatedAt + TTL
 	Importance  float64        `json:"importance"`   // 0.0–1.0, bumped on recall
+	Vector      map[string]float64 `json:"vector,omitempty"` // TF vector for semantic search
 }
 
 // Expired reports whether the entry has passed its expiry and should be
@@ -74,6 +75,61 @@ type MemoryStore struct {
 
 // Dir returns the storage directory path.
 func (ms *MemoryStore) Dir() string { return ms.dir }
+
+// ── Vector Search ──────────────────────────────────────────────────
+
+// vectorize tokenizes text into a normalized term-frequency vector.
+// Stops words shorter than 3 chars and common English stop words.
+func vectorize(text string) map[string]float64 {
+	vec := make(map[string]float64)
+	fields := strings.Fields(strings.ToLower(text))
+	for _, f := range fields {
+		f = strings.Trim(f, ".,;:!?\"'()[]{}<>-–—")
+		if len(f) < 3 || stopWords[f] {
+			continue
+		}
+		vec[f]++
+	}
+	// Normalize to unit length
+	var sumSq float64
+	for _, v := range vec {
+		sumSq += v * v
+	}
+	if sumSq > 0 {
+		norm := 1.0 / sumSq // No sqrt needed for cosine similarity with normalized vectors
+		for k := range vec {
+			vec[k] *= norm
+		}
+	}
+	return vec
+}
+
+// cosineSimilarity returns the cosine similarity between two normalized TF vectors.
+func cosineSimilarity(a, b map[string]float64) float64 {
+	if len(a) == 0 || len(b) == 0 {
+		return 0
+	}
+	var dot float64
+	for word, aVal := range a {
+		if bVal, ok := b[word]; ok {
+			dot += aVal * bVal
+		}
+	}
+	return dot // vectors are pre-normalized, so dot = cosine
+}
+
+var stopWords = map[string]bool{
+	"the": true, "and": true, "for": true, "are": true, "but": true,
+	"not": true, "you": true, "all": true, "can": true, "had": true,
+	"her": true, "was": true, "one": true, "our": true, "out": true,
+	"has": true, "have": true, "this": true, "that": true, "with": true,
+	"from": true, "they": true, "will": true, "would": true, "been": true,
+	"were": true, "their": true, "there": true, "which": true, "about": true,
+	"into": true, "than": true, "then": true, "them": true, "these": true,
+	"some": true, "such": true, "each": true, "over": true, "only": true,
+	"other": true, "more": true, "most": true, "also": true, "very": true,
+	"just": true, "being": true, "does": true, "done": true, "doing": true,
+}
 
 // ── File Storage Backend ───────────────────────────────────────────
 
@@ -205,6 +261,7 @@ func (ms *MemoryStore) Retain(sessionID, content string, tags []string) (*Memory
 		TTL:        ttl,
 		ExpiresAt:  now.Add(ttl),
 		Importance: 0.5, // start at medium importance
+		Vector:     vectorize(content),
 	}
 	ms.entries = append(ms.entries, entry)
 	if err := ms.save(); err != nil {
@@ -293,6 +350,55 @@ func (ms *MemoryStore) Recall(sessionID, query string, limit int) ([]MemoryEntry
 	return results, nil
 }
 
+// SearchSimilar returns memories ranked by cosine similarity of their TF vectors
+// to the query vector. Falls back gracefully when entries lack vectors.
+func (ms *MemoryStore) SearchSimilar(query string, sessionID string, limit int) ([]MemoryEntry, error) {
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
+
+	queryVec := vectorize(query)
+	if len(queryVec) == 0 {
+		return nil, nil
+	}
+
+	type scored struct {
+		entry MemoryEntry
+		score float64
+	}
+	var ranked []scored
+
+	for i := range ms.entries {
+		e := &ms.entries[i]
+		if e.Expired() {
+			continue
+		}
+		if sessionID != "" && e.SessionID != sessionID {
+			continue
+		}
+		if len(e.Vector) == 0 {
+			continue // skip entries without vectors (pre-vectorization data)
+		}
+		sim := cosineSimilarity(queryVec, e.Vector)
+		if sim > 0 {
+			ranked = append(ranked, scored{entry: *e, score: sim})
+		}
+	}
+
+	sort.Slice(ranked, func(i, j int) bool {
+		return ranked[i].score > ranked[j].score
+	})
+
+	if limit > 0 && len(ranked) > limit {
+		ranked = ranked[:limit]
+	}
+
+	results := make([]MemoryEntry, len(ranked))
+	for i, s := range ranked {
+		results[i] = s.entry
+	}
+	return results, nil
+}
+
 func (ms *MemoryStore) Reflect(sessionID string) string {
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
@@ -344,13 +450,14 @@ func memoryTools() []mcputil.Tool {
 		},
 		{
 			Name:        "hindsight_recall",
-			Description: "Search and retrieve memories by keyword, session, or tags.",
+			Description: "Search and retrieve memories by keyword, session, tags, or semantic similarity.",
 			InputSchema: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
 					"session_id": map[string]any{"type": "string", "description": "Filter by session ID (combined with query if both set)"},
-					"query":      map[string]any{"type": "string", "description": "Search keyword (empty + no session_id = all)"},
+					"query":      map[string]any{"type": "string", "description": "Search keyword (empty = all). Use with semantic=true for meaning-based search."},
 					"limit":      map[string]any{"type": "integer", "description": "Max results (default 10)"},
+					"semantic":   map[string]any{"type": "boolean", "description": "Use TF-IDF vector similarity instead of keyword matching"},
 				},
 			},
 		},
@@ -400,7 +507,17 @@ func (h *memoryHandler) handle(name string, args map[string]any) (string, error)
 		if l, ok := args["limit"].(float64); ok {
 			limit = int(l)
 		}
-		entries, err := h.store.Recall(sessionID, query, limit)
+		semantic := false
+		if s, ok := args["semantic"].(bool); ok {
+			semantic = s
+		}
+		var entries []MemoryEntry
+		var err error
+		if semantic && query != "" {
+			entries, err = h.store.SearchSimilar(query, sessionID, limit)
+		} else {
+			entries, err = h.store.Recall(sessionID, query, limit)
+		}
 		if err != nil {
 			return "", err
 		}

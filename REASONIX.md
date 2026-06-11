@@ -43,8 +43,7 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 ## Next Session TODOs
 
-- **Vector memory backend** — embedding-based semantic search for `pkg/memoryserver/`
-- **Multi-model Discord bot** — per-channel/per-request model switching (`/model flash|pro|mimo`)
-- **Skills hub website** — GitHub Pages site at `aliatx2017.github.io/reasonix-hermes/`
-- **CI: e2e-bot workflow** — extend `.github/workflows/e2e-bot.yml` with Discord adapter integration tests
+- **Skills hub website** — deploy `skills-hub/site/index.html` to GitHub Pages at `aliatx2017.github.io/reasonix-hermes/`
+- **CI: e2e-bot Discord adapter** — extend `.github/workflows/e2e-bot.yml` with Discord smoke test (needs bot token)
 - **VS Code extension** — fork `whishi47/deepseekcode-reasonix-vscode` (separate repo, Hermes branding)
+- **roach-code multi-provider** — study `tmdgusya/roach-code` for MiniMax/GLM/Anthropic provider patterns
