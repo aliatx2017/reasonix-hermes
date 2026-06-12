@@ -265,7 +265,8 @@ type Outcome struct {
 type Report struct {
 	Event    Event
 	Outcomes []Outcome
-	Blocked  bool // at least one outcome blocked (only meaningful on gating events)
+	Blocked  bool     // at least one outcome blocked (only meaningful on gating events)
+	EnvVars  []string // KEY=VALUE env vars accumulated from passing hook stdout
 }
 
 // decideOutcome maps a spawn result to a verdict.
@@ -310,6 +311,110 @@ type Spawner func(ctx context.Context, in SpawnInput) SpawnResult
 // heap between spawn and timeout.
 const outputCapBytes = 256 * 1024
 
+// parseEnvVars scans stderr and stdout for KEY=VALUE lines. A line is a
+// candidate when it starts with a valid shell env-name (letter or underscore,
+// then alphanumeric/underscore) followed by '='. Everything after the first '='
+// is the value. This deliberately scans both streams so hook authors can emit
+// env vars to either fd without coordination. When the same key appears more
+// than once, the last value wins.
+func parseEnvVars(stderr, stdout string) []string {
+	var out []string
+	for _, stream := range []string{stderr, stdout} {
+		for _, line := range strings.Split(stream, "\n") {
+			line = strings.TrimSpace(line)
+			if line == "" {
+				continue
+			}
+			eq := strings.IndexByte(line, '=')
+			if eq <= 0 {
+				continue
+			}
+			key := strings.TrimSpace(line[:eq])
+			if !isEnvVarName(key) {
+				continue
+			}
+			vals := line[eq+1:]
+			kv := key + "=" + vals
+			// Remove any previous entry for this key (last-write-wins)
+			for i := range out {
+				if len(out[i]) > len(key) && out[i][len(key)] == '=' && out[i][:len(key)] == key {
+					out = append(out[:i], out[i+1:]...)
+					break
+				}
+			}
+			out = append(out, kv)
+		}
+	}
+	return out
+}
+
+// isEnvVarName reports whether name is a valid POSIX environment variable name:
+// starts with a letter or underscore, followed by alphanumeric or underscore.
+func isEnvVarName(name string) bool {
+	if name == "" {
+		return false
+	}
+	for i, c := range name {
+		if i == 0 {
+			if !((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || c == '_') {
+				return false
+			}
+		} else {
+			if !((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_') {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// contextKey is the unexported type for hook env vars in context.
+type contextKey struct{}
+
+// WithEnv returns a context with hook-provided env vars merged into any
+// previously stored ones (later values override earlier on key collision).
+func WithEnv(ctx context.Context, envVars []string) context.Context {
+	existing := EnvVarsFrom(ctx)
+	merged := mergeEnvVars(existing, envVars)
+	return context.WithValue(ctx, contextKey{}, merged)
+}
+
+// EnvVarsFrom returns hook-env vars stored in ctx, or nil.
+func EnvVarsFrom(ctx context.Context) []string {
+	if v, ok := ctx.Value(contextKey{}).([]string); ok {
+		return v
+	}
+	return nil
+}
+
+// mergeEnvVars merges two []string env var slices; later keys override earlier.
+func mergeEnvVars(base, overrides []string) []string {
+	if len(overrides) == 0 {
+		return base
+	}
+	if len(base) == 0 {
+		out := make([]string, len(overrides))
+		copy(out, overrides)
+		return out
+	}
+	m := make(map[string]string, len(base)+len(overrides))
+	for _, kv := range base {
+		if eq := strings.IndexByte(kv, '='); eq > 0 {
+			m[kv[:eq]] = kv
+		}
+	}
+	for _, kv := range overrides {
+		if eq := strings.IndexByte(kv, '='); eq > 0 {
+			m[kv[:eq]] = kv
+		}
+	}
+	out := make([]string, 0, len(m))
+	for _, v := range m {
+		out = append(out, v)
+	}
+	return out
+}
+
 // Run executes the hooks matching payload.Event (and, for tool events, the tool
 // name), feeding each the JSON payload on stdin. It stops at the first block so
 // a gating hook can prevent later hooks running against a phantom success.
@@ -344,6 +449,9 @@ func Run(ctx context.Context, payload Payload, hooks []ResolvedHook, spawner Spa
 			Truncated: r.Truncated,
 			Duration:  time.Since(start),
 		})
+		if decision == DecisionPass {
+			report.EnvVars = append(report.EnvVars, parseEnvVars(r.Stderr, r.Stdout)...)
+		}
 		if decision == DecisionBlock {
 			report.Blocked = true
 			break

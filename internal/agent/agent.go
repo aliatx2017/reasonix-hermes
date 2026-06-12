@@ -14,6 +14,7 @@ import (
 	"reasonix/internal/diff"
 	"reasonix/internal/event"
 	"reasonix/internal/evidence"
+	"reasonix/internal/hook"
 	"reasonix/internal/instruction"
 	"reasonix/internal/jobs"
 	"reasonix/internal/memory"
@@ -27,6 +28,11 @@ import (
 // grep, while preventing one accidental "read this 5 MB log" from blowing the
 // window before the next compaction runs.
 const maxToolOutputBytes = 32 * 1024
+
+// workshopThreshold is the default byte size threshold above which tool results
+// are routed to a background synthesis sub-agent (the "workshop sidecar").
+// 0 or negative disables.
+const workshopThreshold = 12 * 1024 // 12 KB — roughly 3K tokens
 
 const maxFinalReadinessBlocks = 3
 const maxEmptyFinalBlocks = 3
@@ -111,7 +117,7 @@ type Gate interface {
 // user (it can't block). It is interface-shaped so the agent stays independent
 // of the hook package — a nil hooks field disables hook firing entirely.
 type ToolHooks interface {
-	PreToolUse(ctx context.Context, name string, args json.RawMessage) (block bool, message string)
+	PreToolUse(ctx context.Context, name string, args json.RawMessage) (block bool, message string, envVars []string)
 	PostToolUse(ctx context.Context, name string, args json.RawMessage, result string)
 	// PostLLMCall fires after each model turn completes (streaming finishes)
 	// but before reasoning_content is stored. It returns the (possibly
@@ -198,6 +204,16 @@ type Agent struct {
 	// run_in_background, task run_in_background, bash_output/kill_shell/wait) can
 	// reach it. nil leaves those tools to degrade gracefully.
 	jobs *jobs.Manager
+
+	// workshopThreshold is the byte size above which tool results are routed to
+	// the workshop callback before being fed to the model. 0 disables.
+	workshopThreshold int
+
+	// workshop, when non-nil, is called synchronously after a tool produces a
+	// result that exceeds workshopThreshold. It returns the (possibly reduced)
+	// text that replaces the raw result in the model's context. The callback
+	// can spawn a background synthesis sub-agent and return a pointer to it.
+	workshop func(ctx context.Context, toolName string, rawResult string) string
 
 	// steerQueue holds mid-turn user messages queued while the agent is
 	// running. Each is consumed once per loop iteration, persisted to the
@@ -439,6 +455,16 @@ type Options struct {
 	// Jobs is the session's background-job manager (nil disables background tools).
 	Jobs *jobs.Manager
 
+	// WorkshopThreshold is the byte size above which tool results are routed to a
+	// background synthesis sub-agent before being fed to the model. 0 disables.
+	WorkshopThreshold int
+
+	// Workshop is an optional workshop synthesis hook. When set and a tool result
+	// exceeds WorkshopThreshold, this callback runs synchronously in the tool
+	// dispatch goroutine; it receives the raw result string and returns the
+	// (possibly reduced) text that replaces it in the model's context. May be nil.
+	Workshop func(ctx context.Context, toolName string, rawResult string) (replacement string)
+
 	// ProjectChecks are host-observable structured checks extracted during boot.
 	ProjectChecks []instruction.VerifyCheck
 }
@@ -487,6 +513,8 @@ func New(prov provider.Provider, tools *tool.Registry, session *Session, opts Op
 		gate:              gate,
 		hooks:             hooks,
 		jobs:              opts.Jobs,
+		workshopThreshold: opts.WorkshopThreshold,
+		workshop:          opts.Workshop,
 		evidence:          evidence.NewLedger(),
 		projectChecks:     append([]instruction.VerifyCheck(nil), opts.ProjectChecks...),
 		contextWindow:     opts.ContextWindow,
@@ -1298,7 +1326,8 @@ func (a *Agent) executeOne(ctx context.Context, call provider.ToolCall) toolOutc
 	// PreToolUse hooks run after permission is granted but before the call: a
 	// gating hook (exit 2) refuses it, surfaced to the model like a gate denial.
 	if a.hooks != nil {
-		if block, msg := a.hooks.PreToolUse(ctx, call.Name, json.RawMessage(call.Arguments)); block {
+		block, msg, envVars := a.hooks.PreToolUse(ctx, call.Name, json.RawMessage(call.Arguments))
+		if block {
 			if msg == "" {
 				msg = "blocked by a PreToolUse hook"
 			}
@@ -1307,6 +1336,9 @@ func (a *Agent) executeOne(ctx context.Context, call provider.ToolCall) toolOutc
 				blocked: true,
 				errMsg:  "blocked by PreToolUse hook",
 			}
+		}
+		if len(envVars) > 0 {
+			ctx = hook.WithEnv(ctx, envVars)
 		}
 	}
 	// Checkpoint the file this writer is about to change, so the turn can be
@@ -1378,6 +1410,18 @@ func (a *Agent) executeOne(ctx context.Context, call provider.ToolCall) toolOutc
 	if a.hooks != nil && call.Name == "task" && !isBackgroundTaskCall(call.Arguments) {
 		a.hooks.SubagentStop(ctx, result)
 	}
+
+	// Workshop sidecar: when a tool result exceeds the threshold and a Workshop
+	// callback is wired, route the full output through the workshop for synthesis.
+	// The replacement (typically a summary + the raw-output subagent ref) replaces
+	// the result before truncation, so the model sees a compact version with a
+	// pointer to the full synthesis.
+	if a.workshopThreshold > 0 && len(result) > a.workshopThreshold && a.workshop != nil {
+		if replacement := a.workshop(ctx, call.Name, result); replacement != "" {
+			result = replacement
+		}
+	}
+
 	body, truncMsg := truncateToolOutput(result)
 	return toolOutcome{output: body, truncated: truncMsg != "", truncMsg: truncMsg}
 }

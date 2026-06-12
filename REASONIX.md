@@ -47,18 +47,32 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
   - Updated `docs/GUIDE.md` and `docs/GUIDE.zh-CN.md` with Hermes features
 
 - **Key differentiators**: Discord bot (real agent loop + /goal + /model), MCP bridge (6 tools), Hindsight memory (3 tools, SQLite + TTL/importance + vector search), 17-skill registry, native Go hooks, portable mode.
+- **CodeWhale features** (10/10 done, 2026-07-04): Shell env hooks, parallel sub-agent dispatch (task batch), completion sound (/sound), harness profiles (/profile), constitution system (.reasonix/constitution.json), workshop sidecar (>12KB output synthesis), hotbar (desktop keys 1-7), external sandbox (remote OpenSandbox API), Nix flake, Dockerfile.
+
+## Next session — ideas & follow-ups
+
+All 10 CodeWhale borrow candidates are done. Potential next directions:
+
+- [ ] **VS Code extension fork** — `whishi47/deepseekcode-reasonix-vscode` → separate `reasonix-hermes-vscode` repo (already decided, not yet executed)
+- [ ] **Multi-provider support** — MiniMax/GLM/Codex providers (roach-code patterns)
+- [ ] **Multi-model Discord bot** — `/model flash|pro|mimo` per-channel (config exists, needs wiring)
+- [ ] **Hotbar config** — make desktop key 1-7 bindings configurable via `[hotbar]` config section
+- [ ] **Remote sandbox e2e test** — test against a real OpenSandbox instance
+- [ ] **Nix flake vendorHash** — compute actual hash after first build for reproducibility
 
 ## Next session — CodeWhale borrow/integrate candidates
 
 Analysis of [CodeWhale](https://github.com/Hmbown/CodeWhale) (⭐38k, Rust, v0.8.58) surfaced these TODOs:
 
-- [ ] **Parallel sub-agent dispatch** — extend `agent/task.go` for concurrent independent tasks (currently sequential)
-- [ ] **Completion sound** — `/sound on|off` slash command with configurable bell/beep on turn complete
-- [ ] **Harness Profiles** — per-model prompt/context/tool posture profiles ("cache-heavy", "lean", etc.)
-- [ ] **Constitution system** — structured JSON project invariants layered on REASONIX.md memory
-- [ ] **Shell env hooks** — inject KEY=VALUE env vars from hook stdout (more flexible than static env)
-- [ ] **Workshop sidecar** — route large tool outputs (>4096 tokens) to synthesis sidecar for lean context
-- [ ] **Hotbar** — 1-8 sidebar key bindings for common actions (voice, session, mode, palette)
-- [ ] **External sandbox backend** — pluggable remote execution (OpenSandbox API) for CI/CD isolation
-- [ ] **Nix package** — add Nix flake support for reproducible builds
-- [ ] **Docker install** — official Docker image for CI/air-gapped deployments
+- [x] **Parallel sub-agent dispatch** — `task` tool `batch` array (1-8 concurrent background sub-agents)
+- [x] **Completion sound** — `/sound on|off` slash command + `NotificationsConfig.Sound` + `\a` bell
+- [x] **Harness Profiles** — `[profiles.<name>]` config bundles, `/profile <name>` switching
+- [x] **Constitution system** — `.reasonix/constitution.json` structured invariants → system prompt
+- [x] **Shell env hooks** — hook stdout `KEY=VALUE` → context → `bashCommandEnv` injection
+- [x] **Workshop sidecar** — tool results >12KB → background synthesis sub-agent
+- [x] **Hotbar** — desktop keys 1-7: palette, workspace, new, history, dock, sidebar, settings
+- [x] **External sandbox backend** — `sandbox.Mode = "remote"` → OpenSandbox API (HTTP POST)
+- [x] **Nix package** — `flake.nix` (6 packages + dev shell + apps)
+- [x] **Docker install** — multi-stage `Dockerfile` (golang:1.24 → distroless, 5 binaries)
+
+All 10 features implemented (2026-07-04 session).

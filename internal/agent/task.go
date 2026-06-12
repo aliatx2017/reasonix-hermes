@@ -139,9 +139,10 @@ func (t *TaskTool) Schema() json.RawMessage {
   "model":{"type":"string","description":"Optional model override for the sub-agent (a configured provider/model name)."},
   "effort":{"type":"string","description":"Optional reasoning effort for the sub-agent (e.g. high, max)."},
   "continue_from":{"type":"string","description":"Resume a prior subagent run in place: the subagent retains its context from the previous run; use in iterative loops (e.g. review -> fix -> review again) by passing only the 'sa_...' value from the prior result's 'Subagent reference: ...' line. Requires kind, system prompt, tools, model, effort, and workspace to match."},
-  "fork_from":{"type":"string","description":"Optional subagent transcript reference to copy into a new transcript before running this task. Mutually exclusive with continue_from."}
+  "fork_from":{"type":"string","description":"Optional subagent transcript reference to copy into a new transcript before running this task. Mutually exclusive with continue_from."},
+  "batch":{"type":"array","minItems":1,"maxItems":8,"description":"Spawn multiple independent sub-agents concurrently. Each runs as a background task; return a summary of all job IDs and refs. Mutually exclusive with prompt, continue_from, and fork_from.","items":{"type":"object","properties":{"prompt":{"type":"string","description":"What this sub-agent should accomplish."},"description":{"type":"string","description":"Short label for this sub-task (3-7 words)."},"max_steps":{"type":"integer","description":"Optional per-item step cap.","minimum":1}},"required":["prompt"]}}
 },
-"required":["prompt"]
+"required":[]
 }`)
 }
 
@@ -189,12 +190,29 @@ func (t *TaskTool) Execute(ctx context.Context, args json.RawMessage) (string, e
 		Effort          string   `json:"effort"`
 		ContinueFrom    string   `json:"continue_from"`
 		ForkFrom        string   `json:"fork_from"`
+		Batch           []struct {
+			Prompt      string `json:"prompt"`
+			Description string `json:"description"`
+			MaxSteps    int    `json:"max_steps"`
+		} `json:"batch"`
 	}
 	if err := json.Unmarshal(args, &p); err != nil {
 		return "", fmt.Errorf("invalid args: %w", err)
 	}
+
+	// Batch path: spawn concurrent independent background sub-agents.
+	if len(p.Batch) > 0 {
+		if p.Prompt != "" {
+			return "", fmt.Errorf("batch and prompt are mutually exclusive")
+		}
+		if p.ContinueFrom != "" || p.ForkFrom != "" {
+			return "", fmt.Errorf("batch and continue_from/fork_from are mutually exclusive")
+		}
+		return t.executeBatch(ctx, p.Batch, p.Tools, p.Model, p.Effort)
+	}
+
 	if p.Prompt == "" {
-		return "", fmt.Errorf("prompt is required")
+		return "", fmt.Errorf("prompt is required (or use batch for parallel dispatch)")
 	}
 
 	maxSteps := p.MaxSteps
@@ -454,6 +472,103 @@ func FormatSubagentResult(answer, ref string, failed bool) string {
 		return "Subagent reference (failed): " + ref + "\n\nFinal answer:\n" + answer
 	}
 	return "Subagent reference: " + ref + "\n\nFinal answer:\n" + answer
+}
+
+// batchItem is one spec from a task batch call.
+type batchItem struct {
+	Prompt      string
+	Description string
+	MaxSteps    int
+}
+
+// executeBatch spawns multiple concurrent background sub-agents from a single
+// task call and returns a summary of job IDs and refs. Each sub-agent runs as a
+// background job so they progress in parallel across turns; the parent collects
+// results with wait. The caller's tool scope and model/effort profile apply to
+// every member.
+func (t *TaskTool) executeBatch(ctx context.Context, items []struct {
+	Prompt      string `json:"prompt"`
+	Description string `json:"description"`
+	MaxSteps    int    `json:"max_steps"`
+}, tools []string, model, effort string) (string, error) {
+	jm, ok := jobs.FromContext(ctx)
+	if !ok {
+		return "", fmt.Errorf("background execution is not available in this context")
+	}
+
+	parentID, parent, _, _ := CallContext(ctx)
+	nested := subSinkFor(parentID, parent)
+
+	subReg := t.buildSubReg(tools)
+	modelRef, effortRef := t.effectiveProfile(model, effort)
+	prov, pricing, ctxWin, err := t.resolveSubSessionRuntime(modelRef, effortRef)
+	if err != nil {
+		return "", fmt.Errorf("batch sub-agent profile: %w", err)
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "Started %d parallel background tasks:\n\n", len(items))
+
+	for i, item := range items {
+		prompt := strings.TrimSpace(item.Prompt)
+		if prompt == "" {
+			return "", fmt.Errorf("batch item %d: prompt is required", i+1)
+		}
+		label := strings.TrimSpace(item.Description)
+		if label == "" {
+			label = fmt.Sprintf("batch-%d", i+1)
+		}
+
+		maxSteps := item.MaxSteps
+		if maxSteps <= 0 {
+			if t.maxSteps > 0 {
+				maxSteps = t.maxSteps / 2
+				if maxSteps < 5 {
+					maxSteps = 5
+				}
+			}
+		}
+
+		run, prepErr := t.prepareTranscriptRun(subReg, modelRef, effortRef, ParentSession(ctx), parentID, "", "")
+		if prepErr != nil {
+			fmt.Fprintf(&b, "- %q: prep failed: %v\n", label, prepErr)
+			continue
+		}
+		if t.transcripts != nil && run != nil && run.Ref != "" {
+			if err := t.transcripts.MarkRunning(run); err != nil {
+				run.Release()
+				fmt.Fprintf(&b, "- %q: mark-running failed: %v\n", label, err)
+				continue
+			}
+		}
+
+		// Capture per-iteration locals for the closure.
+		itemPrompt := prompt
+		itemLabel := label
+		itemMaxSteps := maxSteps
+		itemRun := run
+
+		job := jm.Start("task", itemLabel, func(jobCtx context.Context, _ io.Writer) (string, error) {
+			defer itemRun.Release()
+			answer, err := t.runSubSession(jobCtx, itemPrompt, subReg, nested, itemMaxSteps, prov, pricing, ctxWin, itemRun.Session)
+			if err != nil {
+				return FormatSubagentResult("", itemRun.Ref, true), errors.Join(err, t.transcripts.SaveFailed(itemRun))
+			}
+			if err := t.transcripts.SaveCompleted(itemRun); err != nil {
+				return FormatSubagentResult("", itemRun.Ref, true), errors.Join(err, t.transcripts.SaveFailed(itemRun))
+			}
+			return FormatSubagentResult(answer, itemRun.Ref, false), nil
+		})
+
+		if itemRun != nil && itemRun.Ref != "" {
+			fmt.Fprintf(&b, "- %q (job %q, subagent: %s)\n", itemLabel, job.ID, itemRun.Ref)
+		} else {
+			fmt.Fprintf(&b, "- %q (job %q)\n", itemLabel, job.ID)
+		}
+	}
+
+	fmt.Fprintf(&b, "\nAll tasks run concurrently across turns. Collect results with wait — it returns each job's final answer when done, or you'll be notified as they finish.")
+	return b.String(), nil
 }
 
 // RunSubAgentWithSession continues an existing sub-agent session with prompt and

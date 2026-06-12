@@ -43,9 +43,9 @@ func TestNewRunnerWithHooks(t *testing.T) {
 
 func TestRunnerPreToolUseNoHooks(t *testing.T) {
 	r := NewRunner(nil, "/tmp", nil, nil)
-	block, msg := r.PreToolUse(context.Background(), "bash", nil)
-	if block || msg != "" {
-		t.Errorf("no hooks should pass: block=%v msg=%q", block, msg)
+	block, msg, envVars := r.PreToolUse(context.Background(), "bash", nil)
+	if block || msg != "" || len(envVars) != 0 {
+		t.Errorf("no hooks should pass: block=%v msg=%q envVars=%v", block, msg, envVars)
 	}
 }
 
@@ -54,12 +54,15 @@ func TestRunnerPreToolUsePass(t *testing.T) {
 		{HookConfig: HookConfig{Command: "allow"}, Event: PreToolUse},
 	}
 	spawner := func(_ context.Context, in SpawnInput) SpawnResult {
-		return SpawnResult{ExitCode: 0}
+		return SpawnResult{ExitCode: 0, Stdout: "FOO=bar\n"}
 	}
 	r := NewRunner(hooks, "/tmp", spawner, nil)
-	block, msg := r.PreToolUse(context.Background(), "bash", nil)
+	block, msg, envVars := r.PreToolUse(context.Background(), "bash", nil)
 	if block {
 		t.Errorf("exit 0 should not block: msg=%q", msg)
+	}
+	if len(envVars) == 0 {
+		t.Error("expected env vars from hook stdout")
 	}
 }
 
@@ -73,7 +76,7 @@ func TestRunnerPreToolUseBlock(t *testing.T) {
 	var notified string
 	notify := func(msg string) { notified = msg }
 	r := NewRunner(hooks, "/tmp", spawner, notify)
-	block, msg := r.PreToolUse(context.Background(), "bash", nil)
+	block, msg, envVars := r.PreToolUse(context.Background(), "bash", nil)
 	if !block {
 		t.Error("exit 2 on PreToolUse should block")
 	}
@@ -82,6 +85,9 @@ func TestRunnerPreToolUseBlock(t *testing.T) {
 	}
 	if notified == "" {
 		t.Error("notify should have been called")
+	}
+	if len(envVars) > 0 {
+		t.Error("blocked hook should not produce env vars")
 	}
 }
 

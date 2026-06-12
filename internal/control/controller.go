@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -426,6 +427,7 @@ func (c *Controller) runGuarded(body func(ctx context.Context) error) {
 		c.cancel = nil
 		c.mu.Unlock()
 		c.sink.Emit(event.Event{Kind: event.TurnDone, Err: explainError(err)})
+		c.beep()
 	}()
 }
 
@@ -2836,4 +2838,135 @@ func (c *Controller) emitRememberResult(r RememberResult) {
 	case strings.TrimSpace(r.CoveredBy) != "":
 		c.sink.Emit(event.Event{Kind: event.Notice, Level: event.LevelInfo, Text: fmt.Sprintf(i18n.M.PermissionAlreadyAllowedFmt, r.Path, r.CoveredBy)})
 	}
+}
+
+// ToggleSound turns the completion-sound setting on or off and persists the change
+// to the user config file. Returns true on success (setting changed and saved).
+func (c *Controller) ToggleSound(on bool) bool {
+	cfg, err := config.Load()
+	if err != nil {
+		c.notice("sound: " + err.Error())
+		return false
+	}
+	cfg.Notifications.Sound = on
+	if err := cfg.Save(); err != nil {
+		c.notice("sound: save failed: " + err.Error())
+		return false
+	}
+	if on {
+		c.notice("completion sound on — bell chimes when each turn finishes")
+	} else {
+		c.notice("completion sound off")
+	}
+	return true
+}
+
+// beep writes an ASCII bell character to stdout when the completion-sound config
+// flag is enabled. Called after each turn completes.
+func (c *Controller) beep() {
+	cfg, err := config.Load()
+	if err != nil {
+		return
+	}
+	if cfg.Notifications.Sound {
+		fmt.Print("\a")
+	}
+}
+
+// profileListText returns a formatted listing of configured harness profiles.
+func (c *Controller) profileListText() string {
+	cfg, err := config.Load()
+	if err != nil {
+		return "profile: " + err.Error()
+	}
+	if len(cfg.Profiles) == 0 {
+		return "no harness profiles configured. Add [profiles.<name>] blocks to reasonix.toml or ~/.config/reasonix/config.toml."
+	}
+	var b strings.Builder
+	active := cfg.ActiveProfile
+	fmt.Fprintf(&b, "Harness profiles%s:\n", "")
+	for name, p := range cfg.Profiles {
+		mark := " "
+		if name == active {
+			mark = "*"
+		}
+		desc := p.Description
+		if desc == "" {
+			desc = p.Model
+		}
+		if desc == "" {
+			desc = "(no description)"
+		}
+		fmt.Fprintf(&b, " %s %s — %s\n", mark, name, desc)
+	}
+	b.WriteString("switch with /profile <name>")
+	return b.String()
+}
+
+// ApplyProfile activates a named harness profile and persists the choice.
+// Settings from the profile (model, effort, tool-approval-mode, auto-plan,
+// output-style) are applied immediately. Pass "" to deactivate.
+func (c *Controller) ApplyProfile(name string) error {
+	cfg, err := config.Load()
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+	name = strings.TrimSpace(name)
+
+	if name != "" {
+		p, ok := cfg.Profiles[name]
+		if !ok {
+			return fmt.Errorf("unknown profile %q; available: %s", name, profileNames(cfg.Profiles))
+		}
+		// Apply profile settings to the live session.
+		if p.Model != "" {
+			cfg.ActiveProfile = name
+			cfg.DefaultModel = p.Model
+		}
+		if p.Effort != "" {
+			cfg.Agent.PlannerModel = "" // profile overrides planner too
+		}
+		if p.ToolApproveMode != "" {
+			c.SetToolApprovalMode(p.ToolApproveMode)
+		}
+		if p.AutoPlan != "" {
+			c.SetAutoPlan(p.AutoPlan)
+		}
+		if p.OutputStyle != "" {
+			cfg.Agent.OutputStyle = p.OutputStyle
+		}
+		cfg.ActiveProfile = name
+	} else {
+		cfg.ActiveProfile = ""
+	}
+
+	if err := cfg.Save(); err != nil {
+		return fmt.Errorf("save config: %w", err)
+	}
+	if name != "" {
+		c.notice("profile: switched to " + name + " — model: " + cfg.DefaultModel +
+			", approve: " + c.ToolApprovalMode() +
+			", auto-plan: " + c.PlanModeStr())
+	} else {
+		c.notice("profile: deactivated (using default settings)")
+	}
+	return nil
+}
+
+// PlanModeStr returns "on" or "off" for display.
+func (c *Controller) PlanModeStr() string {
+	if c.PlanMode() {
+		return "on"
+	}
+	return "off"
+}
+
+// profileNames returns a sorted, comma-joined string of profile names.
+func profileNames(profiles map[string]config.ProfileConfig) string {
+	names := make([]string, 0, len(profiles))
+	for n := range profiles {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+	return strings.Join(names, ", ")
 }

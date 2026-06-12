@@ -5,7 +5,9 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
+	"reasonix/internal/jobs"
 	"reasonix/internal/provider"
 	"reasonix/internal/tool"
 )
@@ -332,4 +334,81 @@ func newTestTaskTool(t *testing.T, prov provider.Provider, reg *tool.Registry, s
 	t.Helper()
 	return NewTaskTool(prov, nil, reg, 20, 0, 0, 0, 0, 0.0, "", sysPrompt, nil, subagentModel, subagentEffort, resolve).
 		WithTranscripts(NewSubagentStore(t.TempDir()), t.TempDir(), "base-model", "base-effort")
+}
+
+// TestTaskToolBatchDispatch verifies that batch mode spawns multiple background
+// tasks and returns a summary with job IDs.
+func TestTaskToolBatchDispatch(t *testing.T) {
+	sub := &mockProvider{name: "sub", chunks: []provider.Chunk{
+		{Type: provider.ChunkText, Text: "answer"},
+		{Type: provider.ChunkDone},
+	}}
+	task := newTestTaskTool(t, sub, tool.NewRegistry(), "sys", "", "", nil)
+
+	jm := jobs.NewManager(nil)
+	ctx := jobs.WithManager(testTaskContext(), jm)
+
+	out, err := task.Execute(ctx, []byte(`{"batch":[{"prompt":"task A","description":"alpha"},{"prompt":"task B","description":"beta"}]}`))
+	if err != nil {
+		t.Fatalf("Execute batch: %v", err)
+	}
+	if !strings.Contains(out, "Started 2 parallel background tasks") {
+		t.Errorf("expected batch summary, got: %s", out)
+	}
+	if !strings.Contains(out, `"alpha"`) || !strings.Contains(out, `"beta"`) {
+		t.Errorf("expected both task labels in output, got: %s", out)
+	}
+
+	// Wait for background jobs to finish so the temp dir can be cleaned up.
+	_, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	jm.Close()
+}
+
+// TestTaskToolBatchRejectsPromptWithBatch verifies mutual exclusion.
+func TestTaskToolBatchRejectsPromptWithBatch(t *testing.T) {
+	sub := &mockProvider{name: "sub", chunks: []provider.Chunk{
+		{Type: provider.ChunkText, Text: "answer"},
+		{Type: provider.ChunkDone},
+	}}
+	task := newTestTaskTool(t, sub, tool.NewRegistry(), "sys", "", "", nil)
+
+	jm := jobs.NewManager(nil)
+	ctx := jobs.WithManager(testTaskContext(), jm)
+
+	_, err := task.Execute(ctx, []byte(`{"prompt":"x","batch":[{"prompt":"y"}]}`))
+	if err == nil || !strings.Contains(err.Error(), "mutually exclusive") {
+		t.Fatalf("expected mutual exclusion error, got: %v", err)
+	}
+}
+
+// TestTaskToolBatchRejectsEmptyPrompt verifies batch items require prompt.
+func TestTaskToolBatchRejectsEmptyPrompt(t *testing.T) {
+	sub := &mockProvider{name: "sub", chunks: []provider.Chunk{
+		{Type: provider.ChunkText, Text: "answer"},
+		{Type: provider.ChunkDone},
+	}}
+	task := newTestTaskTool(t, sub, tool.NewRegistry(), "sys", "", "", nil)
+
+	jm := jobs.NewManager(nil)
+	ctx := jobs.WithManager(testTaskContext(), jm)
+
+	_, err := task.Execute(ctx, []byte(`{"batch":[{"prompt":" "}]}`))
+	if err == nil || !strings.Contains(err.Error(), "prompt is required") {
+		t.Fatalf("expected prompt-required error, got: %v", err)
+	}
+}
+
+// TestTaskToolBatchRequiresJobsContext verifies batch fails without jobs manager.
+func TestTaskToolBatchRequiresJobsContext(t *testing.T) {
+	sub := &mockProvider{name: "sub", chunks: []provider.Chunk{
+		{Type: provider.ChunkText, Text: "answer"},
+		{Type: provider.ChunkDone},
+	}}
+	task := newTestTaskTool(t, sub, tool.NewRegistry(), "sys", "", "", nil)
+
+	_, err := task.Execute(testTaskContext(), []byte(`{"batch":[{"prompt":"x"}]}`))
+	if err == nil || !strings.Contains(err.Error(), "background execution is not available") {
+		t.Fatalf("expected jobs-context error, got: %v", err)
+	}
 }

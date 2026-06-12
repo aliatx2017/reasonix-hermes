@@ -54,6 +54,7 @@ reasonix/
     ├── codegraph/           # semantic code index
     ├── command/             # custom slash commands (.reasonix/commands/*.md)
     ├── config/              # TOML loading (flag > project > user > defaults)
+    ├── constitution/        # structured project invariants (.reasonix/constitution.json)
     ├── control/             # transport-agnostic Controller
     ├── diff/                # unified diff generation
     ├── doctor/              # system diagnostics

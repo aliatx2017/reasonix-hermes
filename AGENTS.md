@@ -63,10 +63,11 @@ cd desktop && wails dev
 
 ```
 cmd/reasonix/          CLI entry point (delegates to internal/cli/)
-internal/              Upstream Reasonix engine (39 packages)
+internal/              Upstream Reasonix engine (40+ packages)
   agent/               Core agent loop, compaction, subagents
   checkpoint/          File-snapshot undo system
   config/              TOML config loader + model fallback
+  constitution/        Structured project invariants (.reasonix/constitution.json)
   permission/          Tool-call permission gating
   skill/               Built-in skills registry
   tool/                Built-in tools (bash, read, write, edit, etc.)
@@ -119,6 +120,10 @@ skills-hub/            17-skill community registry + static catalog site
 - Discord bot uses `github.com/bwmarrin/discordgo` (added to go.mod)
 - Discord bot must use `control.Controller` like every other frontend — not inline chat history
 - **Tests**: 228 tests across 7 packages. `go test ./cmd/... ./pkg/... ./internal/bot/...`
+- **CodeWhale features** (10/10 done, 2026-07-04): Shell env hooks, parallel sub-agent batch dispatch, completion sound, harness profiles, constitution system, workshop sidecar, desktop hotbar, external sandbox, Nix flake, Dockerfile.
+- **New packages**: `internal/constitution/` (structured project invariants from `.reasonix/constitution.json`)
+- **New files**: `flake.nix`, `Dockerfile`, `.dockerignore`, `internal/sandbox/remote.go`
+- **Config additions**: `[notifications].sound`, `active_profile`, `[profiles.<name>]` blocks, `[sandbox].remote_sandbox_url`, `[sandbox].remote_sandbox_token`
 
 ## roach-code Multi-Provider Research
 

@@ -19,7 +19,8 @@ import (
 // Spec describes how to confine one command. The zero value (Mode == "") does
 // not enforce, so an unconfigured caller runs commands unchanged.
 type Spec struct {
-	// Mode is "enforce" to wrap the command, anything else (incl. "off" and "")
+	// Mode is "enforce" to wrap the command, "remote" to send to a remote
+	// sandbox API (e.g. OpenSandbox), anything else (incl. "off" and "")
 	// to run it unwrapped.
 	Mode string
 	// WriteRoots are directories the command may write to (the workspace root
@@ -30,10 +31,31 @@ type Spec struct {
 	// command cannot exfiltrate or fetch; many dev commands (module/package
 	// downloads) need it, so it defaults on at the config layer.
 	Network bool
+	// RemoteURL is the API endpoint for a remote sandbox backend (OpenSandbox).
+	// Only used when Mode == "remote".
+	RemoteURL string
+	// RemoteToken is the bearer auth token for the remote sandbox API.
+	RemoteToken string
 }
 
-// enforce reports whether the spec asks for confinement.
+// enforce reports whether the spec asks for local confinement.
 func (s Spec) enforce() bool { return s.Mode == "enforce" }
+
+// remote reports whether the spec asks for remote execution.
+func (s Spec) remote() bool { return s.Mode == "remote" }
+
+// Run executes a shell command through the sandbox backend specified by the Spec.
+// When Mode is "remote", the command is sent to the remote sandbox API and the
+// combined output (stdout+stderr) is returned. For local backends ("enforce" or
+// off), Run returns ("", false, nil) — the caller executes the command via the
+// argv returned by Command() as usual.
+func Run(spec Spec, command string) (output string, handled bool, err error) {
+	if spec.remote() {
+		output, err := commandRemote(spec, command)
+		return output, true, err
+	}
+	return "", false, nil
+}
 
 // writeAllowDirs is the deduplicated, symlink-resolved set of directories the
 // sandbox permits writes to: the caller's roots plus temp dirs, /dev, and the

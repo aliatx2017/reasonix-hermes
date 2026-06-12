@@ -57,12 +57,15 @@ func (r *Runner) HasPostLLMCall() bool { return r.Has(PostLLMCall) }
 
 // PreToolUse fires before a tool call. block=true means the call must be
 // refused; message is the reason (fed back to the model and shown to the user).
-func (r *Runner) PreToolUse(ctx context.Context, name string, args json.RawMessage) (block bool, message string) {
+// envVars accumulates KEY=VALUE lines from passing hooks' stdout, for injection
+// into the tool's environment.
+func (r *Runner) PreToolUse(ctx context.Context, name string, args json.RawMessage) (block bool, message string, envVars []string) {
 	if !r.Enabled() {
-		return false, ""
+		return false, "", nil
 	}
 	rep := Run(ctx, Payload{Event: PreToolUse, Cwd: r.cwd, ToolName: name, ToolArgs: args}, r.hooks, r.spawner)
-	return r.handle(rep)
+	block, msg := r.handle(rep)
+	return block, msg, rep.EnvVars
 }
 
 // PostToolUse fires after a tool call. It can't block; non-pass outcomes are

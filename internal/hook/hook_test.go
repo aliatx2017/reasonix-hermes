@@ -203,3 +203,139 @@ func TestDefaultSpawnerOutputCap(t *testing.T) {
 		t.Errorf("captured output %d exceeds cap %d", len(r.Stdout), outputCapBytes)
 	}
 }
+
+// --- parseEnvVars ---
+
+func TestParseEnvVarsValid(t *testing.T) {
+	vars := parseEnvVars("", "FOO=bar\nHELLO=world\n")
+	if len(vars) != 2 {
+		t.Fatalf("expected 2 vars, got %d: %v", len(vars), vars)
+	}
+	if vars[0] != "FOO=bar" || vars[1] != "HELLO=world" {
+		t.Errorf("bad vars: %v", vars)
+	}
+}
+
+func TestParseEnvVarsFromStderr(t *testing.T) {
+	vars := parseEnvVars("TOKEN=abc123\n", "")
+	if len(vars) != 1 {
+		t.Fatalf("expected 1 var from stderr, got %d", len(vars))
+	}
+	if vars[0] != "TOKEN=abc123" {
+		t.Errorf("bad var: %q", vars[0])
+	}
+}
+
+func TestParseEnvVarsBothStreams(t *testing.T) {
+	vars := parseEnvVars("A=1\n", "B=2\n")
+	if len(vars) != 2 {
+		t.Fatalf("expected 2 vars from both streams, got %d", len(vars))
+	}
+}
+
+func TestParseEnvVarsDedup(t *testing.T) {
+	// Same KV pair appears twice → deduplicated
+	vars := parseEnvVars("", "A=1\nA=1\n")
+	if len(vars) != 1 {
+		t.Fatalf("expected dedup to 1 var, got %d: %v", len(vars), vars)
+	}
+	if vars[0] != "A=1" {
+		t.Errorf("expected A=1, got %q", vars[0])
+	}
+}
+
+func TestParseEnvVarsKeyOverrideSameStream(t *testing.T) {
+	// Same key with different values → last wins
+	vars := parseEnvVars("", "A=1\nA=2\n")
+	if len(vars) != 1 {
+		t.Fatalf("expected 1 var after key override, got %d: %v", len(vars), vars)
+	}
+	if !containsEnvVar(vars, "A=2") {
+		t.Errorf("expected A=2 (last wins), got %v", vars)
+	}
+}
+
+func TestParseEnvVarsSkipsInvalidNames(t *testing.T) {
+	vars := parseEnvVars("", "1BAD=no\n_FINE=yes\n=empty_key\nno_equals\n")
+	if len(vars) != 1 {
+		t.Fatalf("expected 1 valid var, got %d: %v", len(vars), vars)
+	}
+	if vars[0] != "_FINE=yes" {
+		t.Errorf("expected _FINE=yes, got %q", vars[0])
+	}
+}
+
+func TestParseEnvVarsEmptyStreams(t *testing.T) {
+	vars := parseEnvVars("", "")
+	if len(vars) != 0 {
+		t.Errorf("expected 0 vars, got %d", len(vars))
+	}
+}
+
+func TestParseEnvVarsWhitespaceTrim(t *testing.T) {
+	vars := parseEnvVars("", "  KEY = value  \n")
+	if len(vars) != 1 {
+		t.Fatalf("expected 1 var, got %d", len(vars))
+	}
+	if vars[0] != "KEY= value" {
+		t.Errorf("value should include inner spaces, got %q", vars[0])
+	}
+}
+
+func TestParseEnvVarsValueWithEquals(t *testing.T) {
+	vars := parseEnvVars("", "FOO=bar=baz\n")
+	if len(vars) != 1 {
+		t.Fatalf("expected 1 var, got %d", len(vars))
+	}
+	if vars[0] != "FOO=bar=baz" {
+		t.Errorf("expected FOO=bar=baz, got %q", vars[0])
+	}
+}
+
+// --- Context helpers ---
+
+func TestWithEnvEmpty(t *testing.T) {
+	ctx := context.Background()
+	vars := EnvVarsFrom(ctx)
+	if len(vars) != 0 {
+		t.Errorf("empty context should have no vars, got %v", vars)
+	}
+}
+
+func TestWithEnvRoundtrip(t *testing.T) {
+	ctx := WithEnv(context.Background(), []string{"A=1", "B=2"})
+	vars := EnvVarsFrom(ctx)
+	if len(vars) != 2 {
+		t.Errorf("expected 2 vars, got %d", len(vars))
+	}
+}
+
+func TestWithEnvMerge(t *testing.T) {
+	ctx := WithEnv(context.Background(), []string{"A=1"})
+	ctx = WithEnv(ctx, []string{"B=2"})
+	vars := EnvVarsFrom(ctx)
+	if len(vars) != 2 {
+		t.Errorf("expected 2 merged vars, got %d", len(vars))
+	}
+}
+
+func TestWithEnvOverride(t *testing.T) {
+	ctx := WithEnv(context.Background(), []string{"A=1"})
+	ctx = WithEnv(ctx, []string{"A=2"})
+	vars := EnvVarsFrom(ctx)
+	if len(vars) != 1 {
+		t.Fatalf("expected 1 var after override, got %d", len(vars))
+	}
+	if !containsEnvVar(vars, "A=2") {
+		t.Errorf("expected A=2 after override, got %v", vars)
+	}
+}
+
+func containsEnvVar(vars []string, want string) bool {
+	for _, v := range vars {
+		if v == want {
+			return true
+		}
+	}
+	return false
+}

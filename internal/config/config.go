@@ -42,6 +42,7 @@ type Config struct {
 	ConfigVersion int                 `toml:"config_version"`
 	DefaultModel  string              `toml:"default_model"`
 	Language      string              `toml:"language"` // ui/model language tag (e.g. "zh"); empty = auto-detect from $LANG / $REASONIX_LANG
+	ActiveProfile string              `toml:"active_profile"` // named profile from [profiles]; "" = none
 	UI            UIConfig            `toml:"ui"`
 	Desktop       DesktopConfig       `toml:"desktop"`
 	Notifications NotificationsConfig `toml:"notifications"`
@@ -57,6 +58,20 @@ type Config struct {
 	Statusline    StatuslineConfig    `toml:"statusline"`
 	LSP           LSPConfig           `toml:"lsp"`
 	Bot           BotConfig           `toml:"bot"`
+	Profiles      map[string]ProfileConfig `toml:"profiles"`
+}
+
+// ProfileConfig is a named bundle of settings that overrides the active session
+// posture: model, effort, tool-approval mode, auto-plan, output style, and an
+// optional system-prompt prefix. Switch with /profile <name>.
+type ProfileConfig struct {
+	Description         string `toml:"description"`
+	Model               string `toml:"model"`
+	Effort              string `toml:"effort"`
+	ToolApproveMode     string `toml:"tool_approve_mode"`
+	AutoPlan            string `toml:"auto_plan"`
+	OutputStyle         string `toml:"output_style"`
+	SystemPromptPrefix  string `toml:"system_prompt_prefix"`
 }
 
 // UIConfig controls CLI presentation-only settings. Desktop appearance is kept in
@@ -91,6 +106,7 @@ type NotificationsConfig struct {
 	TurnDone        bool `toml:"turn_done"`
 	ApprovalRequest bool `toml:"approval_request"`
 	AskRequest      bool `toml:"ask_request"`
+	Sound           bool `toml:"sound"` // bell/beep on turn completion
 }
 
 // UITheme normalizes ui.theme to a supported value.
@@ -570,12 +586,19 @@ type SandboxConfig struct {
 	WorkspaceRoot string   `toml:"workspace_root"`
 	AllowWrite    []string `toml:"allow_write"`
 	// Bash is the OS-sandbox mode for the bash tool: "enforce" (default) jails
-	// each command, "off" runs it unconfined. Phase 1; macOS only for now, with
+	// each command, "off" runs it unconfined, "remote" sends commands to a remote
+	// sandbox API (e.g. OpenSandbox). Phase 1; macOS only for now, with
 	// a graceful fallback elsewhere (see internal/sandbox).
 	Bash string `toml:"bash"`
 	// Network allows network egress from inside the bash sandbox. Defaults true
 	// so module/package downloads keep working; the boundary is then writes.
 	Network bool `toml:"network"`
+	// RemoteSandboxURL is the API endpoint for the remote sandbox backend. Only
+	// used when bash == "remote".
+	RemoteSandboxURL string `toml:"remote_sandbox_url"`
+	// RemoteSandboxToken is the bearer auth token for the remote sandbox API.
+	// Prefer REMOTE_SANDBOX_TOKEN env var over storing in config.
+	RemoteSandboxToken string `toml:"remote_sandbox_token"`
 }
 
 // WriteRoots returns the directories file-writer tools may modify: the
@@ -615,8 +638,11 @@ func (c *Config) WriteRootsForRoot(fallbackRoot string) []string {
 // it; empty or any other value resolves to "enforce", so the sandbox is on by
 // default and fails safe.
 func (c *Config) BashMode() string {
-	if c.Sandbox.Bash == "off" {
+	switch c.Sandbox.Bash {
+	case "off":
 		return "off"
+	case "remote":
+		return "remote"
 	}
 	return "enforce"
 }

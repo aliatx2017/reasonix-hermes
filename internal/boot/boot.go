@@ -16,6 +16,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -193,9 +194,17 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	sysPrompt = skill.ApplyIndex(sysPrompt, skills)
 
 	reg := tool.NewRegistry()
-	bashSpec := sandbox.Spec{Mode: cfg.BashMode(), WriteRoots: cfg.WriteRootsForRoot(root), Network: cfg.Sandbox.Network}
+	bashSpec := sandbox.Spec{
+		Mode:        cfg.BashMode(),
+		WriteRoots:  cfg.WriteRootsForRoot(root),
+		Network:     cfg.Sandbox.Network,
+		RemoteURL:   cfg.Sandbox.RemoteSandboxURL,
+		RemoteToken: cfg.Sandbox.RemoteSandboxToken,
+	}
 	if bashSpec.Mode == "enforce" && !sandbox.Available() {
 		fmt.Fprintln(stderr, "warning: bash sandbox requested but unavailable on this platform; running bash unconfined")
+	} else if bashSpec.Mode == "remote" && bashSpec.RemoteURL == "" {
+		fmt.Fprintln(stderr, "warning: remote sandbox mode requested but remote_sandbox_url is not set; running bash unconfined")
 	}
 	if sandbox.ResolveShell().Kind == sandbox.ShellPowerShell {
 		fmt.Fprintln(stderr, "warning: bash not found on PATH; the shell tool will run commands under Windows PowerShell. Install Git for Windows or WSL to use bash.")
@@ -621,6 +630,8 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 		CompactRatio:      cfg.Agent.CompactRatio,
 		CompactForceRatio: cfg.Agent.CompactForceRatio,
 		ArchiveDir:        config.ArchiveDir(),
+		WorkshopThreshold: workshopThreshold,
+		Workshop:          workshopSynthesizer(jm, execProv, reg, entry, cfg.Agent),
 	}, sink)
 
 	// Custom slash commands (.reasonix/commands + user dir). Best-effort: a malformed
@@ -1155,4 +1166,59 @@ func providerNames(cfg *config.Config) string {
 		names[i] = p.Name
 	}
 	return strings.Join(names, "/")
+}
+
+// workshopThreshold is the byte size above which tool results are routed to the
+// workshop sidecar for background synthesis.
+const workshopThreshold = 12 * 1024
+
+// WorkshopSynthesisText is the system-prompt prefix for workshop synthesis jobs.
+const WorkshopSynthesisText = "Synthesize this large tool output into a concise summary. Focus on key findings, patterns, errors, and actionable items. Omit repetitive content. Return the synthesis only."
+
+// workshopSynthesizer returns a callback that, when a tool result exceeds the
+// threshold, spawns a background sub-agent to synthesize it and returns a note
+// pointing to the synthesis ref, plus a truncated version of the raw output.
+func workshopSynthesizer(jm *jobs.Manager, prov provider.Provider, reg *tool.Registry, entry *config.ProviderEntry, agentCfg config.AgentConfig) func(ctx context.Context, toolName string, rawResult string) string {
+	if jm == nil || prov == nil {
+		return nil
+	}
+	return func(ctx context.Context, toolName string, rawResult string) string {
+		// Truncate the raw output for the synthesis prompt — the sub-agent doesn't
+		// need unlimited context either.
+		synthInput := rawResult
+		const maxSynthesisInput = 64 * 1024
+		if len(synthInput) > maxSynthesisInput {
+			synthInput = synthInput[:maxSynthesisInput] + "\n\n[...truncated for synthesis]"
+		}
+
+		prompt := fmt.Sprintf("%s\n\nTool: %s\nOutput:\n%s", WorkshopSynthesisText, toolName, synthInput)
+
+		job := jm.Start("workshop", "synthesize "+toolName, func(jobCtx context.Context, _ io.Writer) (string, error) {
+			sess := agent.NewSession("You are a synthesis sidecar. " + WorkshopSynthesisText)
+			return agent.RunSubAgentWithSession(jobCtx, prov, reg, sess, prompt, agent.Options{
+				MaxSteps: 3,
+				Gate:     nil,
+			}, event.Discard)
+		})
+
+		// Return a compact note that replaces the raw output in the model's context.
+		return fmt.Sprintf("[Workshop sidecar: %d-byte %s output routed to background synthesis job %q. Use wait(job_ids=[%q]) to retrieve the condensed summary.]\n\nHead of raw output:\n%s",
+			len(rawResult), toolName, job.ID, job.ID,
+			truncateHead(rawResult, 2048))
+	}
+}
+
+func truncateHead(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	// Try to snap to a newline boundary.
+	cut := maxLen
+	for i := maxLen; i > maxLen-200 && i > 0; i-- {
+		if s[i] == '\n' {
+			cut = i
+			break
+		}
+	}
+	return s[:cut] + "\n\n[... " + strconv.Itoa(len(s)-cut) + " more bytes]"
 }

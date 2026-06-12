@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"reasonix/internal/constitution"
 )
 
 // Set is everything memory loaded for one session: the hierarchical docs and a
@@ -13,11 +15,12 @@ import (
 // UserDir are retained so the controller can resolve quick-add targets without
 // re-deriving discovery context.
 type Set struct {
-	Docs    []Source // REASONIX.md / AGENTS.md, ascending precedence
-	Store   Store    // auto-memory store (may be a zero/disabled Store)
-	Index   string   // MEMORY.md contents at load time
-	CWD     string   // project working dir used for discovery
-	UserDir string   // user config root (may be "")
+	Docs         []Source // REASONIX.md / AGENTS.md, ascending precedence
+	Store        Store    // auto-memory store (may be a zero/disabled Store)
+	Index        string   // MEMORY.md contents at load time
+	CWD          string   // project working dir used for discovery
+	UserDir      string   // user config root (may be "")
+	Constitution string   // formatted project-constitution block, or ""
 }
 
 // Options configures discovery. CWD defaults to "." and UserDir is the user
@@ -37,12 +40,17 @@ func Load(opts Options) *Set {
 		cwd = "."
 	}
 	store := StoreFor(opts.UserDir, cwd)
+	var constBlock string
+	if cd, ok := constitution.Load(cwd); ok {
+		constBlock = constitution.Format(cd)
+	}
 	return &Set{
-		Docs:    discoverDocs(cwd, opts.UserDir),
-		Store:   store,
-		Index:   store.Index(),
-		CWD:     cwd,
-		UserDir: opts.UserDir,
+		Docs:         discoverDocs(cwd, opts.UserDir),
+		Store:        store,
+		Index:        store.Index(),
+		CWD:          cwd,
+		UserDir:      opts.UserDir,
+		Constitution: constBlock,
 	}
 }
 
@@ -77,7 +85,7 @@ func (s *Set) DocPath(scope Scope) string {
 // the base prompt byte-for-byte untouched (and the cache prefix maximal) when
 // there is no memory at all.
 func (s *Set) Empty() bool {
-	return s == nil || (len(s.Docs) == 0 && strings.TrimSpace(s.Index) == "")
+	return s == nil || (len(s.Docs) == 0 && strings.TrimSpace(s.Index) == "" && strings.TrimSpace(s.Constitution) == "")
 }
 
 // docScopes are the scopes the panel can target for a quick-add or a new doc.
@@ -129,6 +137,13 @@ func (s *Set) Block() string {
 		return ""
 	}
 	var b strings.Builder
+
+	// Constitution first — highest priority, structured invariants.
+	if constBlock := strings.TrimSpace(s.Constitution); constBlock != "" {
+		b.WriteString(constBlock)
+		b.WriteString("\n\n")
+	}
+
 	b.WriteString("# Memory\n\n")
 	b.WriteString("Persistent context loaded from memory files. Treat it as durable, user-authored guidance for this project.\n")
 

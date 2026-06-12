@@ -2026,6 +2026,52 @@ export default function App() {
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [openPalette]);
+
+  // Hotbar: keys 1-8 as keyboard shortcuts for common actions. Only fires when
+  // no modifier keys are held and focus is not in an input/textarea.
+  useEffect(() => {
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      switch (e.key) {
+        case "1":
+          e.preventDefault();
+          void openPalette();
+          break;
+        case "2":
+          e.preventDefault();
+          setWorkspacePanelOpen((cur) => !cur);
+          break;
+        case "3":
+          e.preventDefault();
+          void handleNewTab();
+          break;
+        case "4":
+          e.preventDefault();
+          void openAllHistory();
+          break;
+        case "5":
+          e.preventDefault();
+          setRightDockMode((cur) => cur === "context" ? "none" : "context");
+          break;
+        case "6":
+          e.preventDefault();
+          setSidebarCollapsed((cur) => !cur);
+          break;
+        case "7":
+          e.preventDefault();
+          setSettingsTarget("general");
+          break;
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [
+    openPalette, handleNewTab, setWorkspacePanelOpen,
+    setSidebarCollapsed, openAllHistory, setSettingsTarget,
+    setRightDockMode,
+  ]);
   const paletteItems = useMemo<PaletteItem[]>(() => {
     const cmds: PaletteItem[] = [
       { id: "cmd-new", group: t("palette.group.commands"), title: t("palette.cmd.newSession"), icon: <SquarePen size={15} />, compact: true, keywords: ["new", "新建"], run: () => void handleNewTab() },

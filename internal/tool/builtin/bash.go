@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"reasonix/internal/hook"
 	"reasonix/internal/jobs"
 	"reasonix/internal/proc"
 	"reasonix/internal/sandbox"
@@ -134,6 +135,16 @@ func (b bash) Execute(ctx context.Context, args json.RawMessage) (string, error)
 	argv, _ := sandbox.Command(b.sb, sh, p.Command)
 	cmdEnv := bashCommandEnv(ctx)
 
+	// Remote sandbox: send to the remote API directly instead of forking locally.
+	if b.sb.Mode == "remote" {
+		if out, handled, err := sandbox.Run(b.sb, p.Command); handled {
+			if err != nil {
+				return out, err
+			}
+			return out, nil
+		}
+	}
+
 	if p.RunInBackground {
 		jm, ok := jobs.FromContext(ctx)
 		if !ok {
@@ -252,6 +263,7 @@ func commandPreview(cmd string) string {
 func bashCommandEnv(ctx context.Context) []string {
 	env := os.Environ()
 	if runtime.GOOS == "windows" {
+		env = append(env, hook.EnvVarsFrom(ctx)...)
 		return env
 	}
 	currentPath, _ := envValue(env, "PATH")
@@ -260,6 +272,7 @@ func bashCommandEnv(ctx context.Context) []string {
 			env = setEnvValue(env, "PATH", merged)
 		}
 	}
+	env = append(env, hook.EnvVarsFrom(ctx)...)
 	return env
 }
 

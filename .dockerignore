@@ -1,0 +1,23 @@
+# Build artifacts
+/bin/
+/out/
+/dist/
+
+# Desktop frontend (not needed for CLI/server Docker image)
+desktop/frontend/node_modules/
+desktop/frontend/dist/
+
+# Version control
+.git/
+
+# Tests and docs
+*.test
+*_test.go
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Gitignored config (secrets)
+reasonix.toml
+.reasonix/local/

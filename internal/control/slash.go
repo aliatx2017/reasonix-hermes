@@ -378,6 +378,40 @@ func (c *Controller) managementNotice(trimmed string) bool {
 			return true
 		}
 		c.notice(c.mcpListText())
+	case "/sound":
+		if len(fields) >= 2 {
+			switch strings.ToLower(fields[1]) {
+			case "on", "1", "true", "yes":
+				c.ToggleSound(true)
+			case "off", "0", "false", "no":
+				c.ToggleSound(false)
+			default:
+				c.notice("usage: /sound on|off")
+			}
+		} else {
+			// Toggle: show current state and flip.
+			cfg, err := config.Load()
+			if err != nil {
+				c.notice("sound: " + err.Error())
+			} else {
+				c.ToggleSound(!cfg.Notifications.Sound)
+			}
+		}
+	case "/profile":
+		if len(fields) >= 2 {
+			name := strings.ToLower(fields[1])
+			if name == "none" || name == "off" {
+				if err := c.ApplyProfile(""); err != nil {
+					c.notice("profile: " + err.Error())
+				}
+			} else {
+				if err := c.ApplyProfile(name); err != nil {
+					c.notice("profile: " + err.Error())
+				}
+			}
+		} else {
+			c.notice(c.profileListText())
+		}
 	default:
 		return false
 	}

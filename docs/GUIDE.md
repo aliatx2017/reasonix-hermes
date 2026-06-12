@@ -276,3 +276,145 @@ shell command only when you intentionally want a project-local override.
 
 The why behind separate sessions (keeping each model's prefix cache-stable) is in
 [`SPEC.md` §3.5](./SPEC.md#35-two-model-collaboration-coordinator).
+
+## Harness profiles
+
+Named config bundles let you switch model, effort, approval mode, auto-plan, and output
+style in one command. Define profiles under `[profiles.<name>]` in your config:
+
+```toml
+[profiles.cache-heavy]
+description = "Deep reasoning with auto-approve"
+model = "deepseek-pro"
+effort = "high"
+tool_approve_mode = "auto"
+
+[profiles.fast]
+description = "Quick, interactive, ask-for-permission"
+model = "deepseek-flash"
+tool_approve_mode = "ask"
+output_style = "concise"
+```
+
+Switch with `/profile <name>` (e.g. `/profile fast`), list with `/profile`, disable with
+`/profile none`. Profile settings apply immediately without restart.
+
+## Completion sound
+
+Toggle a terminal bell on turn completion with `/sound on` or `/sound off`. The setting
+persists in `[notifications].sound`. When enabled, a `\a` (ASCII bell) is printed after
+every turn, so you hear when the agent finishes thinking.
+
+## Shell env hooks
+
+Hooks can now inject environment variables into `bash` tool execution. Any `KEY=VALUE`
+line on a passing hook's stdout (or even stderr) is parsed and added to the environment
+of subsequent shell commands. Both file descriptors are scanned, and the last value wins
+on key collision:
+
+```sh
+#!/bin/sh
+# PreToolUse hook — inject API token
+echo "GITHUB_TOKEN=ghp_xxxx"
+echo "CI=true"
+```
+
+No config changes needed — the hook runner automatically parses env vars from every
+`PreToolUse` hook that exits 0.
+
+## Parallel sub-agent dispatch
+
+The `task` tool now accepts a `batch` array to spawn up to 8 independent sub-agents
+concurrently. Each runs as a background job and can be collected with `wait`:
+
+```json
+{
+  "batch": [
+    {"prompt": "Find all callers of login()", "description": "login-callers"},
+    {"prompt": "Audit auth middleware for injection", "description": "auth-audit"}
+  ]
+}
+```
+
+Returns a summary with all job IDs and subagent references.
+
+## Constitution system
+
+Place a `.reasonix/constitution.json` at your project root to declare structured
+invariants that are injected into the system prompt:
+
+```json
+{
+  "version": 1,
+  "conventions": {"language": "Go", "testing": "go test ./..."},
+  "principles": ["One controller behind every frontend"],
+  "constraints": ["Never commit secrets"],
+  "rules": [
+    {"id": "no-globals", "description": "Avoid package-level mutable state", "severity": "error"}
+  ]
+}
+```
+
+The constitution appears as a `# Project Constitution` block before memory docs in
+the system prompt. Rules are tagged with severity markers (`[ERROR]`, `[WARNING]`,
+`[INFO]`) the model can reason about.
+
+## Workshop sidecar
+
+Large tool outputs (>12 KB) are automatically routed to a background synthesis
+sub-agent. Instead of the full output bloating the model's context, the model sees
+a compact "workshop note" pointing to a synthesis job. Collect the condensed summary
+with `wait`.
+
+This keeps context lean while preserving the ability to drill into full output when
+needed. The threshold and behavior are configurable in boot.
+
+## Remote sandbox
+
+When `[sandbox].bash = "remote"`, shell commands are sent to a remote sandbox API
+(e.g. OpenSandbox) instead of running locally. Config:
+
+```toml
+[sandbox]
+bash = "remote"
+remote_sandbox_url = "https://sandbox.example.com/api/execute"
+remote_sandbox_token = "${REMOTE_SANDBOX_TOKEN}"  # or set env REMOTE_SANDBOX_TOKEN
+```
+
+The remote API must accept `POST` with a JSON body containing `command`, `env`,
+`workdir`, `network`, and `timeout_sec`, and return `{exit_code, stdout, stderr}`.
+A 10 MB response cap prevents oversized output. Falls back with a warning when the
+URL is unset.
+
+## Hotbar
+
+In the desktop app, keys **1–7** act as quick-launch shortcuts when no modifier key
+is held and focus is not in an input:
+
+| Key | Action |
+|-----|--------|
+| 1 | Command palette |
+| 2 | Toggle workspace panel |
+| 3 | New session |
+| 4 | Session history |
+| 5 | Toggle right dock |
+| 6 | Toggle sidebar |
+| 7 | Settings |
+
+## Nix & Docker
+
+**Nix flake** (`flake.nix`): six packages (reasonix, mcpbridge, memoryserver, hooks,
+bot, full metapackage), a dev shell with Go + pnpm, and flake apps. Build any binary
+with `nix build .#reasonix-bot`.
+
+**Docker** (`Dockerfile`): multi-stage build (golang:1.24 → distroless/static-debian12),
+all five Hermes binaries. Default entrypoint is the CLI. Mount your workspace at
+`/workspace` and pass `DEEPSEEK_API_KEY` as an env var:
+
+```bash
+docker build -t reasonix-hermes .
+docker run -v $(pwd):/workspace -e DEEPSEEK_API_KEY=... reasonix-hermes chat
+```
+
+Use `.dockerignore` to keep the build context small (excludes `.git`, `node_modules`,
+`bin/`, and test files).
