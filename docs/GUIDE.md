@@ -59,7 +59,7 @@ bash_timeout_seconds = 120   # foreground safety cap; set 0 for no tool-local ca
 # disabled_skills = ["review"]                  # hide skills until /skill enable <name>
 
 [permissions]
-mode  = "ask"                                # writer fallback when no rule matches: ask|allow|deny
+mode  = "ask"                                # writer fallback when no rule matches: ask|allow|deny|auto
 deny  = ["Bash(rm -rf*)", "Bash(git push*)"] # hard-blocked in every mode
 allow = ["Bash(go test:*)"]                  # never prompted
 

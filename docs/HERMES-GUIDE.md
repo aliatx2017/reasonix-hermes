@@ -293,7 +293,7 @@ disabled_skills  = ["review"]        # names of skills to suppress
 
 # ── Permissions ────────────────────────────────────────────────
 [permissions]
-mode  = "ask"                                  # writer fallback: ask|allow|deny
+mode  = "ask"                                  # writer fallback: ask|allow|deny|auto
 deny  = ["Bash(rm -rf*)", "Bash(git push*)"]   # always blocked
 allow = ["Bash(go test:*)", "Edit(docs/**)"]   # never prompted
 
@@ -586,7 +586,7 @@ Three interactive postures control how `Ask` decisions are resolved:
 | Posture | Writer fallback | `deny` rules | Plan approval |
 |---------|----------------|-------------|---------------|
 | **Need approval** (`ask`) | Prompts user | Enforced | Waits for user |
-| **Auto approve** (`auto`) | Auto-allowed | Enforced | Waits for user |
+| **Auto approve** (`auto`) | Writer fallback auto-allowed; explicit ask/deny rules still apply | Enforced | Waits for user |
 | **YOLO** (`yolo`) | Auto-allowed | Enforced | Waits for user |
 
 In headless mode (`reasonix run`, sub-agents, no TTY), `Ask` resolves to
