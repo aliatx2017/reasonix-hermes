@@ -474,6 +474,12 @@ subagent_models = { review = "deepseek-pro" }       # per-skill overrides
 Adjust effort with `/effort low|medium|high|max` — controls the reasoning
 (token spend on thinking) for the current model.
 
+**Concurrent sub-agents:** Run multiple independent sub-agents in parallel by
+spawning them from MCP tools or by using `run_skill` in batch mode. Each
+sub-agent gets its own isolated session and runs independently — the parent
+collects results when all complete. This is useful for parallel codebase
+exploration, multi-file reviews, or running independent tasks simultaneously.
+
 ---
 
 ## 6. Providers & Models
@@ -507,6 +513,42 @@ api_key_env = "MY_API_KEY"
 The `kind` field selects the wire protocol: `openai` for
 OpenAI-compatible `/chat/completions`, or `anthropic` for the Anthropic Messages
 API.
+
+### 6.2a Community provider presets
+
+These OpenAI-compatible endpoints are tested and known to work as config entries.
+Copy the relevant block into your `reasonix.toml`:
+
+| Provider | Base URL | Model examples |
+|----------|----------|---------------|
+| **OpenRouter** | `https://openrouter.ai/api/v1` | `deepseek/deepseek-v4-pro`, `anthropic/claude-sonnet-4` |
+| **Ollama (local)** | `http://localhost:11434/v1` | `llama3`, `codellama`, `deepseek-r1` |
+| **NVIDIA NIM** | `https://integrate.api.nvidia.com/v1` | `deepseek-ai/deepseek-v4-pro` |
+| **Fireworks** | `https://api.fireworks.ai/inference/v1` | `accounts/fireworks/models/deepseek-v4-pro` |
+| **SiliconFlow** | `https://api.siliconflow.cn/v1` | `deepseek-ai/DeepSeek-V4-Pro` |
+| **Together** | `https://api.together.xyz/v1` | `deepseek-ai/DeepSeek-V4` |
+| **Groq** | `https://api.groq.com/openai/v1` | `llama-3.3-70b-versatile` |
+| **vLLM (self-hosted)** | `http://localhost:8000/v1` | `deepseek-ai/DeepSeek-V4-Pro` |
+| **SGLang (self-hosted)** | `http://localhost:30000/v1` | `deepseek-ai/DeepSeek-V4-Pro` |
+| **Xiaomi MiMo** | `https://token-plan-cn.xiaomimimo.com/v1` | `mimo-v2.5-pro`, `mimo-v2.5` |
+
+```toml
+# Example: OpenRouter
+[[providers]]
+name        = "openrouter-deepseek"
+kind        = "openai"
+base_url    = "https://openrouter.ai/api/v1"
+model       = "deepseek/deepseek-v4-pro"
+api_key_env = "OPENROUTER_API_KEY"
+
+# Example: local Ollama
+[[providers]]
+name        = "ollama-llama3"
+kind        = "openai"
+base_url    = "http://localhost:11434/v1"
+model       = "llama3"
+api_key_env = "OLLAMA_API_KEY"  # can be "ollama" if auth disabled
+```
 
 ### 6.3 Model references
 
@@ -721,6 +763,29 @@ Legacy `~/.reasonix/config.json` `mcpServers` are still read as lowest priority.
 
 Enabled servers connect in the background after session start — chat stays
 usable while tools come online.
+
+### 9.6 Tool overrides via MCP
+
+You can override or replace built-in tools with custom MCP plugins without
+modifying the codebase. This is useful for:
+
+- **Audit logging** — wrap `bash` with a script that logs every command
+- **Alternative implementations** — replace `read_file` with a cached or
+  remote-backed version
+- **Policy enforcement** — add pre-execution checks to dangerous tools
+
+```toml
+# Replace bash with an audit-logging wrapper
+[[plugins]]
+name       = "bash-audit"
+command    = "./bin/reasonix-mcpbridge"
+# The wrapper receives the same JSON-RPC tool call and can
+# delegate to the real reasonix after logging.
+```
+
+For finer-grained control, use MCP server tools that shadow built-in names.
+The namespaced `mcp__<server>__<tool>` convention prevents clashes, but if
+you name your tool the same as a built-in, the last registered tool wins.
 
 ---
 

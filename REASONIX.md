@@ -47,3 +47,18 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
   - Updated `docs/GUIDE.md` and `docs/GUIDE.zh-CN.md` with Hermes features
 
 - **Key differentiators**: Discord bot (real agent loop + /goal + /model), MCP bridge (6 tools), Hindsight memory (3 tools, SQLite + TTL/importance + vector search), 17-skill registry, native Go hooks, portable mode.
+
+## Next session — CodeWhale borrow/integrate candidates
+
+Analysis of [CodeWhale](https://github.com/Hmbown/CodeWhale) (⭐38k, Rust, v0.8.58) surfaced these TODOs:
+
+- [ ] **Parallel sub-agent dispatch** — extend `agent/task.go` for concurrent independent tasks (currently sequential)
+- [ ] **Completion sound** — `/sound on|off` slash command with configurable bell/beep on turn complete
+- [ ] **Harness Profiles** — per-model prompt/context/tool posture profiles ("cache-heavy", "lean", etc.)
+- [ ] **Constitution system** — structured JSON project invariants layered on REASONIX.md memory
+- [ ] **Shell env hooks** — inject KEY=VALUE env vars from hook stdout (more flexible than static env)
+- [ ] **Workshop sidecar** — route large tool outputs (>4096 tokens) to synthesis sidecar for lean context
+- [ ] **Hotbar** — 1-8 sidebar key bindings for common actions (voice, session, mode, palette)
+- [ ] **External sandbox backend** — pluggable remote execution (OpenSandbox API) for CI/CD isolation
+- [ ] **Nix package** — add Nix flake support for reproducible builds
+- [ ] **Docker install** — official Docker image for CI/air-gapped deployments
