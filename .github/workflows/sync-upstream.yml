@@ -1,0 +1,82 @@
+name: Sync Upstream
+
+on:
+  schedule:
+    # Daily at 20:00 UTC = 04:00 CST (upstream devs are asleep)
+    - cron: '0 20 * * *'
+  workflow_dispatch:  # manual trigger from GitHub UI
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+
+      - name: Fetch upstream
+        run: |
+          git remote add upstream https://github.com/esengine/deepseek-reasonix.git
+          git fetch upstream main-v2
+
+      - name: Attempt merge
+        id: merge
+        run: |
+          if git merge --no-edit upstream/main-v2; then
+            echo "merged=true" >> $GITHUB_OUTPUT
+          else
+            echo "merged=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Smoke test (Go build + test)
+        if: steps.merge.outputs.merged == 'true'
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+      - name: Build and test
+        if: steps.merge.outputs.merged == 'true'
+        run: |
+          go build ./...
+          go test ./cmd/... ./pkg/... ./internal/bot/... ./bot/...
+
+      - name: Push merged main
+        if: steps.merge.outputs.merged == 'true'
+        run: git push origin main
+
+      - name: Create conflict PR
+        if: steps.merge.outputs.merged != 'true'
+        run: |
+          BRANCH="sync/upstream-$(date +%Y-%m-%d)"
+          git checkout -b "$BRANCH"
+          git add -A
+          git commit -m "WIP: upstream sync $(date +%Y-%m-%d) — CONFLICTS" || true
+          git push origin "$BRANCH" --force
+
+          gh pr create \
+            --repo ${{ github.repository }} \
+            --head "$BRANCH" \
+            --base main \
+            --title "⬆️ Upstream sync $(date +%Y-%m-%d) — manual merge needed" \
+            --body "Automated sync from upstream \`main-v2\` hit conflicts. Manual resolution required.
+
+          **Conflicted files:** see the diff.
+          **Commands to resolve locally:**
+          \`\`\`sh
+          git fetch upstream main-v2
+          git merge upstream/main-v2
+          # resolve conflicts, then:
+          git push origin main
+          \`\`\`"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -12,6 +12,10 @@ Customized Reasonix AI coding agent based on upstream [esengine/deepseek-reasoni
 
 ## Syncing with Upstream
 
+Automated: `.github/workflows/sync-upstream.yml` runs daily at 20:00 UTC (04:00 CST, when upstream devs are asleep). It fetches upstream `main-v2`, merges cleanly, runs `go build ./...` + `go test ./...`, and pushes. On conflict, it opens a PR for manual resolution.
+
+Manual (if needed):
+
 ```bash
 git fetch upstream
 git merge upstream/main-v2     # merge upstream changes
