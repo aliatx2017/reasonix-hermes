@@ -5,8 +5,12 @@
 <a href="./GUIDE.md">English</a>
 &nbsp;·&nbsp;
 <a href="./SPEC.md">规格</a>
+&nbsp;·&nbsp;
+<a href="./HERMES-GUIDE.md">Hermes 指南</a>
 
-> 日常配置与使用。工程契约与内部实现（数据类型、registry、包结构、路线图）见
+> 日常配置与使用（上游 Reasonix）。Hermes 特有功能（Discord bot、MCP bridge、
+> Hindsight memory、skills hub）请参阅 **[Hermes 指南](./HERMES-GUIDE.md)**。
+> 工程契约与内部实现（数据类型、registry、包结构、路线图）见
 > **[规格 SPEC.md](./SPEC.md)**。
 
 ## 目录
