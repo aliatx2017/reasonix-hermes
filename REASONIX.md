@@ -37,10 +37,13 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
   - P2-1: `DELETE`+`INSERT` → `INSERT OR REPLACE` upsert
   - P2-2: LIKE wildcard escaping with `ESCAPE '\'` clause
   - P2-3: `io.LimitReader` on 5 unbounded HTTP response reads
+- **Linux sandbox**: bubblewrap (bwrap) integration — matches macOS Seatbelt profile (read-only root, writable workspace + toolchain caches, network isolation). Graceful fallback when bwrap missing.
+- **Graceful shutdown**: memoryserver handles SIGINT/SIGTERM in HTTP mode. Bot already had it.
+- **Automated upstream sync**: `.github/workflows/sync-upstream.yml` runs daily 20:00 UTC (04:00 CST). Clean merge → build+test → push. Conflicts → opens PR.
 - **Docs written/updated**:
   - New `docs/HERMES-GUIDE.md` — 1,300+ line comprehensive master guide (19 sections)
-  - Rewrote `README.md` for Hermes identity
+  - Rewrote `README.md` and `README.zh-CN.md` for Hermes identity
   - Updated `docs/SPEC.md` §2 (39 packages) and §4 (7 ChunkTypes)
-  - Updated `docs/GUIDE.md` with `/goal` and `/effort`
+  - Updated `docs/GUIDE.md` and `docs/GUIDE.zh-CN.md` with Hermes features
 
 - **Key differentiators**: Discord bot (real agent loop + /goal + /model), MCP bridge (6 tools), Hindsight memory (3 tools, SQLite + TTL/importance + vector search), 17-skill registry, native Go hooks, portable mode.

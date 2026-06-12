@@ -557,7 +557,7 @@ via `[tools].enabled` in config.
 
 | Tool | Description |
 |------|-------------|
-| `bash` | Execute a shell command. Timeout via `[tools].bash_timeout_seconds`. Sandboxed on macOS (Seatbelt). |
+| `bash` | Execute a shell command. Timeout via `[tools].bash_timeout_seconds`. Sandboxed on macOS (Seatbelt) and Linux (bubblewrap). |
 
 ### 7.4 Meta tools
 
@@ -638,7 +638,10 @@ The sandbox is **enforcement**, separate from permissions:
 - **Bash on macOS** is jailed by default (Seatbelt): commands may write only
   the workspace root plus temp and toolchain caches. Network access requires
   `[sandbox.bash] network = true`.
-- **Linux/Windows** run unconfined currently (sandbox not yet implemented).
+- **Bash on Linux** uses bubblewrap (`bwrap`) with the same profile: read-only
+  root filesystem, writable workspace + temp + caches, network isolated unless
+  `[sandbox.bash] network = true`. Install with `apt install bubblewrap`.
+- **Bash on Windows** runs unconfined currently (sandbox not yet implemented).
 
 ```toml
 [sandbox]

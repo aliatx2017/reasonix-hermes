@@ -140,7 +140,7 @@ out. Reads are unrestricted. `bash` is itself jailed on macOS by default
 temp and toolchain caches) and reach the network only when `[sandbox] network`
 is set. Other platforms fall back to running unconfined for now (see
 [`SPEC.md` §9](./SPEC.md#9-roadmap-not-in-current-scope) for the escape-prompt and
-Linux support still to come).
+Linux support via bubblewrap (bwrap)).
 
 ## Plugins (MCP)
 
