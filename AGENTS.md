@@ -75,6 +75,7 @@ internal/              Upstream Reasonix engine (39 packages)
 pkg/                   ── Our custom additions ──
   httputil/            Shared Bearer auth middleware
   mcputil/             Shared MCP types and server helpers
+  (see pkg/README.md)  Library documentation
 cmd/                   ── Our custom binaries ──
   reasonix-mcpbridge/  MCP bridge server (6 tools: run, doctor, plan, orchestrate, get_skill, get_skills)
   reasonix-memoryserver/ Hindsight MCP server (3 tools: retain, recall, reflect; SQLite + file, TTL/importance, vector search)

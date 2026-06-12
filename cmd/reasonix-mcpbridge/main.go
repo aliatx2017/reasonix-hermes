@@ -28,7 +28,8 @@ import (
 	"reasonix/pkg/mcputil"
 )
 
-const version = "1.6.0"
+// version is injected at build time via -ldflags "-X main.version=...".
+var version = "dev"
 
 // Bridge holds state for tool execution.
 type Bridge struct {

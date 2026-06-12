@@ -196,3 +196,76 @@ Subagent skills 默认继承执行器模型。设置 `subagent_model` 可让它�
 
 分离 session（让各模型前缀缓存稳定）背后的取舍见
 [`SPEC.md` §3.5](./SPEC.md#35-two-model-collaboration-coordinator)。
+
+## Hermes 扩展功能
+
+Reasonix Hermes 在上游基础上增加了以下功能。完整文档见 **[Hermes 指南](./HERMES-GUIDE.md)**。
+
+### Discord Bot
+
+```sh
+export DISCORD_BOT_TOKEN="你的token"
+./bin/reasonix-bot
+```
+
+支持命令：`/stop` 停止任务、`/new` 新会话、`/model flash|pro|mimo` 切换模型、
+`/goal <目标>` 自主循环任务、`/approve <id>` 批准、`/deny <id>` 拒绝、
+`/answer <id>` 回答问题、`/status` 查看状态、`/help` 帮助。
+
+### MCP Bridge Server
+
+将 Reasonix 作为 MCP 工具暴露给其他 AI agent（Claude Code、Codex 等）：
+
+```sh
+./bin/reasonix-bridge --http --port 9090
+```
+
+提供 6 个工具：`reasonix_run`（执行任务）、`doctor`（诊断）、`plan`（计划）、
+`orchestrate`（编排）、`get_skill`、`get_skills`。
+
+### Hindsight 记忆服务
+
+跨 session 持久记忆，支持 SQLite + 向量搜索：
+
+```sh
+./bin/reasonix-memory --backend sqlite --http --port 8080
+```
+
+3 个工具：`hindsight_retain`（存储）、`hindsight_recall`（检索）、
+`hindsight_reflect`（反思）。支持 TTL 过期、重要性衰减、TF-IDF 语义搜索。
+
+### Native Hook Runner
+
+零依赖 Go 二进制文件，替代 shell 脚本：
+
+```sh
+go build -o bin/reasonix-hooks ./cmd/reasonix-hooks
+```
+
+在 `reasonix.toml` 中配置：
+```toml
+[hooks]
+pre_tool_use  = ["./bin/reasonix-hooks", "retain"]
+stop          = ["./bin/reasonix-hooks", "reflect"]
+```
+
+### Skills Hub
+
+17 个社区策划的 skill：
+
+```sh
+reasonix install-source install \
+  --source https://github.com/aliatx2017/reasonix-hermes/tree/main/skills-hub/skills
+```
+
+涵盖：调试、安全审计、代码审查、重构、前端开发、数据库、API 设计、
+迁移、性能分析、文档、Git、CI/CD、探索、研究、测试、对抗性审查、协作。
+
+### Portable Mode
+
+```sh
+REASONIX_PORTABLE=1 reasonix chat
+```
+
+所有数据（配置、session、记忆、skill）保存到二进制文件目录下的
+`.reasonix/` 中，支持从 U 盘或离线环境运行。

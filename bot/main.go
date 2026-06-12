@@ -38,56 +38,33 @@ func main() {
 	flag.Parse()
 
 	// Resolve token
-	botToken := *token
-	if botToken == "" {
-		botToken = os.Getenv("DISCORD_BOT_TOKEN")
-	}
+	botToken := resolveToken(*token)
 	if botToken == "" {
 		fmt.Fprintln(os.Stderr, "error: DISCORD_BOT_TOKEN is required. Set it via environment variable or --token flag.")
 		os.Exit(1)
 	}
-
-	// Set env for the adapter (it reads from TokenEnv)
 	os.Setenv("DISCORD_BOT_TOKEN", botToken)
 
 	// Load reasonix config for model resolution
 	cfg, err := config.Load()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "warning: could not load config: %v (using defaults)\n", err)
-		// Use sensible defaults without requiring a config file
 		cfg = &config.Config{}
 	}
 
-	workspaceRoot := *dir
-	if workspaceRoot == "" {
-		if wd, err := os.Getwd(); err == nil {
-			workspaceRoot = wd
-		}
-	}
+	workspaceRoot := resolveWorkspaceRoot(*dir)
 
-	modelName := *model
-	if modelName == "" {
-		modelName = cfg.Bot.Model
-	}
-	if modelName == "" {
-		modelName = cfg.DefaultModel
-	}
-	if modelName == "" {
-		modelName = "deepseek-flash"
-	}
-
+	modelName := resolveModelName(*model, cfg)
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
 
-	// Build Discord adapter config
 	discordCfg := config.DiscordBotConfig{
-		Enabled:   true,
-		TokenEnv:  "DISCORD_BOT_TOKEN",
-		ServerID:  *serverID,
+		Enabled:  true,
+		TokenEnv: "DISCORD_BOT_TOKEN",
+		ServerID: *serverID,
 		ChannelID: *channelID,
-		AllowDMs:  true,
+		AllowDMs: true,
 	}
 
-	// Build gateway config
 	gwCfg := bot.GatewayConfig{
 		Model:         modelName,
 		MaxSteps:      cfg.Bot.MaxSteps,
@@ -129,4 +106,40 @@ func main() {
 	}
 
 	<-ctx.Done()
+}
+
+// resolveToken returns the Discord bot token. flagToken takes precedence;
+// if empty, the DISCORD_BOT_TOKEN environment variable is consulted.
+func resolveToken(flagToken string) string {
+	if flagToken != "" {
+		return flagToken
+	}
+	return os.Getenv("DISCORD_BOT_TOKEN")
+}
+
+// resolveModelName picks the model name from the most specific source:
+// CLI flag → config Bot.Model → config DefaultModel → hardcoded fallback.
+func resolveModelName(flagModel string, cfg *config.Config) string {
+	if flagModel != "" {
+		return flagModel
+	}
+	if cfg != nil && cfg.Bot.Model != "" {
+		return cfg.Bot.Model
+	}
+	if cfg != nil && cfg.DefaultModel != "" {
+		return cfg.DefaultModel
+	}
+	return "deepseek-flash"
+}
+
+// resolveWorkspaceRoot returns the workspace directory. flagDir takes
+// precedence; if empty, the current working directory is used.
+func resolveWorkspaceRoot(flagDir string) string {
+	if flagDir != "" {
+		return flagDir
+	}
+	if wd, err := os.Getwd(); err == nil {
+		return wd
+	}
+	return "."
 }
