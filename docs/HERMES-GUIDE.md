@@ -161,6 +161,21 @@ bash scripts/install-skills.sh
 This installs 17 curated skills into your project or user config. See
 [§14.2](#142-hermes-skills-hub) for the full list.
 
+### 2.4 Updating
+
+```sh
+# CLI self-update (fetches latest upstream release)
+reasonix upgrade
+reasonix update    # alias
+
+# Check current version
+reasonix --version
+```
+
+The `upgrade` command fetches the latest release from upstream (esengine/deepseek-reasonix)
+and replaces the current binary. To update Hermes extensions (MCP bridge, memory server,
+Discord bot, hooks), rebuild from source with `go build`.
+
 ---
 
 ## 3. Getting Started
@@ -726,6 +741,7 @@ All run locally and never reach the model:
 | `/todo` | Show current task list |
 | `/model [name]` | List or switch models |
 | `/effort low\|medium\|high\|max` | Set reasoning effort |
+| `/diff-fold` | Toggle diff line folding in tool output |
 | `/mcp [name]` | List or manage MCP servers |
 | `/skills` | List available skills |
 | `/hooks` | Show hook status |

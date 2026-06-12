@@ -200,11 +200,12 @@ convenient.
 In `reasonix chat`, built-in commands (`/compact`, `/new`, `/clear`, `/rewind`,
 `/tree`, `/branch`, `/switch`, `/todo`, `/model`, `/mcp`, `/skills`, `/hooks`,
 `/memory`, `/output-style`, `/sandbox`, `/language`, `/auto-plan`, `/goal`,
-`/effort`, `/help`) run
+`/effort`, `/diff-fold`, `/help`) run
 locally — `/help` lists them all. `/new` starts a new session while saving the
 previous transcript for history/resume; `/clear` asks for confirmation, then
 discards the current context without saving it. `/effort low|medium|high|max`
 controls the reasoning effort (token spend on thinking) for the current model.
+`/diff-fold` toggles diff line folding (collapsed vs. expanded) in tool output.
 `/goal <objective>` starts an autonomous, multi-turn goal where the agent loops
 until completion, blocked, or stopped — use `/goal status` to check progress
 and `/goal clear` to cancel. `/tree` shows saved conversation

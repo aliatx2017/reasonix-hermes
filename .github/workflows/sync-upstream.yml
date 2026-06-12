@@ -47,6 +47,7 @@ jobs:
       - name: Build and test
         if: steps.merge.outputs.merged == 'true'
         run: |
+          go build -o /usr/local/bin/reasonix ./cmd/reasonix
           go build ./...
           go test ./cmd/... ./pkg/... ./internal/bot/... ./bot/...
 
