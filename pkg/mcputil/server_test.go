@@ -3,6 +3,9 @@ package mcputil
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -201,5 +204,45 @@ func TestHandleMessage_ParseError(t *testing.T) {
 
 	if r.Error == nil || r.Error.Code != -32700 {
 		t.Errorf("expected -32700 parse error, got %+v", r.Error)
+	}
+}
+
+// ── HandleHTTP ──────────────────────────────────────────────────
+
+func TestHandleHTTP(t *testing.T) {
+	srv := &Server{
+		Name:    "test-server",
+		Version: "1.0.0",
+		Tools:   []Tool{{Name: "test_tool", Description: "a test"}},
+		Handle:  func(name string, args map[string]any) (string, error) { return "ok", nil },
+	}
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		srv.HandleHTTP(w, r)
+	}))
+	defer ts.Close()
+
+	body := `{"jsonrpc":"2.0","id":1,"method":"tools/list"}`
+	resp, err := http.Post(ts.URL, "application/json", strings.NewReader(body))
+	if err != nil {
+		t.Fatalf("POST: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+
+	var r Response
+	json.NewDecoder(resp.Body).Decode(&r)
+	if r.Error != nil {
+		t.Fatalf("unexpected error: %v", r.Error.Message)
+	}
+	var result struct {
+		Tools []Tool `json:"tools"`
+	}
+	json.Unmarshal(r.Result, &result)
+	if len(result.Tools) != 1 || result.Tools[0].Name != "test_tool" {
+		t.Errorf("tools = %+v, want [test_tool]", result.Tools)
 	}
 }

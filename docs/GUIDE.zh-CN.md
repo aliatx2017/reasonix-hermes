@@ -131,8 +131,7 @@ command = "reasonix-plugin-example"
 之外的任何路径（默认当前目录，编辑不出项目），并解析符号链接与 `..`，使链接无法
 打洞越界。读不受限。`bash` 本身在 macOS 默认进沙盒（`[sandbox] bash`，Seatbelt）：
 命令只能写这些 root（外加临时目录与工具链缓存），`[sandbox] network` 为真时才能联网；
-其它平台暂回退为不沙盒运行（越界问一次与 Linux 支持见
-[`SPEC.md` §9](./SPEC.md#9-roadmap-not-in-current-scope)）。
+Linux 使用 bubblewrap (bwrap) 沙盒，Windows 暂回退为不沙盒运行。
 
 ## 插件（MCP）
 
