@@ -14,11 +14,13 @@ import (
 	"log"
 	"math"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"reasonix/pkg/mcputil"
@@ -596,7 +598,21 @@ func main() {
 		if len(os.Args) > 3 && os.Args[2] == "--port" {
 			port = os.Args[3]
 		}
-		log.Fatal(srv.ServeHTTP(":"+port, "MEMORY_API_KEY"))
+
+		// Run HTTP server in a goroutine so we can listen for signals.
+		errCh := make(chan error, 1)
+		go func() { errCh <- srv.ServeHTTP(":"+port, "MEMORY_API_KEY") }()
+
+		sigCh := make(chan os.Signal, 1)
+		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+
+		select {
+		case err := <-errCh:
+			log.Fatal(err)
+		case sig := <-sigCh:
+			log.Printf("Received %v, shutting down...", sig)
+		}
+		return
 	}
 
 	log.SetPrefix("[hindsight] ")

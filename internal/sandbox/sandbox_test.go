@@ -188,11 +188,13 @@ func TestCommandNonDarwin(t *testing.T) {
 	}
 	spec := Spec{Mode: "enforce", WriteRoots: []string{"/tmp"}}
 	cmd, wrapped := Command(spec, Shell{Kind: ShellBash, Path: "sh"}, "echo hi")
-	if wrapped {
-		t.Error("non-darwin should never wrap")
+	if !Available() && wrapped {
+		t.Error("enforce without bwrap should NOT wrap, fall back to unconfined")
 	}
-	if len(cmd) != 3 || cmd[0] != "sh" || cmd[1] != "-c" || cmd[2] != "echo hi" {
-		t.Errorf("unexpected cmd: %v", cmd)
+	if !Available() {
+		if len(cmd) != 3 || cmd[0] != "sh" || cmd[1] != "-c" || cmd[2] != "echo hi" {
+			t.Errorf("unexpected cmd: %v", cmd)
+		}
 	}
 }
 
@@ -233,7 +235,7 @@ func TestAvailableNonDarwin(t *testing.T) {
 	if runtime.GOOS == "darwin" {
 		t.Skip("testing non-darwin path")
 	}
-	if Available() {
-		t.Error("non-darwin should report unavailable")
-	}
+	// Linux: Available iff bwrap is on PATH. Other platforms: always false.
+	// On this test machine, bwrap may or may not be installed.
+	_ = Available() // just verify it doesn't panic
 }

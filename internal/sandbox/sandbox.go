@@ -10,6 +10,12 @@
 // handled separately, in package tool/builtin.
 package sandbox
 
+import (
+	"os"
+	"path/filepath"
+	"runtime"
+)
+
 // Spec describes how to confine one command. The zero value (Mode == "") does
 // not enforce, so an unconfigured caller runs commands unchanged.
 type Spec struct {
@@ -28,3 +34,42 @@ type Spec struct {
 
 // enforce reports whether the spec asks for confinement.
 func (s Spec) enforce() bool { return s.Mode == "enforce" }
+
+// writeAllowDirs is the deduplicated, symlink-resolved set of directories the
+// sandbox permits writes to: the caller's roots plus temp dirs, /dev, and the
+// common toolchain caches. Used by both macOS Seatbelt and Linux bubblewrap.
+func writeAllowDirs(roots []string) []string {
+	dirs := append([]string{}, roots...)
+	dirs = append(dirs, "/dev", "/tmp", os.TempDir())
+	if home, err := os.UserHomeDir(); err == nil {
+		for _, sub := range []string{".cache", ".npm", ".cargo", "go"} {
+			dirs = append(dirs, filepath.Join(home, sub))
+		}
+	}
+	// macOS-specific paths added on Darwin only.
+	if runtime.GOOS == "darwin" {
+		dirs = append(dirs, "/private/tmp", "/private/var/folders")
+		if home, err := os.UserHomeDir(); err == nil {
+			dirs = append(dirs, filepath.Join(home, "Library/Caches"))
+		}
+	}
+	seen := map[string]bool{}
+	out := make([]string, 0, len(dirs))
+	for _, d := range dirs {
+		if d == "" {
+			continue
+		}
+		abs, err := filepath.Abs(d)
+		if err != nil {
+			continue
+		}
+		if real, err := filepath.EvalSymlinks(abs); err == nil {
+			abs = real
+		}
+		if !seen[abs] {
+			seen[abs] = true
+			out = append(out, abs)
+		}
+	}
+	return out
+}

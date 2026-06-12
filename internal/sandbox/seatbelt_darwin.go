@@ -2,9 +2,7 @@ package sandbox
 
 import (
 	"fmt"
-	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 )
 
@@ -44,40 +42,6 @@ func seatbeltProfile(spec Spec) string {
 		b.WriteString("(deny network*)\n")
 	}
 	return b.String()
-}
-
-// writeAllowDirs is the deduplicated, symlink-resolved set of directories the
-// sandbox permits writes to: the caller's roots plus temp dirs, /dev, and the
-// common toolchain caches under $HOME. Symlinks are resolved because macOS's
-// /tmp and $TMPDIR live under /private, which is the path Seatbelt matches.
-func writeAllowDirs(roots []string) []string {
-	dirs := append([]string{}, roots...)
-	dirs = append(dirs, "/dev", "/tmp", "/private/tmp", "/private/var/folders", os.TempDir())
-	if home, err := os.UserHomeDir(); err == nil {
-		// go build/test → Library/Caches + go; pip/etc → .cache; npm/cargo too.
-		for _, sub := range []string{"Library/Caches", ".cache", ".npm", ".cargo", "go"} {
-			dirs = append(dirs, filepath.Join(home, sub))
-		}
-	}
-	seen := map[string]bool{}
-	out := make([]string, 0, len(dirs))
-	for _, d := range dirs {
-		if d == "" {
-			continue
-		}
-		abs, err := filepath.Abs(d)
-		if err != nil {
-			continue
-		}
-		if real, err := filepath.EvalSymlinks(abs); err == nil {
-			abs = real
-		}
-		if !seen[abs] {
-			seen[abs] = true
-			out = append(out, abs)
-		}
-	}
-	return out
 }
 
 // sbplString quotes a path as an SBPL string literal, escaping backslash and
