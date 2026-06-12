@@ -28,9 +28,11 @@ type BotConnectionCredentialView struct {
 }
 
 type BotConnectionSessionMappingView struct {
-	RemoteID  string `json:"remoteId"`
-	SessionID string `json:"sessionId"`
-	UpdatedAt string `json:"updatedAt"`
+	RemoteID      string `json:"remoteId"`
+	SessionID     string `json:"sessionId"`
+	Scope         string `json:"scope"`
+	WorkspaceRoot string `json:"workspaceRoot"`
+	UpdatedAt     string `json:"updatedAt"`
 }
 
 type BotConnectionView struct {
@@ -40,6 +42,8 @@ type BotConnectionView struct {
 	Label           string                            `json:"label"`
 	Enabled         bool                              `json:"enabled"`
 	Status          string                            `json:"status"`
+	Model           string                            `json:"model"`
+	WorkspaceRoot   string                            `json:"workspaceRoot"`
 	Credential      BotConnectionCredentialView       `json:"credential"`
 	SessionMappings []BotConnectionSessionMappingView `json:"sessionMappings"`
 	LastError       string                            `json:"lastError"`
@@ -89,7 +93,9 @@ type botInstallSession struct {
 func (a *App) StartBotConnectionInstall(provider, domain string) (BotInstallStartResult, error) {
 	provider, domain = normalizeBotInstallTarget(provider, domain)
 	if provider == "weixin" {
-		session, err := weixin.StartLogin(context.Background())
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		session, err := weixin.StartLogin(ctx)
 		if err != nil {
 			return BotInstallStartResult{OK: false, Provider: provider, Domain: domain, Message: err.Error()}, nil
 		}
@@ -131,7 +137,9 @@ func (a *App) PollBotConnectionInstall(installID string) (BotInstallPollResult, 
 		return BotInstallPollResult{Status: "expired", Error: "install session expired"}, nil
 	}
 	if session.Provider == "weixin" {
-		result, status, err := weixin.PollLogin(context.Background(), session.Weixin)
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		result, status, err := weixin.PollLogin(ctx, session.Weixin)
 		if err != nil {
 			return BotInstallPollResult{Status: status, Error: err.Error()}, nil
 		}
@@ -294,21 +302,22 @@ func (a *App) pollFeishuConnectionInstall(installID string, session *botInstallS
 		return BotInstallPollResult{Status: "pending", Message: "等待授权完成。"}, nil
 	}
 	a.deleteBotInstall(installID)
+	domain := feishuInstallDomain(session.Domain, data)
 	secretEnv := "FEISHU_BOT_APP_SECRET"
-	if session.Domain == "lark" {
+	if domain == "lark" {
 		secretEnv = "LARK_BOT_APP_SECRET"
 	}
 	if err := upsertDotEnv(secretEnv, appSecret); err != nil {
 		return BotInstallPollResult{Status: "error", Error: err.Error()}, nil
 	}
 	label := "飞书"
-	if session.Domain == "lark" {
+	if domain == "lark" {
 		label = "Lark"
 	}
 	conn, err := a.upsertBotConnection(config.BotConnectionConfig{
-		ID:         connectionID("feishu", session.Domain),
+		ID:         connectionID("feishu", domain),
 		Provider:   "feishu",
-		Domain:     session.Domain,
+		Domain:     domain,
 		Label:      label,
 		Enabled:    true,
 		Status:     "connected",
@@ -316,7 +325,7 @@ func (a *App) pollFeishuConnectionInstall(installID string, session *botInstallS
 	}, func(c *config.Config) {
 		c.Bot.Enabled = true
 		c.Bot.Feishu.Enabled = true
-		c.Bot.Feishu.Domain = session.Domain
+		c.Bot.Feishu.Domain = domain
 		c.Bot.Feishu.AppID = appID
 		c.Bot.Feishu.AppSecretEnv = secretEnv
 		c.Bot.Feishu.Mode = "websocket"
@@ -375,15 +384,22 @@ func (a *App) rememberBotConnectionRemote(id, remoteID string) error {
 			}
 			for j := range c.Bot.Connections[i].SessionMappings {
 				if c.Bot.Connections[i].SessionMappings[j].RemoteID == remoteID {
+					workspaceRoot := firstNonEmptyBot(c.Bot.Connections[i].SessionMappings[j].WorkspaceRoot, c.Bot.Connections[i].WorkspaceRoot)
+					scope := botMappingScope(c.Bot.Connections[i].SessionMappings[j].Scope, workspaceRoot)
+					c.Bot.Connections[i].SessionMappings[j].Scope = scope
+					c.Bot.Connections[i].SessionMappings[j].WorkspaceRoot = botMappingWorkspaceRoot(scope, workspaceRoot)
 					c.Bot.Connections[i].SessionMappings[j].UpdatedAt = now
 					c.Bot.Connections[i].UpdatedAt = now
 					return nil
 				}
 			}
+			scope := botMappingScope("", c.Bot.Connections[i].WorkspaceRoot)
 			c.Bot.Connections[i].SessionMappings = append(c.Bot.Connections[i].SessionMappings, config.BotConnectionSessionMapping{
-				RemoteID:  remoteID,
-				SessionID: "",
-				UpdatedAt: now,
+				RemoteID:      remoteID,
+				SessionID:     "",
+				Scope:         scope,
+				WorkspaceRoot: botMappingWorkspaceRoot(scope, c.Bot.Connections[i].WorkspaceRoot),
+				UpdatedAt:     now,
 			})
 			c.Bot.Connections[i].UpdatedAt = now
 			return nil
@@ -442,11 +458,13 @@ func postFeishuInstallForm(base string, body map[string]string) (map[string]any,
 }
 
 func postFeishuInstallFormResult(base string, body map[string]string) (map[string]any, int, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
 	reqBody := url.Values{}
 	for k, v := range body {
 		reqBody.Set(k, v)
 	}
-	req, err := http.NewRequest("POST", strings.TrimRight(base, "/")+"/oauth/v1/app/registration", strings.NewReader(reqBody.Encode()))
+	req, err := http.NewRequestWithContext(ctx, "POST", strings.TrimRight(base, "/")+"/oauth/v1/app/registration", strings.NewReader(reqBody.Encode()))
 	if err != nil {
 		return nil, 0, err
 	}
@@ -466,13 +484,40 @@ func postFeishuInstallFormResult(base string, body map[string]string) (map[strin
 func botConnectionView(conn config.BotConnectionConfig) BotConnectionView {
 	return BotConnectionView{
 		ID: conn.ID, Provider: conn.Provider, Domain: conn.Domain, Label: conn.Label, Enabled: conn.Enabled, Status: conn.Status,
+		Model: conn.Model, WorkspaceRoot: conn.WorkspaceRoot,
 		Credential: BotConnectionCredentialView{
 			AppID: conn.Credential.AppID, AppSecretEnv: conn.Credential.AppSecretEnv, AccountID: conn.Credential.AccountID, TokenEnv: conn.Credential.TokenEnv,
-			SecretSet: envIsSet(firstNonEmptyBot(conn.Credential.AppSecretEnv, conn.Credential.TokenEnv)),
+			SecretSet: botCredentialSecretSet(conn),
 		},
-		SessionMappings: botSessionMappingViews(conn.SessionMappings),
+		SessionMappings: botSessionMappingViews(conn.SessionMappings, conn.WorkspaceRoot),
 		LastError:       conn.LastError, CreatedAt: conn.CreatedAt, UpdatedAt: conn.UpdatedAt,
 	}
+}
+
+func botCredentialSecretSet(conn config.BotConnectionConfig) bool {
+	if conn.Credential.AppSecretEnv != "" {
+		return envIsSet(conn.Credential.AppSecretEnv)
+	}
+	if conn.Credential.TokenEnv != "" && envIsSet(conn.Credential.TokenEnv) {
+		return true
+	}
+	if conn.Provider == "weixin" {
+		return weixin.HasSavedAccount(conn.Credential.AccountID)
+	}
+	return false
+}
+
+func feishuInstallDomain(fallback string, data map[string]any) string {
+	if userInfo, ok := data["user_info"].(map[string]any); ok {
+		if strings.EqualFold(stringValue(userInfo["tenant_brand"]), "lark") {
+			return "lark"
+		}
+		return "feishu"
+	}
+	if strings.EqualFold(fallback, "lark") {
+		return "lark"
+	}
+	return "feishu"
 }
 
 func botConnectionViews(connections []config.BotConnectionConfig) []BotConnectionView {
@@ -488,19 +533,21 @@ func botConnectionViews(connections []config.BotConnectionConfig) []BotConnectio
 
 func botConnectionConfig(view BotConnectionView) config.BotConnectionConfig {
 	return config.BotConnectionConfig{
-		ID:       strings.TrimSpace(view.ID),
-		Provider: strings.TrimSpace(view.Provider),
-		Domain:   strings.TrimSpace(view.Domain),
-		Label:    strings.TrimSpace(view.Label),
-		Enabled:  view.Enabled,
-		Status:   strings.TrimSpace(view.Status),
+		ID:            strings.TrimSpace(view.ID),
+		Provider:      strings.TrimSpace(view.Provider),
+		Domain:        strings.TrimSpace(view.Domain),
+		Label:         strings.TrimSpace(view.Label),
+		Enabled:       view.Enabled,
+		Status:        strings.TrimSpace(view.Status),
+		Model:         strings.TrimSpace(view.Model),
+		WorkspaceRoot: strings.TrimSpace(view.WorkspaceRoot),
 		Credential: config.BotConnectionCredential{
 			AppID:        strings.TrimSpace(view.Credential.AppID),
 			AppSecretEnv: strings.TrimSpace(view.Credential.AppSecretEnv),
 			AccountID:    strings.TrimSpace(view.Credential.AccountID),
 			TokenEnv:     strings.TrimSpace(view.Credential.TokenEnv),
 		},
-		SessionMappings: botSessionMappingConfigs(view.SessionMappings),
+		SessionMappings: botSessionMappingConfigs(view.SessionMappings, view.WorkspaceRoot),
 		LastError:       strings.TrimSpace(view.LastError),
 		CreatedAt:       strings.TrimSpace(view.CreatedAt),
 		UpdatedAt:       strings.TrimSpace(view.UpdatedAt),
@@ -522,27 +569,56 @@ func botConnectionConfigs(views []BotConnectionView) []config.BotConnectionConfi
 	return out
 }
 
-func botSessionMappingViews(mappings []config.BotConnectionSessionMapping) []BotConnectionSessionMappingView {
+func botMappingScope(scope, workspaceRoot string) string {
+	if strings.TrimSpace(scope) == "project" {
+		return "project"
+	}
+	if strings.TrimSpace(workspaceRoot) != "" {
+		return "project"
+	}
+	return "global"
+}
+
+func botMappingWorkspaceRoot(scope, workspaceRoot string) string {
+	if botMappingScope(scope, workspaceRoot) != "project" {
+		return ""
+	}
+	return strings.TrimSpace(workspaceRoot)
+}
+
+func botSessionMappingViews(mappings []config.BotConnectionSessionMapping, connectionWorkspaceRoot string) []BotConnectionSessionMappingView {
 	if mappings == nil {
 		return []BotConnectionSessionMappingView{}
 	}
 	out := make([]BotConnectionSessionMappingView, 0, len(mappings))
 	for _, m := range mappings {
-		out = append(out, BotConnectionSessionMappingView{RemoteID: m.RemoteID, SessionID: m.SessionID, UpdatedAt: m.UpdatedAt})
+		workspaceRoot := firstNonEmptyBot(m.WorkspaceRoot, connectionWorkspaceRoot)
+		scope := botMappingScope(m.Scope, workspaceRoot)
+		out = append(out, BotConnectionSessionMappingView{
+			RemoteID:      m.RemoteID,
+			SessionID:     m.SessionID,
+			Scope:         scope,
+			WorkspaceRoot: botMappingWorkspaceRoot(scope, workspaceRoot),
+			UpdatedAt:     m.UpdatedAt,
+		})
 	}
 	return out
 }
 
-func botSessionMappingConfigs(mappings []BotConnectionSessionMappingView) []config.BotConnectionSessionMapping {
+func botSessionMappingConfigs(mappings []BotConnectionSessionMappingView, connectionWorkspaceRoot string) []config.BotConnectionSessionMapping {
 	if mappings == nil {
 		return nil
 	}
 	out := make([]config.BotConnectionSessionMapping, 0, len(mappings))
 	for _, m := range mappings {
+		workspaceRoot := firstNonEmptyBot(m.WorkspaceRoot, connectionWorkspaceRoot)
+		scope := botMappingScope(m.Scope, workspaceRoot)
 		out = append(out, config.BotConnectionSessionMapping{
-			RemoteID:  strings.TrimSpace(m.RemoteID),
-			SessionID: strings.TrimSpace(m.SessionID),
-			UpdatedAt: strings.TrimSpace(m.UpdatedAt),
+			RemoteID:      strings.TrimSpace(m.RemoteID),
+			SessionID:     strings.TrimSpace(m.SessionID),
+			Scope:         scope,
+			WorkspaceRoot: botMappingWorkspaceRoot(scope, workspaceRoot),
+			UpdatedAt:     strings.TrimSpace(m.UpdatedAt),
 		})
 	}
 	return out

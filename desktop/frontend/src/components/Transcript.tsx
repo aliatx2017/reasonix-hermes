@@ -4,10 +4,27 @@ import type { CheckpointMeta } from "../lib/types";
 import { useT } from "../lib/i18n";
 import { replaceAttachmentRefsForDisplay } from "../lib/attachmentDisplay";
 import { AssistantMessage, TurnActions, UserMessage } from "./Message";
-import { ProcessCard, ProcessCompactIcon, ProcessInfoIcon, ProcessPhaseIcon, ProcessStatusIcon } from "./ProcessCard";
+import { ProcessCompactIcon, ProcessPhaseIcon } from "./ProcessCard";
 import { ToolCard } from "./ToolCard";
 import { ChevronRight } from "lucide-react";
 import { Welcome } from "./Welcome";
+import { ReadOnlyBatch } from "./ReadOnlyBatch";
+import { getDisplayMode, onDisplayModeChange, type DisplayMode } from "../lib/displayMode";
+
+/** Matches Go backend's ReadOnly() + codegraph ReadOnlyToolNames(). */
+function isReadOnlyTool(name: string): boolean {
+  switch (name) {
+    case "read_file": case "ls": case "grep": case "glob": case "web_fetch":
+    case "bash_output": case "waitJob": case "todo_write": case "read_skill":
+    case "codegraph_callees": case "codegraph_callers": case "codegraph_context":
+    case "codegraph_explore": case "codegraph_files": case "codegraph_impact":
+    case "codegraph_node": case "codegraph_search": case "codegraph_status":
+    case "codegraph_trace":
+      return true;
+    default:
+      return false;
+  }
+}
 
 type ToolItem = Extract<Item, { kind: "tool" }>;
 type AssistantItem = Extract<Item, { kind: "assistant" }>;
@@ -17,10 +34,10 @@ type QuestionAnchor = { id: string; text: string; turn: number };
 const QUESTION_NAV_MIN_COUNT = 2;
 const LiveStreamContext = createContext<LiveStream | undefined>(undefined);
 
-const LiveAssistantMessage = memo(function LiveAssistantMessage({ item }: { item: AssistantItem }) {
+const LiveAssistantMessage = memo(function LiveAssistantMessage({ item, defaultExpanded = false }: { item: AssistantItem; defaultExpanded?: boolean }) {
   const live = useContext(LiveStreamContext);
   const shown = live && live.id === item.id ? { ...item, text: live.text, reasoning: live.reasoning, streaming: true } : item;
-  return <AssistantMessage item={shown} />;
+  return <AssistantMessage item={shown} defaultExpanded={defaultExpanded} />;
 });
 
 // ── Layer budgets ─────────────────────────────────────────────────────────────
@@ -151,6 +168,7 @@ export function Transcript({
   actionPending = false,
   rewindDisabled = false,
   questionNavigator = true,
+  defaultExpandThinking = false,
 }: {
   items: Item[];
   live?: LiveStream;
@@ -161,12 +179,16 @@ export function Transcript({
   actionPending?: boolean;
   rewindDisabled?: boolean;
   questionNavigator?: boolean;
+  defaultExpandThinking?: boolean;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
   const resizeFrame = useRef<number | null>(null);
   const lastClientHeight = useRef<number | null>(null);
   const lastFooterHeight = useRef<number | null>(null);
+
+  const [displayMode, setDisplayMode] = useState<DisplayMode>(() => getDisplayMode());
+  useEffect(() => onDisplayModeChange((mode) => setDisplayMode(mode)), []);
 
   const questions = useMemo<QuestionAnchor[]>(() => {
     const anchors: QuestionAnchor[] = [];
@@ -335,6 +357,7 @@ export function Transcript({
   // the warm/cold zone JSX trees. Uses LiveStreamContext for streaming data
   // (added by upstream PR #3423) instead of per-call renderSegments.
   const empty = items.length === 0;
+
   const hotZoneNodes = useMemo<ReactNode[]>(() => {
     const out: ReactNode[] = [];
     let actionText = "";
@@ -364,20 +387,45 @@ export function Transcript({
       actionReady = false;
     };
 
+    // Compact/minimal: completed read-only research folds into a slim batch so a
+    // long run of reads stays quiet; running reads, writers, and the model's own
+    // text + thinking render directly so the turn's substance stays visible.
+    // Standard: flat, no batching. The warm zone (WarmTurnItems) renders the same way.
+    const batchReadOnly = displayMode !== "standard";
+    const roBatch: ToolItem[] = [];
+    const flushRO = () => {
+      if (roBatch.length === 0) return;
+      out.push(<ReadOnlyBatch key={`rob-${roBatch[0].id}`} items={[...roBatch]} subcalls={subcallsByParent} />);
+      roBatch.length = 0;
+    };
+
     for (let i = hotStartIdx; i < items.length; i++) {
       const it = items[i];
+      if (
+        batchReadOnly &&
+        it.kind === "tool" &&
+        !it.parentId &&
+        it.status !== "running" &&
+        it.name !== "todo_write" &&
+        it.name !== "exit_plan_mode" &&
+        isReadOnlyTool(it.name)
+      ) {
+        roBatch.push(it as ToolItem);
+        continue;
+      }
+      flushRO();
       switch (it.kind) {
         case "user": {
           pushTurnActions();
           const tn = userTurn.get(it.id);
           activeTurn = tn;
           out.push(
-            <UserMessage key={it.id} text={it.text} turn={tn} anchorId={questionAnchorId(it.id)} />,
+            <UserMessage key={it.id} text={it.text} failed={it.failed} turn={tn} anchorId={questionAnchorId(it.id)} />,
           );
           break;
         }
         case "assistant":
-          out.push(<LiveAssistantMessage key={it.id} item={it as AssistantItem} />);
+          out.push(<LiveAssistantMessage key={it.id} item={it as AssistantItem} defaultExpanded={defaultExpandThinking} />);
           if (!it.streaming && it.text.trim() !== "") {
             actionText = it.text;
             actionReady = true;
@@ -394,9 +442,10 @@ export function Transcript({
         case "compaction": out.push(<CompactionCard key={it.id} item={it} />); break;
       }
     }
+    flushRO();
     pushTurnActions();
     return out;
-  }, [hotStartIdx, items, openAction, actionPending, rewindDisabled, onRewind, subcallsByParent, userTurn, checkpointsByTurn]);
+  }, [hotStartIdx, items, openAction, actionPending, rewindDisabled, onRewind, subcallsByParent, userTurn, checkpointsByTurn, displayMode, defaultExpandThinking]);
 
   // ── Assemble rendered output ──────────────────────────────────────────────
   // Warm/cold zone is a separate memo'd WarmZone component so streaming tokens
@@ -431,6 +480,7 @@ export function Transcript({
             warmRewindDisabled={rewindDisabled}
             warmOnRewind={onRewind}
             warmSetOpenAction={setOpenAction}
+            defaultExpandThinking={defaultExpandThinking}
             onToggleColdPage={() => setColdPage((p) => p + 1)}
             onToggleWarmTurn={(g, expand) => {
               setExpandedWarmTurns((prev) => {
@@ -466,6 +516,7 @@ const WarmZone = memo(function WarmZone({
   warmRewindDisabled,
   warmOnRewind,
   warmSetOpenAction,
+  defaultExpandThinking = false,
   onToggleColdPage,
   onToggleWarmTurn,
 }: {
@@ -483,6 +534,7 @@ const WarmZone = memo(function WarmZone({
   warmRewindDisabled: boolean;
   warmOnRewind: ((turn: number, scope: string) => void) | undefined;
   warmSetOpenAction: (action: OpenTurnAction | null) => void;
+  defaultExpandThinking?: boolean;
   onToggleColdPage: () => void;
   onToggleWarmTurn: (g: number, expand: boolean) => void;
 }) {
@@ -537,6 +589,7 @@ const WarmZone = memo(function WarmZone({
               rewindDisabled={warmRewindDisabled}
               onRewind={warmOnRewind}
               setOpenAction={warmSetOpenAction}
+              defaultExpandThinking={defaultExpandThinking}
             />
           </WarmTurnCard>,
         );
@@ -580,6 +633,7 @@ function WarmTurnItems({
   rewindDisabled,
   onRewind,
   setOpenAction,
+  defaultExpandThinking = false,
 }: {
   startIdx: number;
   endIdx: number;
@@ -592,6 +646,7 @@ function WarmTurnItems({
   rewindDisabled: boolean;
   onRewind: ((turn: number, scope: string) => void) | undefined;
   setOpenAction: (action: OpenTurnAction | null) => void;
+  defaultExpandThinking?: boolean;
 }) {
   const nodes: React.ReactNode[] = [];
   let actionText = "";
@@ -621,20 +676,36 @@ function WarmTurnItems({
     actionReady = false;
   };
 
+  // Group consecutive completed read-only tools into ReadOnlyBatch
+  const roBatch: ToolItem[] = [];
+  const flushRO = () => {
+    if (roBatch.length === 0) return;
+    nodes.push(<ReadOnlyBatch key={`rob-${roBatch[0].id}`} items={[...roBatch]} subcalls={subcalls} />);
+    roBatch.length = 0;
+  };
+
   for (let i = startIdx; i < endIdx && i < items.length; i++) {
     const it = items[i];
+
+    // Completed read-only tools → batch into ReadOnlyBatch
+    if (it.kind === "tool" && !it.parentId && it.name !== "todo_write" && it.name !== "exit_plan_mode" && isReadOnlyTool(it.name)) {
+      roBatch.push(it as ToolItem);
+      continue;
+    }
+    flushRO();
+
     switch (it.kind) {
       case "user": {
         pushTurnActions();
         const tn = userTurnMap.get(it.id);
         activeTurn = tn;
         nodes.push(
-          <UserMessage key={it.id} text={it.text} turn={tn} anchorId={questionAnchorId(it.id)} />,
+          <UserMessage key={it.id} text={it.text} failed={it.failed} turn={tn} anchorId={questionAnchorId(it.id)} />,
         );
         break;
       }
       case "assistant": {
-        nodes.push(<AssistantMessage key={it.id} item={it} />);
+        nodes.push(<AssistantMessage key={it.id} item={it} defaultExpanded={defaultExpandThinking} />);
         if (!it.streaming && it.text.trim() !== "") {
           actionText = it.text;
           actionReady = true;
@@ -653,6 +724,7 @@ function WarmTurnItems({
       case "compaction": nodes.push(<CompactionCard key={it.id} item={it} />); break;
     }
   }
+  flushRO();
   pushTurnActions();
   return nodes;
 }
@@ -834,59 +906,33 @@ type CompactionItem = Extract<Item, { kind: "compaction" }>;
 type NoticeItem = Extract<Item, { kind: "notice" }>;
 
 function PhaseCard({ text }: { text: string }) {
-  return (
-    <ProcessCard
-      tone="accent"
-      icon={<ProcessPhaseIcon size={12} />}
-      kind="phase"
-      name={text}
-      className="phase process-card--phase"
-    />
-  );
+  return <div className="phase"><ProcessPhaseIcon size={12} /><span>{text}</span></div>;
 }
 
 function NoticeCard({ level, text }: { level: NoticeItem["level"]; text: string }) {
-  const t = useT();
-  const warning = level === "warn";
   return (
-    <ProcessCard
-      tone={warning ? "warning" : "default"}
-      icon={<ProcessInfoIcon size={12} />}
-      kind="notice"
-      name={t(warning ? "notice.warning" : "notice.info")}
-      meta={warning ? <ProcessStatusIcon state="waiting" label={t("notice.warning")} /> : undefined}
-      defaultOpen
-      className={`notice notice--${level}`}
-    >
-      <div className="notice__body">{text}</div>
-    </ProcessCard>
+    <div className={`notice-line notice-line--${level}`}>
+      <span className="notice-line__icon">{level === "warn" ? "⚠ " : "ℹ "}</span>
+      <span className="notice-line__text">{text}</span>
+    </div>
   );
 }
 
 function CompactionCard({ item }: { item: CompactionItem }) {
   const t = useT();
+  const [open, setOpen] = useState(false);
   if (item.pending) {
-    return (
-      <ProcessCard
-        tone="accent"
-        icon={<ProcessCompactIcon size={12} />}
-        kind="context"
-        name={t("compaction.working")}
-        meta={<ProcessStatusIcon state="running" label={t("compaction.working")} />}
-        className="compaction compaction--pending"
-      />
-    );
+    return <div className="compaction compaction--pending"><ProcessCompactIcon size={12} /><span>{t("compaction.working")}</span></div>;
   }
   return (
-    <ProcessCard
-      tone="accent"
-      icon={<ProcessCompactIcon size={12} />}
-      kind="context"
-      name={t("compaction.title")}
-      meta={`${t("compaction.messages", { n: item.messages })}${item.trigger ? ` · ${item.trigger}` : ""}`}
-      className="compaction"
-    >
-      <pre className="compaction__summary">{item.summary}</pre>
-    </ProcessCard>
+    <div className="compaction">
+      <button type="button" className="compaction__head" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+        <ProcessCompactIcon size={12} />
+        <span>{t("compaction.title")}</span>
+        <span className="compaction__meta">{t("compaction.messages", { n: item.messages })}{item.trigger ? ` · ${item.trigger}` : ""}</span>
+        <ChevronRight className={open ? "compaction__chevron--open" : ""} size={12} />
+      </button>
+      {open && <pre className="compaction__body">{item.summary}</pre>}
+    </div>
   );
 }

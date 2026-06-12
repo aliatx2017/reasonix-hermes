@@ -62,9 +62,11 @@ type Config struct {
 // UIConfig controls CLI presentation-only settings. Desktop appearance is kept in
 // DesktopConfig so desktop preferences cannot alter terminal output or prompts.
 type UIConfig struct {
-	Theme         string `toml:"theme"`          // auto|dark|light; empty resolves to auto
-	ThemeStyle    string `toml:"theme_style"`    // graphite|aurora|slate|carbon|nocturne|amber and legacy aliases
-	CloseBehavior string `toml:"close_behavior"` // legacy desktop close behavior; prefer desktop.close_behavior
+	Theme          string `toml:"theme"`           // auto|dark|light; empty resolves to auto
+	ThemeStyle     string `toml:"theme_style"`     // graphite|aurora|slate|carbon|nocturne|amber and legacy aliases
+	ShortcutLayout string `toml:"shortcut_layout"` // classic|desktop; accepted for compatibility
+	CloseBehavior  string `toml:"close_behavior"`  // legacy desktop close behavior; prefer desktop.close_behavior
+	ShowReasoning  bool   `toml:"show_reasoning"`  // Ctrl+O / /verbose: show thinking text in CLI; false = collapsed
 }
 
 // DesktopConfig controls desktop-only UI preferences. It is intentionally
@@ -75,7 +77,12 @@ type DesktopConfig struct {
 	Theme          string   `toml:"theme"`           // auto|dark|light; empty resolves to dark
 	ThemeStyle     string   `toml:"theme_style"`     // graphite|aurora|slate|carbon|nocturne|amber and legacy aliases
 	CloseBehavior  string   `toml:"close_behavior"`  // quit|background; desktop window close behavior
+	DisplayMode    string   `toml:"display_mode"`    // standard|compact|minimal; transcript display mode
+	CheckUpdates   *bool    `toml:"check_updates"`   // startup update checks; nil keeps the default enabled
+	Telemetry      *bool    `toml:"telemetry"`       // anonymous launch ping (install id + version + OS); nil keeps the default enabled
+	Metrics        *bool    `toml:"metrics"`         // opt-in aggregate agent metrics (anonymous signal/bucket counts; no content); nil = disabled
 	ProviderAccess []string `toml:"provider_access"` // desktop-only list of provider entries shown in Settings > Model > Access
+	ExpandThinking bool     `toml:"expand_thinking"` // true = show reasoning text expanded by default; false = collapsed
 }
 
 // NotificationsConfig controls optional system notifications for CLI chat/run.
@@ -102,6 +109,18 @@ func (c *Config) UITheme() string {
 // for the resolved light/dark shell".
 func (c *Config) UIThemeStyle() string {
 	return normalizeThemeStyle(c.UI.ThemeStyle)
+}
+
+// UIShortcutLayout normalizes the legacy CLI shortcut layout setting. It is kept
+// for compatibility; Shift+Tab toggles Plan and Ctrl+Y toggles YOLO in both
+// layouts.
+func (c *Config) UIShortcutLayout() string {
+	switch strings.ToLower(strings.TrimSpace(c.UI.ShortcutLayout)) {
+	case "desktop", "dual", "dual-axis", "dual_axis":
+		return "desktop"
+	default:
+		return "classic"
+	}
 }
 
 func normalizeThemeStyle(style string) string {
@@ -170,6 +189,48 @@ func (c *Config) DesktopCloseBehavior() string {
 // UICloseBehavior is the legacy name for DesktopCloseBehavior.
 func (c *Config) UICloseBehavior() string {
 	return c.DesktopCloseBehavior()
+}
+
+// DesktopDisplayMode normalizes the transcript display mode. Default is
+// "minimal" (collapsed model-generated intermediate items).
+func (c *Config) DesktopDisplayMode() string {
+	switch strings.ToLower(strings.TrimSpace(c.Desktop.DisplayMode)) {
+	case "standard":
+		return "standard"
+	case "compact":
+		return "compact"
+	case "minimal":
+		return "minimal"
+	default:
+		return "minimal"
+	}
+}
+
+// DesktopCheckUpdates reports whether the desktop should check for updates on
+// startup. Missing configs default to true so existing users keep update notices.
+func (c *Config) DesktopCheckUpdates() bool {
+	if c == nil || c.Desktop.CheckUpdates == nil {
+		return true
+	}
+	return *c.Desktop.CheckUpdates
+}
+
+// DesktopTelemetry reports whether the desktop sends the anonymous launch ping.
+// It carries no conversation, key, or file data — see desktop/README.md.
+func (c *Config) DesktopTelemetry() bool {
+	if c == nil || c.Desktop.Telemetry == nil {
+		return true
+	}
+	return *c.Desktop.Telemetry
+}
+
+// DesktopMetrics reports whether the desktop sends opt-in aggregate agent
+// metrics — anonymous (signal, bucket) counters, never content. Default off.
+func (c *Config) DesktopMetrics() bool {
+	if c == nil || c.Desktop.Metrics == nil {
+		return false
+	}
+	return *c.Desktop.Metrics
 }
 
 // LSPConfig governs the optional Language Server Protocol tools (lsp_definition,
@@ -304,6 +365,8 @@ type BotConnectionConfig struct {
 	Label           string                        `toml:"label"`
 	Enabled         bool                          `toml:"enabled"`
 	Status          string                        `toml:"status"` // disconnected|pending|connected|error
+	Model           string                        `toml:"model"`
+	WorkspaceRoot   string                        `toml:"workspace_root"`
 	Credential      BotConnectionCredential       `toml:"credential"`
 	SessionMappings []BotConnectionSessionMapping `toml:"session_mappings"`
 	LastError       string                        `toml:"last_error"`
@@ -319,9 +382,11 @@ type BotConnectionCredential struct {
 }
 
 type BotConnectionSessionMapping struct {
-	RemoteID  string `toml:"remote_id"`
-	SessionID string `toml:"session_id"`
-	UpdatedAt string `toml:"updated_at"`
+	RemoteID      string `toml:"remote_id"`
+	SessionID     string `toml:"session_id"`
+	Scope         string `toml:"scope"`
+	WorkspaceRoot string `toml:"workspace_root"`
+	UpdatedAt     string `toml:"updated_at"`
 }
 
 // NetworkConfig controls ordinary outbound HTTP traffic such as model providers,
@@ -1593,6 +1658,27 @@ func SessionDir() string {
 	return filepath.Join(dir, "sessions")
 }
 
+// ProjectSessionDir is the per-workspace session directory the desktop sidebar
+// lists: <config root>/projects/<slug>/sessions. Empty when either the config
+// root or workspaceRoot doesn't resolve.
+func ProjectSessionDir(workspaceRoot string) string {
+	base := MemoryUserDir()
+	root := strings.TrimSpace(workspaceRoot)
+	if base == "" || root == "" {
+		return ""
+	}
+	if abs, err := filepath.Abs(root); err == nil {
+		root = abs
+	}
+	return filepath.Join(base, "projects", WorkspaceSlug(root), "sessions")
+}
+
+// WorkspaceSlug flattens an absolute workspace path into the directory name
+// used under <config root>/projects.
+func WorkspaceSlug(absPath string) string {
+	return strings.NewReplacer(string(os.PathSeparator), "-", "/", "-", "\\", "-", ":", "-").Replace(absPath)
+}
+
 // CacheDir is the per-user cache root for derived/regenerable artefacts: MCP
 // handshake snapshots, plugin startup-latency telemetry. Lives beside the
 // existing dirs (UserConfigDir/reasonix/...) so the whole reasonix state tree
@@ -1741,11 +1827,22 @@ func (c *Config) ResolveModel(ref string) (*ProviderEntry, bool) {
 
 // ResolveModelWithFallback resolves a model reference to the canonical
 // "provider/model" form used by the desktop runtime. If ref is stale or empty,
-// it falls back to the first provider with at least one model.
+// it tries the user's configured default_model before falling back to the first
+// configured provider — so preference isn't overwritten by iteration order.
 func (c *Config) ResolveModelWithFallback(ref string) (resolvedRef string, fallback bool, ok bool) {
-	if strings.TrimSpace(ref) != "" {
+	ref = strings.TrimSpace(ref)
+	if ref != "" {
 		if e, found := c.ResolveModel(ref); found {
 			return e.Name + "/" + e.Model, false, true
+		}
+	}
+	// Before falling back to the first configured provider (which may not be the
+	// user's preferred choice), try the configured default_model.  Skip when ref
+	// already WAS the DefaultModel (it already failed above, so retrying won't
+	// help) or when the default provider has no API key configured.
+	if ref != c.DefaultModel && c.DefaultModel != "" {
+		if e, found := c.ResolveModel(c.DefaultModel); found && e.Configured() {
+			return e.Name + "/" + e.Model, true, true
 		}
 	}
 	for i := range c.Providers {
@@ -1777,8 +1874,19 @@ func (e *ProviderEntry) Configured() bool {
 
 // ResolveSystemPrompt returns the system prompt, reading system_prompt_file if set.
 func (c *Config) ResolveSystemPrompt() (string, error) {
+	return c.ResolveSystemPromptForRoot(".")
+}
+
+// ResolveSystemPromptForRoot is like ResolveSystemPrompt but resolves a relative
+// system_prompt_file against root. Desktop tabs pass their workspace root here so
+// prompt files are project-scoped even when the process cwd is elsewhere.
+func (c *Config) ResolveSystemPromptForRoot(root string) (string, error) {
 	if c.Agent.SystemPromptFile != "" {
-		b, err := os.ReadFile(c.Agent.SystemPromptFile)
+		path := c.Agent.SystemPromptFile
+		if !filepath.IsAbs(path) {
+			path = filepath.Join(resolveRoot(root), path)
+		}
+		b, err := os.ReadFile(path)
 		if err != nil {
 			return "", fmt.Errorf("system_prompt_file: %w", err)
 		}

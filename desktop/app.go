@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -76,6 +77,8 @@ type App struct {
 
 	mediaTokens *mediaTokenStore
 	botInstalls map[string]*botInstallSession
+
+	metrics atomic.Pointer[metricsAggregator] // non-nil only when desktop.metrics is opted in; swapped live by SetDesktopMetrics
 }
 
 // mediaTokenEntry holds metadata for a workspace media file served via temporary URL.
@@ -268,7 +271,13 @@ func (a *App) startup(ctx context.Context) {
 	installSystemQuitHook()
 	a.startTray()
 
+	if cfg, err := config.Load(); err == nil && cfg.DesktopMetrics() && version != "dev" {
+		a.metrics.Store(newMetricsAggregator(filepath.Dir(config.UserConfigPath())))
+	}
+
 	go a.restoreOrBuildTabs()
+	go a.sendStartupPing()
+	go a.flushMetrics()
 }
 
 func (a *App) beforeClose(ctx context.Context) bool {
@@ -356,8 +365,14 @@ func (a *App) restoreOrBuildTabs() {
 	ensureWorkspace()
 
 	// Load i18n from the first available config.
+	// Prefer DesktopLanguage (desktop UI setting) over Language (CLI setting),
+	// so the user's language choice in desktop settings takes effect.
 	if cfg, err := config.Load(); err == nil {
-		i18n.DetectLanguage(cfg.Language)
+		lang := cfg.DesktopLanguage()
+		if lang == "" {
+			lang = cfg.Language
+		}
+		i18n.DetectLanguage(lang)
 	}
 
 	f := loadTabsFile()
@@ -587,24 +602,32 @@ func (a *App) CancelTab(tabID string) {
 	}
 }
 
+// Steer sends mid-turn guidance to the agent without interrupting the in-flight request.
+func (a *App) Steer(text string) {
+	a.SteerForTab("", text)
+}
+
+// SteerForTab sends mid-turn guidance to a specific tab's agent.
+func (a *App) SteerForTab(tabID, text string) {
+	if ctrl := a.ctrlByTabID(tabID); ctrl != nil {
+		ctrl.Steer(text)
+	}
+}
+
 // Approve answers a pending approval_request by ID: allow runs the call, session
 // also remembers the grant for the rest of the session.
 func (a *App) Approve(id string, allow, session, persist bool) {
-	a.ApproveWithScope(id, allow, session, persist, "")
+	ctrl := a.ctrlByTabID("")
+	if ctrl != nil {
+		ctrl.Approve(id, allow, session, persist)
+	}
 }
 
-func (a *App) ApproveWithScope(id string, allow, session, persist bool, scope string) {
-	a.ApproveTabWithScope("", id, allow, session, persist, scope)
-}
-
+// ApproveTab is like Approve but scoped to a specific tab.
 func (a *App) ApproveTab(tabID, id string, allow, session, persist bool) {
-	a.ApproveTabWithScope(tabID, id, allow, session, persist, "")
-}
-
-func (a *App) ApproveTabWithScope(tabID, id string, allow, session, persist bool, scope string) {
 	ctrl := a.ctrlByTabID(tabID)
 	if ctrl != nil {
-		ctrl.ApproveWithScope(id, allow, session, persist, scope)
+		ctrl.Approve(id, allow, session, persist)
 	}
 }
 
@@ -795,6 +818,16 @@ func (a *App) Compact() error {
 	return ctrl.Compact(a.ctx, "")
 }
 
+// workspaceNotReadyErr names why a session action arrived before the tab's
+// controller existed: still starting, or failed to start. Silently returning
+// nil here swallowed the click with no feedback (#3938).
+func workspaceNotReadyErr(tab *WorkspaceTab) error {
+	if tab != nil && strings.TrimSpace(tab.StartupErr) != "" {
+		return fmt.Errorf("workspace failed to start: %s", tab.StartupErr)
+	}
+	return fmt.Errorf("workspace is still starting")
+}
+
 // NewSession snapshots the current conversation and rotates to a fresh one.
 func (a *App) NewSession() error {
 	a.mu.RLock()
@@ -802,7 +835,7 @@ func (a *App) NewSession() error {
 	ctrl := a.activeCtrlLocked()
 	a.mu.RUnlock()
 	if ctrl == nil {
-		return nil
+		return workspaceNotReadyErr(tab)
 	}
 	// Tab is already blank — just persist and skip the new-session dance.
 	if !ctrl.Running() && !messagesHaveConversationContent(ctrl.History()) {
@@ -833,7 +866,7 @@ func (a *App) ClearSession() error {
 	ctrl := a.activeCtrlLocked()
 	a.mu.RUnlock()
 	if ctrl == nil {
-		return nil
+		return workspaceNotReadyErr(tab)
 	}
 	if err := ctrl.ClearSession(); err != nil {
 		return err
@@ -928,6 +961,7 @@ func (a *App) Fork(turn int) (TabMeta, error) {
 	model := sourceTab.model
 	effort := cloneStringPtr(sourceTab.effort)
 	mode := currentTabMode(sourceTab)
+	toolApprovalMode := currentTabToolApprovalMode(sourceTab)
 	disabledMCP := cloneServerViewMap(sourceTab.disabledMCP)
 	mcpOrder := append([]string(nil), sourceTab.mcpOrder...)
 	a.mu.RUnlock()
@@ -957,17 +991,18 @@ func (a *App) Fork(turn int) (TabMeta, error) {
 	a.mu.Lock()
 	tabID := a.newUniqueTabIDLocked()
 	tab := &WorkspaceTab{
-		ID:            tabID,
-		Scope:         scope,
-		WorkspaceRoot: workspaceRoot,
-		TopicID:       topicID,
-		TopicTitle:    topicTitle,
-		SessionPath:   newPath,
-		model:         model,
-		effort:        effort,
-		mode:          mode,
-		disabledMCP:   disabledMCP,
-		mcpOrder:      mcpOrder,
+		ID:               tabID,
+		Scope:            scope,
+		WorkspaceRoot:    workspaceRoot,
+		TopicID:          topicID,
+		TopicTitle:       topicTitle,
+		SessionPath:      newPath,
+		model:            model,
+		effort:           effort,
+		mode:             mode,
+		toolApprovalMode: toolApprovalMode,
+		disabledMCP:      disabledMCP,
+		mcpOrder:         mcpOrder,
 	}
 	tab.sink = &tabEventSink{tabID: tabID, app: a}
 	a.tabs[tabID] = tab
@@ -1496,6 +1531,16 @@ func historyMessages(msgs []provider.Message, resolveUserContent func(string) st
 	for _, m := range msgs {
 		content := m.Content
 		if m.Role == provider.RoleUser {
+			// Mid-turn steer messages are persisted in the session so they
+			// survive tab switches. They are surfaced as a notice (↪ text)
+			// — matching the live Steer event look — rather than as a
+			// regular user bubble or being filtered as synthetic (#4044).
+			// Check against the raw m.Content: resolveUserContent applies
+			// StripComposePrefixes which trims trailing whitespace.
+			if steerText, isSteer := agent.SteerText(m.Content); isSteer {
+				out = append(out, HistoryMessage{Role: "notice", Content: "↪ " + steerText})
+				continue
+			}
 			content = resolveUserContent(m.Content)
 			if control.IsSyntheticUserMessage(content) {
 				continue
@@ -1671,11 +1716,13 @@ func firstNonEmpty(values ...string) string {
 	return ""
 }
 
-// ContextInfo is the prompt-vs-window gauge payload. Both zero means no data yet.
+// ContextInfo is the prompt-vs-window gauge payload plus session totals. Used
+// and Window both zero means no context-window data yet.
 type ContextInfo struct {
-	Used         int     `json:"used"`
-	Window       int     `json:"window"`
-	CompactRatio float64 `json:"compactRatio,omitempty"`
+	Used          int     `json:"used"`
+	Window        int     `json:"window"`
+	SessionTokens int     `json:"sessionTokens"`
+	CompactRatio  float64 `json:"compactRatio,omitempty"`
 }
 
 // ContextUsage returns the latest context-window gauge numbers.
@@ -1684,12 +1731,23 @@ func (a *App) ContextUsage() ContextInfo {
 }
 
 func (a *App) ContextUsageForTab(tabID string) ContextInfo {
-	ctrl := a.ctrlByTabID(tabID)
+	a.mu.RLock()
+	tab := a.tabByIDLocked(tabID)
+	var ctrl *control.Controller
+	if tab != nil {
+		ctrl = tab.Ctrl
+	}
+	a.mu.RUnlock()
+
+	var sessionTokens int
+	if tab != nil {
+		sessionTokens = tab.telemetrySnapshot().Usage.TotalTokens
+	}
 	if ctrl == nil {
-		return ContextInfo{}
+		return ContextInfo{SessionTokens: sessionTokens}
 	}
 	used, window := ctrl.ContextSnapshot()
-	return ContextInfo{Used: used, Window: window, CompactRatio: ctrl.CompactRatio()}
+	return ContextInfo{Used: used, Window: window, SessionTokens: sessionTokens, CompactRatio: ctrl.CompactRatio()}
 }
 
 // BalanceInfo is the wallet-balance readout for the status bar. Available is true
@@ -1912,6 +1970,7 @@ func (a *App) Commands() []CommandInfo {
 		{Name: "clear", Description: i18n.M.CmdClear, Kind: "builtin"},
 		{Name: "compact", Description: i18n.M.CmdCompact, Kind: "builtin"},
 		{Name: "model", Description: i18n.M.CmdModel, Kind: "builtin"},
+		{Name: "provider", Description: i18n.M.CmdProvider, Kind: "builtin"},
 		{Name: "effort", Description: i18n.M.CmdEffort, Kind: "builtin"},
 		{Name: "memory", Description: i18n.M.CmdMemory, Kind: "builtin"},
 		{Name: "goal", Description: i18n.M.CmdGoal, Kind: "builtin"},
@@ -1983,8 +2042,16 @@ func (a *App) SlashArgs(input string) SlashArgsResult {
 		DisconnectedMCP: ctrl.DisconnectedMCPNames(),
 		CurrentModel:    model,
 	}
+	seen := map[string]bool{}
 	for _, m := range a.Models() {
 		data.ModelRefs = append(data.ModelRefs, m.Ref)
+		if m.Provider != "" && !seen[m.Provider] {
+			seen[m.Provider] = true
+			data.ProviderNames = append(data.ProviderNames, m.Provider)
+		}
+		if m.Current {
+			data.CurrentProvider = m.Provider
+		}
 	}
 	if h := ctrl.Host(); h != nil {
 		data.ServerNames = h.ServerNames()
@@ -3551,10 +3618,10 @@ func (a *App) SearchFileRefs(query string) []DirEntry {
 	if err != nil {
 		return nil
 	}
-	paths := fileref.Search(base, query, fileRefSearchLimit)
-	out := make([]DirEntry, 0, len(paths))
-	for _, path := range paths {
-		out = append(out, DirEntry{Name: path, IsDir: false})
+	results := fileref.Search(base, query, fileRefSearchLimit)
+	out := make([]DirEntry, 0, len(results))
+	for _, r := range results {
+		out = append(out, DirEntry{Name: r.Path, IsDir: r.IsDir})
 	}
 	return out
 }
@@ -3822,6 +3889,77 @@ func (a *App) SavePastedFile(name, dataURL string) (string, error) {
 	return a.withActiveWorkspace(func() (string, error) {
 		return control.SaveAttachmentDataURL(name, dataURL)
 	})
+}
+
+// PickExportFile opens the native save dialog and returns the selected path. It
+// returns "" when the user cancels.
+func (a *App) PickExportFile(defaultFilename, mimeType string) (string, error) {
+	if a.ctx == nil {
+		return "", nil
+	}
+	defaultFilename = safeExportFilename(defaultFilename)
+	ext := strings.ToLower(filepath.Ext(defaultFilename))
+	path, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
+		Title:                "Export session",
+		DefaultDirectory:     dialogDefaultDirectory(a.activeWorkspaceRoot()),
+		DefaultFilename:      defaultFilename,
+		CanCreateDirectories: true,
+		Filters:              exportFileFilters(mimeType, ext),
+	})
+	if err != nil || path == "" {
+		return "", err
+	}
+	if ext != "" && filepath.Ext(path) == "" {
+		path += ext
+	}
+	return path, nil
+}
+
+// SaveExportFile writes an exported session payload to a path previously picked
+// by PickExportFile. An empty path is treated as a cancelled export.
+func (a *App) SaveExportFile(path, payload string, base64Encoded bool) error {
+	if strings.TrimSpace(path) == "" {
+		return nil
+	}
+	var data []byte
+	var err error
+	if base64Encoded {
+		data, err = base64.StdEncoding.DecodeString(payload)
+		if err != nil {
+			return fmt.Errorf("decode export payload: %w", err)
+		}
+	} else {
+		data = []byte(payload)
+	}
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		return err
+	}
+	return nil
+}
+
+func safeExportFilename(name string) string {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return "reasonix-session.md"
+	}
+	return filepath.Base(name)
+}
+
+func exportFileFilters(mimeType, ext string) []runtime.FileFilter {
+	switch mimeType {
+	case "text/markdown":
+		return []runtime.FileFilter{{DisplayName: "Markdown (*.md)", Pattern: "*.md"}}
+	case "application/json":
+		return []runtime.FileFilter{{DisplayName: "JSON (*.json)", Pattern: "*.json"}}
+	case "application/pdf":
+		return []runtime.FileFilter{{DisplayName: "PDF (*.pdf)", Pattern: "*.pdf"}}
+	case "image/png":
+		return []runtime.FileFilter{{DisplayName: "PNG image (*.png)", Pattern: "*.png"}}
+	}
+	if ext != "" {
+		return []runtime.FileFilter{{DisplayName: strings.ToUpper(strings.TrimPrefix(ext, ".")) + " files (*" + ext + ")", Pattern: "*" + ext}}
+	}
+	return []runtime.FileFilter{{DisplayName: "All files (*.*)", Pattern: "*.*"}}
 }
 
 // AttachmentDataURL returns a safe data URL for a stored image attachment.

@@ -19,6 +19,7 @@ type GatewayConfig struct {
 	Model         string
 	MaxSteps      int
 	WorkspaceRoot string
+	Channels      map[Platform]ChannelConfig
 	Allowlist     AllowlistConfig
 	Enabled       map[Platform]bool
 	Debounce      time.Duration
@@ -26,6 +27,12 @@ type GatewayConfig struct {
 	// SessionIdleTimeout is how long a session can be idle before eviction.
 	// Zero or negative disables eviction. Default: 30 minutes.
 	SessionIdleTimeout time.Duration
+}
+
+// ChannelConfig overrides gateway defaults for one IM channel.
+type ChannelConfig struct {
+	Model         string
+	WorkspaceRoot string
 }
 
 // AllowlistConfig controls which users/groups may use the bot.
@@ -64,6 +71,10 @@ type sessionState struct {
 type sessionEventSink struct {
 	mu     sync.RWMutex
 	target event.Sink
+}
+
+type pendingReactionAdapter interface {
+	AddPendingReaction(ctx context.Context, messageID string) error
 }
 
 func (s *sessionEventSink) setTarget(target event.Sink) {
@@ -259,6 +270,8 @@ func (gw *BotGateway) handleMessage(ctx context.Context, plat Platform, adapter 
 		return
 	}
 
+	gw.addPendingReaction(ctx, plat, adapter, msg)
+
 	// Session concurrency control.
 	acquired, merged := gw.sessions.TryAcquire(key, msg)
 	if merged {
@@ -272,6 +285,19 @@ func (gw *BotGateway) handleMessage(ctx context.Context, plat Platform, adapter 
 	}
 
 	gw.runTurn(ctx, adapter, key, msg)
+}
+
+func (gw *BotGateway) addPendingReaction(ctx context.Context, plat Platform, adapter Adapter, msg InboundMessage) {
+	if strings.TrimSpace(msg.MessageID) == "" {
+		return
+	}
+	reactor, ok := adapter.(pendingReactionAdapter)
+	if !ok {
+		return
+	}
+	if err := reactor.AddPendingReaction(ctx, msg.MessageID); err != nil {
+		gw.logger.Warn("pending reaction failed", "platform", plat, "err", err)
+	}
 }
 
 func (gw *BotGateway) checkAllowlist(plat Platform, msg InboundMessage) bool {
@@ -463,7 +489,7 @@ func (gw *BotGateway) handleSlashCommand(ctx context.Context, adapter Adapter, k
 		// session, then delegate to runTurn — which calls RunTurn → the controller's
 		// built-in continueGoal loop handles autonomous continuation.
 		gw.sessions.ForceRelease(key)
-		state := gw.getOrCreateSession(ctx, key)
+		state := gw.getOrCreateSession(ctx, key, msg)
 		if state == nil || state.ctrl == nil {
 			_ = gw.sendText(ctx, adapter, msg, "Internal error: could not create session.")
 			return
@@ -510,7 +536,7 @@ func (gw *BotGateway) runTurn(ctx context.Context, adapter Adapter, key string, 
 	}
 
 	// Get or create the Controller.
-	state := gw.getOrCreateSession(ctx, key)
+	state := gw.getOrCreateSession(ctx, key, msg)
 	if state == nil || state.ctrl == nil {
 		_ = gw.sendText(ctx, adapter, msg, "Internal error: could not create session.")
 		return
@@ -549,7 +575,7 @@ func (gw *BotGateway) runTurn(ctx context.Context, adapter Adapter, key string, 
 	}
 }
 
-func (gw *BotGateway) getOrCreateSession(ctx context.Context, key string) *sessionState {
+func (gw *BotGateway) getOrCreateSession(ctx context.Context, key string, msg InboundMessage) *sessionState {
 	gw.mu.Lock()
 	if state, ok := gw.controllers[key]; ok {
 		state.lastActive = time.Now()
@@ -568,12 +594,13 @@ func (gw *BotGateway) getOrCreateSession(ctx context.Context, key string) *sessi
 
 	// Create a new Controller.
 	sessionSink := &sessionEventSink{}
+	model, workspaceRoot := gw.sessionOptionsForPlatform(msg.Platform)
 	ctrl, err := boot.Build(ctx, boot.Options{
 		Model:         model,
 		MaxSteps:      gw.cfg.MaxSteps,
 		RequireKey:    true,
 		Sink:          sessionSink,
-		WorkspaceRoot: gw.cfg.WorkspaceRoot,
+		WorkspaceRoot: workspaceRoot,
 	})
 	if err != nil {
 		gw.logger.Error("build controller failed", "err", err)
@@ -593,6 +620,25 @@ func (gw *BotGateway) getOrCreateSession(ctx context.Context, key string) *sessi
 	gw.mu.Unlock()
 
 	return state
+}
+
+func (gw *BotGateway) sessionOptionsForPlatform(plat Platform) (model string, workspaceRoot string) {
+	model = gw.cfg.Model
+	workspaceRoot = gw.cfg.WorkspaceRoot
+	if gw.cfg.Channels == nil {
+		return model, workspaceRoot
+	}
+	channel, ok := gw.cfg.Channels[plat]
+	if !ok {
+		return model, workspaceRoot
+	}
+	if value := strings.TrimSpace(channel.Model); value != "" {
+		model = value
+	}
+	if value := strings.TrimSpace(channel.WorkspaceRoot); value != "" {
+		workspaceRoot = value
+	}
+	return model, workspaceRoot
 }
 
 func (gw *BotGateway) sendText(ctx context.Context, adapter Adapter, msg InboundMessage, text string) error {

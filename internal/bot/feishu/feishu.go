@@ -23,6 +23,7 @@ import (
 	"reasonix/internal/config"
 
 	lark "github.com/larksuite/oapi-sdk-go/v3"
+	larknormalize "github.com/larksuite/oapi-sdk-go/v3/channel/normalize"
 	larkcore "github.com/larksuite/oapi-sdk-go/v3/core"
 	"github.com/larksuite/oapi-sdk-go/v3/event/dispatcher"
 	larkim "github.com/larksuite/oapi-sdk-go/v3/service/im/v1"
@@ -33,6 +34,8 @@ import (
 type textContent struct {
 	Text string `json:"text"`
 }
+
+const feishuPendingReactionEmoji = "OnIt"
 
 // feishuEvent 飞书事件结构。
 type feishuEvent struct {
@@ -164,6 +167,9 @@ func (a *adapter) runWebSocket(ctx context.Context) {
 	eventHandler := dispatcher.NewEventDispatcher(a.cfg.VerificationToken, "").
 		OnP2MessageReceiveV1(func(ctx context.Context, event *larkim.P2MessageReceiveV1) error {
 			a.handleSDKMessage(event)
+			return nil
+		}).
+		OnP2MessageReadV1(func(ctx context.Context, event *larkim.P2MessageReadV1) error {
 			return nil
 		})
 	opts := []larkws.ClientOption{
@@ -396,7 +402,7 @@ func (a *adapter) handleMessage(msg feishuMsgEvent) {
 	}
 }
 
-// SendText sends one plain text message to a Feishu/Lark chat_id using the SDK.
+// SendText sends one markdown-rendered message to a Feishu/Lark chat_id using the SDK.
 // It is used by the desktop settings panel as an actual connection test.
 func SendText(ctx context.Context, cfg config.FeishuBotConfig, chatID, text string) (bot.SendResult, error) {
 	a := &adapter{cfg: cfg, logger: slog.Default().With("platform", "feishu")}
@@ -408,8 +414,22 @@ func (a *adapter) sendMessage(ctx context.Context, msg bot.OutboundMessage) (bot
 	if msg.Card != nil {
 		return a.sendCard(ctx, msg)
 	}
-	content, _ := json.Marshal(textContent{Text: msg.Text})
-	return a.sendSDKContent(ctx, msg, larkim.MsgTypeText, string(content))
+	content, err := feishuMarkdownPostContent(msg.Text)
+	if err != nil {
+		a.logger.Warn("format feishu markdown failed, falling back to text", "err", err)
+		content = feishuTextContent(msg.Text)
+		return a.sendSDKContent(ctx, msg, larkim.MsgTypeText, content)
+	}
+	return a.sendSDKContent(ctx, msg, larkim.MsgTypePost, content)
+}
+
+func feishuMarkdownPostContent(text string) (string, error) {
+	return larknormalize.SimpleMarkdownToPost("", text, nil)
+}
+
+func feishuTextContent(text string) string {
+	content, _ := json.Marshal(textContent{Text: text})
+	return string(content)
 }
 
 func (a *adapter) sdkClient() (*lark.Client, error) {
@@ -480,6 +500,34 @@ func (a *adapter) sendSDKContent(ctx context.Context, msg bot.OutboundMessage, m
 		return bot.SendResult{}, nil
 	}
 	return bot.SendResult{MessageID: stringPtrValue(resp.Data.MessageId)}, nil
+}
+
+func (a *adapter) AddPendingReaction(ctx context.Context, messageID string) error {
+	messageID = strings.TrimSpace(messageID)
+	if messageID == "" {
+		return nil
+	}
+	client, err := a.sdkClient()
+	if err != nil {
+		return err
+	}
+	req := larkim.NewCreateMessageReactionReqBuilder().
+		MessageId(messageID).
+		Body(larkim.NewCreateMessageReactionReqBodyBuilder().
+			ReactionType(larkim.NewEmojiBuilder().EmojiType(feishuPendingReactionEmoji).Build()).
+			Build()).
+		Build()
+	resp, err := client.Im.MessageReaction.Create(ctx, req)
+	if err != nil {
+		return err
+	}
+	if resp == nil {
+		return fmt.Errorf("feishu reaction error: empty response")
+	}
+	if !resp.Success() {
+		return fmt.Errorf("feishu reaction error: %s", feishuCodeError(resp.Code, resp.Msg))
+	}
+	return nil
 }
 
 // sendCard 发送 interactive card 消息（用于审批/问答）。

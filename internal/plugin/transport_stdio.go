@@ -56,6 +56,9 @@ func newStdioTransport(ctx context.Context, s Spec) (*stdioTransport, error) {
 	}
 	cmd := exec.CommandContext(ctx, exe, s.Args...)
 	proc.HideWindow(cmd)
+	if s.LowPriority {
+		proc.LowPriority(cmd)
+	}
 	cmd.Env = env
 	if s.Dir != "" {
 		cmd.Dir = s.Dir // pin cwd-aware servers (e.g. CodeGraph) to the project root
@@ -77,6 +80,9 @@ func newStdioTransport(ctx context.Context, s Spec) (*stdioTransport, error) {
 	job, err := proc.StartTracked(cmd)
 	if err != nil {
 		return nil, err
+	}
+	if s.LowPriority {
+		proc.LowPriorityStarted(cmd)
 	}
 	t := &stdioTransport{
 		name:    s.Name,
@@ -280,10 +286,14 @@ func runShellPATHCommand(parent context.Context, shell string, args []string) []
 	ctx, cancel := context.WithTimeout(parent, 2*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, shell, args...)
-	proc.HideWindow(cmd)
+	prepareStdioShellPATHProbe(cmd)
 	cmd.Stdin = strings.NewReader("")
 	out, _ := cmd.CombinedOutput()
 	return out
+}
+
+func prepareStdioShellPATHProbe(cmd *exec.Cmd) {
+	proc.PrepareShellPATHProbe(cmd)
 }
 
 func parseShellPATH(out []byte, marker string) string {

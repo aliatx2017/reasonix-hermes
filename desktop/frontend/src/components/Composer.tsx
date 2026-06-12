@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ClipboardEvent, DragEvent, KeyboardEvent, PointerEvent as ReactPointerEvent } from "react";
-import { ArrowUp, Eye, FileText, Folder, List, MessageSquare, Search, Shield, ShieldAlert, ShieldCheck, SlidersHorizontal, Square, Target, Trash2, X } from "lucide-react";
+import { ArrowUp, Check, Eye, FileText, Folder, Gauge, List, MessageSquare, MoreHorizontal, Search, Shield, ShieldAlert, ShieldCheck, SlidersHorizontal, Square, Target, Trash2, X } from "lucide-react";
 import { asArray } from "../lib/array";
+import { filterAtMatches } from "../lib/atMatches";
 import { DedupIndex, sha256 } from "../lib/attachDedup";
 import { app, onFilesDropped } from "../lib/bridge";
 import { SPINNER_WORDS, useI18n } from "../lib/i18n";
@@ -25,6 +26,7 @@ import { Tooltip } from "./Tooltip";
 interface Attachment {
   path: string;
   previewUrl?: string;
+  displayName?: string;
 }
 
 interface AttachmentDedupKey {
@@ -71,8 +73,33 @@ function renderPastedBlock(block: PastedBlock): string {
 }
 
 function baseName(path: string): string {
-  const clean = path.replace(/\/$/, "");
-  return clean.split("/").filter(Boolean).pop() ?? path;
+  const clean = path.replace(/[\\/]+$/, "");
+  return clean.split(/[\\/]/).filter(Boolean).pop() ?? path;
+}
+
+function attachmentName(attachment: Attachment): string {
+  return (attachment.displayName || baseName(attachment.path) || "attachment").trim();
+}
+
+function attachmentExt(name: string): string {
+  const dot = name.lastIndexOf(".");
+  return dot >= 0 ? name.slice(dot + 1).toUpperCase() : "";
+}
+
+function displayRefName(name: string): string {
+  return name.replace(/[\[\]\(\)\r\n]+/g, " ").replace(/\s+/g, " ").trim() || "attachment";
+}
+
+function formatAttachmentDisplayReference(attachment: Attachment): string {
+  return `@[${displayRefName(attachmentName(attachment))}](${attachment.path})`;
+}
+
+function sortComposerAttachments(items: Attachment[]): Attachment[] {
+  return [...items].sort((a, b) => {
+    const ai = a.previewUrl ? 0 : 1;
+    const bi = b.previewUrl ? 0 : 1;
+    return ai - bi;
+  });
 }
 
 function workspaceReferenceKey(ref: WorkspaceReference): string {
@@ -108,6 +135,10 @@ function clipboardHasImageHint(data: DataTransfer): boolean {
 
 function isPasteShortcut(e: KeyboardEvent<HTMLTextAreaElement>): boolean {
   return e.key.toLowerCase() === "v" && (e.metaKey || e.ctrlKey) && !e.altKey;
+}
+
+function isYoloToggleShortcut(e: KeyboardEvent<HTMLTextAreaElement>): boolean {
+  return e.key.toLowerCase() === "y" && (e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey;
 }
 
 async function dataURLHash(dataUrl: string): Promise<string> {
@@ -302,6 +333,7 @@ export function Composer({
   onSetMode,
   onSetCollaborationMode,
   onSetToolApprovalMode,
+  onToggleYoloApprovalMode,
   onSetGoal,
   onClearGoal,
   onSwitchModel,
@@ -331,6 +363,7 @@ export function Composer({
   onSetMode: (mode: Mode) => void;
   onSetCollaborationMode: (mode: CollaborationMode) => void;
   onSetToolApprovalMode: (mode: ToolApprovalMode) => void;
+  onToggleYoloApprovalMode: () => void;
   onSetGoal: (goal: string) => void;
   onClearGoal: () => void;
   onSwitchModel: (name: string) => void;
@@ -368,6 +401,8 @@ export function Composer({
   const [textareaAutoOverflow, setTextareaAutoOverflow] = useState(false);
   const [intentMenuOpen, setIntentMenuOpen] = useState(false);
   const [intentMenuClosing, setIntentMenuClosing] = useState(false);
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const [moreMenuClosing, setMoreMenuClosing] = useState(false);
   const [showPastChats, setShowPastChats] = useState(false);
   const [pastChats, setPastChats] = useState<SessionMeta[]>([]);
   const [pastChatQuery, setPastChatQuery] = useState("");
@@ -378,7 +413,9 @@ export function Composer({
   const taRef = useRef<HTMLTextAreaElement>(null);
   const composerCardRef = useRef<HTMLDivElement>(null);
   const intentMenuAnchorRef = useRef<HTMLButtonElement>(null);
+  const moreMenuAnchorRef = useRef<HTMLButtonElement>(null);
   const intentCloseTimerRef = useRef<number | null>(null);
+  const moreCloseTimerRef = useRef<number | null>(null);
   const wasRunning = useRef(running);
   const composingRef = useRef(false);
   const lastCompositionEndAt = useRef(0);
@@ -558,13 +595,7 @@ export function Composer({
   const atMatches = useMemo(
     () => {
       if (atRaw === null) return [];
-      const local = entries.filter((e) => e.name.toLowerCase().includes(atFrag));
-      const seen = new Set(local.map((e) => e.name));
-      const searched = searchEntries.filter((e) => {
-        const basename = e.name.split("/").pop()?.toLowerCase() ?? "";
-        return basename.includes(atFrag) && !seen.has(e.name);
-      });
-      return [...local, ...searched];
+      return filterAtMatches(entries, searchEntries, atFrag);
     },
     [atRaw, atFrag, entries, searchEntries],
   );
@@ -748,6 +779,32 @@ export function Composer({
 
   useEffect(() => () => clearIntentCloseTimer(), [clearIntentCloseTimer]);
 
+  const clearMoreCloseTimer = useCallback(() => {
+    if (moreCloseTimerRef.current === null) return;
+    window.clearTimeout(moreCloseTimerRef.current);
+    moreCloseTimerRef.current = null;
+  }, []);
+
+  const openMoreMenu = useCallback(() => {
+    clearMoreCloseTimer();
+    setMoreMenuClosing(false);
+    setMoreMenuOpen(true);
+  }, [clearMoreCloseTimer]);
+
+  const closeMoreMenu = useCallback((afterClose?: () => void) => {
+    clearMoreCloseTimer();
+    setMoreMenuClosing(true);
+    window.requestAnimationFrame(() => setMoreMenuOpen(false));
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    moreCloseTimerRef.current = window.setTimeout(() => {
+      moreCloseTimerRef.current = null;
+      setMoreMenuClosing(false);
+      afterClose?.();
+    }, reduceMotion ? 0 : ANCHORED_POPOVER_CLOSE_MS);
+  }, [clearMoreCloseTimer]);
+
+  useEffect(() => () => clearMoreCloseTimer(), [clearMoreCloseTimer]);
+
   const fileDedupKey = async (file: File): Promise<AttachmentDedupKey> => ({
     hash: await sha256(file),
     source: `file:${file.name}:${file.size}:${file.lastModified}`,
@@ -772,11 +829,16 @@ export function Composer({
     submittingRef.current = true;
     setSubmitting(true);
     try {
+    const orderedAttachments = sortComposerAttachments(attachments);
     const refs = [
       ...workspaceRefs.map((ref) => formatWorkspaceReference(ref.path, ref.isDir)),
-      ...attachments.map((a) => `@${a.path}`),
+      ...orderedAttachments.map((a) => `@${a.path}`),
     ].join(" ");
-    const displayText = [trimmedText, refs].filter(Boolean).join(trimmedText && refs ? " " : "");
+    const displayRefs = [
+      ...workspaceRefs.map((ref) => formatWorkspaceReference(ref.path, ref.isDir)),
+      ...orderedAttachments.map(formatAttachmentDisplayReference),
+    ].join(" ");
+    const displayText = [trimmedText, displayRefs].filter(Boolean).join(trimmedText && displayRefs ? " " : "");
     // PR-B: when past:chats refs are attached, prepend their formatted transcript
     // to submitText only (displayText stays unchanged so the user still sees their
     // original prompt in the input preview). With no refs we keep the original
@@ -815,7 +877,7 @@ export function Composer({
         const path = await app.SavePastedImage(dataUrl);
         const previewUrl = await app.AttachmentDataURL(path);
         rememberAttachment(path, key);
-        setAttachments((prev) => [...prev, { path, previewUrl }]);
+        setAttachments((prev) => [...prev, { path, previewUrl, displayName: file.name }]);
       } catch (error) {
         console.warn("[composer] failed to attach pasted image", error);
         showToast(t("composer.attachImageFailed"), "warn");
@@ -839,7 +901,7 @@ export function Composer({
         const dataUrl = await readFileAsDataURL(file);
         const path = await app.SavePastedFile(file.name, dataUrl);
         rememberAttachment(path, key);
-        setAttachments((prev) => [...prev, { path }]);
+        setAttachments((prev) => [...prev, { path, displayName: file.name }]);
       } catch {
         // non-fatal: a failed attach must not block normal text input
       } finally {
@@ -885,7 +947,7 @@ export function Composer({
           addWorkspaceReference({ path: item.path, isDir: item.isDir });
         } else {
           rememberAttachment(item.path, key);
-          setAttachments((prev) => [...prev, { path: item.path, previewUrl: item.previewUrl }]);
+          setAttachments((prev) => [...prev, { path: item.path, previewUrl: item.previewUrl, displayName: baseName(path) }]);
         }
       } catch {
         // non-fatal: a failed drop attach must not block normal text input
@@ -1308,6 +1370,12 @@ export function Composer({
       return;
     }
 
+    if (isYoloToggleShortcut(e) && !composing) {
+      e.preventDefault();
+      onToggleYoloApprovalMode();
+      return;
+    }
+
     if (menuMode && !composing) {
       if (e.key === "ArrowDown" && count > 0) {
         e.preventDefault();
@@ -1411,6 +1479,15 @@ export function Composer({
       requestAnimationFrame(() => taRef.current?.focus());
     });
   };
+  const effortLevels = asArray(effort?.levels);
+  const currentEffort = effort?.current || "auto";
+  const hasEffort = Boolean(effort?.supported && effortLevels.length > 0);
+  const chooseEffortLevel = (level: string) => {
+    closeMoreMenu(() => {
+      if (level !== currentEffort) onSetEffort(level);
+      requestAnimationFrame(() => taRef.current?.focus());
+    });
+  };
   const runActivity = retry
     ? t("status.retrying", { attempt: retry.attempt, max: retry.max })
     : running && turnStartAt
@@ -1422,7 +1499,6 @@ export function Composer({
           return `${word}… ${fmtElapsed(elapsedMs)}${tok}`;
         })()
       : null;
-  const hasEffort = Boolean(effort?.supported);
   const composerMetaClass = [
     "composer-meta",
     hasEffort ? "composer-meta--has-effort" : "composer-meta--no-effort",
@@ -1478,6 +1554,37 @@ export function Composer({
             </span>
           </button>
         </div>
+      </AnchoredPopover>
+      <AnchoredPopover
+        open={moreMenuOpen && !disabled && !running}
+        closing={moreMenuClosing}
+        anchorRef={moreMenuAnchorRef}
+        onClose={() => closeMoreMenu()}
+        className="composer-access-menu composer-more-menu"
+        align="end"
+      >
+        {hasEffort && (
+          <div className="composer-access-menu__section">
+            <div className="composer-access-menu__label">{t("status.effortTitle")}</div>
+            <div className="composer-more-menu__items" role="listbox" aria-label={t("status.effortTitle")}>
+              {effortLevels.map((level) => (
+                <button
+                  key={level}
+                  type="button"
+                  role="option"
+                  aria-selected={level === currentEffort}
+                  className={`composer-more-menu__item${level === currentEffort ? " composer-more-menu__item--active" : ""}`}
+                  onClick={() => chooseEffortLevel(level)}
+                  disabled={running}
+                >
+                  <Gauge size={14} />
+                  <span>{level}</span>
+                  {level === currentEffort && <Check size={13} />}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </AnchoredPopover>
       {menuMode === "slash" && (
         <SlashMenu items={slashMatches} activeIndex={active} onPick={pickCommand} onHover={setActive} />
@@ -1634,19 +1741,35 @@ export function Composer({
       )}
       {(attachments.length > 0 || workspaceRefs.length > 0 || sessionRefs.length > 0) && (
         <div className="composer-context" aria-label={t("composer.contextItems")}>
-          {attachments.map((a) => (
+          {sortComposerAttachments(attachments).map((a) => {
+            const imageOnly = Boolean(a.previewUrl) && attachments.every((item) => item.previewUrl) && workspaceRefs.length === 0 && sessionRefs.length === 0;
+            return (
             <div
-              className={`composer-context__item${a.previewUrl ? " composer-context__item--image" : " composer-context__item--attachment"}`}
+              className={`composer-context__item${a.previewUrl ? " composer-context__item--image" : " composer-context__item--attachment"}${imageOnly ? " composer-context__item--image-only" : ""}`}
               key={a.path}
             >
               <Tooltip label={a.path}>
                 <span className="composer-context__label">
-                  {a.previewUrl ? <img src={a.previewUrl} alt="" draggable={false} /> : <FileText size={15} />}
-                  <span>{a.path.split("/").pop()}</span>
+                  {a.previewUrl ? (
+                    <span className="composer-context__thumb">
+                      <img src={a.previewUrl} alt="" draggable={false} />
+                    </span>
+                  ) : (
+                    <>
+                      <span className="composer-context__fileicon">
+                        <FileText size={20} />
+                      </span>
+                      <span className="composer-context__main">
+                        <span className="composer-context__name">{attachmentName(a)}</span>
+                        <span className="composer-context__meta">{attachmentExt(attachmentName(a)) || t("msg.fileAttachment")}</span>
+                      </span>
+                    </>
+                  )}
                 </span>
               </Tooltip>
-              <Tooltip label={t("composer.removeImage")}>
+              <Tooltip label={t("composer.removeImage")} className="composer-context__remove-trigger">
                 <button
+                  className="composer-context__remove"
                   type="button"
                   onClick={() => removeAttachment(a.path)}
                 >
@@ -1654,7 +1777,8 @@ export function Composer({
                 </button>
               </Tooltip>
             </div>
-          ))}
+            );
+          })}
           {workspaceRefs.map((ref) => (
             <div
               className={`composer-context__item composer-context__item--workspace${ref.isDir ? " composer-context__item--folder" : " composer-context__item--file"}`}
@@ -1666,8 +1790,9 @@ export function Composer({
                   <span>{ref.isDir ? `${baseName(ref.path)}/` : baseName(ref.path)}</span>
                 </span>
               </Tooltip>
-              <Tooltip label={t("composer.removeReference")}>
+              <Tooltip label={t("composer.removeReference")} className="composer-context__remove-trigger">
                 <button
+                  className="composer-context__remove"
                   type="button"
                   onClick={() => removeWorkspaceReference(ref)}
                 >
@@ -1899,9 +2024,29 @@ export function Composer({
             <div className="composer-meta__control composer-meta__control--model">
               <ModelSwitcher label={modelLabel} tabId={tabId} onPick={onSwitchModel} />
             </div>
-            {effort?.supported && (
+            {hasEffort && (
               <div className="composer-meta__control composer-meta__control--effort">
                 <EffortSwitcher effort={effort} disabled={running} onPick={onSetEffort} />
+              </div>
+            )}
+            {hasEffort && (
+              <div className="composer-meta__control composer-meta__control--more">
+                <Tooltip label={t("composer.moreControls")} disabled={moreMenuOpen || moreMenuClosing}>
+                  <button
+                    ref={moreMenuAnchorRef}
+                    type="button"
+                    className={`composer-more-trigger${moreMenuOpen || moreMenuClosing ? " composer-more-trigger--open" : ""}`}
+                    onClick={() => (moreMenuOpen || moreMenuClosing ? closeMoreMenu() : openMoreMenu())}
+                    disabled={disabled || running}
+                    aria-haspopup="menu"
+                    aria-expanded={moreMenuOpen && !moreMenuClosing}
+                    aria-label={t("composer.moreControls")}
+                    title={moreMenuOpen || moreMenuClosing ? undefined : t("composer.moreControls")}
+                  >
+                    <MoreHorizontal size={16} />
+                    <span>{t("topicBar.more")}</span>
+                  </button>
+                </Tooltip>
               </div>
             )}
           </div>

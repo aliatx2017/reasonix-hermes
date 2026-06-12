@@ -24,6 +24,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 	"unicode"
 
@@ -121,6 +122,7 @@ type Controller struct {
 	mu          sync.Mutex
 	cancel      context.CancelFunc
 	running     bool
+	autosaveWG  sync.WaitGroup
 	planMode    bool
 	goal        string
 	goalStatus  string
@@ -170,7 +172,6 @@ type approvalReply struct {
 	allow   bool
 	session bool
 	persist bool // true = write "always allow" rule to config
-	scope   string
 }
 
 type pendingApproval struct {
@@ -403,8 +404,22 @@ func (c *Controller) runGuarded(body func(ctx context.Context) error) {
 	c.running = true
 	c.mu.Unlock()
 
+	c.autosaveWG.Add(1)
+	go func() {
+		defer c.autosaveWG.Done()
+		c.autosaveWhileRunning(ctx)
+	}()
 	go func() {
 		defer cancel()
+		defer func() {
+			if r := recover(); r != nil {
+				c.mu.Lock()
+				c.running = false
+				c.cancel = nil
+				c.mu.Unlock()
+				c.sink.Emit(event.Event{Kind: event.TurnDone, Err: fmt.Errorf("internal error: %v", r)})
+			}
+		}()
 		err := body(ctx)
 		c.mu.Lock()
 		c.running = false
@@ -436,7 +451,7 @@ const planApprovalTool = "exit_plan_mode"
 
 // planApprovedMessage is the follow-up turn sent once the user approves a plan —
 // the in-context nudge to execute and keep the (already-seeded) task list honest.
-const planApprovedMessage = "Plan approved — plan mode is off; you're cleared to make the changes without asking again. Implement the plan now. Keep the task list current with todo_write, preserving its two-level shape (phases at level 0, their sub-steps at level 1): mark the sub-step you start as in_progress, one in_progress at a time. Sign off each finished sub-step with complete_step, attaching the evidence it's done — the verification you ran, the diff/files you changed, or a manual check. Don't claim a step is done without evidence."
+const planApprovedMessage = "Plan approved — plan mode is off; you’re cleared to make the changes without asking again. Implement the plan now. Use this serial workflow: 1) mark the first sub-step in_progress with todo_write (this establishes the task list); 2) execute the sub-step; 3) call complete_step with evidence — the host then marks that sub-step completed and moves the next one to in_progress for you. Repeat 2–3 for each remaining sub-step. You don’t need another todo_write to mark steps completed; each complete_step advances the list. Sign off one sub-step at a time — never batch multiple completions."
 
 // runTurn runs one model turn, then applies the plan-approval gate. This is the
 // single, frontend-agnostic plan flow: in plan mode the model just researches
@@ -783,6 +798,14 @@ func (c *Controller) submit(input, display string) {
 			c.runRefTurn(ref, display)
 			return
 		}
+		if ref, ok := SlashPathLineRef(trimmed, c.cpRoot); ok {
+			c.runRefTurnWithRefs(input, ref, display)
+			return
+		}
+		if SlashPathLikeLine(trimmed) {
+			c.runRefTurn(input, display)
+			return
+		}
 		// Read-only management verbs (/model /memory /skills /hooks /mcp) emit a
 		// listing Notice, so Submit-based frontends (desktop, HTTP) get them with
 		// no extra wiring. (The chat TUI handles these itself with richer output.)
@@ -990,8 +1013,15 @@ func (c *Controller) RunShell(command string) {
 // runRefTurn resolves a line's @references into a context block and starts a
 // turn with it prepended (or the raw line when nothing resolved).
 func (c *Controller) runRefTurn(input, display string) {
+	c.runRefTurnWithRefs(input, input, display)
+}
+
+// runRefTurnWithRefs resolves references from refLine while preserving input as
+// the user's actual prompt text. This lets compiler diagnostics such as
+// "/path/File.kt:12: error" attach @/path/File.kt without rewriting the error.
+func (c *Controller) runRefTurnWithRefs(input, refLine, display string) {
 	c.runGuarded(func(ctx context.Context) error {
-		block, errs := c.ResolveRefs(ctx, input)
+		block, errs := c.ResolveRefs(ctx, refLine)
 		for _, e := range errs {
 			c.notice(e)
 		}
@@ -1055,18 +1085,12 @@ func (c *Controller) Turn() int {
 // also remembers a grant for the rest of the session so the same approval scope
 // is not re-prompted. Unknown/expired IDs are ignored.
 func (c *Controller) Approve(id string, allow, session, persist bool) {
-	c.ApproveWithScope(id, allow, session, persist, permission.ApprovalScopeExact)
-}
-
-// ApproveWithScope answers a pending ApprovalRequest with an explicit approval
-// scope. Unknown/expired IDs are ignored.
-func (c *Controller) ApproveWithScope(id string, allow, session, persist bool, scope string) {
 	c.mu.Lock()
 	pending := c.approvals[id]
 	delete(c.approvals, id)
 	c.mu.Unlock()
 	if pending.reply != nil {
-		pending.reply <- approvalReply{allow: allow, session: session, persist: persist, scope: scope} // buffered, never blocks
+		pending.reply <- approvalReply{allow: allow, session: session, persist: persist} // buffered, never blocks
 	}
 }
 
@@ -1117,6 +1141,35 @@ func (c *Controller) refreshInteractiveGate() {
 	if c.executor != nil {
 		c.executor.SetGate(c.newInteractiveGate())
 	}
+}
+
+// Steer queues mid-turn guidance without interrupting the in-flight request.
+func (c *Controller) Steer(text string) {
+	c.mu.Lock()
+	exec := c.executor
+	running := c.running
+	c.mu.Unlock()
+	if exec == nil {
+		return
+	}
+	if running {
+		exec.Steer(text)
+		return
+	}
+	// Agent not running — frontend's runningRef was stale.
+	// Convert to a new turn so the user gets a response.
+	go func() { c.SubmitDisplay(text, text) }()
+}
+
+// SteerConsumed returns true when the steer queue is empty after the last consume.
+func (c *Controller) SteerConsumed() bool {
+	c.mu.Lock()
+	exec := c.executor
+	c.mu.Unlock()
+	if exec != nil {
+		return exec.SteerConsumed()
+	}
+	return true
 }
 
 // Ask implements agent.Asker: it emits an AskRequest and blocks until
@@ -1713,6 +1766,45 @@ func (c *Controller) Resume(s *agent.Session, path string) {
 	c.sessionPath = path
 	c.mu.Unlock()
 	c.rebindCheckpoints(path)
+	c.maybeColdResumePrune(path)
+}
+
+// cacheColdAfter approximates how long the provider keeps a prompt prefix
+// cached. A session idle longer than this resumes against a cold cache, so a
+// history rewrite at that moment costs no extra cache misses — it only shrinks
+// the full-price first request. Deliberately conservative: too small burns a
+// live cache (~4× the miss tokens, measured), too large only forgoes a prune.
+// Tighten from benchmarks/cache-ttl-probe data, never below measured retention.
+var cacheColdAfter = 24 * time.Hour
+
+// maybeColdResumePrune elides stale tool results when a resumed session has
+// been idle past the provider's cache retention, then persists the pruned
+// transcript so the saved file and the prompt stay in sync.
+func (c *Controller) maybeColdResumePrune(path string) {
+	if c.executor == nil || path == "" {
+		return
+	}
+	// Idle time comes from branch meta only — every session the controller has
+	// ever snapshotted carries one. A meta-less transcript (e.g. a legacy import
+	// not yet saved) skips the prune until its first snapshot creates the meta.
+	m, ok, err := agent.LoadBranchMeta(path)
+	if err != nil || !ok || m.UpdatedAt.IsZero() {
+		return
+	}
+	last := m.UpdatedAt
+	if time.Since(last) < cacheColdAfter {
+		return
+	}
+	st, err := c.executor.PruneStaleToolResults()
+	if err != nil || st.Results == 0 {
+		return
+	}
+	c.sink.Emit(event.Event{Kind: event.Notice, Level: event.LevelInfo, Text: fmt.Sprintf(
+		"resumed after %s idle (provider cache expired) — elided %d stale tool results to cheapen the cold restart",
+		time.Since(last).Round(time.Minute), st.Results)})
+	if err := c.Snapshot(); err != nil {
+		slog.Warn("controller: post-prune snapshot", "err", err)
+	}
 }
 
 // Snapshot writes the executor's conversation to the active session file. No-op
@@ -1729,6 +1821,31 @@ func (c *Controller) Snapshot() error {
 // recent-session pickers.
 func (c *Controller) SnapshotActivity() error {
 	return c.snapshot(true)
+}
+
+// midTurnSnapshotInterval is atomic (nanoseconds) so a test shrinking it
+// cannot race a previous test's still-parking autosave goroutine.
+var midTurnSnapshotInterval atomic.Int64
+
+func init() { midTurnSnapshotInterval.Store(int64(30 * time.Second)) }
+
+// autosaveWhileRunning snapshots the session periodically while a turn runs,
+// so an abrupt kill (SSH drop, force-quit) loses at most one interval of a
+// long turn instead of all of it (#3772). Session.Save copies under the lock
+// and replaces the file atomically, so racing the turn's appends is safe.
+func (c *Controller) autosaveWhileRunning(ctx context.Context) {
+	t := time.NewTicker(time.Duration(midTurnSnapshotInterval.Load()))
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			if err := c.snapshot(false); err != nil {
+				slog.Warn("controller: mid-turn snapshot", "err", err)
+			}
+		}
+	}
 }
 
 func (c *Controller) snapshot(markActivity bool) error {
@@ -2665,13 +2782,13 @@ func (c *Controller) requestApproval(ctx context.Context, tool, subject string) 
 		// Plan approvals are one-shot — never persist a session grant for them, or
 		// every future plan would auto-approve.
 		if r.allow && r.session && tool != planApprovalTool {
-			rule := permission.SessionGrantRuleForScope(tool, subject, r.scope)
+			rule := permission.SessionGrantRuleForScope(tool, subject)
 			c.mu.Lock()
 			c.granted[rule] = true
 			c.mu.Unlock()
 		}
 		if r.allow && r.persist && tool != planApprovalTool && c.onRemember != nil {
-			c.emitRememberResult(c.onRemember(permission.RememberRuleForScope(tool, subject, r.scope)))
+			c.emitRememberResult(c.onRemember(permission.RememberRuleForScope(tool, subject)))
 		}
 		return r.allow, false, nil
 	case <-ctx.Done():

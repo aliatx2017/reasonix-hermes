@@ -64,6 +64,18 @@ func (f *fakeAdapter) sentMessages() []OutboundMessage {
 	return out
 }
 
+type fakeReactionAdapter struct {
+	*fakeAdapter
+	reactions []string
+}
+
+func (f *fakeReactionAdapter) AddPendingReaction(ctx context.Context, messageID string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.reactions = append(f.reactions, messageID)
+	return nil
+}
+
 func TestFakeAdapterInterface(t *testing.T) {
 	fa := newFakeAdapter(PlatformQQ, "fake-qq")
 
@@ -194,44 +206,41 @@ func TestGatewayAllowAll(t *testing.T) {
 	}
 }
 
-func TestSlashCommands_GoalAndModel(t *testing.T) {
-	// /goal and /model should be recognized as slash bypass commands
-	for _, cmd := range []string{"/goal", "/goal status", "/goal clear", "/goal refactor auth",
-		"/model", "/model flash", "/model pro", "/model mimo"} {
-		if !IsSlashBypass(cmd) {
-			t.Errorf("IsSlashBypass(%q) = false, want true", cmd)
-		}
-	}
-}
-
-func TestGateway_ModelPrefsInitialized(t *testing.T) {
-	cfg := GatewayConfig{
-		Enabled: map[Platform]bool{PlatformQQ: true},
-	}
+func TestGatewayAddsPendingReactionWhenAdapterSupportsIt(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	gw := NewGateway(cfg, map[Platform]Adapter{}, logger)
-	if gw.modelPrefs == nil {
-		t.Error("modelPrefs map should be initialized")
+	gw := NewGateway(GatewayConfig{}, nil, logger)
+	fa := &fakeReactionAdapter{fakeAdapter: newFakeAdapter(PlatformFeishu, "fake-feishu")}
+
+	gw.addPendingReaction(context.Background(), PlatformFeishu, fa, InboundMessage{MessageID: "om_123"})
+
+	if len(fa.reactions) != 1 || fa.reactions[0] != "om_123" {
+		t.Fatalf("reactions = %#v, want [om_123]", fa.reactions)
 	}
 }
 
-func TestIsSlashBypass_NonCommands(t *testing.T) {
-	for _, cmd := range []string{"hello", "what is /goal?", "/goals", "model flash"} {
-		if IsSlashBypass(cmd) {
-			t.Errorf("IsSlashBypass(%q) = true, want false", cmd)
-		}
-	}
-}
+func TestGatewaySessionOptionsUseChannelOverride(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	gw := NewGateway(GatewayConfig{
+		Model:         "global-model",
+		WorkspaceRoot: "/global",
+		Channels: map[Platform]ChannelConfig{
+			PlatformFeishu: {Model: "feishu-model", WorkspaceRoot: "/feishu"},
+			PlatformWeixin: {WorkspaceRoot: "/weixin"},
+		},
+	}, nil, logger)
 
-func TestBuildSessionKey_GoalModelUnaffected(t *testing.T) {
-	// Verify BuildSessionKey is stable and doesn't depend on /goal or /model
-	src := SessionSource{Platform: "discord", ChatType: ChatDM, ChatID: "ch1"}
-	key1 := BuildSessionKey(src)
-	key2 := BuildSessionKey(src)
-	if key1 != key2 {
-		t.Error("BuildSessionKey should be deterministic")
+	model, root := gw.sessionOptionsForPlatform(PlatformFeishu)
+	if model != "feishu-model" || root != "/feishu" {
+		t.Fatalf("feishu options = %q,%q; want channel override", model, root)
 	}
-	if len(key1) != 16 {
-		t.Errorf("expected 16-char hex key, got %d: %s", len(key1), key1)
+
+	model, root = gw.sessionOptionsForPlatform(PlatformWeixin)
+	if model != "global-model" || root != "/weixin" {
+		t.Fatalf("weixin options = %q,%q; want global model and channel root", model, root)
+	}
+
+	model, root = gw.sessionOptionsForPlatform(PlatformQQ)
+	if model != "global-model" || root != "/global" {
+		t.Fatalf("qq options = %q,%q; want global defaults", model, root)
 	}
 }

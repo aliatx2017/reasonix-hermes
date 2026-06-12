@@ -154,7 +154,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 		return nil, err
 	}
 
-	sysPrompt, err := cfg.ResolveSystemPrompt()
+	sysPrompt, err := cfg.ResolveSystemPromptForRoot(root)
 	if err != nil {
 		return nil, err
 	}
@@ -259,6 +259,9 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 				Args:              []string{"serve", "--mcp"},
 				Dir:               root,
 				ReadOnlyToolNames: codegraph.ReadOnlyToolNames(),
+				// The daemon walks and indexes the whole tree; below-normal
+				// priority keeps it from starving the user's machine (#3797).
+				LowPriority: true,
 			}
 			warm := codegraph.Initialized(root)
 			if err := codegraph.EnsureInit(ctx, bin, root); err != nil {
@@ -742,7 +745,7 @@ func migrateLegacySessionSources(sink event.Sink) {
 	type legacySource struct {
 		dir     string
 		label   string
-		migrate func(srcDir, destDir string) (int, error)
+		migrate func(srcDir, globalDest string, projectDir func(string) string) (int, error)
 	}
 	var sources []legacySource
 	if home, herr := os.UserHomeDir(); herr == nil {
@@ -771,7 +774,7 @@ func migrateLegacySessionSources(sink event.Sink) {
 			continue
 		}
 		seen[key] = true
-		if n, serr := src.migrate(src.dir, dest); serr == nil && n > 0 {
+		if n, serr := src.migrate(src.dir, dest, config.ProjectSessionDir); serr == nil && n > 0 {
 			sink.Emit(event.Event{Kind: event.Notice, Level: event.LevelInfo, Text: fmt.Sprintf("imported %d past session(s) from %s — resume them with --resume or the history panel", n, src.label)})
 		}
 	}

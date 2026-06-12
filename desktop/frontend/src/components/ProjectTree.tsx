@@ -4,7 +4,7 @@
 // new topic.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, DragEvent as ReactDragEvent, KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
-import { Archive, ChevronRight, Pencil, Plus, Folder, FolderPlus, Search, BriefcaseBusiness, Copy, FolderOpen, XCircle, History, Check, ListCollapse, ListRestart } from "lucide-react";
+import { Archive, ChevronRight, Pencil, Plus, Folder, FolderPlus, Search, BriefcaseBusiness, Copy, FolderOpen, XCircle, History, Check, ListCollapse, ListRestart, MessageSquare } from "lucide-react";
 import { asArray } from "../lib/array";
 import { app } from "../lib/bridge";
 import type { ProjectNode, ProjectTopicStatus } from "../lib/types";
@@ -17,6 +17,7 @@ interface ProjectTreeProps {
   activeScope?: string;
   activeWorkspaceRoot?: string;
   activeTopicId?: string;
+  imTopicSources?: Record<string, ProjectTreeImTopicSource>;
   onOpenTopic: (scope: string, workspaceRoot: string, topicId: string) => Promise<void> | void;
   onOpenProjectHistory: (scope: "global" | "project", workspaceRoot: string) => Promise<void> | void;
   onAddProject: () => Promise<void>;
@@ -25,6 +26,13 @@ interface ProjectTreeProps {
   onTopicsChanged?: () => Promise<void> | void;
   refreshSignal?: number;
 }
+
+type ProjectTreeImTopicSource = {
+  platform?: string;
+  label: string;
+  title?: string;
+  remoteId?: string;
+};
 
 function projectNodeKey(node: ProjectNode, depth: number): string {
   return node.key || `${node.kind}-${node.root ?? ""}-${node.topicId ?? ""}-${depth}`;
@@ -191,6 +199,7 @@ export function ProjectTree({
   activeScope,
   activeWorkspaceRoot,
   activeTopicId,
+  imTopicSources = {},
   onOpenTopic,
   onOpenProjectHistory,
   onAddProject,
@@ -578,8 +587,12 @@ export function ProjectTree({
       const meta = topicMetaLine(node, t);
       const status = topicStatus(node);
       const statusLabel = topicStatusLabel(node, t);
-      const title = [label, statusLabel, meta].filter(Boolean).join(" · ");
       const topicId = node.topicId ?? "";
+      const imSource = scope === "global" && topicId ? imTopicSources[topicId] : undefined;
+      const imSourceLabel = imSource?.label || "";
+      const imSourceTitle = imSourceLabel ? t("msg.fromIm", { source: imSourceLabel }) : "";
+      const imSourcePlatform = (imSource?.platform || "im").replace(/[^a-z0-9_-]/gi, "").toLowerCase() || "im";
+      const title = [label, imSourceTitle, statusLabel, meta].filter(Boolean).join(" · ");
       const topicMenuOpen = menuTopic === topicId;
       const openTopicMenu = (event: ReactMouseEvent<HTMLElement> | ReactKeyboardEvent<HTMLElement>) => {
         event.preventDefault();
@@ -612,7 +625,7 @@ export function ProjectTree({
         return (
           <div
             key={key}
-            className={`project-tree__topic project-tree__topic--editing${active ? " project-tree__topic--active" : ""}`}
+            className={`project-tree__topic project-tree__topic--editing${active ? " project-tree__topic--active" : ""}${imSource ? " project-tree__topic--im-source" : ""}`}
             style={{ paddingLeft: 14 + depth * 16 }}
           >
             <input
@@ -632,7 +645,7 @@ export function ProjectTree({
       return (
         <div
           key={key}
-          className={`project-tree__topic${scopeClass}${active ? " project-tree__topic--active" : ""}${node.running ? " project-tree__topic--running" : ""}${status ? ` project-tree__topic--status-${status}` : ""}${topicMenuOpen ? " project-tree__topic--menu-open" : ""}${meta ? " project-tree__topic--has-meta" : ""}`}
+          className={`project-tree__topic${scopeClass}${active ? " project-tree__topic--active" : ""}${node.running ? " project-tree__topic--running" : ""}${status ? ` project-tree__topic--status-${status}` : ""}${topicMenuOpen ? " project-tree__topic--menu-open" : ""}${meta ? " project-tree__topic--has-meta" : ""}${imSource ? " project-tree__topic--im-source" : ""}`}
           style={accentStyle}
           onContextMenu={openTopicMenu}
         >
@@ -651,6 +664,16 @@ export function ProjectTree({
             <span className="project-tree__topic-copy">
               <span className="project-tree__topic-heading">
                 <span className="project-tree__topic-label">{label}</span>
+                {imSource && (
+                  <span
+                    className={`project-tree__topic-im project-tree__topic-im--${imSourcePlatform}`}
+                    title={imSourceTitle}
+                    aria-label={imSourceTitle}
+                  >
+                    <MessageSquare size={11} />
+                    <span>{imSourceLabel}</span>
+                  </span>
+                )}
                 {statusLabel && <span className={`project-tree__topic-status project-tree__topic-status--${status}`}>{statusLabel}</span>}
               </span>
               {meta && (

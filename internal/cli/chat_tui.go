@@ -89,6 +89,9 @@ type chatTUI struct {
 	// marker rides in outgoing user messages so the cache-stable prompt prefix is
 	// left untouched.
 	planMode bool
+	// yoloRestoreToolApprovalMode remembers the Ask/Auto base mode that Ctrl+Y
+	// should restore after a desktop-style YOLO toggle.
+	yoloRestoreToolApprovalMode string
 
 	// pendingInterject queues input typed while a turn runs; each TurnDone
 	// dequeues the front and submits it as the next turn.
@@ -158,6 +161,9 @@ type chatTUI struct {
 	// shellTranscriptIdx maps a shell tool ID to the transcript index of its
 	// collapsed output block, so Ctrl+B can rewrite it in place.
 	shellTranscriptIdx map[string]int
+	// toolLineCountByID keeps a switched-away tool's last line count so a late
+	// ToolResult can still render "⎿ N lines" (shellOutputs only tracks "shell-" ids).
+	toolLineCountByID map[string]int
 	// toolStreamStart / toolStreamFrame drive the "⎿ working · Ns" line shown
 	// under a dispatched tool that hasn't produced output yet, so a slow tool
 	// (e.g. codegraph_context) reads as making progress rather than frozen.
@@ -260,6 +266,10 @@ type chatTUI struct {
 	// shown as the current entry in the /output-style listing. "" = default.
 	outputStyle string
 
+	// diffMaxLines controls the max lines shown in a diff view. 0 = show all;
+	// non-zero = fold at that many lines. Toggled by /diff-fold.
+	diffMaxLines int
+
 	// statuslineCmd is the user's custom status-line command (config
 	// [statusline].command); "" disables it. statuslineOut caches its latest
 	// one-line stdout, refreshed at startup and after each turn and rendered in
@@ -267,6 +277,12 @@ type chatTUI struct {
 	statuslineCmd string
 	statuslineOut string
 	gitStatus     gitStatus
+
+	// statusLineCount is the number of terminal rows the status block occupies
+	// (wrapped working line + wrapped status line + wrapped data line). Updated
+	// each frame via computeStatusLineCount so bottomRows can reserve the correct
+	// height; starts at 2 (unwrapped) until first render.
+	statusLineCount int
 
 	// modelSwitchPending is true while an async /model build is in flight.
 	modelSwitchPending bool
@@ -457,16 +473,19 @@ func newChatTUI(ctrl *control.Controller, missing string, eventCh chan event.Eve
 		pending:              &strings.Builder{},
 		pendingCommit:        &commitBuf,
 		renderer:             newMarkdownRenderer(termW),
+		diffMaxLines:         diffFoldLimit,
 		showReasoning:        nativeScrollback,
 		shellOutputs:         make(map[string]string),
 		shellExpanded:        make(map[string]bool),
 		shellTranscriptIdx:   make(map[string]int),
+		toolLineCountByID:    make(map[string]int),
 		eventCh:              eventCh,
 		history:              ctrl.History(),
 		host:                 ctrl.Host(),
 		commands:             ctrl.Commands(),
 		skills:               ctrl.Skills(),
 		viewport:             viewport.New(viewport.WithWidth(termW)),
+		statusLineCount:      2,
 	}
 }
 
@@ -648,7 +667,15 @@ func (m chatTUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if contentW < 1 {
 		contentW = 1
 	}
+	// Recompute the wrapped status-line count so bottomRows reserves the right
+	// height for the viewport. The data-line tags (model, git, effort, context,
+	// cache, jobs, balance) are the ones most likely to wrap on a narrow terminal.
+	cm.statusLineCount = cm.computeStatusLineCount(contentW)
 	cm.viewport.SetWidth(contentW)
+	// Recompute the wrapped status-line count so bottomRows reserves the right
+	// height for the viewport. Use cm.width (same as boxW in View()) so the
+	// wrapping width matches what View() actually renders.
+	cm.statusLineCount = cm.computeStatusLineCount(cm.width)
 	cm.viewport.SetHeight(cm.transcriptHeight())
 	// Re-feed only when the content grew or the width changed (re-wrapping is
 	// the expensive part); a bare scroll or spinner tick keeps the offset.
@@ -938,10 +965,12 @@ func (m chatTUI) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "esc":
 			// "Back out" of the most specific in-progress state: un-send a just-sent
 			// turn (server not yet replied), cancel a streaming turn, or clear
-			// typed-but-unsent input. Plan mode is toggled by Shift+Tab only —
-			// Esc must not silently flip the session back to a less-permissive
-			// mode. YOLO is a startup flag, not in the cycle. Scrollback is the
-			// terminal's now, so there's no viewport to dismiss.
+			// typed-but-unsent input. Mode switches (normal/plan/YOLO) are
+			// exclusively driven by Shift+Tab — Esc must not silently flip a
+			// session from plan or YOLO back to a less-permissive mode. PR #3051
+			// removed the YOLO half of this; plan mode was missed and is fixed
+			// here. Scrollback is the terminal's now, so there's no viewport to
+			// dismiss.
 			switch {
 			case m.state == tuiRunning && m.bubblePending:
 				m.unsendPending()
@@ -973,6 +1002,13 @@ func (m chatTUI) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "ctrl+c", "super+c", "meta+c":
 			if m.state == tuiRunning {
+				// Selection takes precedence: copy instead of cancel, same as idle.
+				if sel.active && !sel.empty() {
+					m.sel = sel
+					text := m.selectedText()
+					m.sel = selection{}
+					return m, tea.Batch(copyToClipboard(text), finalize(m, cmds))
+				}
 				if m.bubblePending {
 					m.unsendPending() // server not yet replied — restore text, leave no trace
 				} else {
@@ -1016,12 +1052,9 @@ func (m chatTUI) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			cmds = append(cmds, pasteClipboard())
 			return m, finalize(m, cmds)
-		case "ctrl+y":
-			if m.state == tuiRunning {
-				return m, nil
-			}
-			cmds = append(cmds, pasteClipboardImage())
-			return m, finalize(m, cmds)
+		case "ctrl+y", "super+y", "meta+y":
+			m.toggleYoloMode()
+			return m, nil
 		case "ctrl+o":
 			m.toggleVerboseReasoning(m.state != tuiRunning)
 			return m, finalize(m, cmds)
@@ -1029,8 +1062,8 @@ func (m chatTUI) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.toggleShellOutput()
 			return m, finalize(m, cmds)
 		case "shift+tab":
-			// Toggle plan mode on/off; allowed mid-turn so the user can flip the
-			// gate while a run is in flight (the controller's mode is atomic).
+			// Shift+Tab toggles Plan only. Tool approval stays on its own axis:
+			// Ask/Auto are explicit choices, and YOLO is a separate Ctrl+Y toggle.
 			m.cycleMode()
 			return m, nil
 		case "enter":
@@ -1429,9 +1462,10 @@ func (m chatTUI) bottomRows() int {
 			rows += strings.Count(s, "\n") + 1
 		}
 	}
-	if m.state == tuiRunning {
-		rows++ // the working spinner line above the box
-	}
+	// Remove the hardcoded working-line increment — it is counted inside
+	// statusLineCount via computeStatusLineCount, which also accounts for
+	// wrapping. The fallback to 2 (unwrapped) covers the initial frame and
+	// tests that don't call Update first.
 	if m.nativeScrollback {
 		if main := m.renderMainManager(); main != "" {
 			rows += strings.Count(main, "\n") + 1
@@ -1443,7 +1477,10 @@ func (m chatTUI) bottomRows() int {
 	if !m.hideComposer() {
 		rows += m.input.Height() + 2
 	}
-	return rows + 2
+	if m.statusLineCount > 0 {
+		return rows + m.statusLineCount
+	}
+	return rows + 2 // fallback for tests that don't set statusLineCount
 }
 
 // hideComposer is the single ownership gate for the bottom composer.
@@ -1622,16 +1659,44 @@ func (m *chatTUI) streamToolOutput(id, chunk string) {
 		return
 	}
 	if m.toolStreamID != id {
-		m.collapseToolOutput(m.toolStreamID)
-		m.toolStreamID = id
-		m.toolTail = m.toolTail[:0]
-		m.toolPartial = ""
-		m.toolLineCount = 0
-		if m.nativeScrollback {
-			m.toolStreamIdx = -1
+		// Switching to a different id means either:
+		//   (a) the previous tool finished and a new one is starting — collapse
+		//       the current id's live block, then append a fresh slot at the
+		//       end of the transcript.
+		//   (b) late ToolProgress for an earlier (already dispatched and
+		//       possibly collapsed) tool — reuse the slot beginToolRunning
+		//       already wrote for that id, so the live block stays directly
+		//       under the earlier tool's card rather than stacking at the end.
+		if existingIdx, ok := m.shellTranscriptIdx[id]; ok && existingIdx >= 0 && existingIdx < len(m.transcript) {
+			// Stash the switched-away id's live count before resetting it;
+			// its late ToolResult reads it back via toolLineCountByID.
+			if m.toolStreamID != "" && m.toolStreamID != id {
+				n := m.toolLineCount
+				if m.toolPartial != "" {
+					n++
+				}
+				if n > 0 {
+					m.toolLineCountByID[m.toolStreamID] = n
+				}
+			}
+			m.toolStreamID = id
+			m.toolStreamIdx = existingIdx
+			m.toolTail = m.toolTail[:0]
+			m.toolPartial = ""
+			m.toolLineCount = 0
 		} else {
-			m.toolStreamIdx = len(m.transcript)
-			m.commitLine("")
+			// Unknown id: collapse the active stream (its live count is intact).
+			m.collapseToolOutput(m.toolStreamID, "")
+			m.toolStreamID = id
+			m.toolTail = m.toolTail[:0]
+			m.toolPartial = ""
+			m.toolLineCount = 0
+			if m.nativeScrollback {
+				m.toolStreamIdx = -1
+			} else {
+				m.toolStreamIdx = len(m.transcript)
+				m.commitLine("")
+			}
 		}
 	}
 	// Accumulate full output for shell commands so Ctrl+B can expand it.
@@ -1680,8 +1745,9 @@ func (m *chatTUI) pushToolLine(line string) {
 // "⎿ N lines" summary, so the scrollback keeps a marker of the run without the
 // full output (which the model already received). For shell commands ("shell-"
 // prefix), it shows the first shellPreviewLines with a Ctrl+B hint instead.
-// No-op when id isn't streaming.
-func (m *chatTUI) collapseToolOutput(id string) {
+// No-op when id isn't streaming. resultOutput (the ToolResult's final output)
+// is the last-resort line-count source when the live state was already reset.
+func (m *chatTUI) collapseToolOutput(id, resultOutput string) {
 	if m.nativeScrollback {
 		if id == "" || m.toolStreamID != id {
 			return
@@ -1721,19 +1787,65 @@ func (m *chatTUI) collapseToolOutput(id string) {
 		return
 	}
 	if m.toolStreamIdx < 0 || id == "" || m.toolStreamID != id {
+		// Slot no longer active (another tool took over, or this id never
+		// streamed). If beginToolRunning recorded a transcript index, collapse
+		// in place so a late ToolResult doesn't leave raw streamed text behind.
+		if idx, ok := m.shellTranscriptIdx[id]; ok && idx >= 0 && idx < len(m.transcript) {
+			m.collapseShellSlot(id, idx, resultOutput)
+		}
 		return
 	}
-	n := m.toolLineCount
-	if m.toolPartial != "" {
-		n++
+	m.collapseShellSlot(id, m.toolStreamIdx, resultOutput)
+	m.toolStreamIdx = -1
+	m.toolStreamID = ""
+	m.toolTail = m.toolTail[:0]
+	m.toolPartial = ""
+	m.toolLineCount = 0
+}
+
+// collapseShellSlot finalises a tool's live block at idx. Used both by the
+// active-tool path (idx == toolStreamIdx, streaming state intact) and the
+// late-result path (idx recorded in shellTranscriptIdx at dispatch). Line-count
+// sources, in order: live streaming state, shellOutputs ("shell-" ids only),
+// the per-id count stashed by streamToolOutput, then the ToolResult's output.
+func (m *chatTUI) collapseShellSlot(id string, idx int, resultOutput string) {
+	m.transcriptDirty = true
+	n := -1
+	if id == m.toolStreamID {
+		// Prefer the larger of the live count and resultOutput: resultOutput
+		// is the authoritative end-state, the live state may lag behind it.
+		n = m.toolLineCount
+		if m.toolPartial != "" {
+			n++
+		}
+		if resultOutput != "" {
+			fromResult := len(strings.Split(strings.TrimRight(resultOutput, "\n"), "\n"))
+			if fromResult > n {
+				n = fromResult
+			}
+		}
+	}
+	if n < 0 {
+		if full, ok := m.shellOutputs[id]; ok {
+			n = len(strings.Split(strings.TrimRight(full, "\n"), "\n"))
+		} else if c, ok := m.toolLineCountByID[id]; ok {
+			n = c
+		} else if resultOutput != "" {
+			n = len(strings.Split(strings.TrimRight(resultOutput, "\n"), "\n"))
+		}
+	}
+	if n < 0 {
+		// Nothing applies (e.g. a late result for a non-"shell-" id that never
+		// streamed): treat as zero rather than fabricate a "-1 lines" count.
+		n = 0
 	}
 	if n == 0 {
-		if m.toolStreamIdx == len(m.transcript)-1 {
-			m.transcript = m.transcript[:m.toolStreamIdx]
-		} else {
-			m.transcript[m.toolStreamIdx] = ""
-		}
-	} else if full, ok := m.shellOutputs[id]; ok {
+		// Tool finished with no output: clear the "working…" placeholder but
+		// keep the slot (shellTranscriptIdx still points here for late progress).
+		m.transcript[idx] = ""
+		return
+	}
+	if full, ok := m.shellOutputs[id]; ok {
 		// Shell command: show first N lines + hint.
 		lines := strings.Split(strings.TrimRight(full, "\n"), "\n")
 		total := len(lines)
@@ -1743,24 +1855,18 @@ func (m *chatTUI) collapseToolOutput(id string) {
 				preview[i] = dim(clampPlain(lines[i], m.width-len([]rune(connector))))
 			}
 			preview[shellPreviewLines] = dim(fmt.Sprintf("… %d more lines (click/Ctrl+B)", total-shellPreviewLines))
-			m.transcript[m.toolStreamIdx] = connectorBlock(preview)
+			m.transcript[idx] = connectorBlock(preview)
 		} else {
 			rendered := make([]string, total)
 			for i, ln := range lines {
 				rendered[i] = dim(clampPlain(ln, m.width-len([]rune(connector))))
 			}
-			m.transcript[m.toolStreamIdx] = connectorBlock(rendered)
+			m.transcript[idx] = connectorBlock(rendered)
 		}
-		m.shellTranscriptIdx[id] = m.toolStreamIdx
 	} else {
-		m.transcript[m.toolStreamIdx] = connectorBlock([]string{dim(fmt.Sprintf("%d lines", n))})
+		m.transcript[idx] = connectorBlock([]string{dim(fmt.Sprintf("%d lines", n))})
 	}
-	m.transcriptDirty = true
-	m.toolStreamIdx = -1
-	m.toolStreamID = ""
-	m.toolTail = m.toolTail[:0]
-	m.toolPartial = ""
-	m.toolLineCount = 0
+	m.shellTranscriptIdx[id] = idx
 }
 
 // toggleShellOutput expands or collapses the output of the most recent shell
@@ -1839,6 +1945,9 @@ func (m *chatTUI) beginToolRunning(id string) {
 	m.toolTail = m.toolTail[:0]
 	m.toolPartial = ""
 	m.toolLineCount = 0
+	// Clear accumulated output for this tool ID so a re-run (e.g. repeated
+	// !pwd with the same "shell-pwd" id) doesn't append to old output.
+	delete(m.shellOutputs, id)
 	m.toolStreamStart = time.Now()
 	m.toolStreamFrame = 0
 	if m.nativeScrollback {
@@ -1847,6 +1956,12 @@ func (m *chatTUI) beginToolRunning(id string) {
 	}
 	m.toolStreamIdx = len(m.transcript)
 	m.commitLine(connectorBlock([]string{dim(fmt.Sprintf(i18n.M.ChatToolWorkingFmt, toolWorkingFrames[0], 0))}))
+	// Remember the transcript slot for this id so a late ToolProgress for a
+	// previously dispatched (and possibly already collapsed) tool can reuse
+	// it instead of appending a fresh slot at the end of the transcript. For
+	// back-to-back tool calls this keeps each tool's live block directly
+	// under its own card.
+	m.shellTranscriptIdx[id] = m.toolStreamIdx
 }
 
 // tickToolRunning re-renders the working line of a tool that's dispatched but
@@ -1991,59 +2106,40 @@ func flushableMarkdownPrefix(buf string) string {
 const planApprovalTool = "exit_plan_mode"
 
 // handleApprovalKey resolves a pending approval from a keystroke and re-arms the
-// listener. 1/y/Enter allows once, 2/a allows for the rest of the session, and
-// n/Esc denies. Bash approvals with a safe prefix use 2/a for the prefix
-// session grant and 3/p for the persisted prefix. For standard approvals, 3/p
-// writes an "always allow" rule to the config file.
+// listener. 1/y/Enter allows once, 2/a allows for the rest of the session,
+// 3/p writes an "always allow" rule to the config file, and n/Esc denies.
 // Ctrl-C cancels the whole turn via the run context. For a plan approval
 // (planApprovalTool), allowing also drops the local [plan] tag — the
 // controller turns plan mode off on its side.
 func (m chatTUI) handleApprovalKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
-	answer := func(allow, session, persist bool, scope string) (tea.Model, tea.Cmd) {
+	answer := func(allow, session, persist bool) (tea.Model, tea.Cmd) {
 		if allow && m.pendingApproval.Tool == planApprovalTool {
 			m.planMode = false
 		}
-		m.ctrl.ApproveWithScope(m.pendingApproval.ID, allow, session, persist, scope)
+		m.ctrl.Approve(m.pendingApproval.ID, allow, session, persist)
 		m.pendingApproval = nil
-		return m, nil // the next ApprovalRequest / event arrives on eventCh
+		return m, nil
 	}
-	hasBashPrefix := m.pendingApproval.Tool == "bash" && permission.BashCommandPrefix(m.pendingApproval.Subject) != ""
 	switch msg.String() {
 	case "ctrl+c":
-		m.ctrl.Cancel() // cancels the run; the approver unblocks via ctx.Done()
-		return answer(false, false, false, permission.ApprovalScopeExact)
+		m.ctrl.Cancel()
+		return answer(false, false, false)
 	case "enter":
-		return answer(true, false, false, permission.ApprovalScopeExact)
+		return answer(true, false, false)
 	case "esc":
-		return answer(false, false, false, permission.ApprovalScopeExact)
+		return answer(false, false, false)
 	}
 	switch strings.ToLower(msg.String()) {
 	case "y", "1":
-		return answer(true, false, false, permission.ApprovalScopeExact)
+		return answer(true, false, false)
 	case "a", "2":
-		if hasBashPrefix {
-			return answer(true, true, false, permission.ApprovalScopePrefix) // prefix session grant
-		}
-		return answer(true, true, false, permission.ApprovalScopeExact) // session grant
-	case "3":
-		if hasBashPrefix {
-			return answer(true, true, true, permission.ApprovalScopePrefix) // persist prefix to config
-		}
-		return answer(true, true, true, permission.ApprovalScopeExact) // persist to config
-	case "p":
-		if hasBashPrefix {
-			return answer(true, true, true, permission.ApprovalScopePrefix) // persist prefix to config
-		}
-		return answer(true, true, true, permission.ApprovalScopeExact) // persist to config
-	case "4":
-		if hasBashPrefix {
-			return answer(false, false, false, permission.ApprovalScopeExact)
-		}
-		return answer(false, false, false, permission.ApprovalScopeExact)
-	case "n", "5":
-		return answer(false, false, false, permission.ApprovalScopeExact)
+		return answer(true, true, false)
+	case "3", "p":
+		return answer(true, true, true)
+	case "4", "n":
+		return answer(false, false, false)
 	}
-	return m, nil // ignore anything else while awaiting a decision
+	return m, nil
 }
 
 var (
@@ -2121,14 +2217,14 @@ func (m chatTUI) View() tea.View {
 	case shellMode:
 		status = "  " + modeTag + " · " + i18n.M.ShellModeHint
 	case m.ctrl.AutoApproveTools():
-		status = "  " + modeTag + " · " + i18n.M.ChatStatusYoloIdle + " " + dim("("+i18n.M.ChatStatusCycleHint+")")
+		status = "  " + modeTag + " · " + i18n.M.ChatStatusYoloIdle + " " + dim("("+m.cycleHint()+")")
 	default:
-		status = "  " + modeTag + " · " + i18n.M.ChatStatusIdle + " " + dim("("+i18n.M.ChatStatusCycleHint+")")
+		status = "  " + modeTag + " · " + i18n.M.ChatStatusIdle + " " + dim("("+m.cycleHint()+")")
 	}
 	if et := m.effortTag(); et != "" {
 		status += " · " + et
 	}
-	if gt := m.gitTag(boxW - visibleWidth(status) - visibleWidth(" · ")); gt != "" {
+	if gt := m.gitTag(); gt != "" {
 		status += " · " + gt
 	}
 	// The spinning "thinking…" indicator is its own line ABOVE the input box (shown
@@ -2152,8 +2248,11 @@ func (m chatTUI) View() tea.View {
 			}
 		}
 	}
-	// Cache rates get their own fixed second row so they're never truncated off
-	// the status line; a fixed height also avoids wrap-induced resize ghosting.
+	// Second status row: the live data (model, git, effort, context gauge, cache
+	// rates, jobs, balance). It lives on its own row so it's always visible; if it
+	// exceeds the terminal width it wraps to additional rows instead of being
+	// truncated. Wrapping is safe in the alt-screen view — there's no scrollback
+	// to strand — and computeStatusLineCount reserves the correct height.
 	var data []string
 	if mt := m.modelTag(); mt != "" {
 		data = append(data, mt)
@@ -2217,17 +2316,17 @@ func (m chatTUI) View() tea.View {
 	}
 	// Layout: the working spinner (when running), then the composer when visible,
 	// then the two status rows (line 1 = mode + run config + worktree identity, line 2 = live run data).
-	// Each row is clamped to width independently so neither wraps; padding to full
-	// width keeps a short row from leaving stale cells from the prior frame.
+	// Each row is wrapped to width so long content flows onto additional rows
+	// instead of being truncated. Padding to full width prevents stale cells.
 	if working != "" {
-		parts = append(parts, workingStyle.Width(boxW).MaxWidth(boxW).Render(clampStatusLine(working, boxW)))
+		parts = append(parts, workingStyle.Width(boxW).MaxWidth(boxW).Render(wrapStatusLine(working, boxW)))
 		rowsAboveBox++
 	}
 	if footer := m.renderMainManagerFooter(); footer != "" {
 		parts = append(parts, footer)
 		rowsAboveBox += strings.Count(footer, "\n") + 1
 	}
-	statusBlock := clampStatusLine(status, boxW) + "\n" + clampStatusLine(dataLine, boxW)
+	statusBlock := wrapStatusLine(status, boxW) + "\n" + wrapStatusLine(dataLine, boxW)
 	if !hideComposer {
 		if qi := m.renderQueueIndicator(); qi != "" {
 			parts = append(parts, qi)
@@ -2433,11 +2532,11 @@ func (m chatTUI) renderApprovalBanner() string {
 	if subj != "" {
 		subj = " " + truncateSubject(subj, w)
 	}
-	exactSessionRule := permission.SessionGrantRuleForScope(m.pendingApproval.Tool, m.pendingApproval.Subject, permission.ApprovalScopeExact)
-	exactPersistentRule := permission.RememberRuleForScope(m.pendingApproval.Tool, m.pendingApproval.Subject, permission.ApprovalScopeExact)
+	exactSessionRule := permission.SessionGrantRuleForScope(m.pendingApproval.Tool, m.pendingApproval.Subject)
+	exactPersistentRule := permission.RememberRuleForScope(m.pendingApproval.Tool, m.pendingApproval.Subject)
 	choices := fmt.Sprintf(i18n.M.ToolApprovalChoices, exactSessionRule, exactPersistentRule)
 	if m.pendingApproval.Tool == "bash" && permission.BashCommandPrefix(m.pendingApproval.Subject) != "" {
-		prefixRule := permission.RememberRuleForScope(m.pendingApproval.Tool, m.pendingApproval.Subject, permission.ApprovalScopePrefix)
+		prefixRule := permission.RememberRuleForScope(m.pendingApproval.Tool, m.pendingApproval.Subject)
 		choices = fmt.Sprintf(i18n.M.BashPrefixChoices, prefixRule, prefixRule)
 	}
 	text := fmt.Sprintf(i18n.M.ToolApprovalPromptFmt, name, subj, detail, choices)
@@ -2555,16 +2654,119 @@ func truncateSubject(s string, width int) string {
 	return ansi.Truncate(s, max, "…")
 }
 
-// clampStatusLine truncates a status line to `width` visible columns, ANSI-aware,
-// appending an ellipsis and a reset. The bottom region must stay a fixed height —
-// the non-alt-screen renderer commits scrollback by clearing the prior frame's
-// lines, so a status that wraps to a second row strands input-box borders in
-// history. Truncating (not wrapping) keeps it one row regardless of how many tags
-// (ctx · cache · avg · jobs · balance) it carries on a narrow terminal.
-func clampStatusLine(s string, width int) string {
-	// ansi.Truncate is ANSI-aware, counts wide chars, and appends the tail when
-	// it actually clips — one row regardless of how many tags the status carries.
-	return ansi.Truncate(s, width, "…")
+// wrapStatusLine wraps a status line to `width` visible columns, ANSI-aware,
+// so text that exceeds one row flows onto additional lines instead of being
+// truncated with an ellipsis. Wrapping is permissive — spaces are preferred
+// break points — and works within the alt-screen view so there is no scrollback
+// artifact.
+func wrapStatusLine(s string, width int) string {
+	if width <= 0 || s == "" {
+		return s
+	}
+	return ansi.Hardwrap(s, width, true)
+}
+
+// computeStatusLineCount returns the number of terminal rows the status block
+// (working line + first status line + data line) will occupy after wrapping to
+// `width`. It mirrors the construction in View() so the reserved height matches
+// the rendered height exactly — the load-bearing invariant for bottomRows().
+// Use the same width (m.width) that View() passes to wrapStatusLine.
+func (m chatTUI) computeStatusLineCount(width int) int {
+	if m.ctrl == nil {
+		return 2 // safe default for tests without a real controller
+	}
+	shellMode := strings.HasPrefix(strings.TrimSpace(m.input.Value()), "!")
+
+	// Replicate the first status line (mode tag + state) from View().
+	// ModeTag is rendered with Padding(0,1) in View() — add the same padding
+	// here so the visible width matches exactly.
+	modeTag := " " + m.modeTagText() + " "
+	if shellMode {
+		modeTag = " Shell "
+	}
+	status := "  " + modeTag
+	switch {
+	case m.rewind != nil:
+		status += " · ⟲ rewind"
+	case m.mcpImport != nil:
+		status += " · MCP import"
+	case m.resumePick != nil:
+		status += " · " + i18n.M.StatusResumePicker
+	case m.mcp != nil:
+		status += " · MCP"
+	case m.skillPick != nil:
+		status += " · " + i18n.M.SkillPickerStatusLabel
+	case m.chooser != nil:
+		status += " · " + i18n.M.ChatStatusQuestion
+	case m.pendingApproval != nil && m.pendingApproval.Tool == planApprovalTool:
+		status += " · " + i18n.M.ChatStatusPlanApproval
+	case m.pendingApproval != nil:
+		status += " · " + i18n.M.ChatStatusToolApproval
+	case shellMode:
+		status += " · " + i18n.M.ShellModeHint
+	case m.ctrl.AutoApproveTools():
+		status += " · " + i18n.M.ChatStatusYoloIdle + " (" + m.cycleHint() + ")"
+	default:
+		status += " · " + i18n.M.ChatStatusIdle + " (" + m.cycleHint() + ")"
+	}
+	if et := m.effortTag(); et != "" {
+		status += " · " + et
+	}
+	if gt := m.gitTag(); gt != "" {
+		status += " · " + gt
+	}
+
+	// Replicate the data line from View().
+	var data []string
+	if mt := m.modelTag(); mt != "" {
+		data = append(data, mt)
+	}
+	if cache := m.cacheTag(); cache != "" {
+		data = append(data, cache)
+	}
+	if ct := m.contextTag(); ct != "" {
+		data = append(data, ct)
+	}
+	if jt := m.jobsTag(); jt != "" {
+		data = append(data, jt)
+	}
+	if m.balance != "" {
+		data = append(data, m.balance)
+	}
+	dataLine := "  " + strings.Join(data, " · ")
+	if m.statuslineCmd != "" && m.statuslineOut != "" {
+		dataLine = "  " + m.statuslineOut
+	}
+
+	// Replicate the working (spinner) line from View(), shown only while a turn runs.
+	var working string
+	if m.state == tuiRunning {
+		if m.retryAttempt > 0 {
+			working = fmt.Sprintf("  "+i18n.M.ChatStatusRetryingFmt, m.spinner.View(), m.retryAttempt, m.retryMax)
+		} else {
+			working = fmt.Sprintf("  "+i18n.M.ChatStatusThinkingFmt, m.spinner.View(), m.elapsed)
+			if m.turnTokens > 0 {
+				working += " · ↓" + shortTokens(m.turnTokens)
+			}
+			if n := len(m.pendingInterject); n > 0 {
+				if n == 1 {
+					working += " · ✎ feedback queued"
+				} else {
+					working += fmt.Sprintf(" · ✎ %d queued", n)
+				}
+			}
+		}
+	}
+
+	// Count wrapped rows for every piece that View() renders as wrapped.
+	var lines int
+	if m.state == tuiRunning {
+		// working (spinner) line — wraps independently of the status block below.
+		lines += strings.Count(wrapStatusLine(working, width), "\n") + 1
+	}
+	lines += strings.Count(wrapStatusLine(status, width), "\n") + 1
+	lines += strings.Count(wrapStatusLine(dataLine, width), "\n") + 1
+	return lines
 }
 
 // growInputToFit resizes the textarea to the number of lines its value spans,
@@ -2857,9 +3059,8 @@ func pastedFileRef(content string) (string, bool) {
 	return "@" + path, true
 }
 
-// cycleMode toggles plan mode (Shift+Tab), mirroring the desktop composer.
-// YOLO/full access is controlled explicitly by the startup flag/runtime binding
-// so the shortcut never crosses a permission boundary.
+// cycleMode handles the Shift+Tab mode gesture. It toggles Plan only; tool
+// approval modes stay on their own axis.
 func (m *chatTUI) cycleMode() {
 	m.planMode = !m.planMode
 	if m.planMode {
@@ -2868,15 +3069,71 @@ func (m *chatTUI) cycleMode() {
 	m.ctrl.SetPlanMode(m.planMode)
 }
 
+func (m chatTUI) desktopShortcutLayout() bool {
+	return m.cfg != nil && m.cfg.UIShortcutLayout() == "desktop"
+}
+
+func (m chatTUI) cycleHint() string {
+	return i18n.M.ChatStatusCycleHint
+}
+
+func (m *chatTUI) toggleYoloMode() {
+	if m.ctrl == nil {
+		return
+	}
+	if m.ctrl.ToolApprovalMode() == control.ToolApprovalYolo {
+		restore := m.yoloRestoreToolApprovalMode
+		if restore != control.ToolApprovalAuto {
+			restore = control.ToolApprovalAsk
+		}
+		m.ctrl.SetToolApprovalMode(restore)
+		m.yoloRestoreToolApprovalMode = ""
+		return
+	}
+	restore := m.ctrl.ToolApprovalMode()
+	if restore != control.ToolApprovalAuto {
+		restore = control.ToolApprovalAsk
+	}
+	m.yoloRestoreToolApprovalMode = restore
+	m.ctrl.SetToolApprovalMode(control.ToolApprovalYolo)
+}
+
 func (m chatTUI) modeTagText() string {
 	goalMode := strings.TrimSpace(m.ctrl.Goal()) != "" && m.ctrl.GoalStatus() == control.GoalStatusRunning
+	toolApprovalMode := m.ctrl.ToolApprovalMode()
+	if m.desktopShortcutLayout() {
+		switch {
+		case m.planMode && toolApprovalMode == control.ToolApprovalYolo:
+			return "Plan+YOLO"
+		case goalMode && toolApprovalMode == control.ToolApprovalYolo:
+			return "Goal+YOLO"
+		case toolApprovalMode == control.ToolApprovalYolo:
+			return "YOLO"
+		case m.planMode:
+			return "Plan"
+		case goalMode && toolApprovalMode == control.ToolApprovalAuto:
+			return "Goal+Auto"
+		case goalMode:
+			return "Goal"
+		case toolApprovalMode == control.ToolApprovalAuto:
+			return "Auto"
+		default:
+			return "Ask"
+		}
+	}
 	switch {
-	case m.planMode && m.ctrl.AutoApproveTools():
+	case m.planMode && toolApprovalMode == control.ToolApprovalYolo:
 		return "Plan+YOLO"
-	case goalMode && m.ctrl.AutoApproveTools():
+	case m.planMode && toolApprovalMode == control.ToolApprovalAuto:
+		return "Plan+Approve"
+	case goalMode && toolApprovalMode == control.ToolApprovalYolo:
 		return "Goal+YOLO"
-	case m.ctrl.AutoApproveTools():
+	case goalMode && toolApprovalMode == control.ToolApprovalAuto:
+		return "Goal+Approve"
+	case toolApprovalMode == control.ToolApprovalYolo:
 		return "YOLO"
+	case toolApprovalMode == control.ToolApprovalAuto:
+		return "Auto+Approve"
 	case m.planMode:
 		return "Plan"
 	case goalMode:
@@ -2888,6 +3145,10 @@ func (m chatTUI) modeTagText() string {
 
 func (m *chatTUI) toggleVerboseReasoning(notify bool) {
 	m.showReasoning = !m.showReasoning
+	if m.cfg != nil {
+		_ = m.cfg.SetShowReasoning(m.showReasoning)
+		_ = m.cfg.Save()
+	}
 	if !notify {
 		return
 	}
@@ -3043,7 +3304,7 @@ func (m *chatTUI) ingestEvent(e event.Event) {
 			// No longer a tool, but guard anyway: the plan is the assistant's reply.
 		default:
 			m.commitSpacer()
-			if block := diffBlock(e.Tool.Name, e.Tool.Args, e.Tool.FileDiff, m.width, diffScrollbackMaxLines); block != nil {
+			if block := diffBlock(e.Tool.Name, e.Tool.Args, e.Tool.FileDiff, m.width, m.diffMaxLines); block != nil {
 				for _, ln := range block {
 					m.commitLine(ln)
 				}
@@ -3059,8 +3320,10 @@ func (m *chatTUI) ingestEvent(e event.Event) {
 	case event.ToolResult:
 		// A successful result is silent (it only feeds the model); a blocked/failed
 		// call surfaces a red "⏺ Verb ⊘ <reason>" card. A live-output block (bash)
-		// collapses to a one-line "⎿ N lines" summary first.
-		m.collapseToolOutput(e.Tool.ID)
+		// collapses to a one-line "⎿ N lines" summary first. Pass the final
+		// output so collapseToolOutput has a last-resort source for the line
+		// count when the live state was already reset by a back-to-back tool.
+		m.collapseToolOutput(e.Tool.ID, e.Tool.Output)
 		if e.Tool.Name == "todo_write" && e.Tool.Err == "" {
 			m.todoArgs = e.Tool.Args
 		}
@@ -3152,7 +3415,7 @@ func (m *chatTUI) ingestEvent(e event.Event) {
 // finalizeStreamed freezes any in-progress reasoning + answer into scrollback so
 // a following event line lands after them, preserving chronological order.
 func (m *chatTUI) finalizeStreamed() {
-	m.collapseToolOutput(m.toolStreamID)
+	m.collapseToolOutput(m.toolStreamID, "")
 	m.commitReasoning()
 	m.commitPending()
 }
@@ -3234,6 +3497,12 @@ func (m *chatTUI) runSlashCommand(input string) tea.Cmd {
 		if m.pendingModelSwitch != nil {
 			return m.pendingModelSwitch
 		}
+	case "/provider":
+		m.echoLocalCommand(input)
+		m.runProviderCommand(input)
+		if m.pendingModelSwitch != nil {
+			return m.pendingModelSwitch
+		}
 	case "/skill", "/skills":
 		m.echoLocalCommand(input)
 		m.runSkillSubcommand(input)
@@ -3252,6 +3521,15 @@ func (m *chatTUI) runSlashCommand(input string) tea.Cmd {
 			m.notice(i18n.M.OutputStyleNone)
 		} else {
 			m.commitLine(renderOutputStyles(m.width, styles, m.outputStyle))
+		}
+	case "/diff-fold":
+		m.echoLocalCommand(input)
+		if m.diffMaxLines == 0 {
+			m.diffMaxLines = diffFoldLimit
+			m.notice(fmt.Sprintf(i18n.M.DiffFoldEnabledFmt, diffFoldLimit))
+		} else {
+			m.diffMaxLines = 0
+			m.notice(i18n.M.DiffFoldDisabled)
 		}
 	case "/theme":
 		m.echoLocalCommand(input)
@@ -3500,6 +3778,11 @@ func replaySectionsFor(history []provider.Message, width int, renderer *mdRender
 	for _, m := range history {
 		switch m.Role {
 		case provider.RoleUser:
+			// Steer messages are surfaced as a notice line, not a user bubble.
+			if steerText, isSteer := agent.SteerText(m.Content); isSteer {
+				out = append(out, fmt.Sprintf("  ↪ %s\n\n", steerText))
+				continue
+			}
 			content := control.StripComposePrefixes(m.Content)
 			out = append(out, renderUserBubble(content, width, false)+"\n\n")
 		case provider.RoleAssistant:

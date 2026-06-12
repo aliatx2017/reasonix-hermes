@@ -1,6 +1,7 @@
 package feishu
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -87,5 +88,33 @@ func TestHandleCardActionUsesChatType(t *testing.T) {
 	}
 	if msg.Text != "/approve approval-1" {
 		t.Fatalf("text = %q, want /approve approval-1", msg.Text)
+	}
+}
+
+func TestFeishuMarkdownPostContent(t *testing.T) {
+	content, err := feishuMarkdownPostContent("hello [docs](https://example.com)")
+	if err != nil {
+		t.Fatalf("feishuMarkdownPostContent: %v", err)
+	}
+	var payload struct {
+		ZhCn struct {
+			Content [][]struct {
+				Tag  string `json:"tag"`
+				Text string `json:"text"`
+				Href string `json:"href"`
+			} `json:"content"`
+		} `json:"zh_cn"`
+	}
+	if err := json.Unmarshal([]byte(content), &payload); err != nil {
+		t.Fatalf("post content should be valid json: %v", err)
+	}
+	if len(payload.ZhCn.Content) != 1 || len(payload.ZhCn.Content[0]) != 2 {
+		t.Fatalf("content blocks = %#v, want one paragraph with text and link", payload.ZhCn.Content)
+	}
+	if payload.ZhCn.Content[0][0].Tag != "text" || payload.ZhCn.Content[0][0].Text != "hello " {
+		t.Fatalf("first element = %#v, want text hello", payload.ZhCn.Content[0][0])
+	}
+	if payload.ZhCn.Content[0][1].Tag != "a" || payload.ZhCn.Content[0][1].Text != "docs" || payload.ZhCn.Content[0][1].Href != "https://example.com" {
+		t.Fatalf("second element = %#v, want link", payload.ZhCn.Content[0][1])
 	}
 }

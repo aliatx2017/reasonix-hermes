@@ -132,6 +132,7 @@ func botStart(args []string, version string) int {
 		Model:         modelName,
 		MaxSteps:      cfg.Bot.MaxSteps,
 		WorkspaceRoot: workspaceRoot,
+		Channels:      botChannelConfigs(cfg.Bot.Connections, *model == "", *dir == ""),
 		Enabled:       enabledPlatforms,
 		Allowlist: bot.AllowlistConfig{
 			Enabled:  cfg.Bot.Allowlist.Enabled,
@@ -191,6 +192,38 @@ func botStart(args []string, version string) int {
 	// 等待信号或 context 取消
 	<-ctx.Done()
 	return 0
+}
+
+func botChannelConfigs(connections []config.BotConnectionConfig, includeModel bool, includeWorkspaceRoot bool) map[bot.Platform]bot.ChannelConfig {
+	if len(connections) == 0 {
+		return nil
+	}
+	out := make(map[bot.Platform]bot.ChannelConfig)
+	for _, conn := range connections {
+		if !conn.Enabled {
+			continue
+		}
+		plat := bot.Platform(strings.TrimSpace(conn.Provider))
+		switch plat {
+		case bot.PlatformQQ, bot.PlatformFeishu, bot.PlatformWeixin:
+		default:
+			continue
+		}
+		channel := out[plat]
+		if includeModel {
+			channel.Model = strings.TrimSpace(conn.Model)
+		}
+		if includeWorkspaceRoot {
+			channel.WorkspaceRoot = strings.TrimSpace(conn.WorkspaceRoot)
+		}
+		if channel.Model != "" || channel.WorkspaceRoot != "" {
+			out[plat] = channel
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func botDoctor(args []string) int {

@@ -87,6 +87,8 @@ type Messages struct {
 	PermissionAlreadyAllowedFmt string // permission rule already covered notice: path, rule
 	PermissionSaveFailedFmt     string // permission rule save failure notice: rule, error
 	DiffFoldedFmt               string // "… +%d more lines" footer when a writer diff is folded
+	DiffFoldEnabledFmt          string // notice when /diff-fold enables folding, %d = line limit
+	DiffFoldDisabled            string // notice when /diff-fold disables folding (shows all lines)
 
 	// `ask` tool question card.
 	AskTypeSomething   string // the "type your own answer" option label
@@ -164,6 +166,7 @@ type Messages struct {
 	CmdLanguage     string // /language
 	CmdSkill        string // /skills
 	CmdVerbose      string // /verbose
+	CmdDiffFold     string // /diff-fold
 	CmdSandbox      string // /sandbox
 	CmdEffort       string // /effort
 	CmdAutoPlan     string // /auto-plan
@@ -348,7 +351,8 @@ type Messages struct {
 
 	// provider HTTP error explanations — actionable, reason + fix per status code
 	ProviderErrBadRequest          string // 400
-	ProviderErrAuth                string // 401
+	ProviderErrAuth                string // 401 — no key configured / sent
+	ProviderErrAuthRejected        string // 401 — a key was sent but the server rejected it
 	ProviderErrInsufficientBalance string // 402
 	ProviderErrUnprocessable       string // 422
 	ProviderErrRateLimited         string // 429
@@ -356,8 +360,39 @@ type Messages struct {
 	ProviderErrServerBusy          string // 503
 
 	// selection menus
-	SelectOneHint  string // "(↑/↓ · Enter · q to cancel)"
-	SelectManyHint string // "(↑/↓ · Space · Enter · q)"
+	SelectOneHint      string // "(↑/↓ · Enter · q to cancel)"
+	SelectManyHint     string // "(↑/↓ · Space · Enter · q)"
+	SelectMoreAboveFmt string // "↑ %d more above"
+	SelectMoreBelowFmt string // "↓ %d more below"
+	SelectSearchHint   string // "/ to search · Esc to cancel"
+
+	// /provider command
+	CmdProvider          string // /provider
+	ProviderListHeader   string // header for /provider list
+	ProviderAlreadyOnFmt string // already on provider
+	ProviderUnknownFmt   string // unknown provider
+	ProviderPickLabel    string // label for provider model picker
+	ProviderNoModelsFmt  string // provider has no models
+
+	// `reasonix upgrade` / `reasonix update` — self-update
+	UpgradeChecking            string // "Checking for updates…"
+	UpgradeDevBuild            string // dev builds cannot self-update
+	UpgradeFetchFailed         string // "failed to check for updates: %v"
+	UpgradeInvalidVersion      string // remote version not valid semver
+	UpgradeAlreadyLatest       string // already on the latest version
+	UpgradeForcing             string // "Reinstalling the same version…"
+	UpgradeAvailableFmt        string // "Current: %s → Latest: %s"
+	UpgradeNoAssetFmt          string // "no binary found for %s"
+	UpgradeDownloadingFmt      string // "Downloading %s (%s)…"
+	UpgradeDownloadFailed      string // "download failed: %v"
+	UpgradeVerifying           string // "Verifying checksum…"
+	UpgradeChecksumFailed      string // "could not fetch checksum file: %v"
+	UpgradeChecksumMismatchFmt string // SHA256 mismatch detail
+	UpgradeChecksumNotFoundFmt string // asset not listed in SHA256SUMS
+	UpgradeExtractFailed       string // "failed to extract binary: %v"
+	UpgradeApplying            string // "Replacing binary…"
+	UpgradeApplyFailed         string // "failed to apply update: %v"
+	UpgradeSuccessFmt          string // "Updated %s → %s"
 
 	// usage / help
 	UsageBody string // full multi-line help text

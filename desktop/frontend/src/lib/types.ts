@@ -17,7 +17,8 @@ export type EventKind =
   | "turn_done"
   | "compaction_started"
   | "compaction_done"
-  | "retrying";
+  | "retrying"
+  | "steer";
 
 export interface WireCompaction {
   trigger?: string; // "auto" | "manual"
@@ -169,6 +170,7 @@ export interface ContextPanelInfo {
   windowTokens: number;
   promptTokens: number;
   completionTokens: number;
+  totalTokens: number;
   reasoningTokens: number;
   cacheHitTokens: number;
   cacheMissTokens: number;
@@ -271,6 +273,7 @@ export interface WorkspaceView {
 export interface ContextInfo {
   used: number;
   window: number;
+  sessionTokens: number;
   compactRatio?: number;
 }
 
@@ -648,6 +651,8 @@ export interface BotConnectionCredentialView {
 export interface BotConnectionSessionMappingView {
   remoteId: string;
   sessionId: string;
+  scope: "global" | "project" | string;
+  workspaceRoot: string;
   updatedAt: string;
 }
 
@@ -658,6 +663,8 @@ export interface BotConnectionView {
   label: string;
   enabled: boolean;
   status: "disconnected" | "pending" | "connected" | "error" | string;
+  model: string;
+  workspaceRoot: string;
   credential: BotConnectionCredentialView;
   sessionMappings: BotConnectionSessionMappingView[];
   lastError: string;
@@ -723,6 +730,11 @@ export interface SettingsView {
   desktopTheme: string; // "auto" | "dark" | "light"
   desktopThemeStyle: string;
   closeBehavior: string; // "background" | "quit"
+  displayMode: string;   // "standard" | "compact" | "minimal"
+  checkUpdates: boolean; // check for new versions on startup
+  telemetry: boolean; // anonymous launch ping (install id + version + OS)
+  metrics: boolean; // opt-in aggregate agent metrics (anonymous signal/bucket counts)
+  expandThinking: boolean; // show reasoning text expanded by default
   configPath: string;
   providerKinds: string[]; // provider implementations the kernel registered (for the kind picker)
   autoApproveTools: boolean;
