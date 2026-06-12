@@ -129,6 +129,18 @@ type BotSettingsView struct {
 	Connections []BotConnectionView `json:"connections"`
 }
 
+// HotbarView mirrors [desktop.hotbar] so the frontend can render
+// configurable keyboard shortcut bindings.
+type HotbarView struct {
+	Key1 string `json:"key1"` // default: palette
+	Key2 string `json:"key2"` // default: workspace
+	Key3 string `json:"key3"` // default: new
+	Key4 string `json:"key4"` // default: history
+	Key5 string `json:"key5"` // default: dock
+	Key6 string `json:"key6"` // default: sidebar
+	Key7 string `json:"key7"` // default: settings
+}
+
 // SettingsView is the whole Settings panel payload.
 type SettingsView struct {
 	DefaultModel      string          `json:"defaultModel"`
@@ -152,6 +164,7 @@ type SettingsView struct {
 	Telemetry         bool            `json:"telemetry"`
 	Metrics           bool            `json:"metrics"`
 	ExpandThinking    bool            `json:"expandThinking"`
+	Hotbar            HotbarView      `json:"hotbar"`
 	ConfigPath        string          `json:"configPath"`
 	// ProviderKinds lists the provider implementations the kernel actually
 	// registered (provider.Kinds()), so the editor's "kind" picker offers only
@@ -333,6 +346,7 @@ func (a *App) Settings() SettingsView {
 			Telemetry:         true,
 			Metrics:           false,
 			ExpandThinking:    false,
+			Hotbar:            defaultHotbarView(),
 		}
 	}
 	ctrl := a.activeCtrl()
@@ -381,6 +395,7 @@ func (a *App) Settings() SettingsView {
 		Telemetry:         cfg.DesktopTelemetry(),
 		Metrics:           cfg.DesktopMetrics(),
 		ExpandThinking:    cfg.Desktop.ExpandThinking,
+		Hotbar:            hotbarView(cfg.Desktop.Hotbar),
 		ConfigPath:        cfgPath,
 		ProviderKinds:     nonNil(provider.Kinds()),
 		AutoApproveTools:  ctrl != nil && ctrl.AutoApproveTools(),
@@ -393,6 +408,40 @@ func (a *App) Settings() SettingsView {
 		v.Providers = append(v.Providers, providerViewFromEntry(*p, isOfficialBuiltInProvider(*p), added[p.Name]))
 	}
 	return v
+}
+
+// validHotbarActions is the set of recognised hotbar action names.
+var validHotbarActions = map[string]bool{
+	"": true, "palette": true, "workspace": true, "new": true,
+	"history": true, "dock": true, "sidebar": true, "settings": true,
+}
+
+// hotbarView converts a HotbarConfig to a HotbarView for the frontend.
+func hotbarView(h config.HotbarConfig) HotbarView {
+	// Warn about unknown action names so users are aware of typos instead of
+	// silently falling back to defaults.
+	for _, kv := range []struct{ key, val string }{
+		{"1", h.Key1}, {"2", h.Key2}, {"3", h.Key3},
+		{"4", h.Key4}, {"5", h.Key5}, {"6", h.Key6}, {"7", h.Key7},
+	} {
+		if kv.val != "" && !validHotbarActions[kv.val] {
+			fmt.Fprintf(os.Stderr, "reasonix: [desktop.hotbar] key %q has unknown action %q (valid: palette, workspace, new, history, dock, sidebar, settings)\n", kv.key, kv.val)
+		}
+	}
+	return HotbarView{
+		Key1: h.Key1,
+		Key2: h.Key2,
+		Key3: h.Key3,
+		Key4: h.Key4,
+		Key5: h.Key5,
+		Key6: h.Key6,
+		Key7: h.Key7,
+	}
+}
+
+// defaultHotbarView returns the built-in hotbar defaults (no config).
+func defaultHotbarView() HotbarView {
+	return HotbarView{Key1: "palette", Key2: "workspace", Key3: "new", Key4: "history", Key5: "dock", Key6: "sidebar", Key7: "settings"}
 }
 
 func botSettingsView(b config.BotConfig) BotSettingsView {

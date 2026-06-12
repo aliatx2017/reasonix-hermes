@@ -565,7 +565,12 @@ In chat: `/model` lists available models. `/model deepseek-pro` switches.
 The change applies to the next turn.
 
 In the Discord bot: `/model flash`, `/model pro`, `/model mimo`. Use `/new`
-after switching to apply the change.
+after switching to apply the change. As of v1.5.1, `/model` is a **real Discord
+Application Command** (with autocomplete choices) — no longer just text-prefix
+parsing. Model preferences persist across bot restarts in
+`~/.config/reasonix/bot-model-prefs.json`. Set `webhook_url_env` in
+`[bot.discord]` to receive lifecycle notifications (startup, errors) via
+Discord webhook.
 
 ---
 
@@ -1289,7 +1294,7 @@ cd desktop && wails dev
 - File tree with drag-and-drop workspace organization
 - Checkpoint cards with hover-rewind
 - Model switcher and effort control
-- Bot gateway panel (Feishu/WeChat/QQ)
+- Bot gateway panel (Feishu/WeChat/QQ/Discord)
 - Plugin/MCP management panel
 - Skills panel
 - Memory panel (view/edit REASONIX.md, AGENTS.md)
@@ -1297,6 +1302,13 @@ cd desktop && wails dev
 - Multi-tab sessions with topic-based labels
 - PDF attachment extraction
 - Ctrl+Home/Ctrl+End scroll, Ctrl+Z suspend
+
+**Hermes additions (v1.5.1):**
+- **Hotbar**: Keys `1`–`7` mapped to common actions (palette, workspace, new,
+  history, dock, sidebar, settings). Configurable via `[desktop.hotbar]` in
+  `reasonix.toml` — set any key to `""` to unbind it.
+- **Desktop toolchain**: `biome` (TS formatting/linting), `taplo` (TOML
+  validation) recommended for development. `wails dev` for hot-reload.
 
 The desktop app drives the same `control.Controller` as the CLI — they share
 all agent behavior, permissions, and plugin support.
@@ -1320,6 +1332,9 @@ The gateway provides:
 - Session management with concurrency control (one turn per session)
 - Debounce merging (consecutive messages combined within a configurable window)
 - Slash command dispatch (`/stop`, `/new`, `/approve`, `/deny`, `/answer`, `/status`, `/goal`, `/model`)
+- Discord `/model` is a **native Application Command** with autocomplete (flash/pro/mimo)
+- Per-session model preferences persist to `~/.config/reasonix/bot-model-prefs.json`
+- Optional Discord webhook notifications via `webhook_url_env` in `[bot.discord]`
 - Interactive approval flow (buttons → approve/deny via callback)
 - Platform-agnostic allowlist (per-user and per-group)
 - Markdown → platform-specific message rendering

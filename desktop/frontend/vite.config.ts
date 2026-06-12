@@ -57,16 +57,11 @@ export default defineConfig({
         // in a separate chunk so it can be cached independently from the
         // app shell. The vendor chunk splits react+react-dom (stable, rarely
         // changes) from the markdown stack (changes more often).
-        manualChunks: {
-          "vendor-react": ["react", "react-dom"],
-          "vendor-markdown": [
-            "react-markdown",
-            "remark-gfm",
-            "remark-math",
-            "rehype-katex",
-            "katex",
-          ],
-          "vendor-highlight": ["highlight.js"],
+        manualChunks(id: string) {
+          if (id.includes("node_modules/react") || id.includes("node_modules/react-dom")) return "vendor-react";
+          if (id.includes("node_modules/react-markdown") || id.includes("node_modules/remark-") ||
+              id.includes("node_modules/rehype-katex") || id.includes("node_modules/katex")) return "vendor-markdown";
+          if (id.includes("node_modules/highlight.js")) return "vendor-highlight";
         },
       },
     },

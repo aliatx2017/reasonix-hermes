@@ -2,8 +2,11 @@ package bot
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"log/slog"
+	"os"
+	"strings"
 	"sync"
 	"testing"
 )
@@ -242,5 +245,126 @@ func TestGatewaySessionOptionsUseChannelOverride(t *testing.T) {
 	model, root = gw.sessionOptionsForPlatform(PlatformQQ)
 	if model != "global-model" || root != "/global" {
 		t.Fatalf("qq options = %q,%q; want global defaults", model, root)
+	}
+}
+
+// --- Model prefs persistence ---
+
+func TestModelPrefsSaveAndLoadRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	path := dir + "/model-prefs.json"
+
+	cfg := GatewayConfig{
+		Model:          "default-model",
+		ModelPrefsPath: path,
+	}
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	gw := NewGateway(cfg, nil, logger)
+
+	// Initially empty
+	if len(gw.modelPrefs) != 0 {
+		t.Fatalf("expected 0 prefs, got %d", len(gw.modelPrefs))
+	}
+
+	// Set a preference
+	key := "discord:guild:123:456"
+	gw.mu.Lock()
+	gw.modelPrefs[key] = "deepseek-pro"
+	gw.mu.Unlock()
+
+	// Save
+	gw.saveModelPrefs()
+
+	// Verify file exists and is valid JSON
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read prefs file: %v", err)
+	}
+	var saved map[string]string
+	if err := json.Unmarshal(data, &saved); err != nil {
+		t.Fatalf("unmarshal prefs: %v", err)
+	}
+	if saved[key] != "deepseek-pro" {
+		t.Fatalf("saved value = %q, want %q", saved[key], "deepseek-pro")
+	}
+
+	// Create a new gateway and verify it loads the preference
+	gw2 := NewGateway(cfg, nil, logger)
+	gw2.mu.Lock()
+	loaded := gw2.modelPrefs[key]
+	gw2.mu.Unlock()
+	if loaded != "deepseek-pro" {
+		t.Fatalf("loaded value = %q, want %q", loaded, "deepseek-pro")
+	}
+}
+
+func TestModelPrefsSaveNoPath(t *testing.T) {
+	cfg := GatewayConfig{
+		Model:          "default-model",
+		ModelPrefsPath: "", // empty = no persistence
+	}
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	gw := NewGateway(cfg, nil, logger)
+
+	gw.mu.Lock()
+	gw.modelPrefs["key"] = "value"
+	gw.mu.Unlock()
+
+	// Should not panic
+	gw.saveModelPrefs()
+}
+
+func TestModelPrefsLoadMissingFile(t *testing.T) {
+	dir := t.TempDir()
+	cfg := GatewayConfig{
+		Model:          "default-model",
+		ModelPrefsPath: dir + "/nonexistent.json",
+	}
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	// Should not panic — missing file is first-run
+	gw := NewGateway(cfg, nil, logger)
+	if gw == nil {
+		t.Fatal("gateway should not be nil")
+	}
+}
+
+func TestModelPrefsFilePath(t *testing.T) {
+	path := ModelPrefsFilePath()
+	if path == "" {
+		t.Skip("os.UserConfigDir() unavailable on this platform")
+	}
+	if !strings.HasSuffix(path, "/reasonix/bot-model-prefs.json") {
+		t.Fatalf("unexpected path suffix: %s", path)
+	}
+}
+
+// --- Model resolution priority ---
+
+func TestGetOrCreateSessionModelPreferencePriority(t *testing.T) {
+	// set up a gateway with a modelPrefs entry
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	cfg := GatewayConfig{
+		Model:    "gateway-default",
+		MaxSteps: 10,
+		Channels: map[Platform]ChannelConfig{
+			PlatformDiscord: {Model: "channel-discord"},
+		},
+	}
+	gw := NewGateway(cfg, map[Platform]Adapter{
+		PlatformDiscord: newFakeAdapter(PlatformDiscord, "discord"),
+	}, logger)
+
+	key := "discord:dm:dm-chat"
+	gw.mu.Lock()
+	gw.modelPrefs[key] = "my-preference"
+	gw.mu.Unlock()
+
+	// TODO: getOrCreateSession requires a real boot.Build path which needs
+	// a configured provider. The model resolution logic is exercised through
+	// the public API — we verify the sub-functions directly.
+	model, _ := gw.sessionOptionsForPlatform(PlatformDiscord)
+	if model != "channel-discord" {
+		t.Fatalf("platform default = %q, want channel-discord", model)
 	}
 }

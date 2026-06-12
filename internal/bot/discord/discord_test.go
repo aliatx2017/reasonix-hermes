@@ -1058,3 +1058,228 @@ func TestResolveChatType_NotInStateDefaultsToGroup(t *testing.T) {
 		t.Errorf("resolveChatType unknown channel = %q, want %q", ct, bot.ChatGroup)
 	}
 }
+
+// --- onInteractionCreate ---
+
+func TestOnInteractionCreate_ModelCommandWithOption(t *testing.T) {
+	a := newTestAdapter(config.DiscordBotConfig{TokenEnv: "T"})
+	dg := newSessionWithBotID("bot1")
+	if dg == nil {
+		t.Skip("cannot create discordgo session")
+	}
+
+	interaction := &discordgo.InteractionCreate{
+		Interaction: &discordgo.Interaction{
+			ID:        "interaction-1",
+			ChannelID: "ch-guild",
+			Type:      discordgo.InteractionApplicationCommand,
+			Member: &discordgo.Member{
+				User: &discordgo.User{ID: "user1", Username: "TestUser"},
+			},
+			Data: discordgo.ApplicationCommandInteractionData{
+				Name: "model",
+				Options: []*discordgo.ApplicationCommandInteractionDataOption{
+					{Name: "model", Value: "flash", Type: discordgo.ApplicationCommandOptionString},
+				},
+			},
+		},
+	}
+	a.onInteractionCreate(dg, interaction)
+
+	select {
+	case got := <-a.msgs:
+		if got.Platform != bot.PlatformDiscord {
+			t.Errorf("Platform = %q, want discord", got.Platform)
+		}
+		if got.Text != "/model flash" {
+			t.Errorf("Text = %q, want /model flash", got.Text)
+		}
+		if got.UserID != "user1" {
+			t.Errorf("UserID = %q, want user1", got.UserID)
+		}
+		if got.UserName != "TestUser" {
+			t.Errorf("UserName = %q, want TestUser", got.UserName)
+		}
+		if got.ChatID != "ch-guild" {
+			t.Errorf("ChatID = %q, want ch-guild", got.ChatID)
+		}
+	default:
+		t.Error("expected message from interaction")
+	}
+}
+
+func TestOnInteractionCreate_ModelCommandNoOption(t *testing.T) {
+	a := newTestAdapter(config.DiscordBotConfig{TokenEnv: "T"})
+	dg := newSessionWithBotID("bot1")
+	if dg == nil {
+		t.Skip("cannot create discordgo session")
+	}
+
+	// No options = just "/model" (show current)
+	interaction := &discordgo.InteractionCreate{
+		Interaction: &discordgo.Interaction{
+			ID:        "interaction-2",
+			ChannelID: "ch-guild",
+			Type:      discordgo.InteractionApplicationCommand,
+			Member: &discordgo.Member{
+				User: &discordgo.User{ID: "user2", Username: "User2"},
+			},
+			Data: discordgo.ApplicationCommandInteractionData{
+				Name:    "model",
+				Options: nil,
+			},
+		},
+	}
+	a.onInteractionCreate(dg, interaction)
+
+	select {
+	case got := <-a.msgs:
+		if got.Text != "/model" {
+			t.Errorf("Text = %q, want /model", got.Text)
+		}
+	default:
+		t.Error("expected message from interaction")
+	}
+}
+
+func TestOnInteractionCreate_DMInteraction(t *testing.T) {
+	a := newTestAdapter(config.DiscordBotConfig{TokenEnv: "T"})
+	dg := newSessionWithBotID("bot1")
+	if dg == nil {
+		t.Skip("cannot create discordgo session")
+	}
+
+	// In DMs, i.Member is nil and i.User is populated
+	interaction := &discordgo.InteractionCreate{
+		Interaction: &discordgo.Interaction{
+			ID:        "interaction-dm",
+			ChannelID: "dm-ch",
+			Type:      discordgo.InteractionApplicationCommand,
+			User:      &discordgo.User{ID: "dmuser", Username: "DMUser"},
+			Data: discordgo.ApplicationCommandInteractionData{
+				Name: "model",
+				Options: []*discordgo.ApplicationCommandInteractionDataOption{
+					{Name: "model", Value: "pro", Type: discordgo.ApplicationCommandOptionString},
+				},
+			},
+		},
+	}
+	a.onInteractionCreate(dg, interaction)
+
+	select {
+	case got := <-a.msgs:
+		if got.Text != "/model pro" {
+			t.Errorf("Text = %q, want /model pro", got.Text)
+		}
+		if got.UserID != "dmuser" {
+			t.Errorf("UserID = %q, want dmuser (DM fallback)", got.UserID)
+		}
+		if got.UserName != "DMUser" {
+			t.Errorf("UserName = %q, want DMUser (DM fallback)", got.UserName)
+		}
+	default:
+		t.Error("expected message from DM interaction")
+	}
+}
+
+func TestOnInteractionCreate_NonCommandInteraction(t *testing.T) {
+	a := newTestAdapter(config.DiscordBotConfig{TokenEnv: "T"})
+	dg := newSessionWithBotID("bot1")
+	if dg == nil {
+		t.Skip("cannot create discordgo session")
+	}
+
+	// MessageComponent interactions should be ignored
+	interaction := &discordgo.InteractionCreate{
+		Interaction: &discordgo.Interaction{
+			ID:        "interaction-btn",
+			ChannelID: "ch-guild",
+			Type:      discordgo.InteractionMessageComponent,
+			Member: &discordgo.Member{
+				User: &discordgo.User{ID: "user1", Username: "User1"},
+			},
+		},
+	}
+	a.onInteractionCreate(dg, interaction)
+
+	// Channel should be empty — non-command interactions are skipped
+	select {
+	case <-a.msgs:
+		t.Error("should not process non-command interactions")
+	default:
+	}
+}
+
+func TestOnInteractionCreate_UnknownCommand(t *testing.T) {
+	a := newTestAdapter(config.DiscordBotConfig{TokenEnv: "T"})
+	dg := newSessionWithBotID("bot1")
+	if dg == nil {
+		t.Skip("cannot create discordgo session")
+	}
+
+	interaction := &discordgo.InteractionCreate{
+		Interaction: &discordgo.Interaction{
+			ID:        "interaction-unknown",
+			ChannelID: "ch-guild",
+			Type:      discordgo.InteractionApplicationCommand,
+			Member: &discordgo.Member{
+				User: &discordgo.User{ID: "user1", Username: "User1"},
+			},
+			Data: discordgo.ApplicationCommandInteractionData{
+				Name: "unknown-command",
+			},
+		},
+	}
+	a.onInteractionCreate(dg, interaction)
+
+	// No message for unknown commands
+	select {
+	case <-a.msgs:
+		t.Error("should not process unknown commands")
+	default:
+	}
+}
+
+func TestOnInteractionCreate_ChannelFull(t *testing.T) {
+	cfg := config.DiscordBotConfig{TokenEnv: "T"}
+	a := New(cfg, slog.Default()).(*Adapter)
+	a.msgs = make(chan bot.InboundMessage, 1)
+	dg := newSessionWithBotID("bot1")
+	if dg == nil {
+		t.Skip("cannot create discordgo session")
+	}
+
+	// Fill the channel
+	a.msgs <- bot.InboundMessage{Text: "filler"}
+
+	interaction := &discordgo.InteractionCreate{
+		Interaction: &discordgo.Interaction{
+			ID:        "interaction-overflow",
+			ChannelID: "ch-guild",
+			Type:      discordgo.InteractionApplicationCommand,
+			Member: &discordgo.Member{
+				User: &discordgo.User{ID: "user1", Username: "User1"},
+			},
+			Data: discordgo.ApplicationCommandInteractionData{
+				Name:    "model",
+				Options: nil,
+			},
+		},
+	}
+	a.onInteractionCreate(dg, interaction)
+
+	// Channel still has only the filler — overflow was dropped
+	select {
+	case got := <-a.msgs:
+		if got.Text != "filler" {
+			t.Errorf("got %q, want filler", got.Text)
+		}
+	default:
+		t.Error("expected filler in channel")
+	}
+	select {
+	case <-a.msgs:
+		t.Error("channel should be empty after draining filler")
+	default:
+	}
+}

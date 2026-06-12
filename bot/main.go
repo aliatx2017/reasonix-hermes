@@ -58,18 +58,19 @@ func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
 
 	discordCfg := config.DiscordBotConfig{
-		Enabled:  true,
-		TokenEnv: "DISCORD_BOT_TOKEN",
-		ServerID: *serverID,
+		Enabled:   true,
+		TokenEnv:  "DISCORD_BOT_TOKEN",
+		ServerID:  *serverID,
 		ChannelID: *channelID,
-		AllowDMs: true,
+		AllowDMs:  true,
 	}
 
 	gwCfg := bot.GatewayConfig{
-		Model:         modelName,
-		MaxSteps:      cfg.Bot.MaxSteps,
-		WorkspaceRoot: workspaceRoot,
-		Enabled:       map[bot.Platform]bool{bot.PlatformDiscord: true},
+		Model:          modelName,
+		MaxSteps:       cfg.Bot.MaxSteps,
+		WorkspaceRoot:  workspaceRoot,
+		ModelPrefsPath: bot.ModelPrefsFilePath(),
+		Enabled:        map[bot.Platform]bool{bot.PlatformDiscord: true},
 		Allowlist: bot.AllowlistConfig{
 			Enabled:  true,
 			AllowAll: *allowAll,

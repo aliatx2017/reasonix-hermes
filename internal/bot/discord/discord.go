@@ -11,12 +11,14 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
 	"strings"
 	"sync"
 
 	"reasonix/internal/bot"
 	"reasonix/internal/config"
+	"reasonix/internal/netclient"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -76,6 +78,7 @@ func (a *Adapter) Start(ctx context.Context) error {
 	// Register message handler
 	dg.AddHandler(a.onMessageCreate)
 	dg.AddHandler(a.onReady)
+	dg.AddHandler(a.onInteractionCreate)
 
 	if err := dg.Open(); err != nil {
 		return fmt.Errorf("discord: open gateway: %w", err)
@@ -128,7 +131,7 @@ func (a *Adapter) Send(ctx context.Context, msg bot.OutboundMessage) (bot.SendRe
 	// For messages with inline keyboard (approval buttons)
 	if msg.Keyboard != nil {
 		m, err := a.session.ChannelMessageSendComplex(msg.ChatID, &discordgo.MessageSend{
-			Content: content,
+			Content:    content,
 			Components: keyboardToComponents(msg.Keyboard),
 		})
 		if err != nil {
@@ -174,10 +177,69 @@ func (a *Adapter) Messages() <-chan bot.InboundMessage {
 	return a.msgs
 }
 
+// NotifyWebhook sends a message to the configured Discord webhook URL
+// (if WebhookURLEnv is set and the env var resolves). Used for lifecycle
+// notifications (startup, shutdown, errors) without the gateway connection.
+func (a *Adapter) NotifyWebhook(ctx context.Context, content string) error {
+	envName := a.cfg.WebhookURLEnv
+	if envName == "" {
+		return nil
+	}
+	url := os.Getenv(envName)
+	if url == "" {
+		return nil
+	}
+	body := strings.NewReader(fmt.Sprintf(`{"content":%q}`, content))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, body)
+	if err != nil {
+		return fmt.Errorf("discord webhook: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := netclient.DefaultClient().Do(req)
+	if err != nil {
+		return fmt.Errorf("discord webhook: %w", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		return fmt.Errorf("discord webhook: HTTP %d", resp.StatusCode)
+	}
+	return nil
+}
+
 // onReady handles the Discord ready event.
 func (a *Adapter) onReady(s *discordgo.Session, event *discordgo.Ready) {
 	a.logger.Info("discord: logged in", "username", event.User.Username, "guilds", len(event.Guilds))
-	s.UpdateGameStatus(0, "Reasonix AI Agent")
+	if err := s.UpdateGameStatus(0, "Reasonix AI Agent"); err != nil {
+		a.logger.Warn("discord: failed to set game status", "err", err)
+	}
+
+	// Register slash commands on the configured guild (server). Global commands
+	// would work too but take up to an hour to propagate; guild commands are instant.
+	cmd := &discordgo.ApplicationCommand{
+		Name:        "model",
+		Description: "Show or switch the AI model for this channel",
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Type:        discordgo.ApplicationCommandOptionString,
+				Name:        "model",
+				Description: "Model to switch to (leave empty to show current)",
+				Required:    false,
+				Choices: []*discordgo.ApplicationCommandOptionChoice{
+					{Name: "DeepSeek Flash (fast)", Value: "flash"},
+					{Name: "DeepSeek Pro (deep)", Value: "pro"},
+					{Name: "MiMo Pro (planner)", Value: "mimo"},
+				},
+			},
+		},
+	}
+	if a.cfg.ServerID != "" {
+		_, err := s.ApplicationCommandCreate(s.State.User.ID, a.cfg.ServerID, cmd)
+		if err != nil {
+			a.logger.Warn("discord: failed to register /model command on guild", "guild", a.cfg.ServerID, "err", err)
+		} else {
+			a.logger.Info("discord: registered /model command", "guild", a.cfg.ServerID)
+		}
+	}
 }
 
 // onMessageCreate handles incoming Discord messages and translates them
@@ -222,6 +284,64 @@ func (a *Adapter) onMessageCreate(s *discordgo.Session, m *discordgo.MessageCrea
 	}:
 	default:
 		a.logger.Warn("discord: message channel full, dropping message", "msg_id", m.ID)
+	}
+}
+
+// onInteractionCreate handles Discord slash commands and other interactions.
+// It converts them to text-message format so the gateway's existing slash-command
+// parser handles them uniformly across all platforms.
+func (a *Adapter) onInteractionCreate(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	// Only handle application commands for now
+	if i.Type != discordgo.InteractionApplicationCommand {
+		return
+	}
+	data := i.ApplicationCommandData()
+	switch data.Name {
+	case "model":
+		modelName := ""
+		if len(data.Options) > 0 {
+			modelName = data.Options[0].StringValue()
+		}
+		text := "/model"
+		if modelName != "" {
+			text = "/model " + modelName
+		}
+
+		// Resolve user identity: i.Member is nil for DM interactions; i.User
+		// is the fallback. Guild commands always have Member populated.
+		userID := ""
+		userName := ""
+		if i.Member != nil && i.Member.User != nil {
+			userID = i.Member.User.ID
+			userName = i.Member.User.Username
+		} else if i.User != nil {
+			userID = i.User.ID
+			userName = i.User.Username
+		}
+
+		// Respond ephemerally so only the caller sees it
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "Processing /" + text + "...",
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
+
+		// Push as a synthetic text message into the gateway pipeline
+		select {
+		case a.msgs <- bot.InboundMessage{
+			Platform:  a.Platform(),
+			ChatType:  bot.ChatGuild,
+			ChatID:    i.ChannelID,
+			UserID:    userID,
+			UserName:  userName,
+			Text:      text,
+			MessageID: i.ID,
+		}:
+		default:
+			a.logger.Warn("discord: message channel full, dropping interaction", "id", i.ID)
+		}
 	}
 }
 

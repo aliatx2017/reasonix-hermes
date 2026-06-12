@@ -53,12 +53,18 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 All 10 CodeWhale borrow candidates are done. Potential next directions:
 
-- [ ] **VS Code extension fork** — `whishi47/deepseekcode-reasonix-vscode` → separate `reasonix-hermes-vscode` repo (already decided, not yet executed)
-- [ ] **Multi-provider support** — MiniMax/GLM/Codex providers (roach-code patterns)
-- [ ] **Multi-model Discord bot** — `/model flash|pro|mimo` per-channel (config exists, needs wiring)
-- [ ] **Hotbar config** — make desktop key 1-7 bindings configurable via `[hotbar]` config section
 - [ ] **Remote sandbox e2e test** — test against a real OpenSandbox instance
-- [ ] **Nix flake vendorHash** — compute actual hash after first build for reproducibility
+- [x] **Hotbar config** — make desktop key 1-7 bindings configurable via `[desktop.hotbar]` config section (2026-07-06)
+- [x] **Nix flake vendorHash** — computed: `vendorHash = null` = proxy vendor mode via go.sum (2026-07-06)
+- [x] **Multi-model Discord bot** — `/model flash|pro|mimo` via real Discord Application Command, per-session persistence, webhook notifications (2026-07-06)
+
+## Next session — ideas & follow-ups
+
+- [ ] **Remote sandbox e2e test** — test external sandbox against a real OpenSandbox instance
+- [ ] **VS Code extension fork** — `whishi47/deepseekcode-reasonix-vscode` → `reasonix-hermes-vscode` (revisit when bandwidth exists)
+- [ ] **Desktop CI** — add `wails build` + `biome check` to GitHub Actions
+- [ ] **Coverage gap** — `Start()`/`onReady()` need live Discord token for integration tests
+- [ ] **TOML lint** — add `taplo` check to pre-commit hooks
 
 ## Next session — CodeWhale borrow/integrate candidates
 

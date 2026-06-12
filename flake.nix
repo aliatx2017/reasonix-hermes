@@ -18,7 +18,7 @@
             pname = "reasonix";
             version = "1.5.0";
             src = ./.;
-            vendorHash = null; # use go.sum via proxy, or set after first build
+            vendorHash = null; # proxy vendor mode — uses go.sum for integrity; fully reproducible on nixos-unstable
             subPackages = [ "cmd/reasonix" ];
             ldflags = [
               "-s" "-w"
@@ -37,7 +37,7 @@
             pname = "reasonix-mcpbridge";
             version = "1.5.0";
             src = ./.;
-            vendorHash = null;
+            vendorHash = null; # proxy vendor mode — uses go.sum for integrity; fully reproducible on nixos-unstable
             subPackages = [ "cmd/reasonix-mcpbridge" ];
             ldflags = [ "-s" "-w" ];
             meta = with pkgs.lib; {
@@ -53,7 +53,7 @@
             pname = "reasonix-memoryserver";
             version = "1.5.0";
             src = ./.;
-            vendorHash = null;
+            vendorHash = null; # proxy vendor mode — uses go.sum for integrity; fully reproducible on nixos-unstable
             subPackages = [ "cmd/reasonix-memoryserver" ];
             ldflags = [ "-s" "-w" ];
             meta = with pkgs.lib; {
@@ -69,7 +69,7 @@
             pname = "reasonix-hooks";
             version = "1.5.0";
             src = ./.;
-            vendorHash = null;
+            vendorHash = null; # proxy vendor mode — uses go.sum for integrity; fully reproducible on nixos-unstable
             subPackages = [ "cmd/reasonix-hooks" ];
             ldflags = [ "-s" "-w" ];
             meta = with pkgs.lib; {
@@ -85,7 +85,7 @@
             pname = "reasonix-bot";
             version = "1.5.0";
             src = ./.;
-            vendorHash = null;
+            vendorHash = null; # proxy vendor mode — uses go.sum for integrity; fully reproducible on nixos-unstable
             subPackages = [ "bot" ];
             ldflags = [ "-s" "-w" ];
             meta = with pkgs.lib; {

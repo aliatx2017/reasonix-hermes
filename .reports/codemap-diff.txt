@@ -1,0 +1,35 @@
+# Codemap Diff Report — 2026-07-06
+## First generation (no previous codemaps to diff against)
+
+### Files Generated
+- docs/CODEMAPS/architecture.md  (~950 tokens)
+- docs/CODEMAPS/backend.md       (~900 tokens)
+- docs/CODEMAPS/frontend.md      (~850 tokens)
+- docs/CODEMAPS/data.md          (~400 tokens)
+- docs/CODEMAPS/dependencies.md  (~550 tokens)
+- Total: ~3,650 tokens
+
+### Project Snapshot
+- Go packages: 52 internal + 7 cmd + 4 bot adapters + 2 pkg = 65
+- Go files: 609 (.go)
+- TypeScript/React files: 101 (.ts/.tsx)
+- React components: 48
+- Lib modules: 35
+- Built-in tools: 17
+- Skills: 17 community + built-in subagents
+- Config sections: ~30 TOML keys
+- External deps: 174 (go.sum)
+- Nix packages: 6
+- Dialects: 2 (en, zh)
+
+### Architecture Notes
+- Three frontends share one control.Controller (chat TUI, HTTP/SSE, Wails desktop)
+- Discord bot gateway is platform-agnostic (same BotGateway for all 4 IM platforms)
+- Cache-first prefix design keeps DeepSeek prefix cache warm
+- Provider registry uses init() self-registration
+- Hotbar keys 1-7 now config-driven via [desktop.hotbar] config section
+- Bot model preferences persisted to ~/.config/reasonix/bot-model-prefs.json
+- Discord /model slash command registered as real ApplicationCommand
+
+### Staleness
+- N/A (first generation)

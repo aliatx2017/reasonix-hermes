@@ -172,3 +172,113 @@ func TestSetDesktopCheckUpdatesPersistsToUserConfig(t *testing.T) {
 		t.Fatal("DesktopCheckUpdates() = true, want false")
 	}
 }
+
+func TestHotbarViewDefaults(t *testing.T) {
+	v := defaultHotbarView()
+	tests := []struct {
+		key  string
+		want string
+	}{
+		{"1", "palette"},
+		{"2", "workspace"},
+		{"3", "new"},
+		{"4", "history"},
+		{"5", "dock"},
+		{"6", "sidebar"},
+		{"7", "settings"},
+	}
+	for _, tt := range tests {
+		got := hotbarField(v, tt.key)
+		if got != tt.want {
+			t.Errorf("default hotbar key %s = %q, want %q", tt.key, got, tt.want)
+		}
+	}
+}
+
+func TestHotbarViewFromConfig(t *testing.T) {
+	tests := []struct {
+		name string
+		cfg  config.HotbarConfig
+		want map[string]string
+	}{
+		{
+			name: "all custom",
+			cfg: config.HotbarConfig{
+				Key1: "settings", Key2: "dock", Key3: "sidebar",
+				Key4: "history", Key5: "new", Key6: "workspace", Key7: "palette",
+			},
+			want: map[string]string{
+				"1": "settings", "2": "dock", "3": "sidebar",
+				"4": "history", "5": "new", "6": "workspace", "7": "palette",
+			},
+		},
+		{
+			name: "partial with empty",
+			cfg:  config.HotbarConfig{Key1: "palette", Key3: "new", Key5: "dock"},
+			want: map[string]string{
+				"1": "palette", "2": "", "3": "new",
+				"4": "", "5": "dock", "6": "", "7": "",
+			},
+		},
+		{
+			name: "unbind all",
+			cfg:  config.HotbarConfig{Key1: "", Key2: "", Key3: "", Key4: "", Key5: "", Key6: "", Key7: ""},
+			want: map[string]string{
+				"1": "", "2": "", "3": "", "4": "", "5": "", "6": "", "7": "",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			v := hotbarView(tt.cfg)
+			for k, want := range tt.want {
+				got := hotbarField(v, k)
+				if got != want {
+					t.Errorf("hotbar key %s = %q, want %q", k, got, want)
+				}
+			}
+		})
+	}
+}
+
+func TestHotbarViewValidation(t *testing.T) {
+	// Unknown action names should not panic — they pass through silently
+	// (the warning goes to stderr in production; tests don't check stderr).
+	cfg := config.HotbarConfig{
+		Key1: "garbage",
+		Key2: "",
+		Key3: "palette",
+	}
+	v := hotbarView(cfg)
+	if v.Key1 != "garbage" {
+		t.Errorf("unknown action should pass through, got %q", v.Key1)
+	}
+	if v.Key2 != "" {
+		t.Errorf("empty should stay empty, got %q", v.Key2)
+	}
+	if v.Key3 != "palette" {
+		t.Errorf("known action should pass through, got %q", v.Key3)
+	}
+}
+
+// hotbarField returns the value for a numeric key from a HotbarView.
+func hotbarField(v HotbarView, key string) string {
+	switch key {
+	case "1":
+		return v.Key1
+	case "2":
+		return v.Key2
+	case "3":
+		return v.Key3
+	case "4":
+		return v.Key4
+	case "5":
+		return v.Key5
+	case "6":
+		return v.Key6
+	case "7":
+		return v.Key7
+	default:
+		return ""
+	}
+}

@@ -2,8 +2,11 @@ package bot
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -27,6 +30,10 @@ type GatewayConfig struct {
 	// SessionIdleTimeout is how long a session can be idle before eviction.
 	// Zero or negative disables eviction. Default: 30 minutes.
 	SessionIdleTimeout time.Duration
+
+	// ModelPrefsPath is the filesystem path to persist per-session model
+	// preferences (set by /model). Empty disables persistence.
+	ModelPrefsPath string
 }
 
 // ChannelConfig overrides gateway defaults for one IM channel.
@@ -53,6 +60,7 @@ type BotGateway struct {
 	mu             sync.Mutex
 	controllers    map[string]*sessionState // session key -> active state
 	modelPrefs     map[string]string        // session key -> model override (survives controller recreation)
+	modelPrefsPath string                   // filesystem path for persistence; empty = no persistence
 	allowlist      map[Platform]map[string]bool
 	groupAllowlist map[Platform]map[string]bool
 
@@ -106,10 +114,12 @@ func NewGateway(cfg GatewayConfig, adapters map[Platform]Adapter, logger *slog.L
 		sessions:       NewSessionManager(cfg.Debounce),
 		controllers:    make(map[string]*sessionState),
 		modelPrefs:     make(map[string]string),
+		modelPrefsPath: cfg.ModelPrefsPath,
 		allowlist:      make(map[Platform]map[string]bool),
 		groupAllowlist: make(map[Platform]map[string]bool),
 		logger:         logger.With("component", "bot_gateway"),
 	}
+	gw.loadModelPrefs()
 	gw.buildAllowlist()
 	return gw
 }
@@ -453,6 +463,7 @@ func (gw *BotGateway) handleSlashCommand(ctx context.Context, adapter Adapter, k
 		gw.mu.Lock()
 		gw.modelPrefs[key] = modelName
 		gw.mu.Unlock()
+		gw.saveModelPrefs()
 		_ = gw.sendText(ctx, adapter, msg,
 			fmt.Sprintf("Model switched to %s (takes effect after /new)", modelName))
 
@@ -584,8 +595,10 @@ func (gw *BotGateway) getOrCreateSession(ctx context.Context, key string, msg In
 	}
 	gw.mu.Unlock()
 
-	// Use per-session model preference if set, otherwise the gateway default.
-	model := gw.cfg.Model
+	// Resolve the base model: platform-level ChannelConfig overrides gateway default.
+	model, workspaceRoot := gw.sessionOptionsForPlatform(msg.Platform)
+
+	// Per-session model preference (set by /model) takes highest priority.
 	gw.mu.Lock()
 	if pref, ok := gw.modelPrefs[key]; ok {
 		model = pref
@@ -594,7 +607,6 @@ func (gw *BotGateway) getOrCreateSession(ctx context.Context, key string, msg In
 
 	// Create a new Controller.
 	sessionSink := &sessionEventSink{}
-	model, workspaceRoot := gw.sessionOptionsForPlatform(msg.Platform)
 	ctrl, err := boot.Build(ctx, boot.Options{
 		Model:         model,
 		MaxSteps:      gw.cfg.MaxSteps,
@@ -703,4 +715,64 @@ func normalizeAskSelection(q event.AskQuestion, raw string) []string {
 		out = append(out, part)
 	}
 	return out
+}
+
+// saveModelPrefs persists modelPrefs to a JSON file so preferences survive
+// restarts. If no path is configured it is a no-op.
+func (gw *BotGateway) saveModelPrefs() {
+	if gw.modelPrefsPath == "" {
+		return
+	}
+	// Copy under lock so marshal + write don't hold the mutex across I/O.
+	gw.mu.Lock()
+	prefsCopy := make(map[string]string, len(gw.modelPrefs))
+	for k, v := range gw.modelPrefs {
+		prefsCopy[k] = v
+	}
+	gw.mu.Unlock()
+
+	data, err := json.Marshal(prefsCopy)
+	if err != nil {
+		gw.logger.Error("bot: marshal model prefs", "err", err)
+		return
+	}
+	if err := os.WriteFile(gw.modelPrefsPath, data, 0644); err != nil {
+		gw.logger.Error("bot: save model prefs", "err", err)
+	}
+}
+
+// loadModelPrefs loads persisted model preferences from disk.
+func (gw *BotGateway) loadModelPrefs() {
+	if gw.modelPrefsPath == "" {
+		return
+	}
+	data, err := os.ReadFile(gw.modelPrefsPath)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			gw.logger.Error("bot: load model prefs", "err", err)
+		}
+		return
+	}
+	var prefs map[string]string
+	if err := json.Unmarshal(data, &prefs); err != nil {
+		gw.logger.Error("bot: unmarshal model prefs", "err", err)
+		return
+	}
+	gw.mu.Lock()
+	for k, v := range prefs {
+		gw.modelPrefs[k] = v
+	}
+	gw.mu.Unlock()
+	gw.logger.Info("bot: loaded model prefs", "count", len(prefs))
+}
+
+// ModelPrefsFilePath returns the canonical path for persisting per-session model
+// preferences (~/.config/reasonix/bot-model-prefs.json). Returns "" if the OS
+// config directory cannot be resolved.
+func ModelPrefsFilePath() string {
+	dir, err := os.UserConfigDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(dir, "reasonix", "bot-model-prefs.json")
 }

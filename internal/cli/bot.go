@@ -150,7 +150,8 @@ func botStart(args []string, version string) int {
 				bot.PlatformDiscord: cfg.Bot.Allowlist.DiscordGroups,
 			},
 		},
-		Debounce: time.Duration(cfg.Bot.DebounceMs) * time.Millisecond,
+		Debounce:       time.Duration(cfg.Bot.DebounceMs) * time.Millisecond,
+		ModelPrefsPath: bot.ModelPrefsFilePath(),
 	}
 
 	// 创建适配器

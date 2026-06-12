@@ -39,25 +39,25 @@ func SkillNameKey(name string) string {
 
 // Config is Reasonix's runtime configuration.
 type Config struct {
-	ConfigVersion int                 `toml:"config_version"`
-	DefaultModel  string              `toml:"default_model"`
-	Language      string              `toml:"language"` // ui/model language tag (e.g. "zh"); empty = auto-detect from $LANG / $REASONIX_LANG
-	ActiveProfile string              `toml:"active_profile"` // named profile from [profiles]; "" = none
-	UI            UIConfig            `toml:"ui"`
-	Desktop       DesktopConfig       `toml:"desktop"`
-	Notifications NotificationsConfig `toml:"notifications"`
-	Agent         AgentConfig         `toml:"agent"`
-	Providers     []ProviderEntry     `toml:"providers"`
-	Tools         ToolsConfig         `toml:"tools"`
-	Permissions   PermissionsConfig   `toml:"permissions"`
-	Sandbox       SandboxConfig       `toml:"sandbox"`
-	Network       NetworkConfig       `toml:"network"`
-	Plugins       []PluginEntry       `toml:"plugins"`
-	Skills        SkillsConfig        `toml:"skills"`
-	Codegraph     CodegraphConfig     `toml:"codegraph"`
-	Statusline    StatuslineConfig    `toml:"statusline"`
-	LSP           LSPConfig           `toml:"lsp"`
-	Bot           BotConfig           `toml:"bot"`
+	ConfigVersion int                      `toml:"config_version"`
+	DefaultModel  string                   `toml:"default_model"`
+	Language      string                   `toml:"language"`       // ui/model language tag (e.g. "zh"); empty = auto-detect from $LANG / $REASONIX_LANG
+	ActiveProfile string                   `toml:"active_profile"` // named profile from [profiles]; "" = none
+	UI            UIConfig                 `toml:"ui"`
+	Desktop       DesktopConfig            `toml:"desktop"`
+	Notifications NotificationsConfig      `toml:"notifications"`
+	Agent         AgentConfig              `toml:"agent"`
+	Providers     []ProviderEntry          `toml:"providers"`
+	Tools         ToolsConfig              `toml:"tools"`
+	Permissions   PermissionsConfig        `toml:"permissions"`
+	Sandbox       SandboxConfig            `toml:"sandbox"`
+	Network       NetworkConfig            `toml:"network"`
+	Plugins       []PluginEntry            `toml:"plugins"`
+	Skills        SkillsConfig             `toml:"skills"`
+	Codegraph     CodegraphConfig          `toml:"codegraph"`
+	Statusline    StatuslineConfig         `toml:"statusline"`
+	LSP           LSPConfig                `toml:"lsp"`
+	Bot           BotConfig                `toml:"bot"`
 	Profiles      map[string]ProfileConfig `toml:"profiles"`
 }
 
@@ -65,13 +65,13 @@ type Config struct {
 // posture: model, effort, tool-approval mode, auto-plan, output style, and an
 // optional system-prompt prefix. Switch with /profile <name>.
 type ProfileConfig struct {
-	Description         string `toml:"description"`
-	Model               string `toml:"model"`
-	Effort              string `toml:"effort"`
-	ToolApproveMode     string `toml:"tool_approve_mode"`
-	AutoPlan            string `toml:"auto_plan"`
-	OutputStyle         string `toml:"output_style"`
-	SystemPromptPrefix  string `toml:"system_prompt_prefix"`
+	Description        string `toml:"description"`
+	Model              string `toml:"model"`
+	Effort             string `toml:"effort"`
+	ToolApproveMode    string `toml:"tool_approve_mode"`
+	AutoPlan           string `toml:"auto_plan"`
+	OutputStyle        string `toml:"output_style"`
+	SystemPromptPrefix string `toml:"system_prompt_prefix"`
 }
 
 // UIConfig controls CLI presentation-only settings. Desktop appearance is kept in
@@ -88,16 +88,30 @@ type UIConfig struct {
 // separate from top-level language and [ui] so desktop choices do not affect CLI
 // language, terminal colours, or provider-visible prompt/request data.
 type DesktopConfig struct {
-	Language       string   `toml:"language"`        // auto|en|zh; empty/auto = browser/OS auto-detect
-	Theme          string   `toml:"theme"`           // auto|dark|light; empty resolves to dark
-	ThemeStyle     string   `toml:"theme_style"`     // graphite|aurora|slate|carbon|nocturne|amber and legacy aliases
-	CloseBehavior  string   `toml:"close_behavior"`  // quit|background; desktop window close behavior
-	DisplayMode    string   `toml:"display_mode"`    // standard|compact|minimal; transcript display mode
-	CheckUpdates   *bool    `toml:"check_updates"`   // startup update checks; nil keeps the default enabled
-	Telemetry      *bool    `toml:"telemetry"`       // anonymous launch ping (install id + version + OS); nil keeps the default enabled
-	Metrics        *bool    `toml:"metrics"`         // opt-in aggregate agent metrics (anonymous signal/bucket counts; no content); nil = disabled
-	ProviderAccess []string `toml:"provider_access"` // desktop-only list of provider entries shown in Settings > Model > Access
-	ExpandThinking bool     `toml:"expand_thinking"` // true = show reasoning text expanded by default; false = collapsed
+	Language       string       `toml:"language"`        // auto|en|zh; empty/auto = browser/OS auto-detect
+	Theme          string       `toml:"theme"`           // auto|dark|light; empty resolves to dark
+	ThemeStyle     string       `toml:"theme_style"`     // graphite|aurora|slate|carbon|nocturne|amber and legacy aliases
+	CloseBehavior  string       `toml:"close_behavior"`  // quit|background; desktop window close behavior
+	DisplayMode    string       `toml:"display_mode"`    // standard|compact|minimal; transcript display mode
+	CheckUpdates   *bool        `toml:"check_updates"`   // startup update checks; nil keeps the default enabled
+	Telemetry      *bool        `toml:"telemetry"`       // anonymous launch ping (install id + version + OS); nil keeps the default enabled
+	Metrics        *bool        `toml:"metrics"`         // opt-in aggregate agent metrics (anonymous signal/bucket counts; no content); nil = disabled
+	ProviderAccess []string     `toml:"provider_access"` // desktop-only list of provider entries shown in Settings > Model > Access
+	ExpandThinking bool         `toml:"expand_thinking"` // true = show reasoning text expanded by default; false = collapsed
+	Hotbar         HotbarConfig `toml:"hotbar"`          // keyboard digit keys 1-7 → action mapping
+}
+
+// HotbarConfig maps keyboard digit keys (1-7) to desktop actions.
+// Valid action names: palette, workspace, new, history, dock, sidebar, settings, and "" (unbind).
+// Keys not present or set to "" keep their built-in default.
+type HotbarConfig struct {
+	Key1 string `toml:"1"` // default: palette
+	Key2 string `toml:"2"` // default: workspace
+	Key3 string `toml:"3"` // default: new
+	Key4 string `toml:"4"` // default: history
+	Key5 string `toml:"5"` // default: dock
+	Key6 string `toml:"6"` // default: sidebar
+	Key7 string `toml:"7"` // default: settings
 }
 
 // NotificationsConfig controls optional system notifications for CLI chat/run.
@@ -309,7 +323,7 @@ func (c CodegraphConfig) ResolvedTier() string {
 // BotConfig controls the multi-channel IM bot message gateway.
 type BotConfig struct {
 	Enabled     bool                  `toml:"enabled"`
-	Model       string                `toml:"model"`       // model name for bot responses; empty uses default_model
+	Model       string                `toml:"model"` // model name for bot responses; empty uses default_model
 	MaxSteps    int                   `toml:"max_steps"`
 	DebounceMs  int                   `toml:"debounce_ms"` // message merge window in milliseconds
 	Allowlist   BotAllowlist          `toml:"allowlist"`
@@ -344,7 +358,7 @@ type QQBotConfig struct {
 // FeishuBotConfig configures a Feishu custom app bot.
 type FeishuBotConfig struct {
 	Enabled           bool   `toml:"enabled"`
-	Domain            string `toml:"domain"`              // feishu (default) | lark
+	Domain            string `toml:"domain"` // feishu (default) | lark
 	AppID             string `toml:"app_id"`
 	AppSecretEnv      string `toml:"app_secret_env"`     // e.g. FEISHU_BOT_APP_SECRET
 	VerificationToken string `toml:"verification_token"` // event subscription verification token
@@ -363,11 +377,12 @@ type WeixinBotConfig struct {
 
 // DiscordBotConfig configures a Discord bot.
 type DiscordBotConfig struct {
-	Enabled   bool   `toml:"enabled"`
-	TokenEnv  string `toml:"token_env"`  // env var name, e.g. DISCORD_BOT_TOKEN
-	ServerID  string `toml:"server_id"`  // target guild ID (optional)
-	ChannelID string `toml:"channel_id"` // restrict to single channel (optional; empty = all channels)
-	AllowDMs  bool   `toml:"allow_dms"`  // respond to DMs (default true)
+	Enabled       bool   `toml:"enabled"`
+	TokenEnv      string `toml:"token_env"`      // env var name, e.g. DISCORD_BOT_TOKEN
+	ServerID      string `toml:"server_id"`      // target guild ID (optional)
+	ChannelID     string `toml:"channel_id"`     // restrict to single channel (optional; empty = all channels)
+	AllowDMs      bool   `toml:"allow_dms"`      // respond to DMs (default true)
+	WebhookURLEnv string `toml:"webhook_url_env"` // env var for notification webhook URL (optional; e.g. DISCORD_WEBHOOK_URL)
 }
 
 // BotConnectionConfig is the desktop-friendly connection record for IM bot
