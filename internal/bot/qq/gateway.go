@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"reasonix/internal/bot"
+	"reasonix/internal/netclient"
 
 	"golang.org/x/net/websocket"
 )
@@ -125,7 +126,7 @@ func (a *adapter) getAccessToken(ctx context.Context) (string, error) {
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := netclient.DefaultClient().Do(req)
 	if err != nil {
 		return "", err
 	}
@@ -362,7 +363,7 @@ func (a *adapter) sendMessage(ctx context.Context, msg bot.OutboundMessage) (bot
 	req.Header.Set("Authorization", "QQBot "+token)
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := netclient.DefaultClient().Do(req)
 	if err != nil {
 		return bot.SendResult{}, err
 	}
@@ -372,7 +373,7 @@ func (a *adapter) sendMessage(ctx context.Context, msg bot.OutboundMessage) (bot
 		ID        string `json:"id"`
 		Timestamp string `json:"timestamp"`
 	}
-	respBody, _ := io.ReadAll(resp.Body)
+	respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 16*1024*1024)) // 16 MB limit
 	if resp.StatusCode >= 400 {
 		return bot.SendResult{}, fmt.Errorf("qq api error %d: %s", resp.StatusCode, string(respBody))
 	}

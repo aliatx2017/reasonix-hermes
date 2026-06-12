@@ -26,10 +26,13 @@ git push origin main
 go build -o bin/reasonix ./cmd/reasonix
 
 # Build our custom binaries
-go build -o bin/reasonix-bridge ./pkg/mcpbridge
-go build -o bin/reasonix-memory ./pkg/memoryserver
+go build -o bin/reasonix-bridge ./cmd/reasonix-mcpbridge
+go build -o bin/reasonix-memory ./cmd/reasonix-memoryserver
 go build -o bin/reasonix-bot ./bot
 go build -o bin/reasonix-hooks ./cmd/reasonix-hooks
+
+# Install skills via upstream install_source
+reasonix install-source install --source https://github.com/aliatx2017/reasonix-hermes/tree/main/skills-hub/skills
 
 # Build + vet everything
 go build ./...
@@ -70,10 +73,11 @@ internal/              Upstream Reasonix engine (39 packages)
   lsp/                 Language server integration
   ...                  (30+ more packages)
 pkg/                   ── Our custom additions ──
-  mcpbridge/           MCP bridge server (6 tools: run, doctor, plan, orchestrate, get_skill, get_skills)
-  memoryserver/        Hindsight MCP server (3 tools: retain, recall, reflect; SQLite + file, TTL/importance, vector search)
   httputil/            Shared Bearer auth middleware
   mcputil/             Shared MCP types and server helpers
+cmd/                   ── Our custom binaries ──
+  reasonix-mcpbridge/  MCP bridge server (6 tools: run, doctor, plan, orchestrate, get_skill, get_skills)
+  reasonix-memoryserver/ Hindsight MCP server (3 tools: retain, recall, reflect; SQLite + file, TTL/importance, vector search)
 bot/                   Our Discord bot gateway (slash commands + /goal + /model)
 cmd/reasonix-hooks/    Native Go hook runner (zero-dependency binary)
 desktop/               Wails v2 desktop app (upstream, full-featured)
@@ -84,13 +88,15 @@ skills-hub/            17-skill community registry + static catalog site
 
 | Layer | What | Why |
 |-------|------|-----|
-| `pkg/mcpbridge/` | MCP bridge server (6 tools) | Expose Reasonix to Claude Code/Codex via MCP |
-| `pkg/memoryserver/` | Hindsight memory (3 tools, SQLite, TTL, vector) | Cross-session persistent memory with semantic search |
+| `pkg/mcputil/` + `pkg/httputil/` | Shared Go libraries | Bearer auth middleware + MCP types/helpers |
+| `cmd/reasonix-mcpbridge/` | MCP bridge server (6 tools) | Expose Reasonix to Claude Code/Codex via MCP |
+| `cmd/reasonix-memoryserver/` | Hindsight memory (3 tools, SQLite, TTL, vector) | Cross-session persistent memory with semantic search |
 | `bot/` + `internal/bot/discord/` | Discord bot (+ /goal + /model) | Discord integration (upstream has Feishu/WeChat/QQ only) |
 | `cmd/reasonix-hooks/` | Native Go hook runner | Zero-dependency binary for PreToolUse/Stop hooks |
 | `skills-hub/` | 17 community skills + catalog site | Curated skill registry with frontmatter playbooks |
+| `reasonix-hermes.json` | Install source manifest | `reasonix install-source install --source https://github.com/aliatx2017/reasonix-hermes/tree/main/skills-hub/skills` |
 | `reasonix-deepseek-ecosystem-2026.md` | Ecosystem reference | Comprehensive survey of integrations and plugins |
-| `.github/workflows/ci-hermes.yml` | Supplementary CI | Desktop frontend build in CI |
+| `.github/workflows/ci-hermes.yml` | Supplementary CI | Desktop frontend build + Hermes package tests in CI |
 
 ## Docs
 
@@ -108,3 +114,45 @@ skills-hub/            17-skill community registry + static catalog site
 - Discord bot uses `github.com/bwmarrin/discordgo` (added to go.mod)
 - Discord bot must use `control.Controller` like every other frontend — not inline chat history
 - **Tests**: 228 tests across 7 packages. `go test ./cmd/... ./pkg/... ./internal/bot/...`
+
+## roach-code Multi-Provider Research
+
+**Repo**: `tmdgusya/roach-code` (⭐34, v1.3.5, 44 commits, 15 releases)
+
+A multi-model rewrite of deepseek-reasonix that generalizes from DeepSeek-only to any provider. Same architecture (same internal/ layout, CLI, tools, MCP client) — a rebrand + multi-provider extension of upstream.
+
+**Provider additions beyond upstream:**
+| Provider | Kind | Notes |
+|----------|------|-------|
+| Codex/OpenAI | `codex` | Responses API + ChatGPT OAuth login (`roach-code codex login`) |
+| MiniMax | `minimax` | Multimodal: text, image, video, speech, music, vision |
+| GLM | `glm` | Z.ai API — Chinese LLM provider |
+
+**Key patterns worth adopting:**
+1. **`roach-code models` / `roach-code models refresh`** — CLI command to list/refresh configured models. Upstream Reasonix has model switching but no dedicated model list command.
+2. **OAuth login flow** (`roach-code codex login`) — browser-based OAuth for ChatGPT subscribers. Pattern for adding auth-bound providers.
+3. **Self-update** (`roach-code update`) — downloads latest release binary. Already in upstream goreleaser but not surfaced as a CLI command.
+4. **Install scripts** (`install.sh`, `install.ps1`) — bash/PowerShell installers with SHA256 verification. Upstream relies on npm/brew/prebuilt archives.
+5. **Config namespace** — uses `roach-code.toml` / `~/.config/roach-code/` / `.roach-code/` (not `reasonix.toml` / `.reasonix/`). Simplest way to avoid conflicts when both are installed.
+6. **Short alias** (`roach`) — `make install` creates `roach` symlink. Upstream has `dsnix` alias built-in.
+
+**Relevance to Hermes**: The `internal/provider/` registry already supports adding new providers via `init()` registration. Adding MiniMax/GLM would follow the same pattern as `provider/openai/` and `provider/anthropic/`. The key work is implementing each provider's wire format (OpenAI-compatible for MiniMax/GLM, proprietary for Codex).
+
+## VS Code Extension Fork
+
+**Source**: `whishi47/deepseekcode-reasonix-vscode` (⭐1, MIT, TypeScript)
+
+**To fork** (manual GitHub action):
+1. Fork to `aliatx2017/reasonix-hermes-vscode`
+2. Rename branding: `DeepSeekCode` → `Reasonix Hermes`, 🐋 → Hermes icon
+3. Update `package.json`: name, displayName, description, publisher, repository
+4. Update `README.md`: replace DeepSeekCode references with Hermes
+5. Terminal name: `DeepSeekCode` → `Hermes`
+6. Command prefix: `deepseekcode` → `reasonix` (or keep as configurable)
+7. Publish to VS Code Marketplace as `reasonix-hermes-vscode`
+
+**Key features to preserve**:
+- 3 keyboard shortcuts (Ctrl+Esc, Ctrl+Shift+Esc, Ctrl+Alt+K)
+- 2.5s readiness delay before auto-injecting `@file#L10-L20`
+- Smart terminal reuse (same-name terminal not duplicated)
+- Compatible with Windsurf/Trae

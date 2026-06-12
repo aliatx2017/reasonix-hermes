@@ -1,5 +1,8 @@
 # Reasonix Hermes — Deep Evaluation (June 10, 2026)
 
+> **Note:** Paths updated June 12, 2026: `pkg/mcpbridge/` → `cmd/reasonix-mcpbridge/`,
+> `pkg/memoryserver/` → `cmd/reasonix-memoryserver/`.
+
 > CTO/Architect review of fork health, code cohesiveness, gaps, bugs, refactor
 > opportunities, and mesh integration potential.
 

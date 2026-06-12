@@ -5,8 +5,12 @@
 <a href="./GUIDE.zh-CN.md">简体中文</a>
 &nbsp;·&nbsp;
 <a href="./SPEC.md">Spec</a>
+&nbsp;·&nbsp;
+<a href="./HERMES-GUIDE.md">Hermes Guide</a>
 
-> Day-to-day configuration and usage. For the engineering contract and internals
+> Day-to-day configuration and usage for upstream Reasonix. For Hermes-specific
+> features (Discord bot, MCP bridge, Hindsight memory, skills hub), see the
+> **[Hermes Guide](./HERMES-GUIDE.md)**. For the engineering contract and internals
 > (data types, registries, package layout, roadmap), see the **[Spec](./SPEC.md)**.
 
 ## Contents
@@ -149,10 +153,15 @@ convenient.
 
 In `reasonix chat`, built-in commands (`/compact`, `/new`, `/clear`, `/rewind`,
 `/tree`, `/branch`, `/switch`, `/todo`, `/model`, `/mcp`, `/skills`, `/hooks`,
-`/memory`, `/output-style`, `/sandbox`, `/language`, `/auto-plan`, `/help`) run
+`/memory`, `/output-style`, `/sandbox`, `/language`, `/auto-plan`, `/goal`,
+`/effort`, `/help`) run
 locally — `/help` lists them all. `/new` starts a new session while saving the
 previous transcript for history/resume; `/clear` asks for confirmation, then
-discards the current context without saving it. `/tree` shows saved conversation
+discards the current context without saving it. `/effort low|medium|high|max`
+controls the reasoning effort (token spend on thinking) for the current model.
+`/goal <objective>` starts an autonomous, multi-turn goal where the agent loops
+until completion, blocked, or stopped — use `/goal status` to check progress
+and `/goal clear` to cancel. `/tree` shows saved conversation
 branches, `/branch [name]` forks the current conversation tip, `/branch <turn>
 [name]` forks from an earlier checkpointed turn, and `/switch <id|name>` loads
 another branch. **Custom commands** are Markdown files under `.reasonix/commands/`

@@ -1347,7 +1347,7 @@ func TestMainSubprocess(t *testing.T) {
 	buildCmd.Dir = filepath.Join(filepath.Dir(t.TempDir()), "..", "..")
 	if err := buildCmd.Run(); err != nil {
 		// Build from project dir
-		buildCmd = exec.Command("go", "build", "-o", bin, "reasonix/pkg/memoryserver")
+		buildCmd = exec.Command("go", "build", "-o", bin, "reasonix/cmd/reasonix-memoryserver")
 		if err := buildCmd.Run(); err != nil {
 			t.Skipf("can't build binary: %v", err)
 		}

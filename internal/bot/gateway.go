@@ -14,7 +14,7 @@ import (
 	"reasonix/internal/event"
 )
 
-// GatewayConfig 是 BotGateway 的配置。
+// GatewayConfig holds configuration for the BotGateway.
 type GatewayConfig struct {
 	Model         string
 	MaxSteps      int
@@ -22,9 +22,13 @@ type GatewayConfig struct {
 	Allowlist     AllowlistConfig
 	Enabled       map[Platform]bool
 	Debounce      time.Duration
+
+	// SessionIdleTimeout is how long a session can be idle before eviction.
+	// Zero or negative disables eviction. Default: 30 minutes.
+	SessionIdleTimeout time.Duration
 }
 
-// AllowlistConfig 控制哪些用户/群可以使用 bot。
+// AllowlistConfig controls which users/groups may use the bot.
 type AllowlistConfig struct {
 	Enabled  bool
 	AllowAll bool
@@ -32,8 +36,8 @@ type AllowlistConfig struct {
 	Groups   map[Platform][]string
 }
 
-// BotGateway 是 reasonix bot 消息网关，管理 Controller 生命周期、session 并发、
-// 事件渲染和平台适配器。
+// BotGateway is the Reasonix bot message gateway. It manages Controller
+// lifecycles, session concurrency, event rendering, and platform adapters.
 type BotGateway struct {
 	cfg      GatewayConfig
 	adapters map[Platform]Adapter
@@ -77,7 +81,7 @@ func (s *sessionEventSink) Emit(e event.Event) {
 	}
 }
 
-// NewGateway 创建一个新的 BotGateway。
+// NewGateway creates a new BotGateway.
 func NewGateway(cfg GatewayConfig, adapters map[Platform]Adapter, logger *slog.Logger) *BotGateway {
 	if logger == nil {
 		logger = slog.Default()
@@ -115,7 +119,14 @@ func (gw *BotGateway) buildAllowlist() {
 	}
 }
 
-// Start 启动所有已启用的平台适配器并开始处理消息。
+// defaultSessionIdleTimeout is the default idle timeout for bot sessions
+// when the config does not set one explicitly.
+const defaultSessionIdleTimeout = 30 * time.Minute
+
+// evictionCheckInterval is how often the eviction loop scans for idle sessions.
+const evictionCheckInterval = 5 * time.Minute
+
+// Start starts all enabled platform adapters and begins message processing.
 func (gw *BotGateway) Start(ctx context.Context) error {
 	for plat, adapter := range gw.adapters {
 		if !gw.cfg.Enabled[plat] {
@@ -128,7 +139,14 @@ func (gw *BotGateway) Start(ctx context.Context) error {
 		}
 	}
 
-	// 合并所有适配器的消息通道
+	// Start session eviction loop if timeout is configured (or use default).
+	timeout := gw.cfg.SessionIdleTimeout
+	if timeout <= 0 {
+		timeout = defaultSessionIdleTimeout
+	}
+	go gw.evictLoop(ctx, timeout)
+
+	// Merge message channels from all adapters.
 	for plat, adapter := range gw.adapters {
 		if !gw.cfg.Enabled[plat] {
 			continue
@@ -139,7 +157,7 @@ func (gw *BotGateway) Start(ctx context.Context) error {
 	return nil
 }
 
-// Stop 停止所有适配器并关闭所有 session。
+// Stop stops all adapters and closes every session.
 func (gw *BotGateway) Stop() {
 	gw.mu.Lock()
 	for key, state := range gw.controllers {
@@ -155,6 +173,56 @@ func (gw *BotGateway) Stop() {
 		if err := adapter.Stop(); err != nil {
 			gw.logger.Warn("error stopping adapter", "err", err)
 		}
+	}
+}
+
+// evictLoop periodically scans active sessions and removes those idle longer than
+// timeout. It runs until ctx is cancelled.
+func (gw *BotGateway) evictLoop(ctx context.Context, timeout time.Duration) {
+	ticker := time.NewTicker(evictionCheckInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			gw.evictIdleSessions(timeout)
+		}
+	}
+}
+
+// evictIdleSessions closes and removes sessions whose lastActive is older than
+// now - timeout. Must NOT hold gw.mu.
+func (gw *BotGateway) evictIdleSessions(timeout time.Duration) {
+	now := time.Now()
+	var stale []struct {
+		key   string
+		state *sessionState
+	}
+
+	gw.mu.Lock()
+	for key, state := range gw.controllers {
+		if now.Sub(state.lastActive) > timeout {
+			stale = append(stale, struct {
+				key   string
+				state *sessionState
+			}{key, state})
+		}
+	}
+	// Remove from map under lock.
+	for _, s := range stale {
+		delete(gw.controllers, s.key)
+	}
+	gw.mu.Unlock()
+
+	// Close controllers outside the lock to avoid deadlocks.
+	for _, s := range stale {
+		if s.state.cancel != nil {
+			s.state.cancel()
+		}
+		s.state.ctrl.Close()
+		gw.logger.Info("evicted idle session", "session", s.key[:8])
 	}
 }
 
@@ -175,30 +243,30 @@ func (gw *BotGateway) dispatchLoop(ctx context.Context, plat Platform, adapter A
 func (gw *BotGateway) handleMessage(ctx context.Context, plat Platform, adapter Adapter, msg InboundMessage) {
 	msg.Platform = plat
 
-	// allowlist 检查
+	// Allowlist check.
 	if !gw.checkAllowlist(plat, msg) {
 		gw.logger.Info("user not in allowlist", "platform", plat, "user", hashID(msg.UserID))
-		_ = gw.sendText(ctx, adapter, msg, "抱歉，您没有使用此 bot 的权限。")
+		_ = gw.sendText(ctx, adapter, msg, "Sorry, you are not authorized to use this bot.")
 		return
 	}
 
 	src := msg.Session()
 	key := BuildSessionKey(src)
 
-	// 斜杠命令处理
+	// Slash command handling.
 	if IsSlashBypass(msg.Text) {
 		gw.handleSlashCommand(ctx, adapter, key, msg)
 		return
 	}
 
-	// session 并发控制
+	// Session concurrency control.
 	acquired, merged := gw.sessions.TryAcquire(key, msg)
 	if merged {
 		gw.logger.Debug("message merged to pending queue", "session", key[:8])
 		return
 	}
 	if !acquired {
-		// 正在处理中且非 bypass 命令，已在 TryAcquire 中入队
+		// Session is busy; message was queued in TryAcquire.
 		gw.logger.Debug("session busy, queued", "session", key[:8])
 		return
 	}
@@ -242,7 +310,7 @@ func (gw *BotGateway) handleSlashCommand(ctx context.Context, adapter Adapter, k
 			state.cancel()
 		}
 		gw.sessions.ForceRelease(key)
-		_ = gw.sendText(ctx, adapter, msg, "已停止当前任务。")
+		_ = gw.sendText(ctx, adapter, msg, "Stopped current task.")
 
 	case strings.HasPrefix(msg.Text, "/new") || strings.HasPrefix(msg.Text, "/reset"):
 		gw.mu.Lock()
@@ -266,16 +334,16 @@ func (gw *BotGateway) handleSlashCommand(ctx context.Context, adapter Adapter, k
 		gw.sessions.ForceRelease(key)
 		if hasModelPref {
 			_ = gw.sendText(ctx, adapter, msg,
-				fmt.Sprintf("已开始新会话（模型: %s）", gw.modelPrefs[key]))
+				fmt.Sprintf("Started new session (model: %s)", gw.modelPrefs[key]))
 		} else {
-			_ = gw.sendText(ctx, adapter, msg, "已开始新会话。")
+			_ = gw.sendText(ctx, adapter, msg, "Started new session.")
 		}
 
 	case strings.HasPrefix(msg.Text, "/approve"):
-		// 从消息中解析 approval ID
+		// Parse approval ID from message.
 		parts := strings.Fields(msg.Text)
 		if len(parts) < 2 {
-			_ = gw.sendText(ctx, adapter, msg, "用法: /approve <id>")
+			_ = gw.sendText(ctx, adapter, msg, "Usage: /approve <id>")
 			return
 		}
 		gw.mu.Lock()
@@ -283,13 +351,13 @@ func (gw *BotGateway) handleSlashCommand(ctx context.Context, adapter Adapter, k
 		gw.mu.Unlock()
 		if ok {
 			state.ctrl.Approve(parts[1], true, false, false)
-			_ = gw.sendText(ctx, adapter, msg, "已批准。")
+			_ = gw.sendText(ctx, adapter, msg, "Approved.")
 		}
 
 	case strings.HasPrefix(msg.Text, "/deny"):
 		parts := strings.Fields(msg.Text)
 		if len(parts) < 2 {
-			_ = gw.sendText(ctx, adapter, msg, "用法: /deny <id>")
+			_ = gw.sendText(ctx, adapter, msg, "Usage: /deny <id>")
 			return
 		}
 		gw.mu.Lock()
@@ -297,13 +365,13 @@ func (gw *BotGateway) handleSlashCommand(ctx context.Context, adapter Adapter, k
 		gw.mu.Unlock()
 		if ok {
 			state.ctrl.Approve(parts[1], false, false, false)
-			_ = gw.sendText(ctx, adapter, msg, "已拒绝。")
+			_ = gw.sendText(ctx, adapter, msg, "Denied.")
 		}
 
 	case strings.HasPrefix(msg.Text, "/answer"):
 		parts := strings.Fields(msg.Text)
 		if len(parts) < 3 {
-			_ = gw.sendText(ctx, adapter, msg, "用法: /answer <id> <选项或 q1=选项;q2=选项>")
+			_ = gw.sendText(ctx, adapter, msg, "Usage: /answer <id> <option or q1=option;q2=option>")
 			return
 		}
 		askID := parts[1]
@@ -317,19 +385,19 @@ func (gw *BotGateway) handleSlashCommand(ctx context.Context, adapter Adapter, k
 		}
 		gw.mu.Unlock()
 		if !ok || state.ctrl == nil {
-			_ = gw.sendText(ctx, adapter, msg, "没有找到当前会话。")
+			_ = gw.sendText(ctx, adapter, msg, "No active session found.")
 			return
 		}
 		answers := parseAskAnswers(questions, rawAnswer)
 		state.ctrl.AnswerQuestion(askID, answers)
-		_ = gw.sendText(ctx, adapter, msg, "已提交回答。")
+		_ = gw.sendText(ctx, adapter, msg, "Answer submitted.")
 
 	case strings.HasPrefix(msg.Text, "/status"):
 		active := gw.sessions.ActiveCount()
 		gw.mu.Lock()
 		sessions := len(gw.controllers)
 		gw.mu.Unlock()
-		_ = gw.sendText(ctx, adapter, msg, fmt.Sprintf("活跃任务数: %d\n保留会话数: %d", active, sessions))
+		_ = gw.sendText(ctx, adapter, msg, fmt.Sprintf("Active tasks: %d\nRetained sessions: %d", active, sessions))
 
 	case strings.HasPrefix(msg.Text, "/model"):
 		modelName := strings.TrimSpace(strings.TrimPrefix(msg.Text, "/model"))
@@ -352,7 +420,7 @@ func (gw *BotGateway) handleSlashCommand(ctx context.Context, adapter Adapter, k
 			}
 			gw.mu.Unlock()
 			_ = gw.sendText(ctx, adapter, msg,
-				fmt.Sprintf("当前模型: %s\n可用: /model flash | pro | mimo\n切换后使用 /new 生效。", current))
+				fmt.Sprintf("Current model: %s\nAvailable: /model flash | pro | mimo\nUse /new after switching to apply.", current))
 			return
 		}
 		// Store preference — takes effect on next /new (controller recreation)
@@ -360,7 +428,7 @@ func (gw *BotGateway) handleSlashCommand(ctx context.Context, adapter Adapter, k
 		gw.modelPrefs[key] = modelName
 		gw.mu.Unlock()
 		_ = gw.sendText(ctx, adapter, msg,
-			fmt.Sprintf("模型已切换为 %s（下次 /new 后生效）", modelName))
+			fmt.Sprintf("Model switched to %s (takes effect after /new)", modelName))
 
 	case strings.HasPrefix(msg.Text, "/goal"):
 		goalText := strings.TrimSpace(strings.TrimPrefix(msg.Text, "/goal"))
@@ -371,10 +439,10 @@ func (gw *BotGateway) handleSlashCommand(ctx context.Context, adapter Adapter, k
 			gw.mu.Unlock()
 			if ok && state.ctrl.Goal() != "" {
 				_ = gw.sendText(ctx, adapter, msg,
-					fmt.Sprintf("当前目标: %s\n状态: %s", state.ctrl.Goal(), state.ctrl.GoalStatus()))
+					fmt.Sprintf("Current goal: %s\nStatus: %s", state.ctrl.Goal(), state.ctrl.GoalStatus()))
 			} else {
 				_ = gw.sendText(ctx, adapter, msg,
-					"当前没有活跃目标。\n使用 /goal <目标描述> 开始一个自主任务。")
+					"No active goal.\nUse /goal <objective> to start an autonomous task.")
 			}
 			return
 		}
@@ -385,9 +453,9 @@ func (gw *BotGateway) handleSlashCommand(ctx context.Context, adapter Adapter, k
 			gw.mu.Unlock()
 			if ok {
 				state.ctrl.ClearGoal()
-				_ = gw.sendText(ctx, adapter, msg, "目标已清除。")
+				_ = gw.sendText(ctx, adapter, msg, "Goal cleared.")
 			} else {
-				_ = gw.sendText(ctx, adapter, msg, "没有活跃会话。")
+				_ = gw.sendText(ctx, adapter, msg, "No active session.")
 			}
 			return
 		}
@@ -397,37 +465,37 @@ func (gw *BotGateway) handleSlashCommand(ctx context.Context, adapter Adapter, k
 		gw.sessions.ForceRelease(key)
 		state := gw.getOrCreateSession(ctx, key)
 		if state == nil || state.ctrl == nil {
-			_ = gw.sendText(ctx, adapter, msg, "内部错误：无法创建会话。")
+			_ = gw.sendText(ctx, adapter, msg, "Internal error: could not create session.")
 			return
 		}
 		state.ctrl.SetGoal(goalText)
-		_ = gw.sendText(ctx, adapter, msg, fmt.Sprintf("🎯 开始自主目标: %s", goalText))
+		_ = gw.sendText(ctx, adapter, msg, fmt.Sprintf("🎯 Starting autonomous goal: %s", goalText))
 		// Replace message text with the raw goal so the turn knows what to pursue.
 		msg.Text = goalText
 		gw.runTurn(ctx, adapter, key, msg)
 		return
 
 	case strings.HasPrefix(msg.Text, "/help"):
-		help := "可用命令:\n" +
-			"/stop - 停止当前任务\n" +
-			"/new - 开始新会话\n" +
-			"/reset - 重置会话\n" +
-			"/model [flash|pro|mimo] - 切换模型\n" +
-			"/goal <目标> - 开始自主目标追踪\n" +
-			"/goal status - 查看目标状态\n" +
-			"/goal clear - 清除目标\n" +
-			"/approve <id> - 批准操作\n" +
-			"/deny <id> - 拒绝操作\n" +
-			"/answer <id> <选项> - 回答 ask 问题\n" +
-			"/status - 查看状态\n" +
-			"/help - 显示帮助"
+		help := "Available commands:\n" +
+			"/stop - Stop current task\n" +
+			"/new - Start new session\n" +
+			"/reset - Reset session\n" +
+			"/model [flash|pro|mimo] - Switch model\n" +
+			"/goal <objective> - Start autonomous goal\n" +
+			"/goal status - Show goal status\n" +
+			"/goal clear - Clear goal\n" +
+			"/approve <id> - Approve action\n" +
+			"/deny <id> - Deny action\n" +
+			"/answer <id> <option> - Answer question\n" +
+			"/status - Show status\n" +
+			"/help - Show help"
 		_ = gw.sendText(ctx, adapter, msg, help)
 	}
 }
 
 func (gw *BotGateway) runTurn(ctx context.Context, adapter Adapter, key string, msg InboundMessage) {
 	defer func() {
-		// 检查是否有等待队列中的消息
+		// Check for queued messages after the turn completes.
 		next := gw.sessions.Release(key)
 		if next != nil {
 			gw.runTurn(ctx, adapter, key, *next)
@@ -435,23 +503,23 @@ func (gw *BotGateway) runTurn(ctx context.Context, adapter Adapter, key string, 
 		}
 	}()
 
-	// 构建输入文本：群聊中在消息前加上发送者名
+	// Build the input text. In groups, prepend the sender's name.
 	input := msg.Text
 	if msg.ChatType == ChatGroup {
 		input = fmt.Sprintf("[%s] %s", msg.UserName, msg.Text)
 	}
 
-	// 获取或创建 Controller
+	// Get or create the Controller.
 	state := gw.getOrCreateSession(ctx, key)
 	if state == nil || state.ctrl == nil {
-		_ = gw.sendText(ctx, adapter, msg, "内部错误：无法创建会话。")
+		_ = gw.sendText(ctx, adapter, msg, "Internal error: could not create session.")
 		return
 	}
 
-	// 发送"正在输入"状态
+	// Send "user is typing" indicator.
 	_ = adapter.SendTyping(ctx, msg.ChatID)
 
-	// 创建事件渲染 sink
+	// Create an event render sink for this turn.
 	sink := newRenderSink(ctx, adapter, msg.ChatID, msg.ChatType, msg.MessageID, gw.logger, func(ask event.Ask) {
 		gw.mu.Lock()
 		if state.pendingAsks == nil {
@@ -463,7 +531,7 @@ func (gw *BotGateway) runTurn(ctx context.Context, adapter Adapter, key string, 
 	state.sink.setTarget(sink)
 	defer state.sink.setTarget(nil)
 
-	// 创建带取消的 context
+	// Create a cancellable context for this turn.
 	turnCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -472,7 +540,7 @@ func (gw *BotGateway) runTurn(ctx context.Context, adapter Adapter, key string, 
 	state.lastActive = time.Now()
 	gw.mu.Unlock()
 
-	// 运行一轮对话
+	// Run one turn of the conversation.
 	sink.ctrl = state.ctrl
 	err := state.ctrl.RunTurn(turnCtx, input)
 	sink.Emit(event.Event{Kind: event.TurnDone, Err: err})
@@ -498,7 +566,7 @@ func (gw *BotGateway) getOrCreateSession(ctx context.Context, key string) *sessi
 	}
 	gw.mu.Unlock()
 
-	// 创建新 Controller
+	// Create a new Controller.
 	sessionSink := &sessionEventSink{}
 	ctrl, err := boot.Build(ctx, boot.Options{
 		Model:         model,

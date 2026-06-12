@@ -28,23 +28,19 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 ## Notes
 
 - **Upstream synced**: `v1.5.0` merged (commit e5e8f02, 2026-06-25). Clean merge, zero conflicts.
-- **Implementation plan**: `docs/HERMES-IMPLEMENTATION-PLAN.md` — P0 ✅, P1 ✅, P2 ✅, P3 ✅. All 17 plan items complete. Remaining: install_source integration, CI extension, VS Code fork.
-- **Ecosystem reference**: `reasonix-deepseek-ecosystem-2026.md` + `docs/RESEARCH-FINDINGS-JUNE-2026.md`.
+- **Language policy**: All Chinese comments translated to English in `internal/bot/` and `internal/config/` — SPEC §1 compliance restored.
+- **Layout**: Executables moved from `pkg/` to `cmd/`: `pkg/mcpbridge/` → `cmd/reasonix-mcpbridge/`, `pkg/memoryserver/` → `cmd/reasonix-memoryserver/`.
+- **Bug fixes applied** (June 12, 2026):
+  - P0-1: BotGateway session eviction (idle timeout + background goroutine)
+  - P0-2: `http.DefaultClient` → `netclient.DefaultClient()` across 7 files
+  - P1-1: `sqliteStorage.Close()` deferred in memoryserver main
+  - P2-1: `DELETE`+`INSERT` → `INSERT OR REPLACE` upsert
+  - P2-2: LIKE wildcard escaping with `ESCAPE '\'` clause
+  - P2-3: `io.LimitReader` on 5 unbounded HTTP response reads
+- **Docs written/updated**:
+  - New `docs/HERMES-GUIDE.md` — 1,300+ line comprehensive master guide (19 sections)
+  - Rewrote `README.md` for Hermes identity
+  - Updated `docs/SPEC.md` §2 (39 packages) and §4 (7 ChunkTypes)
+  - Updated `docs/GUIDE.md` with `/goal` and `/effort`
+
 - **Key differentiators**: Discord bot (real agent loop + /goal + /model), MCP bridge (6 tools), Hindsight memory (3 tools, SQLite + TTL/importance + vector search), 17-skill registry, native Go hooks, portable mode.
-
-## Architecture Notes (post-v1.5.0 sync)
-
-- `control.Options` fields: `Runner`, `Executor`, `Sink`, `Policy`, `Hooks`, `OnRemember`, `Registry`, `PluginCtx`, `Jobs`, `BalanceURL/Key`, `AutoPlan`, `Classifier`, `Label`, `SystemPrompt`, `SessionDir/Path`, `Host`, `Commands`, `Skills/AllSkills/SkillStore/AllSkillStore`, `Memory`, `Cleanup`, `WorkspaceRoot`.
-- `event.Sink` = `Emit(Event)` — single-method interface. `event.FuncSink` adapts closures. `event.Discard` for no-op.
-- `permission.Approver` = `Approve(ctx, toolName, subject, args) (allow, remember, err)`. Front-end implements interactive approval.
-- `permission.Gate` = `Policy` + optional `Approver`. Nil Approver = auto-allow (yolo).
-- `install_source` tool exists in upstream (`internal/installsource/`) — skills hub should integrate with it, not build a separate script.
-- `hook.Runner` exists upstream — supports `PreToolUse`/`PostToolUse`/`Stop` hooks. Memory server P3 should use this.
-
-## Next Session TODOs
-
-- **`install_source` integration** — upstream has `internal/installsource/`; skills-hub should register as an install source instead of relying on `scripts/install-skills.sh`. Create a `reasonix-hermes.json` manifest for `reasonix install-source install`.
-- **Skills hub website deployment** — deploy `skills-hub/site/index.html` to GitHub Pages at `aliatx2017.github.io/reasonix-hermes/`
-- **CI: e2e-bot Discord adapter** — extend `.github/workflows/e2e-bot.yml` with Discord smoke test (needs bot token)
-- **VS Code extension** — fork `whishi47/deepseekcode-reasonix-vscode` (separate repo, Hermes branding)
-- **roach-code multi-provider** — study `tmdgusya/roach-code` for MiniMax/GLM/Anthropic provider patterns

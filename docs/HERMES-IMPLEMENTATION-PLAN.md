@@ -1,5 +1,9 @@
 # Hermes Fork — Implementation Plan (June 2026)
 
+> **Note:** Paths updated June 12, 2026: `pkg/mcpbridge/` → `cmd/reasonix-mcpbridge/`,
+> `pkg/memoryserver/` → `cmd/reasonix-memoryserver/`. Historical references in
+> this document use the original paths.
+
 > Generated from fresh ecosystem research on June 10, 2026. Prioritized by
 > impact × feasibility × differentiation value. Each phase builds on the last.
 
@@ -335,41 +339,11 @@ jobs:
 - Supports `--dry-run` for preview
 - Prints `reasonix.toml` config snippet after install
 
-Future work: register as an upstream `install_source` for `reasonix install-source install`.
-The `scripts/hooks-settings-template.json` provides the hook configuration for
-automatic session memory integration (see Phase 4).
-
-**Implementation**:
-
-1. **Register as an install source**: Create a `reasonix-hermes.json` source manifest
-   that `reasonix install-source` can consume (upstream already supports this).
-   ```bash
-   # Source manifest pointing to our GitHub-hosted skills
-   {
-     "name": "hermes",
-     "description": "Hermes curated skill pack (16 skills)",
-     "source": "https://raw.githubusercontent.com/aliatx2017/reasonix-hermes/main/skills-hub/registry.json"
-   }
-   ```
-
-2. **Install via upstream tool**:
-   ```bash
-   reasonix install-source install --source https://raw.githubusercontent.com/aliatx2017/reasonix-hermes/main/skills-hub/registry.json
-   ```
-
-3. **Alternative: script for manual install** (`scripts/install-skills.sh`):
-   ```bash
-   #!/bin/bash
-   SKILLS_DIR="$(dirname "$0")/../skills-hub/skills"
-   TARGET="$HOME/.config/reasonix/skills/hermes/"
-   mkdir -p "$TARGET"
-   cp "$SKILLS_DIR"/*.md "$TARGET/"
-   echo "Installed 16 Hermes skills to $TARGET"
-   echo "Add to reasonix.toml: [skills] paths = [\"~/.config/reasonix/skills/hermes\"]"
-   ```
-
-4. **Sync with awesome-reasonix**: Submit our skills to the community hub
-   (`hikari-2424/awesome-reasonix`) for broader distribution.
+**✅ install_source integrated** (2026-06-11): Created `reasonix-hermes.json` manifest at repo root. Upstream `install_source` auto-discovers skills from GitHub repos:
+```bash
+reasonix install-source install --source https://github.com/aliatx2017/reasonix-hermes/tree/main/skills-hub/skills
+```
+This scans the `skills-hub/skills/` directory via GitHub API, validates frontmatter, and copies all 17 skills into `~/.config/reasonix/skills/<name>/SKILL.md` (canonical layout). The `install-skills.sh` script remains as a fallback for non-Reasonix environments.
 
 ### 3.2 Add Missing Skills from Community
 
@@ -422,19 +396,21 @@ This mirrors the Hindsight-Reasonix pattern from `houycth/Hindsight-Reasonix`,
 but without the upstream patch requirement (if Reasonix hooks already pass
 session_id — verify after Phase 0 sync).
 
-### 4.2 Storage Backend Options
+### 4.2 Storage Backend Options ✅ DONE (P3)
 
-Add pluggable backends:
-- **File** (current): Simple JSON files in `~/.reasonix/memory/`
-- **SQLite**: For larger memory stores with indexed search
-- **Vector**: Optional embedding-based semantic search (deferred to Phase 6)
+✅ Completed (Phase 3): All three backends implemented.
+- **File**: Simple JSON files in `~/.reasonix/hindsight-memory/`
+- **SQLite**: `modernc.org/sqlite` (pure Go, no CGO), WAL journal mode, 3 indexes (session_id, expires_at, importance). `--backend sqlite` flag.
+- **Vector**: Sparse TF-IDF cosine similarity search. `semantic=true` flag on `hindsight_recall`. Vectors auto-computed on retain, persisted in both JSON and SQLite backends.
 
-### 4.3 Memory Retention Policies
+### 4.3 Memory Retention Policies ✅ DONE (P3)
 
+✅ Completed (Phase 3): All retention policies implemented.
 - **TTL-based expiry**: Per-fact TTL, defaults to 90 days
-- **Importance scoring**: Frequently recalled facts get longer TTL
-- **Project-scoped isolation**: Facts tagged by project hash
-- **Cross-project recall**: Global facts available across projects
+- **Importance scoring**: `Importance` field (0.5 → +0.05 per recall, 1%/day decay). `ExpiresAt` auto-computed on retain.
+- **Project-scoped isolation**: Facts tagged by session ID (`session_id` filter on recall/reflect)
+- **Cross-project recall**: No session_id filter returns all facts across projects
+- **Tidy()**: Purges expired entries whose importance has dropped to `minImportanceToKeep`
 
 ---
 
@@ -523,7 +499,7 @@ adding:
 | **P0** | Auth middleware consolidation | LOW | 0.5 day | ✅ DONE (httputil shared) |
 | **P0** | planTask + orchestrateTask | HIGH | 1-2 days | ✅ DONE (DeepSeek API) |
 | **P0** | Hook scripts hardening | MEDIUM | 0.5 day | ✅ DONE (timeout, checks, tests) |
-| **P0** | CI pipeline | MEDIUM | 1 day | Partial (exists, needs pkg/bot steps) |
+| **P0** | CI pipeline | MEDIUM | 1 day | ✅ DONE (ci-hermes.yml builds+tests all Hermes packages; e2e-discord.yml smoke test) |
 | **P1** | Skills hub auto-loading | MEDIUM | 2-3 days | ✅ DONE (install-skills.sh) |
 | **P1** | Memory server hook mode | HIGH | 3-4 days | ✅ DONE (hook scripts + auth) |
 | **P1** | Skills hub website | LOW | 2-3 days | ✅ DONE (skills-hub/site/index.html) |
@@ -550,9 +526,9 @@ adding:
 | Test coverage (pkg/) | 228 tests (hooks 12, mcpbridge 49, memory 63, discord 57, bot 29+) | >80% line coverage ✅ |
 | MCP bridge tools | ✅ 6 tools (run, doctor, plan, orchestrate, get_skill, get_skills) | External agent orchestration |
 | Hook scripts | ✅ Native Go binary (cmd/reasonix-hooks) + hardened shell fallback | Zero-dependency binary |
-| Skills discoverable | ✅ 17 skills (incl. adversarial-review) + install-skills.sh | `install_source` integration |
+| Skills discoverable | ✅ 17 skills + install_source integration (reasonix-hermes.json) + install-skills.sh fallback | GitHub Pages deployable ✅ |
 | Memory persistence | ✅ SQLite (WAL) + TTL/importance + vector TF-IDF | ✅ Complete |
 | Discord bot features | ✅ /goal + /model (autonomous loop + multi-model) | ✅ Complete |
 | Portability | ✅ REASONIX_PORTABLE=1 (portable data dir) | USB/sync-drive friendly |
-| CI | Exists (desktop frontend + go test ./...) | Extended e2e-bot workflow |
+| CI | ✅ ci-hermes.yml (builds+tests all Hermes packages) + e2e-discord.yml (manual smoke test) | ✅ Complete |
 | Community presence | Fork repo (VS Code ext separate) | VS Code Marketplace listing |

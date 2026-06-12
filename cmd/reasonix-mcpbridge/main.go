@@ -3,7 +3,7 @@
 //
 // Usage:
 //
-//	go run ./pkg/mcpbridge [--http] [--port 9090]
+//	go run ./cmd/reasonix-mcpbridge [--http] [--port 9090]
 //
 // This exposes tools like reasonix_run, reasonix_doctor, and plan_task
 // that other agents can call to delegate work to Reasonix.
@@ -24,6 +24,7 @@ import (
 	"sync"
 	"time"
 
+	"reasonix/internal/netclient"
 	"reasonix/pkg/mcputil"
 )
 
@@ -322,13 +323,13 @@ func (b *Bridge) callDeepSeek(systemPrompt, userPrompt string) (string, error) {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := netclient.DefaultClient().Do(req)
 	if err != nil {
 		return "", fmt.Errorf("DeepSeek API request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 4*1024*1024)) // 4 MB limit
 	if err != nil {
 		return "", fmt.Errorf("read API response: %w", err)
 	}

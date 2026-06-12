@@ -25,6 +25,7 @@ import (
 
 	"reasonix/internal/bot"
 	"reasonix/internal/config"
+	"reasonix/internal/netclient"
 )
 
 const (
@@ -255,12 +256,12 @@ func ilinkGET(ctx context.Context, baseURL, endpoint string) (map[string]any, er
 	}
 	req.Header.Set("iLink-App-Id", ilinkAppID)
 	req.Header.Set("iLink-App-ClientVersion", fmt.Sprintf("%d", ilinkClientVersion))
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := netclient.DefaultClient().Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	data, _ := io.ReadAll(resp.Body)
+	data, _ := io.ReadAll(io.LimitReader(resp.Body, 16*1024*1024)) // 16 MB limit
 	if resp.StatusCode >= 400 {
 		if len(data) > 200 {
 			data = data[:200]
@@ -333,7 +334,7 @@ func (a *adapter) getUpdates(ctx context.Context) ([]ilinkUpdate, error) {
 	}
 	setIlinkHeaders(req, tok, body)
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := netclient.DefaultClient().Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -513,7 +514,7 @@ func (a *adapter) sendMessage(ctx context.Context, msg bot.OutboundMessage) (bot
 	}
 	setIlinkHeaders(req, tok, body)
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := netclient.DefaultClient().Do(req)
 	if err != nil {
 		return bot.SendResult{}, err
 	}
@@ -525,7 +526,7 @@ func (a *adapter) sendMessage(ctx context.Context, msg bot.OutboundMessage) (bot
 		Errmsg    string `json:"errmsg"`
 		MessageID string `json:"message_id"`
 	}
-	respBody, _ := io.ReadAll(resp.Body)
+	respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 16*1024*1024)) // 16 MB limit
 	if err := json.Unmarshal(respBody, &result); err != nil {
 		return bot.SendResult{}, err
 	}
@@ -565,7 +566,7 @@ func (a *adapter) sendTyping(ctx context.Context, chatID string) error {
 	}
 	setIlinkHeaders(req, tok, body)
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := netclient.DefaultClient().Do(req)
 	if err != nil {
 		return err
 	}

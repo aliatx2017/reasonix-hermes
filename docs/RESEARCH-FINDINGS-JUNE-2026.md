@@ -1,5 +1,8 @@
 # Reasonix Hermes — New Research Findings (June 10, 2026)
 
+> **Note:** Paths updated June 12, 2026: `pkg/mcpbridge/` → `cmd/reasonix-mcpbridge/`,
+> `pkg/memoryserver/` → `cmd/reasonix-memoryserver/`.
+
 > Supplement to `reasonix-deepseek-ecosystem-2026.md`. Documents findings from a
 > deep-web sweep across GitHub, DeepSeek API docs, Reddit, and community
 > repos on June 10, 2026.

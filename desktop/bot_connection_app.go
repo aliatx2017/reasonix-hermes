@@ -16,6 +16,7 @@ import (
 	"reasonix/internal/bot/feishu"
 	"reasonix/internal/bot/weixin"
 	"reasonix/internal/config"
+	"reasonix/internal/netclient"
 )
 
 type BotConnectionCredentialView struct {
@@ -450,7 +451,7 @@ func postFeishuInstallFormResult(base string, body map[string]string) (map[strin
 		return nil, 0, err
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := netclient.DefaultClient().Do(req)
 	if err != nil {
 		return nil, 0, err
 	}

@@ -1,10 +1,11 @@
-// Package bot 实现 Reasonix 多渠道 IM bot 消息网关，支持 QQ、飞书、微信。
-// 架构参考 Hermes Agent 的 gateway/adapter/session 模式。
+// Package bot implements the Reasonix multi-channel IM bot message gateway,
+// supporting QQ, Feishu, WeChat, and Discord. Architecture follows the
+// Hermes Agent gateway/adapter/session pattern.
 package bot
 
 import "context"
 
-// Platform 标识 IM 平台。
+// Platform identifies the IM platform.
 type Platform string
 
 const (
@@ -14,7 +15,7 @@ const (
 	PlatformDiscord Platform = "discord"
 )
 
-// ChatType 标识会话类型。
+// ChatType identifies the conversation type.
 type ChatType string
 
 const (
@@ -25,7 +26,8 @@ const (
 	ChatThread ChatType = "thread"
 )
 
-// SessionSource 是会话的复合标识，用于生成稳定的 session key。
+// SessionSource is a compound session identifier for generating a stable
+// session key.
 type SessionSource struct {
 	Platform Platform `json:"platform"`
 	ChatType ChatType `json:"chat_type"`
@@ -34,7 +36,7 @@ type SessionSource struct {
 	ThreadID string   `json:"thread_id,omitempty"`
 }
 
-// InboundMessage 是从任一平台收到的入站消息。
+// InboundMessage is an incoming message received from any platform.
 type InboundMessage struct {
 	Platform  Platform `json:"platform"`
 	ChatType  ChatType `json:"chat_type"`
@@ -59,7 +61,7 @@ func (m InboundMessage) Session() SessionSource {
 	}
 }
 
-// OutboundMessage 是发送到平台的消息。
+// OutboundMessage is a message to be sent to a platform.
 type OutboundMessage struct {
 	ChatID       string           `json:"chat_id"`
 	ChatType     ChatType         `json:"chat_type,omitempty"`
@@ -70,17 +72,17 @@ type OutboundMessage struct {
 	Card         *InteractiveCard `json:"card,omitempty"`
 }
 
-// InlineKeyboard 是内联键盘（用于 QQ 审批）。
+// InlineKeyboard is an inline keyboard (used for QQ approvals).
 type InlineKeyboard struct {
 	Rows []InlineKeyboardRow `json:"rows"`
 }
 
-// InlineKeyboardRow 是一行按钮。
+// InlineKeyboardRow is a row of buttons.
 type InlineKeyboardRow struct {
 	Buttons []InlineKeyboardButton `json:"buttons"`
 }
 
-// InlineKeyboardButton 是一个按钮。
+// InlineKeyboardButton is a single button.
 type InlineKeyboardButton struct {
 	ID         string `json:"id"`
 	Label      string `json:"label"`
@@ -88,48 +90,48 @@ type InlineKeyboardButton struct {
 	CallbackID string `json:"callback_id,omitempty"`
 }
 
-// InteractiveCard 是交互式卡片（用于飞书审批/问答）。
+// InteractiveCard is an interactive card (used for Feishu approvals/ask).
 type InteractiveCard struct {
 	Header   string                   `json:"header"`
 	Elements []InteractiveCardElement `json:"elements"`
 }
 
-// InteractiveCardElement 是卡片内元素。
+// InteractiveCardElement is an element within a card.
 type InteractiveCardElement struct {
 	Tag     string         `json:"tag"`
 	Content string         `json:"content,omitempty"`
 	Extra   map[string]any `json:"extra,omitempty"`
 }
 
-// SendResult 是发送消息的结果。
+// SendResult is the result of sending a message.
 type SendResult struct {
 	MessageID string `json:"message_id,omitempty"`
 	Err       error  `json:"err,omitempty"`
 }
 
-// Adapter 是平台适配器接口，每个平台实现一个。
+// Adapter is the platform adapter interface. Each platform implements one.
 type Adapter interface {
-	// Platform 返回平台标识。
+	// Platform returns the platform identifier.
 	Platform() Platform
 
-	// Start 启动适配器，连接平台 gateway。
+	// Start starts the adapter and connects to the platform gateway.
 	Start(ctx context.Context) error
 
-	// Stop 优雅关闭适配器。
+	// Stop gracefully shuts down the adapter.
 	Stop() error
 
-	// Send 发送一条出站消息。
+	// Send sends an outbound message.
 	Send(ctx context.Context, msg OutboundMessage) (SendResult, error)
 
-	// SendTyping 发送"正在输入"状态。
+	// SendTyping sends a "user is typing" indicator.
 	SendTyping(ctx context.Context, chatID string) error
 
-	// Messages 返回入站消息通道。
+	// Messages returns the inbound message channel.
 	Messages() <-chan InboundMessage
 
-	// Name 返回适配器实例名（用于日志）。
+	// Name returns the adapter instance name (for logging).
 	Name() string
 }
 
-// MessageHandler 是 BotGateway 处理入站消息的回调。
+// MessageHandler is the callback BotGateway uses to process inbound messages.
 type MessageHandler func(ctx context.Context, msg InboundMessage)

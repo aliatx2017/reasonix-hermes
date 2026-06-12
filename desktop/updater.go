@@ -178,7 +178,7 @@ func fetchBytes(ctx context.Context, c *http.Client, url string) ([]byte, error)
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("GET %s: %s", url, resp.Status)
 	}
-	return io.ReadAll(resp.Body)
+	return io.ReadAll(io.LimitReader(resp.Body, 4*1024*1024)) // 4 MB limit
 }
 
 // download fetches url into memory, invoking onProgress as bytes arrive. total is

@@ -9,8 +9,8 @@ branch.
 Our fork (`aliatx2017/reasonix-hermes`) adds:
 
 - **Discord bot gateway** (`bot/`, `internal/bot/discord/`) — slash commands + /goal autonomous loop via discordgo
-- **MCP bridge server** (`pkg/mcpbridge/`) — 6 tools: run, doctor, plan, orchestrate, get_skill, get_skills
-- **Hindsight memory server** (`pkg/memoryserver/`) — 3 tools: retain, recall, reflect. SQLite + file backends, TTL/importance scoring
+- **MCP bridge server** (`cmd/reasonix-mcpbridge/`) — 6 tools: run, doctor, plan, orchestrate, get_skill, get_skills
+- **Hindsight memory server** (`cmd/reasonix-memoryserver/`) — 3 tools: retain, recall, reflect. SQLite + file backends, TTL/importance scoring
 - **Native Go hook runner** (`cmd/reasonix-hooks/`) — zero-dependency binary for pre/post/stop hooks
 - **Shared auth middleware** (`pkg/httputil/`) — Bearer token auth, consolidated from mcpbridge+memoryserver
 - **MCP utilities** (`pkg/mcputil/`) — shared MCP types and server helpers
@@ -20,6 +20,17 @@ Our fork (`aliatx2017/reasonix-hermes`) adds:
 - **Ecosystem reference** (`reasonix-deepseek-ecosystem-2026.md`) — comprehensive survey
 - **Research findings** (`docs/RESEARCH-FINDINGS-JUNE-2026.md`) — June 2026 deep-web sweep
 - **Implementation plan** (`docs/HERMES-IMPLEMENTATION-PLAN.md`) — phased roadmap
+
+### Hermes v1.5.0-h3 (2026-06-12)
+
+**Layout & Docs:**
+- **Layout**: Moved executables `pkg/mcpbridge/` → `cmd/reasonix-mcpbridge/` and `pkg/memoryserver/` → `cmd/reasonix-memoryserver/` — Go convention: `cmd/` for binaries, `pkg/` for libraries
+- **Docs**: Wrote comprehensive `docs/HERMES-GUIDE.md` (1,300+ lines, 19 sections) covering all upstream + Hermes features
+- **README**: Rewrote project README for Hermes fork identity, clear upstream attribution, Hermes feature table
+- **SPEC.md**: Updated §2 Layout from 11 to 39 packages, §4 ChunkType from 4 to 7 values
+- **GUIDE.md**: Added `/goal` and `/effort` to slash-command list
+- **Language policy**: Translated all Chinese comments in `internal/bot/` and `internal/config/` to English (SPEC §1 compliance)
+- **Bug fixes**: BotGateway session eviction (P0), `http.DefaultClient` → `netclient.DefaultClient()` (P0), `sqliteStorage` UPSERT + LIKE escaping + `Close()` defer + response body limits (P1-P2)
 
 ### Hermes v1.5.0-h2 (2026-06-11)
 
@@ -31,7 +42,7 @@ Our fork (`aliatx2017/reasonix-hermes`) adds:
 **P3 — Advanced Features:**
 - **Multi-model Discord bot**: `/model flash|pro|mimo` command, per-session model preferences stored in `modelPrefs` map, `/new` recreates controller on model switch
 - **Vector memory backend**: Sparse TF-IDF cosine similarity search. `semantic=true` flag on `hindsight_recall`. Vectors auto-computed on retain, persisted in both JSON and SQLite backends
-- **`get_skill` MCP tool**: 6th tool in `pkg/mcpbridge` — reads skill bodies from 3 directory sources, supports `<name>.md` and `<name>/SKILL.md` layouts
+- **`get_skill` MCP tool**: 6th tool in `cmd/reasonix-mcpbridge` — reads skill bodies from 3 directory sources, supports `<name>.md` and `<name>/SKILL.md` layouts
 - **Discord `/goal` command**: Autonomous goal loop via `BotGateway` — `/goal <obj>` sets + runs, `/goal status`, `/goal clear`. Inherits 50-turn cap + 3-repeat blocked-state audit from controller
 - **Native Go hook runner**: `cmd/reasonix-hooks/main.go` — zero-dependency binary replacing shell scripts. Retain/reflect actions, noise-tool filtering, JSON-RPC POSTs to memory server
 - **Memory: TTL + importance scoring**: 90-day default TTL, `Importance` field (0.5→+0.05/recall, 1%/day decay), `ExpiresAt` auto-computed, `Tidy()` purges expired, `Recall` skips expired + boosts importance + extends expiry

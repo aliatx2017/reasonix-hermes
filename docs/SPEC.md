@@ -32,19 +32,64 @@ reasonix/
 ├── README.md / README.zh-CN.md
 ├── reasonix.example.toml         # sample config
 ├── docs/SPEC.md             # this file
-├── cmd/reasonix/main.go          # entry; blank-imports built-in providers/tools
-├── cmd/reasonix-plugin-example/  # reference MCP stdio plugin (a runnable example)
+├── cmd/
+│   ├── reasonix/main.go          # entry; blank-imports built-in providers/tools
+│   ├── reasonix-hooks/           # native Go hook runner (retain/reflect)
+│   └── reasonix-plugin-example/  # reference MCP stdio plugin
+├── pkg/
+│   ├── httputil/            # Bearer token auth middleware
+│   └── mcputil/             # MCP JSON-RPC server framework types
 └── internal/
-    ├── cli/                 # subcommand routing, flags, assembly, exit codes
+    ├── acp/                 # Agent Communication Protocol (live sessions)
+    ├── agent/               # LLM agent loop, compaction, sub-agents
+    ├── billing/             # wallet-balance checks
+    ├── boot/                # controller assembly, model resolution
+    ├── bot/                 # multi-platform bot gateway (Discord/QQ/Feishu/WeChat)
+    │   ├── discord/         # Discord adapter
+    │   ├── feishu/          # Feishu adapter
+    │   ├── qq/              # QQ adapter
+    │   └── weixin/          # WeChat adapter
+    ├── checkpoint/          # file-snapshot undo system
+    ├── cli/                 # Bubble Tea TUI, command routing
+    ├── codegraph/           # semantic code index
+    ├── command/             # custom slash commands (.reasonix/commands/*.md)
     ├── config/              # TOML loading (flag > project > user > defaults)
-    ├── provider/            # Provider interface + types + kind→factory registry
-    │   └── openai/          # OpenAI-compatible impl; init() registers "openai"
-    ├── tool/                # Tool interface + Registry
-    │   └── builtin/         # read_file/write_file/edit_file/bash/ls/glob/grep
+    ├── control/             # transport-agnostic Controller
+    ├── diff/                # unified diff generation
+    ├── doctor/              # system diagnostics
+    ├── event/               # typed event stream (Sink, Event)
+    ├── evidence/            # readiness audit receipts
+    ├── fileref/             # file reference resolution
+    ├── fileutil/            # file utility functions (+ encoding sub-package)
+    ├── frontmatter/         # YAML frontmatter parser
+    ├── hook/                # PreToolUse/PostToolUse/Stop hook runner
+    ├── i18n/                # English/Chinese message catalogs
+    ├── inspect/             # codebase inspection utilities
+    ├── installsource/       # install_source tool (skills, MCP servers)
+    ├── instruction/         # system prompt composition
+    ├── jobs/                # background job runner
+    ├── lsp/                 # LSP client integration
+    ├── mcpdiag/             # MCP server diagnostics
+    ├── memory/              # hierarchical doc-memory + auto-memory (remember/forget)
+    ├── netclient/           # HTTP client factory with proxy support
+    ├── nilutil/             # nil-safe interface helpers
+    ├── notify/              # cross-platform desktop notifications
+    ├── outputstyle/         # output style enum (concise, verbose)
     ├── permission/          # per-call Policy: allow/ask/deny rules → Decision
-    ├── command/             # custom slash commands loaded from .reasonix/commands/*.md
-    ├── plugin/              # stdio JSON-RPC (MCP) client; adapts remote tools
-    └── agent/               # Session + harness loop
+    ├── plugin/              # stdio/HTTP/SSE MCP client; adapts remote tools
+    ├── proc/                # process management (kill groups, signals)
+    ├── provider/            # Provider interface + types + kind→factory registry
+    │   ├── anthropic/       # Anthropic Messages API impl
+    │   └── openai/          # OpenAI-compatible impl; init() registers "openai"
+    ├── sandbox/             # OS-level sandbox (macOS Seatbelt)
+    ├── serve/               # HTTP/WebSocket server mode
+    ├── skill/               # skill registry and loader
+    ├── sysproxy/            # system proxy detection
+    └── tool/                # Tool interface + Registry
+        └── builtin/         # 15 built-in tools: bash, read_file, write_file,
+                             #   edit_file, multiedit, ls, glob, grep, webfetch,
+                             #   todowrite, completestep, delete_range,
+                             #   notebook_edit, delete_symbol, bgjobs
 ```
 
 Dependency direction (acyclic): `cli → {agent, plugin, config} → {tool, provider}`.
@@ -383,12 +428,21 @@ type ToolSchema struct { Name, Description string; Parameters json.RawMessage }
 type Request    struct { Messages []Message; Tools []ToolSchema; Temperature float64; MaxTokens int }
 
 type ChunkType int
-const (ChunkText ChunkType = iota; ChunkToolCall; ChunkDone; ChunkError)
+const (
+    ChunkText         ChunkType = iota  // streaming text delta
+    ChunkReasoning                     // thinking-mode chain-of-thought
+    ChunkToolCallStart                 // tool call name announced, arguments streaming
+    ChunkToolCall                      // complete tool call ready for execution
+    ChunkUsage                         // token usage report for the turn
+    ChunkDone                          // stream finished successfully
+    ChunkError                         // stream terminated with an error
+)
 
 type Chunk struct {
     Type     ChunkType
-    Text     string    // ChunkText
+    Text     string    // ChunkText, ChunkReasoning
     ToolCall *ToolCall // ChunkToolCall
+    Usage    *Usage    // ChunkUsage
     Err      error     // ChunkError
 }
 ```

@@ -1,101 +1,123 @@
 <p align="center">
-  <img src="docs/logo.svg" alt="Reasonix" width="640"/>
+  <img src="docs/logo.svg" alt="Reasonix Hermes" width="640"/>
 </p>
 
 <p align="center">
   <strong>English</strong>
   &nbsp;·&nbsp;
-  <a href="./README.zh-CN.md">简体中文</a>
-  &nbsp;·&nbsp;
   <a href="./docs/GUIDE.md">Guide</a>
   &nbsp;·&nbsp;
   <a href="./docs/SPEC.md">Spec</a>
   &nbsp;·&nbsp;
-  <a href="https://esengine.github.io/DeepSeek-Reasonix/">Website</a>
-  &nbsp;·&nbsp;
-  <strong><a href="https://discord.gg/XF78rEME2D">Discord</a></strong>
+  <a href="./AGENTS.md">Project</a>
 </p>
 
-> [!IMPORTANT]
-> **Reasonix 1.0 is a ground-up rewrite in Go** — this branch (`main-v2`) is the new default and where development happens now.
-> The earlier `0.x` TypeScript releases are **legacy**, living on the [`v1`](https://github.com/esengine/DeepSeek-Reasonix/tree/v1) branch (maintenance only).
-> See the **[migration guide](./docs/MIGRATING.md)**. `npm i -g reasonix` stays the install command — `1.0.0`+ delivers the Go binary, `0.x` is the legacy TS build.
-
-<p align="center">
-  <a href="https://www.npmjs.com/package/reasonix"><img src="https://img.shields.io/npm/v/reasonix.svg?style=flat-square&color=cb3837&labelColor=161b22&logo=npm&logoColor=white" alt="npm version"/></a>
-  <a href="https://github.com/esengine/reasonix/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/esengine/reasonix/ci.yml?style=flat-square&label=ci&labelColor=161b22&logo=githubactions&logoColor=white" alt="CI"/></a>
-  <a href="./LICENSE"><img src="https://img.shields.io/npm/l/reasonix.svg?style=flat-square&color=8b949e&labelColor=161b22" alt="license"/></a>
-  <a href="https://www.npmjs.com/package/reasonix"><img src="https://img.shields.io/npm/dm/reasonix.svg?style=flat-square&color=3fb950&labelColor=161b22&label=downloads" alt="downloads"/></a>
-  <a href="https://github.com/esengine/reasonix/stargazers"><img src="https://img.shields.io/github/stars/esengine/reasonix.svg?style=flat-square&color=dbab09&labelColor=161b22&logo=github&logoColor=white" alt="GitHub stars"/></a>
-  <a href="https://atomgit.com/esengine/DeepSeek-Reasonix"><img src="https://atomgit.com/esengine/DeepSeek-Reasonix/star/badge.svg" alt="AtomGit stars"/></a>
-  <a href="https://github.com/esengine/reasonix/graphs/contributors"><img src="https://img.shields.io/github/contributors/esengine/reasonix.svg?style=flat-square&color=bc8cff&labelColor=161b22&logo=github&logoColor=white" alt="contributors"/></a>
-  <a href="https://github.com/esengine/reasonix/discussions"><img src="https://img.shields.io/github/discussions/esengine/reasonix.svg?style=flat-square&color=58a6ff&labelColor=161b22&logo=github&logoColor=white" alt="Discussions"/></a>
-  <a href="https://discord.gg/XF78rEME2D"><img src="https://img.shields.io/badge/discord-join-5865F2.svg?style=flat-square&labelColor=161b22&logo=discord&logoColor=white" alt="Discord"/></a>
-</p>
-
-<p align="center">
-  <a href="https://oosmetrics.com/repo/esengine/reasonix"><img src="https://api.oosmetrics.com/api/v1/badge/achievement/9e931d80-2050-4b10-902e-44970cc133ad.svg" alt="oosmetrics — Top 2 in Agents by velocity"/></a>
-  <a href="https://oosmetrics.com/repo/esengine/reasonix"><img src="https://api.oosmetrics.com/api/v1/badge/achievement/556d94b3-61b7-486b-baf2-888b9327deab.svg" alt="oosmetrics — Top 3 in LLMs by velocity"/></a>
-  <a href="https://oosmetrics.com/repo/esengine/reasonix"><img src="https://api.oosmetrics.com/api/v1/badge/achievement/0f457d4c-efca-4d15-ad2b-139691ff342c.svg" alt="oosmetrics — Top 3 in CLI by velocity"/></a>
-</p>
+> **Reasonix Hermes** is an extended fork of
+> [esengine/deepseek-reasonix](https://github.com/esengine/deepseek-reasonix)
+> (synced to v1.5.0), the DeepSeek-native AI coding agent. We build on
+> upstream's config-driven, plugin-driven Go core and add a Discord bot,
+> MCP bridge server, Hindsight memory server, curated skill registry,
+> native hook runner, and portable mode — everything an agent ecosystem
+> needs to connect, remember, and collaborate.
 
 <br/>
 
-<h3 align="center">A DeepSeek-native AI coding agent for your terminal.</h3>
-<p align="center">A config- and plugin-driven harness — a single static Go binary, tuned around DeepSeek's prefix cache so token costs stay low across long sessions.</p>
+<h3 align="center">A DeepSeek-native AI coding agent — forked and extended for the community.</h3>
+<p align="center">Single Go binary. Config-driven. Plugin-driven. Tuned for DeepSeek's prefix cache so token costs stay low across long sessions.</p>
 
 <br/>
 
-> [!IMPORTANT]
-> **Community · 加入社区** — bilingual Discord for setup help (`#help` / `#求助`), workflow showcases, and feature ideas. → **<https://discord.gg/XF78rEME2D>**
+## What Hermes adds
+
+Hermes keeps upstream's core — the agent loop, providers, tools, permissions,
+plugin system, desktop app — and layers on cross-agent connectivity and
+persistent memory:
+
+| Addition | What it does |
+|----------|-------------|
+| **Discord bot** | `/goal <objective>` autonomous loop, `/model flash\|pro\|mimo` per-session switching, slash commands for approval/deny/ask, multi-platform gateway |
+| **MCP bridge server** | 6 tools (`reasonix_run`, `doctor`, `plan`, `orchestrate`, `get_skill`, `get_skills`) — connect Claude Code, Codex, or any MCP client to Reasonix over stdio or HTTP |
+| **Hindsight memory** | 3 tools (`retain`, `recall`, `reflect`) — cross-session persistent memory with SQLite + file backends, TTL/importance decay, and TF-IDF vector search |
+| **Skills hub** | 17 curated community skills (debugging, security audit, code review, refactoring, frontend builder, migration assistant, adversarial review…) — frontmatter playbooks with `runAs` and `allowedTools` |
+| **Native hook runner** | Zero-dependency Go binary for PreToolUse/Stop hooks — replaces shell scripts, POSTs retain/reflect to the memory server |
+| **Portable mode** | `REASONIX_PORTABLE=1` redirects all data (config, sessions, cache, memory, skills) to `<binary_dir>/.reasonix/` — run from a USB drive or air-gapped machine |
 
 <br/>
 
-## Features
+## Upstream foundation
 
-- **Config-driven.** Providers, the agent, enabled tools, and plugins are all
-  declared in `reasonix.toml`. No hardcoded models.
-- **Multi-model & composable.** DeepSeek (flash/pro) and MiMo ship as presets;
-  any OpenAI-compatible endpoint is a config entry, not new code. Optionally run
-  two models together (executor + planner) in separate, cache-stable sessions.
-- **Plugin-driven.** External tools run as subprocesses over stdio JSON-RPC
-  (MCP-compatible). Built-in tools self-register at compile time.
-- **Zero-friction distribution.** `CGO_ENABLED=0` single binary; cross-compile
-  to six targets with one command. The only dependency is a TOML parser.
+Reasonix itself is a **config- and plugin-driven coding agent** — a single
+static Go binary. No hardcoded models. Every provider, tool, and plugin is
+declared in `reasonix.toml`. Built-in tools self-register at compile time;
+external MCP servers plug in at runtime over stdio or HTTP.
+
+- **Multi-model.** DeepSeek V4 Flash/Pro and MiMo v2.5 Pro ship as presets.
+  Any OpenAI-compatible endpoint is a config entry. Optionally run a planner +
+  executor in separate, cache-stable sessions.
+- **Permission gating.** Per-call allow/ask/deny rules — `Bash(go test:*)`,
+  `Edit(docs/**)`, glob matching. Interactive approval in chat, desktop, and
+  Discord.
+- **Desktop app.** Wails v2 shell with React 19 + TypeScript frontend —
+  themable workspace, file tree, checkpoints/rewind, bot gateway.
+- **Zero-friction.** `CGO_ENABLED=0` single binary; cross-compile to six
+  targets with one command.
+
+See the upstream [README](https://github.com/esengine/deepseek-reasonix),
+[Guide](./docs/GUIDE.md), and [Spec](./docs/SPEC.md) for the full picture.
+
+<br/>
 
 ## Install
 
+### Prebuilt (upstream releases)
+
 ```sh
-npm i -g reasonix                  # any OS; pulls the prebuilt native binary
+npm i -g reasonix                  # any OS; pulls the upstream prebuilt binary
 brew install esengine/reasonix/reasonix   # macOS
 ```
 
-Prebuilt archives (`darwin|linux|windows × amd64|arm64`) and `SHA256SUMS` are on
-every [GitHub release](https://github.com/esengine/DeepSeek-Reasonix/releases).
-
-### Code signing
-
-Windows builds are code-signed with a free certificate provided by the
-[SignPath Foundation](https://signpath.org/), with signing through
-[SignPath.io](https://signpath.io/).
-
-### Build from source
+### Build Hermes from source
 
 ```sh
-make build      # -> bin/reasonix(.exe)
-make cross      # -> dist/ (darwin|linux|windows × amd64|arm64)
+git clone https://github.com/aliatx2017/reasonix-hermes.git
+cd reasonix-hermes
+go build -o bin/reasonix ./cmd/reasonix
+
+# Hermes extras
+go build -o bin/reasonix-bridge ./cmd/reasonix-mcpbridge      # MCP bridge server
+go build -o bin/reasonix-memory  ./cmd/reasonix-memoryserver   # Hindsight memory
+go build -o bin/reasonix-bot     ./bot                         # Discord bot
+go build -o bin/reasonix-hooks   ./cmd/reasonix-hooks          # Hook runner
+
+# Install the 17-skill community registry
+./bin/reasonix install-source install \
+  --source https://github.com/aliatx2017/reasonix-hermes/tree/main/skills-hub/skills
 ```
+
+<br/>
 
 ## Quick start
 
 ```sh
 reasonix setup                      # config wizard → ./reasonix.toml
-export DEEPSEEK_API_KEY=sk-...  # or put it in .env (see .env.example)
-reasonix chat                       # then run /init to generate AGENTS.md (project memory)
-reasonix run "implement the TODOs in main.go"
-reasonix run --model mimo-pro "add unit tests for this function"
-echo "explain this code" | reasonix run
+export DEEPSEEK_API_KEY=sk-...      # or put it in .env
+reasonix chat                       # start a session
+
+# Run a one-shot task
+reasonix run "add unit tests for the auth module"
+
+# Start the MCP bridge (expose Reasonix to other agents)
+./bin/reasonix-bridge --http --port 9090
+
+# Start the memory server
+./bin/reasonix-memory --backend sqlite --http --port 8080
+
+# Run the Discord bot
+export DISCORD_BOT_TOKEN="..." DISCORD_SERVER_ID="..."
+./bin/reasonix-bot
 ```
+
+<br/>
 
 ## Configuration
 
@@ -113,75 +135,85 @@ api_key_env = "DEEPSEEK_API_KEY"
 ```
 
 Resolution order is **flag > `./reasonix.toml` > `~/.config/reasonix/config.toml` >
-built-in defaults**; secrets come from the environment via `api_key_env` and are
-never written to config files. Permissions, the sandbox, plugins (MCP), slash
-commands, `@` references, and two-model setup are all in the
-**[Guide](./docs/GUIDE.md)**.
+built-in defaults**. Secrets come from the environment via `api_key_env` — never
+written to config files.
+
+### Memory server as an MCP plugin
+
+```toml
+[[plugins]]
+name    = "hindsight"
+command = "./bin/reasonix-memory"
+args    = ["--backend", "sqlite"]
+```
+
+### Discord bot config
+
+```toml
+[bot]
+enabled = true
+model   = "deepseek-flash"
+
+[bot.allowlist]
+enabled       = true
+discord_users = ["123456789"]
+discord_groups = ["987654321"]
+
+[bot.discord]
+token_env    = "DISCORD_BOT_TOKEN"
+server_id    = "123456789"
+allow_dms    = true
+```
+
+Full reference: **[Guide](./docs/GUIDE.md)** covers permissions, sandbox, plugins
+(MCP), slash commands, `@` references, two-model collaboration, hooks, and memory.
+
+<br/>
 
 ## Documentation
 
-- **[Guide](./docs/GUIDE.md)** — configuration, permissions & sandbox, plugins
-  (MCP), slash commands, `@` references, two-model collaboration.
-- **[Spec](./docs/SPEC.md)** — engineering contract: architecture, registries,
-  data types, and roadmap.
-- **[Migrating from 0.x](./docs/MIGRATING.md)** — moving from the legacy
-  TypeScript releases to the 1.0 Go rewrite.
-- **[Checkpoints & rewind](./docs/CHECKPOINTS.md)** — the snapshot-based edit
-  safety net (Esc-Esc / `/rewind`).
-
-### Hermes fork docs
-
-- **[Implementation Plan](./docs/HERMES-IMPLEMENTATION-PLAN.md)** — phased roadmap for the Hermes fork.
-- **[Research Findings](./docs/RESEARCH-FINDINGS-JUNE-2026.md)** — June 2026 ecosystem deep-web sweep.
-- **[Ecosystem Reference](./reasonix-deepseek-ecosystem-2026.md)** — full landscape survey of MCP bridges, skills, desktop clients, IDE extensions, forks, and protocols.
+| Doc | What |
+|-----|------|
+| **[Guide](./docs/GUIDE.md)** | Configuration, permissions & sandbox, plugins (MCP), slash commands, two-model collaboration |
+| **[Spec](./docs/SPEC.md)** | Engineering contract — architecture, registries, data types, and design principles |
+| **[Project](./AGENTS.md)** | Hermes fork architecture, commands, customizations, and contributor notes |
+| **[Migrating from 0.x](./docs/MIGRATING.md)** | Moving from legacy TypeScript releases to the 1.0 Go rewrite |
+| **[Checkpoints & rewind](./docs/CHECKPOINTS.md)** | Snapshot-based edit safety net (Esc-Esc / `/rewind`) |
+| **[Implementation Plan](./docs/HERMES-IMPLEMENTATION-PLAN.md)** | Phased roadmap — all 17 items complete |
+| **[Ecosystem Reference](./reasonix-deepseek-ecosystem-2026.md)** | Full landscape: MCP bridges, skills, desktop, IDE, forks, protocols |
 
 <br/>
 
-## Star History
+## Relationship to upstream
 
-<a href="https://www.star-history.com/?repos=esengine%2FDeepSeek-Reasonix&type=date&legend=top-left">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=esengine/DeepSeek-Reasonix&type=date&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=esengine/DeepSeek-Reasonix&type=date&legend=top-left" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=esengine/DeepSeek-Reasonix&type=date&legend=top-left" />
- </picture>
-</a>
+Hermes tracks [esengine/deepseek-reasonix](https://github.com/esengine/deepseek-reasonix)
+(`main-v2` branch) as its upstream. We merge upstream releases into our `main`
+branch and layer our additions on top:
 
-<br/>
+```sh
+git fetch upstream
+git merge upstream/main-v2
+```
 
-## Support
+Our custom code lives in `cmd/reasonix-*`, `pkg/httputil`, `pkg/mcputil`,
+`bot/`, `internal/bot/discord/`, and `skills-hub/`. We do not modify the
+upstream engine (`internal/agent`, `internal/provider`, `internal/tool`, etc.)
+except for the shared `internal/bot/` gateway used by our Discord adapter.
 
-If Reasonix has been useful and you'd like to say thanks, you can. It stays a coffee, not a contract — donations don't buy feature priority or change how issues get triaged.
-
-- **International** — PayPal: [paypal.me/yuhuahui](https://paypal.me/yuhuahui)
-- **国内** — 微信支付（扫码）
-
-<p align="center">
-  <img src=".github/sponsor/wechat-pay.jpg" alt="WeChat Pay QR code" width="240"/>
-</p>
+For the full upstream feature set — desktop app (Wails + React 19), bot gateway
+(Feishu/WeChat/QQ), ACP sessions, PDF extraction, themeable workspace — see the
+[upstream README](https://github.com/esengine/deepseek-reasonix).
 
 <br/>
 
 ## Acknowledgments
 
-A small list of folks whose work has shaped Reasonix the most — measured
-by both commit count and code volume. **Listed alphabetically, no ordering
-of importance.** The full contributor graph is on
-[GitHub](https://github.com/esengine/DeepSeek-Reasonix/graphs/contributors).
-
-- [**ctharvey**](https://github.com/ctharvey)
-- [**dimasd-angga**](https://github.com/dimasd-angga) (Dimas D. Angga)
-- [**Evan-Pycraft**](https://github.com/Evan-Pycraft)
-- [**ForeverYoungPp**](https://github.com/ForeverYoungPp)
-- [**GTC2080**](https://github.com/GTC2080) (TaoMu)
-- [**kabaka9527**](https://github.com/kabaka9527)
-- [**lisniuse**](https://github.com/lisniuse) (Richie)
-- [**wade19990814-hue**](https://github.com/wade19990814-hue)
-- [**wviana**](https://github.com/wviana) (Wesley Viana)
-
-Also a separate thank-you to [**Bernardxu123**](https://github.com/Bernardxu123)
-for designing the project logo, and to
-[AIGC Link](https://xhslink.com/m/80ngts127cA) for promoting the project on XiaoHongShu.
+Hermes is built on [esengine/deepseek-reasonix](https://github.com/esengine/deepseek-reasonix) —
+a community effort by [dozens of
+contributors](https://github.com/esengine/DeepSeek-Reasonix/graphs/contributors).
+All credit for the core engine, provider abstraction, tool system, permission
+layer, plugin framework, desktop app, and the original vision belongs to the
+upstream team.
 
 <p align="center">
   <a href="https://github.com/esengine/DeepSeek-Reasonix/graphs/contributors">
@@ -192,9 +224,8 @@ for designing the project logo, and to
 <br/>
 
 ---
-
 <p align="center">
   <sub>MIT — see <a href="./LICENSE">LICENSE</a></sub>
   <br/>
-  <sub>Built by the community at <a href="https://github.com/esengine/DeepSeek-Reasonix/graphs/contributors">esengine/DeepSeek-Reasonix</a></sub>
+  <sub>Hermes extras built by <a href="https://github.com/aliatx2017">aliatx2017</a> · upstream by <a href="https://github.com/esengine/DeepSeek-Reasonix">esengine/DeepSeek-Reasonix</a></sub>
 </p>

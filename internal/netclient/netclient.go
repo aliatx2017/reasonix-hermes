@@ -24,6 +24,40 @@ const (
 	ModeOff    = "off"
 )
 
+// Default client timeouts mirror typical upstream API latencies.
+const (
+	defaultDialTimeout           = 10 * time.Second
+	defaultKeepAlive             = 30 * time.Second
+	defaultTLSHandshakeTimeout   = 10 * time.Second
+	defaultResponseHeaderTimeout = 30 * time.Second
+	defaultOverallTimeout        = 120 * time.Second
+)
+
+// DefaultTransport returns a clone of http.DefaultTransport with sensible
+// transport-level timeouts applied. Use this for long-lived HTTP clients
+// where the request context already carries a per-request deadline.
+func DefaultTransport() *http.Transport {
+	tr := defaultTransport()
+	tr.DialContext = (&net.Dialer{
+		Timeout:   defaultDialTimeout,
+		KeepAlive: defaultKeepAlive,
+	}).DialContext
+	tr.TLSHandshakeTimeout = defaultTLSHandshakeTimeout
+	tr.ResponseHeaderTimeout = defaultResponseHeaderTimeout
+	return tr
+}
+
+// DefaultClient returns an *http.Client backed by DefaultTransport() with a
+// generous overall Timeout. Callers doing API calls should prefer this over
+// http.DefaultClient so that hung servers or stalled TCP connections cannot
+// leak goroutines.
+func DefaultClient() *http.Client {
+	return &http.Client{
+		Transport: DefaultTransport(),
+		Timeout:   defaultOverallTimeout,
+	}
+}
+
 // ProxySpec is the resolved proxy configuration used by network clients. URL is
 // an advanced override; otherwise Type/Server/Port/Credentials are composed into a
 // proxy URL. NoProxy is honored for custom proxies. DirectHosts always bypass the

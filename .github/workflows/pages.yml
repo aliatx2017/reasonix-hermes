@@ -1,9 +1,9 @@
-name: Deploy site
+name: Deploy Skills Hub
 
 on:
   push:
-    branches: [main-v2]
-    paths: ['site/**', '.github/workflows/pages.yml']
+    branches: [main]
+    paths: ['skills-hub/**', '.github/workflows/pages.yml']
   workflow_dispatch:
 
 permissions:
@@ -20,19 +20,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
-        with:
-          node-version: '22'
-          cache: npm
-          cache-dependency-path: site/package-lock.json
-      - name: Build
-        working-directory: site
+
+      - name: Prepare site
         run: |
-          npm ci
-          npm run build
+          mkdir -p dist
+          cp skills-hub/site/index.html dist/
+          cp skills-hub/registry.json dist/
+
       - uses: actions/upload-pages-artifact@v5
         with:
-          path: site/dist
+          path: dist
 
   deploy:
     needs: build

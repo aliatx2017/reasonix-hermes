@@ -27,6 +27,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"reasonix/internal/netclient"
 )
 
 // hookPayload mirrors the structure passed by the upstream hook.Runner.
@@ -150,7 +152,7 @@ func postJSON(url, key string, timeout time.Duration, body []byte) error {
 		req.Header.Set("Authorization", "Bearer "+key)
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := netclient.DefaultClient().Do(req)
 	if err != nil {
 		return fmt.Errorf("post to %s: %w", url, err)
 	}

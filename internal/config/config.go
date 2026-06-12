@@ -229,12 +229,12 @@ func (c CodegraphConfig) ResolvedTier() string {
 	return "background"
 }
 
-// BotConfig 控制多渠道 IM bot 消息网关。
+// BotConfig controls the multi-channel IM bot message gateway.
 type BotConfig struct {
 	Enabled     bool                  `toml:"enabled"`
-	Model       string                `toml:"model"` // 用于 bot 的模型名，空则用 default_model
+	Model       string                `toml:"model"`       // model name for bot responses; empty uses default_model
 	MaxSteps    int                   `toml:"max_steps"`
-	DebounceMs  int                   `toml:"debounce_ms"` // 消息合并窗口，毫秒
+	DebounceMs  int                   `toml:"debounce_ms"` // message merge window in milliseconds
 	Allowlist   BotAllowlist          `toml:"allowlist"`
 	QQ          QQBotConfig           `toml:"qq"`
 	Feishu      FeishuBotConfig       `toml:"feishu"`
@@ -243,7 +243,7 @@ type BotConfig struct {
 	Connections []BotConnectionConfig `toml:"connections"`
 }
 
-// BotAllowlist 控制哪些用户可以使用 bot。
+// BotAllowlist controls which users may use the bot.
 type BotAllowlist struct {
 	Enabled       bool     `toml:"enabled"`
 	AllowAll      bool     `toml:"allow_all"`
@@ -257,40 +257,40 @@ type BotAllowlist struct {
 	DiscordGroups []string `toml:"discord_groups"`
 }
 
-// QQBotConfig QQ 官方 Bot API v2 配置。
+// QQBotConfig configures the QQ Official Bot API v2.
 type QQBotConfig struct {
 	Enabled      bool   `toml:"enabled"`
 	AppID        string `toml:"app_id"`
-	AppSecretEnv string `toml:"app_secret_env"` // 环境变量名，如 QQ_BOT_APP_SECRET
+	AppSecretEnv string `toml:"app_secret_env"` // env var name, e.g. QQ_BOT_APP_SECRET
 }
 
-// FeishuBotConfig 飞书自建应用 Bot 配置。
+// FeishuBotConfig configures a Feishu custom app bot.
 type FeishuBotConfig struct {
 	Enabled           bool   `toml:"enabled"`
-	Domain            string `toml:"domain"` // feishu（默认）| lark
+	Domain            string `toml:"domain"`              // feishu (default) | lark
 	AppID             string `toml:"app_id"`
-	AppSecretEnv      string `toml:"app_secret_env"`     // 如 FEISHU_BOT_APP_SECRET
-	VerificationToken string `toml:"verification_token"` // 事件订阅验证 token
-	Mode              string `toml:"mode"`               // webhook（默认）| websocket
-	WebhookPort       int    `toml:"webhook_port"`       // webhook 模式端口
+	AppSecretEnv      string `toml:"app_secret_env"`     // e.g. FEISHU_BOT_APP_SECRET
+	VerificationToken string `toml:"verification_token"` // event subscription verification token
+	Mode              string `toml:"mode"`               // webhook (default) | websocket
+	WebhookPort       int    `toml:"webhook_port"`       // webhook mode listen port
 	RequireMention    bool   `toml:"require_mention"`
 }
 
-// WeixinBotConfig 微信 iLink Bot 配置。
+// WeixinBotConfig configures a WeChat iLink bot.
 type WeixinBotConfig struct {
 	Enabled   bool   `toml:"enabled"`
 	AccountID string `toml:"account_id"`
-	TokenEnv  string `toml:"token_env"` // 环境变量名，如 WEIXIN_BOT_TOKEN
+	TokenEnv  string `toml:"token_env"` // env var name, e.g. WEIXIN_BOT_TOKEN
 	APIBase   string `toml:"api_base"`  // iLink API base URL
 }
 
-// DiscordBotConfig Discord Bot 配置。
+// DiscordBotConfig configures a Discord bot.
 type DiscordBotConfig struct {
 	Enabled   bool   `toml:"enabled"`
-	TokenEnv  string `toml:"token_env"`  // 环境变量名，如 DISCORD_BOT_TOKEN
-	ServerID  string `toml:"server_id"`  // 目标 Guild ID（可选）
-	ChannelID string `toml:"channel_id"` // 限制到单个频道（可选；空=所有频道）
-	AllowDMs  bool   `toml:"allow_dms"`  // 响应 DM（默认 true）
+	TokenEnv  string `toml:"token_env"`  // env var name, e.g. DISCORD_BOT_TOKEN
+	ServerID  string `toml:"server_id"`  // target guild ID (optional)
+	ChannelID string `toml:"channel_id"` // restrict to single channel (optional; empty = all channels)
+	AllowDMs  bool   `toml:"allow_dms"`  // respond to DMs (default true)
 }
 
 // BotConnectionConfig is the desktop-friendly connection record for IM bot

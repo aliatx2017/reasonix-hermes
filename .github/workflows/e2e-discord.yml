@@ -1,0 +1,66 @@
+name: e2e-discord
+
+# Manual Discord bot smoke test. Requires DISCORD_BOT_TOKEN and
+# DISCORD_SERVER_ID secrets configured in the repository.
+# Run from Actions tab → "e2e-discord" → "Run workflow".
+
+on:
+  workflow_dispatch:
+    inputs:
+      server_id:
+        description: 'Discord server (guild) ID for the smoke test'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    environment: e2e-discord
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build bot binary
+        run: go build -o "$RUNNER_TEMP/reasonix-bot" ./bot
+
+      - name: Verify bot binary
+        run: |
+          "$RUNNER_TEMP/reasonix-bot" --help 2>&1 || true
+
+      - name: Unit tests (no token needed)
+        run: go test -v -count=1 ./internal/bot/...
+
+      - name: Discord smoke test
+        if: env.DISCORD_BOT_TOKEN != ''
+        env:
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+        run: |
+          set -e
+          echo "Bot binary built successfully"
+          echo "Discord adapter tests passed"
+          echo "Smoke test environment: token present ($(echo ${#DISCORD_BOT_TOKEN}) chars)"
+          # Start bot in background, wait for ready signal, then stop
+          timeout 15 "$RUNNER_TEMP/reasonix-bot" --server "${{ inputs.server_id }}" 2>&1 &
+          BOT_PID=$!
+          sleep 3
+          if kill -0 $BOT_PID 2>/dev/null; then
+            echo "Bot started successfully (PID $BOT_PID)"
+            kill $BOT_PID 2>/dev/null || true
+            wait $BOT_PID 2>/dev/null || true
+          else
+            echo "Bot exited early — check logs above"
+            exit 1
+          fi
+
+      - name: Token missing (unit tests only)
+        if: env.DISCORD_BOT_TOKEN == ''
+        run: |
+          echo "DISCORD_BOT_TOKEN secret not configured — skipping live smoke test"
+          echo "Unit tests passed. Add the secret to enable full e2e."

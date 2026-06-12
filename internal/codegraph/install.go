@@ -15,6 +15,8 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"reasonix/internal/netclient"
 )
 
 const (
@@ -89,14 +91,14 @@ func assetName() string {
 // atomically renamed into place, so a cancelled or failed run leaves no partial
 // install behind.
 func Install(ctx context.Context, log func(string)) (string, error) {
-	return InstallWithClient(ctx, http.DefaultClient, log)
+	return InstallWithClient(ctx, netclient.DefaultClient(), log)
 }
 
 // InstallWithClient is Install with an explicit HTTP client, used when Reasonix
 // network proxy settings should apply.
 func InstallWithClient(ctx context.Context, client *http.Client, log func(string)) (string, error) {
 	if client == nil {
-		client = http.DefaultClient
+		client = netclient.DefaultClient()
 	}
 	if p, ok := cached(); ok {
 		return p, nil

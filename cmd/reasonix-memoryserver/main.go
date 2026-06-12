@@ -3,7 +3,7 @@
 //
 // Usage:
 //
-//	go run ./pkg/memoryserver [--http] [--port 8080]
+//	go run ./cmd/reasonix-memoryserver [--http] [--port 8080]
 //
 // Can be connected to Reasonix as an MCP plugin (stdio or HTTP).
 package main
@@ -562,9 +562,11 @@ func main() {
 
 	var store *MemoryStore
 	var err error
+	var ss *sqliteStorage
 	switch backend {
 	case "sqlite":
-		ss, sErr := newSQLiteStorage(storeDir)
+		var sErr error
+		ss, sErr = newSQLiteStorage(storeDir)
 		if sErr != nil {
 			log.Fatalf("Failed to create sqlite storage: %v", sErr)
 		}
@@ -574,6 +576,9 @@ func main() {
 	}
 	if err != nil {
 		log.Fatalf("Failed to create memory store: %v", err)
+	}
+	if ss != nil {
+		defer ss.Close()
 	}
 	store.Tidy() // clean up expired entries on startup
 

@@ -69,10 +69,20 @@ func (s *sqliteStorage) Load() ([]MemoryEntry, error) {
 			&createdAtStr, &e.AccessCount, &e.TTL, &expiresAtStr, &e.Importance, &vectorJSON); err != nil {
 			return nil, err
 		}
-		json.Unmarshal([]byte(tagsJSON), &e.Tags)
-		json.Unmarshal([]byte(vectorJSON), &e.Vector)
-		e.CreatedAt, _ = time.Parse(time.RFC3339, createdAtStr)
-		e.ExpiresAt, _ = time.Parse(time.RFC3339, expiresAtStr)
+		if err := json.Unmarshal([]byte(tagsJSON), &e.Tags); err != nil {
+			e.Tags = nil
+		}
+		if err := json.Unmarshal([]byte(vectorJSON), &e.Vector); err != nil {
+			e.Vector = nil
+		}
+		if t, err := time.Parse(time.RFC3339, createdAtStr); err == nil {
+			e.CreatedAt = t
+		} else {
+			e.CreatedAt = time.Now()
+		}
+		if t, err := time.Parse(time.RFC3339, expiresAtStr); err == nil {
+			e.ExpiresAt = t
+		}
 		entries = append(entries, e)
 	}
 	return entries, rows.Err()
@@ -85,20 +95,25 @@ func (s *sqliteStorage) Save(entries []MemoryEntry) error {
 	}
 	defer tx.Rollback()
 
-	// Clear and re-insert (simple; replace with upsert for large datasets)
-	if _, err := tx.Exec(`DELETE FROM memories`); err != nil {
-		return err
-	}
-
-	stmt, err := tx.Prepare(`INSERT INTO memories (id, session_id, content, tags, created_at, access_count, ttl_ns, expires_at, importance, vector) VALUES (?,?,?,?,?,?,?,?,?,?)`)
+	// Use INSERT OR REPLACE so each entry is its own atomic upsert.
+	// The id column has a PRIMARY KEY constraint — INSERT OR REPLACE
+	// deletes the old row and inserts the new one in a single step,
+	// avoiding the DELETE-all-then-reinsert race window.
+	stmt, err := tx.Prepare(`INSERT OR REPLACE INTO memories (id, session_id, content, tags, created_at, access_count, ttl_ns, expires_at, importance, vector) VALUES (?,?,?,?,?,?,?,?,?,?)`)
 	if err != nil {
 		return err
 	}
 	defer stmt.Close()
 
 	for _, e := range entries {
-		tagsJSON, _ := json.Marshal(e.Tags)
-		vectorJSON, _ := json.Marshal(e.Vector)
+		tagsJSON, err := json.Marshal(e.Tags)
+		if err != nil {
+			tagsJSON = []byte("[]")
+		}
+		vectorJSON, err := json.Marshal(e.Vector)
+		if err != nil {
+			vectorJSON = []byte("{}")
+		}
 		createdAt := e.CreatedAt.Format(time.RFC3339)
 		expiresAt := ""
 		if !e.ExpiresAt.IsZero() {
@@ -122,13 +137,13 @@ func (s *sqliteStorage) Search(query, sessionID string, tags []string, limit int
 		args = append(args, sessionID)
 	}
 	if query != "" {
-		conditions = append(conditions, "(content LIKE ? OR tags LIKE ?)")
-		like := "%" + query + "%"
+		conditions = append(conditions, "(content LIKE ? ESCAPE '\\' OR tags LIKE ? ESCAPE '\\')")
+		like := "%" + escapeLikeWildcards(query) + "%"
 		args = append(args, like, like)
 	}
 	for _, tag := range tags {
-		conditions = append(conditions, "tags LIKE ?")
-		args = append(args, "%\""+tag+"\"%")
+		conditions = append(conditions, "tags LIKE ? ESCAPE '\\'")
+		args = append(args, "%\""+escapeLikeWildcards(tag)+"\"%")
 	}
 
 	where := ""
@@ -153,13 +168,33 @@ func (s *sqliteStorage) Search(query, sessionID string, tags []string, limit int
 			&createdAtStr, &e.AccessCount, &e.TTL, &expiresAtStr, &e.Importance, &vectorJSON); err != nil {
 			return nil, err
 		}
-		json.Unmarshal([]byte(tagsJSON), &e.Tags)
-		json.Unmarshal([]byte(vectorJSON), &e.Vector)
-		e.CreatedAt, _ = time.Parse(time.RFC3339, createdAtStr)
-		e.ExpiresAt, _ = time.Parse(time.RFC3339, expiresAtStr)
+		if err := json.Unmarshal([]byte(tagsJSON), &e.Tags); err != nil {
+			e.Tags = nil
+		}
+		if err := json.Unmarshal([]byte(vectorJSON), &e.Vector); err != nil {
+			e.Vector = nil
+		}
+		if t, err := time.Parse(time.RFC3339, createdAtStr); err == nil {
+			e.CreatedAt = t
+		} else {
+			e.CreatedAt = time.Now()
+		}
+		if t, err := time.Parse(time.RFC3339, expiresAtStr); err == nil {
+			e.ExpiresAt = t
+		}
 		entries = append(entries, e)
 	}
 	return entries, rows.Err()
+}
+
+// escapeLikeWildcards escapes '%', '_', and '\' in a string so it is treated
+// as a literal value when embedded in a LIKE pattern that uses '\' as the
+// ESCAPE character.
+func escapeLikeWildcards(s string) string {
+	s = strings.ReplaceAll(s, `\`, `\\`)
+	s = strings.ReplaceAll(s, `%`, `\%`)
+	s = strings.ReplaceAll(s, `_`, `\_`)
+	return s
 }
 
 // Close releases the database connection.

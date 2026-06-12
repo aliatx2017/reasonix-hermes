@@ -1,0 +1,49 @@
+{
+  "name": "reasonix-hermes",
+  "version": "1.0.0",
+  "description": "Hermes curated skill pack — 17 community skills for Reasonix AI coding agent",
+  "homepage": "https://aliatx2017.github.io/reasonix-hermes/",
+  "repository": "https://github.com/aliatx2017/reasonix-hermes",
+  "skills": 17,
+  "categories": [
+    "architecture",
+    "collaboration",
+    "database",
+    "debugging",
+    "devops",
+    "documentation",
+    "exploration",
+    "frontend",
+    "git",
+    "migration",
+    "performance",
+    "quality",
+    "refactoring",
+    "research",
+    "security",
+    "testing"
+  ],
+  "install": {
+    "via_install_source": "reasonix install-source install --source https://github.com/aliatx2017/reasonix-hermes/tree/main/skills-hub/skills",
+    "via_script": "bash scripts/install-skills.sh"
+  },
+  "skills_list": [
+    "adversarial-review",
+    "api-design",
+    "ci-cd-helper",
+    "code-review",
+    "council",
+    "database-helper",
+    "debugger",
+    "deep-research",
+    "documentation",
+    "explore",
+    "frontend-builder",
+    "git-commit",
+    "migration-assistant",
+    "performance-profiler",
+    "refactoring",
+    "security-audit",
+    "test-generator"
+  ]
+}
