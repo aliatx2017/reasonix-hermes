@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
-	"time"
 
 	"reasonix/internal/control"
 	"reasonix/internal/event"
@@ -31,7 +30,6 @@ type renderSink struct {
 	thinking   strings.Builder
 	inThinking bool
 	toolNames  map[string]string // tool ID -> name
-	lastFlush  time.Time
 }
 
 func newRenderSink(ctx context.Context, adapter Adapter, connID, domain, chatID string, chatType ChatType, userID string, replyTo string, logger *slog.Logger, onApproval func(event.Approval), onAsk func(event.Ask)) *renderSink {
@@ -48,7 +46,6 @@ func newRenderSink(ctx context.Context, adapter Adapter, connID, domain, chatID 
 		onApproval: onApproval,
 		onAsk:      onAsk,
 		toolNames:  make(map[string]string),
-		lastFlush:  time.Now(),
 	}
 }
 
@@ -71,7 +68,6 @@ func (s *renderSink) Emit(e event.Event) {
 			s.inThinking = false
 		}
 		s.buf.WriteString(e.Text)
-		s.maybeFlush()
 
 	case event.Message:
 		// full message received, do nothing extra
@@ -83,7 +79,6 @@ func (s *renderSink) Emit(e event.Event) {
 			txt += " (read-only)"
 		}
 		s.buf.WriteString(txt)
-		s.maybeFlush()
 
 	case event.ToolResult:
 		name := s.toolNames[e.Tool.ID]
@@ -103,11 +98,8 @@ func (s *renderSink) Emit(e event.Event) {
 				fmt.Fprintf(&s.buf, "\n```\n%s\n```", output)
 			}
 		}
-		s.maybeFlush()
 
 	case event.ToolProgress:
-		// 流式输出，不单独渲染
-		s.maybeFlush()
 
 	case event.ApprovalRequest:
 		// 发送审批请求
@@ -191,12 +183,6 @@ func (s *renderSink) Emit(e event.Event) {
 	}
 }
 
-func (s *renderSink) maybeFlush() {
-	if time.Since(s.lastFlush) > 500*time.Millisecond {
-		s.flush()
-	}
-}
-
 func (s *renderSink) flush() {
 	text := strings.TrimSpace(s.buf.String())
 	if text == "" {
@@ -211,7 +197,6 @@ func (s *renderSink) flush() {
 		ReplyToMsgID: s.replyTo,
 	})
 	s.buf.Reset()
-	s.lastFlush = time.Now()
 }
 
 func (s *renderSink) send(msg OutboundMessage) error {
