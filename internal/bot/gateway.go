@@ -527,9 +527,9 @@ func (gw *BotGateway) handleSlashCommand(ctx context.Context, adapter Adapter, k
 		if ok && state.ctrl != nil {
 			state.ctrl.Approve(parts[1], true, false, false)
 			gw.forgetPendingApproval(key, parts[1])
-			_ = gw.sendText(ctx, adapter, msg, "已批准。")
+			_ = gw.sendText(ctx, adapter, msg, "Approved.")
 		} else {
-			_ = gw.sendText(ctx, adapter, msg, "没有找到当前会话中的待审批操作，请重新触发一次操作。")
+			_ = gw.sendText(ctx, adapter, msg, "No pending approval in the current session. Trigger an action first.")
 		}
 
 	case strings.HasPrefix(msg.Text, "/deny"):
@@ -544,9 +544,9 @@ func (gw *BotGateway) handleSlashCommand(ctx context.Context, adapter Adapter, k
 		if ok && state.ctrl != nil {
 			state.ctrl.Approve(parts[1], false, false, false)
 			gw.forgetPendingApproval(key, parts[1])
-			_ = gw.sendText(ctx, adapter, msg, "已拒绝。")
+			_ = gw.sendText(ctx, adapter, msg, "Denied.")
 		} else {
-			_ = gw.sendText(ctx, adapter, msg, "没有找到当前会话中的待审批操作，请重新触发一次操作。")
+			_ = gw.sendText(ctx, adapter, msg, "No pending approval in the current session. Trigger an action first.")
 		}
 
 	case strings.HasPrefix(msg.Text, "/answer"):
@@ -573,12 +573,12 @@ func (gw *BotGateway) handleSlashCommand(ctx context.Context, adapter Adapter, k
 		}
 		gw.mu.Unlock()
 		if !ok || state.ctrl == nil {
-			_ = gw.sendText(ctx, adapter, msg, "没有找到当前会话。")
+			_ = gw.sendText(ctx, adapter, msg, "No active session found.")
 			return
 		}
 		answers := parseAskAnswers(questions, rawAnswer)
 		state.ctrl.AnswerQuestion(askID, answers)
-		_ = gw.sendText(ctx, adapter, msg, "已提交回答。")
+		_ = gw.sendText(ctx, adapter, msg, "Answer submitted.")
 
 	case strings.HasPrefix(msg.Text, "/yolo") || strings.HasPrefix(msg.Text, "/mode"):
 		mode, statusOnly, ok := parseToolApprovalModeCommand(msg.Text)
@@ -593,7 +593,7 @@ func (gw *BotGateway) handleSlashCommand(ctx context.Context, adapter Adapter, k
 		persistErr := gw.setToolApprovalModeForMessage(key, msg, mode)
 		text := toolApprovalModeChangedText(mode)
 		if persistErr != nil {
-			text += "\n当前会话已生效，但保存到设置失败：" + persistErr.Error()
+			text += "\nSession active, but failed to save setting: " + persistErr.Error()
 		}
 		_ = gw.sendText(ctx, adapter, msg, text)
 
@@ -722,11 +722,11 @@ func (gw *BotGateway) toolApprovalModeStatusText(key string, msg InboundMessage)
 func toolApprovalModeChangedText(mode string) string {
 	switch normalizeBotToolApprovalMode(mode) {
 	case control.ToolApprovalYolo:
-		return "已开启 YOLO：普通工具审批将自动放行；Ask 问题和计划批准仍会等待确认。"
+		return "YOLO mode enabled: tool approvals are auto-allowed. Ask questions and plan approvals still require confirmation."
 	case control.ToolApprovalAuto:
-		return "已切换为自动模式：策略允许的工具会自动放行，仍保留需要询问或拒绝的规则。"
+		return "Switched to auto mode: allowed tools run without prompts; deny/ask rules still apply."
 	default:
-		return "已切回询问模式：工具执行前会请求确认。"
+		return "Switched to ask mode: tool execution requires confirmation."
 	}
 }
 
@@ -762,7 +762,7 @@ func (gw *BotGateway) runTurn(ctx context.Context, adapter Adapter, key string, 
 	// 获取或创建 Controller
 	state := gw.getOrCreateSession(ctx, key, msg)
 	if state == nil || state.ctrl == nil {
-		_ = gw.sendText(ctx, adapter, msg, "内部错误：无法创建会话。")
+		_ = gw.sendText(ctx, adapter, msg, "Internal error: could not create session.")
 		return
 	}
 

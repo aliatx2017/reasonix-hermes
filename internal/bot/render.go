@@ -96,7 +96,7 @@ func (s *renderSink) Emit(e event.Event) {
 			// 截断输出
 			output := e.Tool.Output
 			if len(output) > 500 {
-				output = output[:500] + "\n... (已截断)"
+				output = output[:500] + "\n... (truncated)"
 			}
 			fmt.Fprintf(&s.buf, "\n✅ %s 完成", name)
 			if output != "" {
@@ -185,7 +185,7 @@ func (s *renderSink) Emit(e event.Event) {
 			Domain:       s.domain,
 			ChatID:       s.chatID,
 			ChatType:     s.chatType,
-			Text:         "🔄 正在压缩上下文...",
+			Text: "🔄 Compacting context...",
 			ReplyToMsgID: s.replyTo,
 		})
 	}
@@ -256,7 +256,7 @@ func cardActionValue(command string, chatType ChatType, userID string) map[strin
 
 func renderAskText(ask event.Ask) string {
 	var qb strings.Builder
-	qb.WriteString("❓ 请回答以下问题:\n")
+	qb.WriteString("❓ Please answer the following questions:\n")
 	for i, q := range ask.Questions {
 		fmt.Fprintf(&qb, "\n**%d. %s**\n", i+1, q.Prompt)
 		for j, opt := range q.Options {
