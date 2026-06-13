@@ -514,7 +514,7 @@ func (gw *BotGateway) handleSlashCommand(ctx context.Context, adapter Adapter, k
 		gw.sessions.ForceRelease(key)
 		_ = gw.sendText(ctx, adapter, msg, "New session started.")
 
-	case strings.HasPrefix(msg.Text, "/approve"):
+	case strings.HasPrefix(msg.Text, "/approve") || strings.HasPrefix(msg.Text, "approve "):
 		// 从消息中解析 approval ID
 		parts := strings.Fields(msg.Text)
 		if len(parts) < 2 {
@@ -532,7 +532,7 @@ func (gw *BotGateway) handleSlashCommand(ctx context.Context, adapter Adapter, k
 			_ = gw.sendText(ctx, adapter, msg, "No pending approval in the current session. Trigger an action first.")
 		}
 
-	case strings.HasPrefix(msg.Text, "/deny"):
+	case strings.HasPrefix(msg.Text, "/deny") || strings.HasPrefix(msg.Text, "deny "):
 		parts := strings.Fields(msg.Text)
 		if len(parts) < 2 {
 			_ = gw.sendText(ctx, adapter, msg, "Usage: /deny <id>")
