@@ -745,7 +745,13 @@ func TestSaveToRoundTrips(t *testing.T) {
 }
 
 func TestSaveToScopesUserAndProjectFiles(t *testing.T) {
-	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	// Set HOME to a temp dir — os.UserConfigDir() respects HOME on both
+	// Linux ($HOME/.config) and macOS ($HOME/Library/Application Support).
+	// XDG_CONFIG_HOME is Linux-only.
+	tmpDir := t.TempDir()
+	t.Setenv("HOME", tmpDir)
+	// Unset XDG_CONFIG_HOME if present so HOME takes effect on Linux too.
+	t.Setenv("XDG_CONFIG_HOME", "")
 	c := Default()
 	c.Desktop.Theme = "dark"
 	c.Desktop.ThemeStyle = "graphite"
