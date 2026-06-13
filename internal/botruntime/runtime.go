@@ -101,6 +101,10 @@ func PlatformConfigured(cfg *config.Config, platform bot.Platform) bool {
 		if cfg.Bot.Weixin.Enabled {
 			return true
 		}
+	case bot.PlatformDiscord:
+		if cfg.Bot.Discord.Enabled {
+			return true
+		}
 	}
 	for _, conn := range cfg.Bot.Connections {
 		if conn.Enabled && bot.Platform(strings.TrimSpace(conn.Provider)) == platform {
@@ -286,7 +290,7 @@ func ModelName(cfg *config.Config, override string) string {
 }
 
 func AllowlistUserCount(a config.BotAllowlist) int {
-	return len(a.QQUsers) + len(a.FeishuUsers) + len(a.WeixinUsers)
+	return len(a.QQUsers) + len(a.FeishuUsers) + len(a.WeixinUsers) + len(a.DiscordUsers)
 }
 
 func NewRemoteRememberer(logger *slog.Logger) func(bot.InboundMessage) {
