@@ -32,8 +32,9 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 ## Notes
 
-- **Upstream synced**: `v1.6.1` merged (commit eb624ee, 2026-07-13). 47 commits total, 7 new upstream commits this session (sandbox nul, cold-resume, GSAP, compact sound, legacy migration x2). Zero conflicts.
+- **Upstream synced**: `v1.7.0` merged (commit f6d8cce, 2026-07-14). 55 commits total (47 prior + 8 new). 4 conflicts resolved (controller imports, example.toml alignment, bridge.ts Hermes bindings, GUIDE.md slash commands).
 - **Key v1.6.0 additions**: vision support (image downscaling + detail knob), built-in Time + Context7 MCP servers, configurable shell interpreter (`[tools.shell]`), notification sound system, token economy composer mode, desktop time filter + custom fonts + status bar customization + Windows ARM64, crash capture (Go panics/breadcrumbs/group summaries), lightweight local history + memory retrieval, Traditional Chinese (zh-TW) locale, updater resilience, agent fixes (decline-ask guard, compaction bounds), desktop hooks UI.
+- **Key v1.7.0 additions** (merged 2026-07-14): reasoning language settings (`agent.reasoning_language`), session ownership and state routing integration, checkpoint boundary corrections (optimistic rewind), enriched+memoized shell PATH for MCP stdio subprocesses, dropped phrase-matched approved-plan continuation, desktop golangci-lint CI, `SaveDocForTab` Wails binding.
 - **Language policy**: All Chinese comments translated to English in `internal/bot/` and `internal/config/` — SPEC §1 compliance restored. Upstream v1.6.0 still has some Chinese comments in IM bot code; these are upstream-authored and left as-is.
 - **Layout**: Executables moved from `pkg/` to `cmd/`: `pkg/mcpbridge/` → `cmd/reasonix-mcpbridge/`, `pkg/memoryserver/` → `cmd/reasonix-memoryserver/`.
 - **Bug fixes applied** (June 12, 2026):
@@ -98,7 +99,3 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 - [ ] **Discord bot integration test** — verify bot starts and responds via desktop gateway after runtime wiring.
 - [ ] **Sandbox Windows support** — investigate Windows Job Objects or Hyper-V containers.
-- [ ] **Desktop Hermes gold tray icon** — tint the tray icon with hermes gold when accent is active.
-- [ ] **Desktop Write Mode enhancements** — inline markdown preview side-by-side, file tabs, auto-save.
-- [ ] **CLI TUI `/stats` sparkline** — the Unicode token sparkline already works; consider per-provider cost breakdown.
-- [ ] **Memory graph D3 enhancements** — add vector similarity links, filter by type, click-to-inspect facts.
