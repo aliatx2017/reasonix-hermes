@@ -80,6 +80,21 @@ type chatTUI struct {
 	// blocking the event loop.
 	balance string
 
+	// sessionStart is when this chat session began (used for uptime display).
+	sessionStart time.Time
+	// sessionTurns counts completed model turns (incremented on TurnDone).
+	sessionTurns int
+	// sessionTokensIn accumulates prompt tokens across all turns.
+	sessionTokensIn int
+	// sessionTokensOut accumulates completion tokens across all turns.
+	sessionTokensOut int
+	// sessionCost accumulates estimated cost across all turns (in provider currency).
+	sessionCost float64
+	// sessionCostSymbol is the currency symbol for cost display (e.g. "¥").
+	sessionCostSymbol string
+	// showStats toggles the session stats panel via /stats.
+	showStats bool
+
 	// todoArgs is the latest todo_write call's raw args; it drives the task list
 	// pinned just above the input (see renderTodoPanel). "" when there's no list.
 	// Persists across turns until the work completes or a new session starts.
@@ -462,6 +477,7 @@ func newChatTUI(ctrl *control.Controller, missing string, eventCh chan event.Eve
 		nativeScrollback:     nativeScrollback,
 		input:                ti,
 		spinner:              sp,
+		sessionStart:         time.Now(),
 		submittedInputCursor: -1,
 		queueEditCursor:      -1,
 		nextPasteID:          1,
@@ -714,7 +730,7 @@ func (m chatTUI) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if !m.started {
 			m.started = true
 			var b strings.Builder
-			b.WriteString(renderTUIBanner(m.label, m.missing, msg.Width))
+			b.WriteString(renderHermesBanner(&m, msg.Width))
 			if len(m.history) > 0 {
 				r := newMarkdownRenderer(msg.Width)
 				for _, sec := range replaySectionsFor(m.history, msg.Width, r) {
@@ -2296,6 +2312,10 @@ func (m chatTUI) View() tea.View {
 		parts = append(parts, card)
 		rowsAboveBox += strings.Count(card, "\n") + 1
 	}
+	if card := m.renderStatsPanel(); card != "" {
+		parts = append(parts, card)
+		rowsAboveBox += strings.Count(card, "\n") + 1
+	}
 	if card := m.renderMCPImport(); card != "" {
 		parts = append(parts, card)
 		rowsAboveBox += strings.Count(card, "\n") + 1
@@ -2643,6 +2663,63 @@ func todoPanelWindow(todos []todoPanelTodo) (int, int) {
 		start = maxStart
 	}
 	return start, start + todoPanelMaxRows
+}
+
+// renderStatsPanel renders the session statistics panel when toggled via /stats.
+func (m chatTUI) renderStatsPanel() string {
+	if !m.showStats {
+		return ""
+	}
+	w := m.width
+	if w < 40 {
+		w = 40
+	}
+
+	var b strings.Builder
+	b.WriteString(accent("╔" + strings.Repeat("═", w-2) + "╗") + "\n")
+	b.WriteString(accent("║") + " " + bold("⚚ SESSION STATS") + strings.Repeat(" ", w-2-1-lipgloss.Width("⚚ SESSION STATS")) + accent("║") + "\n")
+	b.WriteString(accent("╠" + strings.Repeat("─", w-2) + "╣") + "\n")
+
+	msgs := m.ctrl.History()
+	row := func(label, value string) {
+		pad := w - 2 - 2 - lipgloss.Width(label) - lipgloss.Width(value)
+		if pad < 1 {
+			pad = 1
+		}
+		b.WriteString(accent("║") + " " + dim(label) + strings.Repeat(" ", pad) + value + " " + accent("║") + "\n")
+	}
+
+	row("Model", m.label)
+	row("Turns", strconv.Itoa(m.sessionTurns))
+	row("Messages", strconv.Itoa(len(msgs)))
+
+	uptime := time.Since(m.sessionStart).Round(time.Second)
+	row("Uptime", uptime.String())
+
+	tokTotal := m.sessionTokensIn + m.sessionTokensOut
+	row("Tokens", fmt.Sprintf("↓%s ↑%s = %s",
+		formatTokenCount(m.sessionTokensOut),
+		formatTokenCount(m.sessionTokensIn),
+		formatTokenCount(tokTotal)))
+
+	hit, miss := m.ctrl.SessionCache()
+	if hit+miss > 0 {
+		rate := float64(hit) * 100 / float64(hit+miss)
+		row("Cache", fmt.Sprintf("%.1f%% (%s hit / %s miss)",
+			rate, formatTokenCount(hit), formatTokenCount(miss)))
+	}
+
+	if m.sessionCost > 0 && m.sessionCostSymbol != "" {
+		row("Cost", m.sessionCostSymbol+fmt.Sprintf("%.4f", m.sessionCost))
+	}
+
+	if m.balance != "" {
+		row("Balance", m.balance)
+	}
+
+	b.WriteString(accent("╚" + strings.Repeat("═", w-2) + "╝"))
+
+	return b.String()
 }
 
 // truncateSubject trims a tool subject so the approval banner fits one line.
@@ -3335,6 +3412,12 @@ func (m *chatTUI) ingestEvent(e event.Event) {
 	case event.Usage:
 		if e.Usage != nil {
 			m.turnTokens += e.Usage.CompletionTokens
+			m.sessionTokensIn += e.Usage.PromptTokens
+			m.sessionTokensOut += e.Usage.CompletionTokens
+			if e.Pricing != nil {
+				m.sessionCost += e.Pricing.Cost(e.Usage)
+				m.sessionCostSymbol = e.Pricing.Symbol()
+			}
 		}
 		if line := agent.FormatUsageLine(e.Usage, e.Pricing, e.CacheDiagnostics); line != "" {
 			m.finalizeStreamed()
@@ -3395,6 +3478,7 @@ func (m *chatTUI) ingestEvent(e event.Event) {
 		// semantics.
 		m.commitReasoning()
 		m.commitPending()
+		m.sessionTurns++
 		// The bubble was echoed on Enter and an un-sent turn is swallowed above
 		// (turnDiscarded), so any turn reaching here keeps its bubble in scrollback;
 		// just clear the un-sendable flag.
@@ -3545,6 +3629,14 @@ func (m *chatTUI) runSlashCommand(input string) tea.Cmd {
 	case "/memory":
 		m.echoLocalCommand(input)
 		m.showMemory()
+	case "/stats":
+		m.echoLocalCommand(input)
+		m.showStats = !m.showStats
+		if m.showStats {
+			m.notice("stats panel shown — /stats to hide")
+		} else {
+			m.notice("stats panel hidden")
+		}
 	case "/goal":
 		return m.runGoalSubcommand(input)
 	case "/remember":
@@ -3802,8 +3894,110 @@ func replaySectionsFor(history []provider.Message, width int, renderer *mdRender
 	return out
 }
 
+// renderHermesBanner draws the Reasonix-Hermes branded header with ASCII art,
+// session info, and a compact stats line that updates live. The banner appears
+// once at session start; the stats line is refreshed on every render.
+func renderHermesBanner(m *chatTUI, width int) string {
+	w := width
+	if w < 50 {
+		w = 50
+	}
+	var b strings.Builder
+
+	// Top border — double-line for a heraldic look
+	b.WriteString(accent("╔" + strings.Repeat("═", w-2) + "╗") + "\n")
+
+	// Row 1: primary branding
+	nameLine := " ⚚  REASONIX-HERMES  ⚚"
+	pad := (w - 2 - lipgloss.Width(nameLine)) / 2
+	if pad < 0 {
+		pad = 0
+	}
+	b.WriteString(accent("║") + strings.Repeat(" ", pad) + bold(nameLine) + strings.Repeat(" ", w-2-pad-lipgloss.Width(nameLine)) + accent("║") + "\n")
+
+	// Row 2: subtitle — model + version
+	subtitle := fmt.Sprintf("the messenger agent  ·  %s  ·  v1.6.0", m.label)
+	spad := (w - 2 - lipgloss.Width(subtitle)) / 2
+	if spad < 0 {
+		spad = 0
+	}
+	b.WriteString(accent("║") + strings.Repeat(" ", spad) + dim(subtitle) + strings.Repeat(" ", w-2-spad-lipgloss.Width(subtitle)) + accent("║") + "\n")
+
+	// Missing key warning
+	if m.missing != "" {
+		warnLine := "  ! " + m.missing
+		b.WriteString(accent("║") + wrapForViewport(warnLine, w-2, activeCLITheme.warn) + accent("║") + "\n")
+	}
+
+	// Stats divider
+	b.WriteString(accent("╠" + strings.Repeat("═", w-2) + "╣") + "\n")
+
+	// Stats row
+	stats := m.renderStatsLine()
+	statPad := (w - 2 - lipgloss.Width(stats)) / 2
+	if statPad < 0 {
+		statPad = 0
+	}
+	b.WriteString(accent("║") + strings.Repeat(" ", statPad) + stats + strings.Repeat(" ", w-2-statPad-lipgloss.Width(stats)) + accent("║") + "\n")
+
+	// Bottom border
+	b.WriteString(accent("╚" + strings.Repeat("═", w-2) + "╝") + "\n")
+
+	return b.String()
+}
+
+// renderStatsLine composes a compact one-line session stats summary.
+func (m *chatTUI) renderStatsLine() string {
+	parts := []string{}
+
+	// Model
+	parts = append(parts, dim("model")+" "+m.label)
+
+	// Turns
+	parts = append(parts, dim("turns")+" "+strconv.Itoa(m.sessionTurns))
+
+	// Messages
+	msgs := m.ctrl.History()
+	parts = append(parts, dim("msgs")+" "+strconv.Itoa(len(msgs)))
+
+	// Tokens
+	tokIn := formatTokenCount(m.sessionTokensIn)
+	tokOut := formatTokenCount(m.sessionTokensOut)
+	parts = append(parts, dim("↓")+tokOut+" "+dim("↑")+tokIn)
+
+	// Cache
+	hit, miss := m.ctrl.SessionCache()
+	if hit+miss > 0 {
+		rate := float64(hit) * 100 / float64(hit+miss)
+		parts = append(parts, dim("cache")+" "+fmt.Sprintf("%.0f%%", rate))
+	}
+
+	// Cost
+	if m.sessionCost > 0 && m.sessionCostSymbol != "" {
+		parts = append(parts, dim("cost")+" "+m.sessionCostSymbol+fmt.Sprintf("%.4f", m.sessionCost))
+	}
+
+	// Uptime
+	uptime := time.Since(m.sessionStart).Round(time.Second)
+	parts = append(parts, dim("up")+" "+uptime.String())
+
+	return strings.Join(parts, "  "+dim("·")+"  ")
+}
+
+// formatTokenCount formats a token count with SI suffixes (K, M).
+func formatTokenCount(n int) string {
+	switch {
+	case n >= 1_000_000:
+		return fmt.Sprintf("%.1fM", float64(n)/1_000_000)
+	case n >= 1_000:
+		return fmt.Sprintf("%.1fK", float64(n)/1_000)
+	default:
+		return strconv.Itoa(n)
+	}
+}
+
 // renderTUIBanner is the title + tip + optional missing-key warning printed once
-// at the top of the session.
+// at the top of the session (kept as fallback for narrow terminals).
 func renderTUIBanner(label, missing string, width int) string {
 	var b strings.Builder
 	b.WriteString(accent("◆") + " " + bold("reasonix chat") + "  " + dim("· "+label) + "\n")
