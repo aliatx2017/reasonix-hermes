@@ -375,7 +375,10 @@ func (gw *BotGateway) normalizeApprovalShortcut(key, text string) (string, bool)
 }
 
 func approvalShortcutCommand(text string) (string, bool) {
-	switch strings.ToLower(strings.TrimSpace(text)) {
+	text = strings.ToLower(strings.TrimSpace(text))
+	// Strip trailing " 1" from "approve 1" so it matches "approve".
+	text = strings.TrimRight(text, " 0123456789")
+	switch text {
 	case "1", "y", "yes", "ok", "approve", "allow", "allow once":
 		return "/approve", true
 	case "2", "0", "n", "no", "deny":
