@@ -1,8 +1,9 @@
-import { FileText, Keyboard, Sliders, Zap } from "lucide-react";
+import { BookOpen, FileText, Keyboard, Sliders, Zap } from "lucide-react";
 import type { SettingsView, HotbarView, ProfileView } from "../../lib/types";
 import { CacheEconomyGauge } from "./CacheEconomyGauge";
 import { DiscordMonitor } from "./DiscordMonitor";
 import { GoalProgressWidget } from "./GoalProgressWidget";
+import { SkillsHubBrowser } from "./SkillsHubBrowser";
 
 interface HermesSettingsProps {
   s: SettingsView;
@@ -183,6 +184,21 @@ tool_approve_mode = "yolo"`}
             })}
           </div>
         )}
+      </section>
+
+      <hr style={{ margin: "24px 0", border: "none", borderTop: "1px solid var(--color-border)" }} />
+
+      {/* ═══════════ SKILLS HUB ═══════════ */}
+      <section className="settings-section">
+        <h3 className="settings-section__title">
+          <BookOpen size={16} style={{ marginRight: 6 }} />
+          Skills Hub
+        </h3>
+        <p className="settings-section__desc">
+          Browse our 17-skill community registry. Install via the command line or
+          use <code>/install</code> in chat.
+        </p>
+        <SkillsHubBrowser />
       </section>
 
       <hr style={{ margin: "24px 0", border: "none", borderTop: "1px solid var(--color-border)" }} />

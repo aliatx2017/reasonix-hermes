@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Activity, CircleDollarSign, CircleGauge, Database, Layers, Percent, RefreshCw, Wallet, Zap } from "lucide-react";
+import { Activity, Circle, CircleDollarSign, CircleGauge, Cpu, Database, Layers, MessageCircle, Percent, RefreshCw, Wallet, Zap } from "lucide-react";
 import { Tooltip } from "./Tooltip";
 import { useI18n, type Translator } from "../lib/i18n";
+import { app } from "../lib/bridge";
 import { formatMoney } from "../lib/money";
 import { normalizeStatusBarItems, type StatusBarItemId } from "../lib/statusBarItems";
-import { type BalanceInfo, type CollaborationMode, type ContextInfo, type JobView, type ToolApprovalMode, type WireUsage } from "../lib/types";
+import { type BalanceInfo, type BotLiveStatusView, type CacheEconomyView, type CollaborationMode, type ContextInfo, type JobView, type ToolApprovalMode, type WireUsage } from "../lib/types";
 
 type StatusBarLabelStyle = "icon" | "text";
 
@@ -285,6 +286,47 @@ export function StatusBar({
           <JobsChip jobs={jobsList} />
         </div>
       )}
+      <div className="statusbar__group statusbar__group--hermes" style={{ display: "flex", gap: 6, alignItems: "center" }}>
+        <DiscordMonitorCompact />
+        <CacheGaugeCompact />
+      </div>
     </div>
+  );
+}
+
+
+function DiscordMonitorCompact() {
+  const [status, setStatus] = useState<BotLiveStatusView | null>(null);
+  useEffect(() => {
+    const poll = () => { app.BotLiveStatus().then(setStatus).catch(() => {}); };
+    poll();
+    const id = setInterval(poll, 10000);
+    return () => clearInterval(id);
+  }, []);
+  if (!status || !status.running) return null;
+  return (
+    <span title={`Discord: ${status.status} · ${status.activeSessions} sessions`} style={{ display: "inline-flex", alignItems: "center", gap: 2, fontSize: 11, color: "var(--color-text-muted)" }}>
+      <MessageCircle size={11} />
+      <Circle size={5} fill="var(--color-green)" color="var(--color-green)" />
+      {status.activeSessions > 0 && status.activeSessions}
+    </span>
+  );
+}
+
+function CacheGaugeCompact() {
+  const [cache, setCache] = useState<CacheEconomyView | null>(null);
+  useEffect(() => {
+    const poll = () => { app.CacheEconomy().then(setCache).catch(() => {}); };
+    poll();
+    const id = setInterval(poll, 15000);
+    return () => clearInterval(id);
+  }, []);
+  if (!cache || cache.totalTokens === 0) return null;
+  const color = cache.hitRate >= 75 ? "var(--color-green)" : cache.hitRate >= 50 ? "var(--color-yellow)" : "var(--color-warn)";
+  return (
+    <span title={`Cache: ${cache.hitRate.toFixed(1)}% (${cache.hitTokens} hit / ${cache.totalTokens} total)`} style={{ display: "inline-flex", alignItems: "center", gap: 2, fontSize: 11, color }}>
+      <Cpu size={11} />
+      {cache.hitRate.toFixed(0)}%
+    </span>
   );
 }

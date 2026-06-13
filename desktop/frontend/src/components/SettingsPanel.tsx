@@ -30,6 +30,7 @@ import { MemorySettingsPage } from "./MemoryPanel";
 import { getGenerativePreset, setGenerativePreset, generativeMusic, type GenerativePreset } from "../lib/generative-music";
 import { SoundSelect } from "./SoundSelect";
 import { HermesSettings } from "./hermes/HermesSettings";
+import { useHermesLiveData } from "./hermes/useHermesLiveData";
 import { getSuccessPreference, setSuccessPreference, getAttentionPreference, setAttentionPreference, playSuccessChime, playAttentionChime, type SoundWavPref } from "../lib/sound";
 import { ModalCloseButton } from "./ModalCloseButton";
 
@@ -201,16 +202,7 @@ export function SettingsPanel({
                   </SettingsPageShell>
                 )}
                 {tab === "hermes" && s && (
-                  <SettingsPageShell key={tab} s={s} tab={tab} busy={false} apply={apply}>
-                    <HermesSettings
-                      s={s}
-                      onHotbarChange={() => {}}
-                      onProfileSelect={() => {}}
-                      cache={null}
-                      discord={null}
-                      goal={null}
-                    />
-                  </SettingsPageShell>
+                  <HermesLiveSection s={s} apply={apply} />
                 )}
               </>
             )}
@@ -4528,5 +4520,14 @@ function UpdatesSection({
         </Tooltip>
       )}
     </SettingsSection>
+  );
+}
+
+function HermesLiveSection({ s, apply }: { s: SettingsView; apply: (fn: () => Promise<void>) => Promise<void> }) {
+  const live = useHermesLiveData(undefined, true);
+  return (
+    <SettingsPageShell s={s} tab="hermes" busy={false} apply={apply}>
+      <HermesSettings s={s} onHotbarChange={() => {}} onProfileSelect={() => {}} cache={live.cache} discord={live.discord} goal={live.goal} />
+    </SettingsPageShell>
   );
 }
