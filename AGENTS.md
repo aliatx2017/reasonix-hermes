@@ -121,6 +121,8 @@ skills-hub/            17-skill community registry + static catalog site
 - Discord bot must use `control.Controller` like every other frontend — not inline chat history
 - **Tests**: 228 tests across 7 packages. `go test ./cmd/... ./pkg/... ./internal/bot/...`
 - **CodeWhale features** (10/10 done, 2026-07-04): Shell env hooks, parallel sub-agent batch dispatch, completion sound, harness profiles, constitution system, workshop sidecar, desktop hotbar, external sandbox, Nix flake, Dockerfile.
+- **CI & tooling** (2026-07-06): `biome format` check on desktop frontend (105 files), `wails build` CI job, `taplo` TOML lint (CI + pre-commit hook), Go `go-version-file: go.mod` (toolchain 1.26.4), 7-job Hermes CI pipeline all-green.
+- **Bug fixes** (2026-07-06): duplicate `price` key in `reasonix.example.toml`, data race in `mockProvider.Stream()`, `TestSaveToScopes` cross-platform fix.
 - **New packages**: `internal/constitution/` (structured project invariants from `.reasonix/constitution.json`)
 - **New files**: `flake.nix`, `Dockerfile`, `.dockerignore`, `internal/sandbox/remote.go`
 - **Config additions**: `[notifications].sound`, `active_profile`, `[profiles.<name>]` blocks, `[sandbox].remote_sandbox_url`, `[sandbox].remote_sandbox_token`
