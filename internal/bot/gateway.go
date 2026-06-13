@@ -279,7 +279,7 @@ func (gw *BotGateway) handleMessage(ctx context.Context, binding AdapterBinding,
 	// allowlist 检查
 	if !gw.checkAllowlist(binding.Platform, msg) {
 		gw.logger.Info("user not in allowlist", "platform", binding.Platform, "connection", msg.ConnectionID, "user", hashID(msg.UserID))
-		_ = gw.sendText(ctx, binding.Adapter, msg, "抱歉，您没有使用此 bot 的权限。")
+		_ = gw.sendText(ctx, binding.Adapter, msg, "You are not authorized to use this bot.")
 		return
 	}
 	if gw.cfg.OnInbound != nil {
@@ -291,7 +291,7 @@ func (gw *BotGateway) handleMessage(ctx context.Context, binding AdapterBinding,
 	} else if normalized, ok := gw.normalizeAskShortcut(key, msg.Text); ok {
 		msg.Text = normalized
 	} else if _, ok := decisionShortcutCommand(msg.Text); ok && gw.sessions.IsActive(key) {
-		_ = gw.sendText(ctx, binding.Adapter, msg, "没有找到可匹配的待处理操作。请重新触发一次操作后回复编号，或按消息中的 ID 使用 /approve、/deny 或 /answer。")
+		_ = gw.sendText(ctx, binding.Adapter, msg, "No pending action found. Trigger an action first, then reply with the number, or use /approve, /deny, or /answer with the message ID.")
 		return
 	}
 
@@ -376,9 +376,9 @@ func (gw *BotGateway) normalizeApprovalShortcut(key, text string) (string, bool)
 
 func approvalShortcutCommand(text string) (string, bool) {
 	switch strings.ToLower(strings.TrimSpace(text)) {
-	case "1", "y", "yes", "ok", "同意", "批准", "允许", "允许一次":
+	case "1", "y", "yes", "ok", "approve", "allow", "allow once":
 		return "/approve", true
-	case "2", "0", "n", "no", "deny", "拒绝":
+	case "2", "0", "n", "no", "deny":
 		return "/deny", true
 	default:
 		return "", false
@@ -497,7 +497,7 @@ func (gw *BotGateway) handleSlashCommand(ctx context.Context, adapter Adapter, k
 			state.cancel()
 		}
 		gw.sessions.ForceRelease(key)
-		_ = gw.sendText(ctx, adapter, msg, "已停止当前任务。")
+		_ = gw.sendText(ctx, adapter, msg, "Task stopped.")
 
 	case strings.HasPrefix(msg.Text, "/new") || strings.HasPrefix(msg.Text, "/reset"):
 		gw.mu.Lock()
@@ -512,13 +512,13 @@ func (gw *BotGateway) handleSlashCommand(ctx context.Context, adapter Adapter, k
 			}
 		}
 		gw.sessions.ForceRelease(key)
-		_ = gw.sendText(ctx, adapter, msg, "已开始新会话。")
+		_ = gw.sendText(ctx, adapter, msg, "New session started.")
 
 	case strings.HasPrefix(msg.Text, "/approve"):
 		// 从消息中解析 approval ID
 		parts := strings.Fields(msg.Text)
 		if len(parts) < 2 {
-			_ = gw.sendText(ctx, adapter, msg, "用法: /approve <id>")
+			_ = gw.sendText(ctx, adapter, msg, "Usage: /approve <id>")
 			return
 		}
 		gw.mu.Lock()
@@ -535,7 +535,7 @@ func (gw *BotGateway) handleSlashCommand(ctx context.Context, adapter Adapter, k
 	case strings.HasPrefix(msg.Text, "/deny"):
 		parts := strings.Fields(msg.Text)
 		if len(parts) < 2 {
-			_ = gw.sendText(ctx, adapter, msg, "用法: /deny <id>")
+			_ = gw.sendText(ctx, adapter, msg, "Usage: /deny <id>")
 			return
 		}
 		gw.mu.Lock()
@@ -552,7 +552,7 @@ func (gw *BotGateway) handleSlashCommand(ctx context.Context, adapter Adapter, k
 	case strings.HasPrefix(msg.Text, "/answer"):
 		parts := strings.Fields(msg.Text)
 		if len(parts) < 3 {
-			_ = gw.sendText(ctx, adapter, msg, "用法: /answer <id> <选项或 q1=选项;q2=选项>")
+			_ = gw.sendText(ctx, adapter, msg, "Usage: /answer <id> <option or q1=opt;q2=opt>")
 			return
 		}
 		askID := parts[1]
@@ -583,7 +583,7 @@ func (gw *BotGateway) handleSlashCommand(ctx context.Context, adapter Adapter, k
 	case strings.HasPrefix(msg.Text, "/yolo") || strings.HasPrefix(msg.Text, "/mode"):
 		mode, statusOnly, ok := parseToolApprovalModeCommand(msg.Text)
 		if !ok {
-			_ = gw.sendText(ctx, adapter, msg, "用法: /yolo on|off|auto|status，或 /mode yolo|ask|auto")
+			_ = gw.sendText(ctx, adapter, msg, "Usage: /yolo on|off|auto|status, or /mode yolo|ask|auto")
 			return
 		}
 		if statusOnly {
@@ -603,20 +603,20 @@ func (gw *BotGateway) handleSlashCommand(ctx context.Context, adapter Adapter, k
 		sessions := len(gw.controllers)
 		gw.mu.Unlock()
 		mode := gw.currentToolApprovalMode(key, msg)
-		_ = gw.sendText(ctx, adapter, msg, fmt.Sprintf("活跃任务数: %d\n保留会话数: %d\n工具审批模式: %s", active, sessions, toolApprovalModeLabel(mode)))
+		_ = gw.sendText(ctx, adapter, msg, fmt.Sprintf("Active tasks: %d\nSessions retained: %d\nTool approval mode: %s", active, sessions, toolApprovalModeLabel(mode)))
 
 	case strings.HasPrefix(msg.Text, "/help"):
-		help := "可用命令:\n" +
-			"/stop - 停止当前任务\n" +
-			"/new - 开始新会话\n" +
-			"/reset - 重置会话\n" +
-			"/approve <id> - 批准操作\n" +
-			"/deny <id> - 拒绝操作\n" +
-			"/answer <id> <选项> - 回答 ask 问题\n" +
-			"/yolo on|off|auto|status - 切换或查看工具审批模式\n" +
-			"/mode yolo|ask|auto - 切换工具审批模式\n" +
-			"/status - 查看状态\n" +
-			"/help - 显示帮助"
+		help := "Available commands:\n" +
+			"/stop - stop current task\n" +
+			"/new - start new session\n" +
+			"/reset - reset session\n" +
+			"/approve <id> - approve action\n" +
+			"/deny <id> - deny action\n" +
+			"/answer <id> <option> - answer ask question\n" +
+			"/yolo on|off|auto|status - toggle/view tool approval mode\n" +
+			"/mode yolo|ask|auto - switch tool approval mode\n" +
+			"/status - view status\n" +
+			"/help - show help"
 		_ = gw.sendText(ctx, adapter, msg, help)
 	}
 }
@@ -645,13 +645,13 @@ func parseToolApprovalModeCommand(text string) (mode string, statusOnly bool, ok
 
 func parseToolApprovalModeArg(arg string) (mode string, statusOnly bool, ok bool) {
 	switch strings.ToLower(strings.TrimSpace(arg)) {
-	case "status", "state", "show", "状态", "查看":
+	case "status", "state", "show":
 		return "", true, true
-	case "on", "enable", "enabled", "true", "1", "yolo", "full", "full-access", "bypass", "开启", "打开":
+	case "on", "enable", "enabled", "true", "1", "yolo", "full", "full-access", "bypass":
 		return control.ToolApprovalYolo, false, true
-	case "off", "disable", "disabled", "false", "0", "ask", "询问", "关闭":
+	case "off", "disable", "disabled", "false", "0", "ask":
 		return control.ToolApprovalAsk, false, true
-	case "auto", "自动":
+	case "auto":
 		return control.ToolApprovalAuto, false, true
 	default:
 		return "", false, false
@@ -716,7 +716,7 @@ func (gw *BotGateway) currentToolApprovalMode(key string, msg InboundMessage) st
 
 func (gw *BotGateway) toolApprovalModeStatusText(key string, msg InboundMessage) string {
 	mode := gw.currentToolApprovalMode(key, msg)
-	return fmt.Sprintf("当前工具审批模式：%s\n用法：/yolo on|off|auto|status，或 /mode yolo|ask|auto", toolApprovalModeLabel(mode))
+	return fmt.Sprintf("Current tool approval mode: %s\nUsage: /yolo on|off|auto|status, or /mode yolo|ask|auto", toolApprovalModeLabel(mode))
 }
 
 func toolApprovalModeChangedText(mode string) string {
@@ -735,9 +735,9 @@ func toolApprovalModeLabel(mode string) string {
 	case control.ToolApprovalYolo:
 		return "YOLO"
 	case control.ToolApprovalAuto:
-		return "自动"
+		return "auto"
 	default:
-		return "询问"
+		return "ask"
 	}
 }
 

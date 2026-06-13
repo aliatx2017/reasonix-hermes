@@ -78,9 +78,9 @@ func (s *renderSink) Emit(e event.Event) {
 
 	case event.ToolDispatch:
 		s.toolNames[e.Tool.ID] = e.Tool.Name
-		txt := fmt.Sprintf("\n🔧 执行工具: %s", e.Tool.Name)
+		txt := fmt.Sprintf("\n🔧 Running tool: %s", e.Tool.Name)
 		if e.Tool.ReadOnly {
-			txt += " (只读)"
+			txt += " (read-only)"
 		}
 		s.buf.WriteString(txt)
 		s.maybeFlush()
@@ -91,14 +91,14 @@ func (s *renderSink) Emit(e event.Event) {
 			name = e.Tool.ID
 		}
 		if e.Tool.Err != "" {
-			fmt.Fprintf(&s.buf, "\n❌ %s 出错: %s", name, e.Tool.Err)
+			fmt.Fprintf(&s.buf, "\n❌ %s error: %s", name, e.Tool.Err)
 		} else {
 			// 截断输出
 			output := e.Tool.Output
 			if len(output) > 500 {
 				output = output[:500] + "\n... (truncated)"
 			}
-			fmt.Fprintf(&s.buf, "\n✅ %s 完成", name)
+			fmt.Fprintf(&s.buf, "\n✅ %s done", name)
 			if output != "" {
 				fmt.Fprintf(&s.buf, "\n```\n%s\n```", output)
 			}
@@ -114,7 +114,7 @@ func (s *renderSink) Emit(e event.Event) {
 		if s.onApproval != nil {
 			s.onApproval(e.Approval)
 		}
-		approvalText := fmt.Sprintf("⚠️ 需要批准操作:\n工具: %s\n操作: %s\n\nID: `%s`\n回复 1 批准，回复 2 拒绝；也可用 /approve %s 或 /deny %s。",
+		approvalText := fmt.Sprintf("⚠️ Approval required:\nTool: %s\nAction: %s\n\nID: `%s`\nReply 1 to approve, 2 to deny; or use /approve %s or /deny %s.",
 			e.Approval.Tool, e.Approval.Subject, e.Approval.ID, e.Approval.ID, e.Approval.ID)
 		msg := OutboundMessage{
 			ConnectionID: s.connID,
@@ -161,7 +161,7 @@ func (s *renderSink) Emit(e event.Event) {
 					Domain:       s.domain,
 					ChatID:       s.chatID,
 					ChatType:     s.chatType,
-					Text:         fmt.Sprintf("❌ 执行出错: %v", e.Err),
+					Text:         fmt.Sprintf("❌ Execution error: %v", e.Err),
 					ReplyToMsgID: s.replyTo,
 				})
 			}
@@ -222,21 +222,21 @@ func (s *renderSink) send(msg OutboundMessage) error {
 func approvalKeyboard(id string) *InlineKeyboard {
 	return &InlineKeyboard{Rows: []InlineKeyboardRow{{
 		Buttons: []InlineKeyboardButton{
-			{ID: "allow_once", Label: "允许一次", Style: 1, CallbackID: "/approve " + id},
-			{ID: "deny", Label: "拒绝", Style: 2, CallbackID: "/deny " + id},
+			{ID: "allow_once", Label: "Allow once", Style: 1, CallbackID: "/approve " + id},
+			{ID: "deny", Label: "Deny", Style: 2, CallbackID: "/deny " + id},
 		},
 	}}}
 }
 
 func approvalCard(a event.Approval, chatType ChatType, userID string) *InteractiveCard {
 	return &InteractiveCard{
-		Header: "需要批准操作",
+		Header: "Approval required",
 		Elements: []InteractiveCardElement{
-			{Tag: "markdown", Content: fmt.Sprintf("**工具**: %s\n\n**操作**: %s\n\nID: `%s`", a.Tool, a.Subject, a.ID)},
+			{Tag: "markdown", Content: fmt.Sprintf("**Tool**: %s\n\n**Action**: %s\n\nID: `%s`", a.Tool, a.Subject, a.ID)},
 			{Tag: "action", Extra: map[string]any{
 				"actions": []map[string]any{
-					{"tag": "button", "text": map[string]string{"tag": "plain_text", "content": "允许一次"}, "type": "primary", "value": cardActionValue("/approve "+a.ID, chatType, userID)},
-					{"tag": "button", "text": map[string]string{"tag": "plain_text", "content": "拒绝"}, "type": "danger", "value": cardActionValue("/deny "+a.ID, chatType, userID)},
+					{"tag": "button", "text": map[string]string{"tag": "plain_text", "content": "Allow once"}, "type": "primary", "value": cardActionValue("/approve "+a.ID, chatType, userID)},
+					{"tag": "button", "text": map[string]string{"tag": "plain_text", "content": "Deny"}, "type": "danger", "value": cardActionValue("/deny "+a.ID, chatType, userID)},
 				},
 			}},
 		},
@@ -267,21 +267,21 @@ func renderAskText(ask event.Ask) string {
 			qb.WriteString("\n")
 		}
 		if q.Multi {
-			qb.WriteString("  (可多选)\n")
+			qb.WriteString("  (multi-select)\n")
 		}
 	}
 	fmt.Fprintf(&qb, "\nID: `%s`", ask.ID)
 	if askSupportsNumericShortcut(ask) {
-		fmt.Fprintf(&qb, "\n直接回复选项编号即可回答；也可用 /answer %s <选项编号或文本>。", ask.ID)
+		fmt.Fprintf(&qb, "\nReply with the option number, or use /answer %s <option number or text>.", ask.ID)
 	} else {
-		fmt.Fprintf(&qb, "\n用 /answer %s <选项编号或文本> 回答；多题可用 q1=1;q2=2。", ask.ID)
+		fmt.Fprintf(&qb, "\nUse /answer %s <option number or text> to respond; multi-question: q1=1;q2=2.", ask.ID)
 	}
 	return qb.String()
 }
 
 func askCard(ask event.Ask, fallback string, chatType ChatType, userID string) *InteractiveCard {
 	card := &InteractiveCard{
-		Header: "需要回答问题",
+		Header: "Questions",
 		Elements: []InteractiveCardElement{
 			{Tag: "markdown", Content: fallback},
 		},
@@ -294,7 +294,7 @@ func askCard(ask event.Ask, fallback string, chatType ChatType, userID string) *
 	for i, opt := range question.Options {
 		label := strings.TrimSpace(opt.Label)
 		if label == "" {
-			label = fmt.Sprintf("选项 %d", i+1)
+			label = fmt.Sprintf("Option %d", i+1)
 		}
 		actions = append(actions, map[string]any{
 			"tag":   "button",
