@@ -110,11 +110,28 @@ func (a *Adapter) Send(ctx context.Context, msg bot.OutboundMessage) (bot.SendRe
 	}
 
 	content := msg.Text
-	if len(content) > 1900 {
-		content = content[:1897] + "..."
+	if len(content) <= 1900 {
+		return a.sendSingle(msg, content)
 	}
+	// Split long messages at paragraph/line boundaries to avoid mid-word cuts.
+	chunks := splitContent(content, 1900)
+	var lastID string
+	for i, chunk := range chunks {
+		m := msg
+		// Only the first chunk replies to the original message.
+		if i > 0 {
+			m.ReplyToMsgID = ""
+		}
+		result, err := a.sendSingle(m, chunk)
+		if err != nil {
+			return result, err
+		}
+		lastID = result.MessageID
+	}
+	return bot.SendResult{MessageID: lastID}, nil
+}
 
-	// Use Discord embeds for richer messages if Card is provided
+func (a *Adapter) sendSingle(msg bot.OutboundMessage, content string) (bot.SendResult, error) {
 	if msg.Card != nil {
 		embed := &discordgo.MessageEmbed{
 			Title:       msg.Card.Header,
@@ -435,4 +452,44 @@ func keyboardToComponents(kb *bot.InlineKeyboard) []discordgo.MessageComponent {
 		rows = append(rows, discordgo.ActionsRow{Components: buttons})
 	}
 	return rows
+}
+
+// splitContent splits text into chunks ≤ maxLen, breaking at paragraph boundaries
+// (double newline), then line boundaries, then word boundaries.
+func splitContent(text string, maxLen int) []string {
+	if len(text) <= maxLen {
+		return []string{text}
+	}
+	var chunks []string
+	for len(text) > maxLen {
+		// Try paragraph break
+		cut := lastBreakBefore(text[:maxLen], "\n\n")
+		if cut < maxLen/2 {
+			// Try line break
+			cut = lastBreakBefore(text[:maxLen], "\n")
+		}
+		if cut < maxLen/2 {
+			// Try space (word boundary)
+			cut = lastBreakBefore(text[:maxLen], " ")
+		}
+		if cut < maxLen/2 {
+			cut = maxLen // force-split
+		}
+		chunks = append(chunks, text[:cut])
+		text = text[cut:]
+		// Trim leading whitespace on continuation chunks
+		text = strings.TrimLeft(text, "\n ")
+	}
+	if len(text) > 0 {
+		chunks = append(chunks, text)
+	}
+	return chunks
+}
+
+func lastBreakBefore(s, sep string) int {
+	i := strings.LastIndex(s, sep)
+	if i < 0 {
+		return -1
+	}
+	return i + len(sep)
 }
