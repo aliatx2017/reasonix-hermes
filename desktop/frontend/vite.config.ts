@@ -1,20 +1,32 @@
-import { mkdir, writeFile } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import react from '@vitejs/plugin-react';
-import { type Plugin, defineConfig } from 'vite';
+import { defineConfig, type Plugin } from "vite";
+import react from "@vitejs/plugin-react";
+import { execSync } from "node:child_process";
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const devPort = Number(process.env.REASONIX_DESKTOP_VITE_PORT || '5173');
+const devPort = Number(process.env.REASONIX_DESKTOP_VITE_PORT || "5173");
 const configDir = dirname(fileURLToPath(import.meta.url));
+
+// Stamps the build commit into the bundle so a minified crash stack can be mapped
+// back to the sourcemap of the exact build. Falls back to "dev" off a git checkout.
+function buildCommit(): string {
+  if (process.env.REASONIX_COMMIT) return process.env.REASONIX_COMMIT;
+  try {
+    return execSync("git rev-parse --short HEAD", { cwd: configDir }).toString().trim();
+  } catch {
+    return "dev";
+  }
+}
 
 // On macOS ≤ 12 (Safari 15 WebKit) a crossorigin module/stylesheet fetched over the
 // wails:// scheme is CORS-blocked (no Access-Control-Allow-Origin from the handler),
 // so the bundle never loads and the window paints blank; newer WebKit tolerates it.
 function stripCrossorigin(): Plugin {
   return {
-    name: 'strip-crossorigin',
-    enforce: 'post',
-    transformIndexHtml: (html) => html.replace(/\s+crossorigin(?==["']|[\s/>])/g, ''),
+    name: "strip-crossorigin",
+    enforce: "post",
+    transformIndexHtml: (html) => html.replace(/\s+crossorigin(?==["']|[\s/>])/g, ""),
   };
 }
 
@@ -23,12 +35,12 @@ function stripCrossorigin(): Plugin {
 // Go's //go:embed all:frontend/dist still works on a fresh checkout.
 function keepDistPlaceholder(): Plugin {
   return {
-    name: 'keep-dist-placeholder',
-    apply: 'build',
+    name: "keep-dist-placeholder",
+    apply: "build",
     closeBundle: async () => {
-      const distDir = resolve(configDir, 'dist');
+      const distDir = resolve(configDir, "dist");
       await mkdir(distDir, { recursive: true });
-      await writeFile(resolve(distDir, '.gitkeep'), '\n');
+      await writeFile(resolve(distDir, ".gitkeep"), "\n");
     },
   };
 }
@@ -37,19 +49,24 @@ function keepDistPlaceholder(): Plugin {
 // the app root over the wails:// scheme, where absolute "/assets/..." URLs 404.
 export default defineConfig({
   plugins: [react(), stripCrossorigin(), keepDistPlaceholder()],
-  base: './',
+  base: "./",
+  define: { __BUILD_COMMIT__: JSON.stringify(buildCommit()) },
   build: {
-    outDir: 'dist',
+    outDir: "dist",
     emptyOutDir: true,
-    target: 'es2021',
+    target: "es2021",
     // Use terser for smaller output (esbuild is faster to build but produces
     // larger bundles). Disabled for dev builds via the default.
-    minify: 'terser',
+    minify: "terser",
     terserOptions: {
       compress: {
-        drop_console: true, // strip console.log in production
-        passes: 2, // two compression passes for better tree-shaking
+        // Keep warn/error so crash breadcrumbs still capture them; drop the noise.
+        drop_console: ["log", "debug", "info", "trace"],
+        passes: 2,
       },
+      // Preserve names so minified crash stacks stay readable.
+      keep_classnames: true,
+      keep_fnames: true,
     },
     rollupOptions: {
       output: {
@@ -57,17 +74,16 @@ export default defineConfig({
         // in a separate chunk so it can be cached independently from the
         // app shell. The vendor chunk splits react+react-dom (stable, rarely
         // changes) from the markdown stack (changes more often).
-        manualChunks(id: string) {
-          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom'))
-            return 'vendor-react';
-          if (
-            id.includes('node_modules/react-markdown') ||
-            id.includes('node_modules/remark-') ||
-            id.includes('node_modules/rehype-katex') ||
-            id.includes('node_modules/katex')
-          )
-            return 'vendor-markdown';
-          if (id.includes('node_modules/highlight.js')) return 'vendor-highlight';
+        manualChunks: {
+          "vendor-react": ["react", "react-dom"],
+          "vendor-markdown": [
+            "react-markdown",
+            "remark-gfm",
+            "remark-math",
+            "rehype-katex",
+            "katex",
+          ],
+          "vendor-highlight": ["highlight.js"],
         },
       },
     },
@@ -78,7 +94,7 @@ export default defineConfig({
   server: {
     // Bind IPv4 — unset host listens on ::1, and the Wails dev proxy's [::1]
     // dial fails on Windows hosts where IPv6 loopback is filtered.
-    host: '127.0.0.1',
+    host: "127.0.0.1",
     port: devPort,
     strictPort: true,
   },

@@ -60,8 +60,12 @@ type Messages struct {
 	ResumeBadIndexFmt   string // shown when /resume gets an out-of-range index (one %d)
 	ResumeAlreadyActive string // shown when /resume targets the current session
 	ResumedTitle        string // banner title after a /resume switch
-	ResumePickTitle     string // header in the interactive resume picker
-	ResumePickHint      string // keyboard hint in the interactive resume picker
+
+	RenameUsage     string // /rename with no args
+	RenameNoSession string // /rename with no active session
+	RenameDoneFmt   string // /rename succeeded (one %s = new title)
+	ResumePickTitle string // header in the interactive resume picker
+	ResumePickHint  string // keyboard hint in the interactive resume picker
 
 	// chat TUI status line / approval banner.
 	ChatThinking                string // live reasoning marker label, e.g. "thinking…"
@@ -153,6 +157,7 @@ type Messages struct {
 	CmdBranch       string // /branch
 	CmdSwitchBranch string // /switch
 	CmdResume       string // /resume
+	CmdRename       string // /rename
 	CmdModel        string // /model
 	CmdMemory       string // /memory
 	CmdGoal         string // /goal
@@ -199,6 +204,8 @@ type Messages struct {
 	ListModelsHeaderFmt string // "models (active: %s)"
 	ListModelsHint      string // how to switch
 	ListMemoryHeader    string // "memory files"
+	ListMemorySaved     string // "saved memories"
+	ListMemoryArchived  string // "archived memories"
 	ListMemoryNone      string // no memory docs
 	ListSkillsHeaderFmt string // "skills (%d)"
 	ListSkillsNone      string // no skills
@@ -449,6 +456,9 @@ func envCandidates() []string {
 
 func setLanguage(tag string) string {
 	switch tag {
+	case "zh-tw", "zh-TW":
+		M = ChineseTraditional
+		return "zh-TW"
 	case "zh":
 		M = Chinese
 		return "zh"
@@ -463,8 +473,12 @@ func setLanguage(tag string) string {
 // unrecognised input so DetectLanguage can fall through to the next candidate.
 func normalize(s string) string {
 	s = strings.ToLower(strings.TrimSpace(s))
+	s = strings.ReplaceAll(s, "_", "-") // zh_TW.UTF-8 → zh-tw.utf-8 (POSIX locales use underscores)
 	if s == "" {
 		return ""
+	}
+	if strings.HasPrefix(s, "zh-tw") || strings.HasPrefix(s, "zh-hant") || strings.Contains(s, "chinese traditional") || strings.Contains(s, "繁體") {
+		return "zh-TW"
 	}
 	if strings.HasPrefix(s, "zh") || strings.Contains(s, "chinese") || strings.Contains(s, "中文") {
 		return "zh"

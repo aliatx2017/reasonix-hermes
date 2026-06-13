@@ -2,23 +2,23 @@
 // One event channel carries every kind; `kind` discriminates the payload.
 
 export type EventKind =
-  | 'turn_started'
-  | 'reasoning'
-  | 'text'
-  | 'message'
-  | 'tool_dispatch'
-  | 'tool_result'
-  | 'tool_progress'
-  | 'usage'
-  | 'notice'
-  | 'phase'
-  | 'approval_request'
-  | 'ask_request'
-  | 'turn_done'
-  | 'compaction_started'
-  | 'compaction_done'
-  | 'retrying'
-  | 'steer';
+  | "turn_started"
+  | "reasoning"
+  | "text"
+  | "message"
+  | "tool_dispatch"
+  | "tool_result"
+  | "tool_progress"
+  | "usage"
+  | "notice"
+  | "phase"
+  | "approval_request"
+  | "ask_request"
+  | "turn_done"
+  | "compaction_started"
+  | "compaction_done"
+  | "retrying"
+  | "steer";
 
 export interface WireCompaction {
   trigger?: string; // "auto" | "manual"
@@ -97,7 +97,7 @@ export interface WireEvent {
   kind: EventKind;
   text?: string;
   reasoning?: string;
-  level?: 'info' | 'warn';
+  level?: "info" | "warn";
   tool?: WireTool;
   usage?: WireUsage;
   approval?: WireApproval;
@@ -120,7 +120,7 @@ export interface WireEvent {
 // Tab management types (desktop/tabs.go).
 export interface TabMeta {
   id: string;
-  tabType?: 'session' | 'file';
+  tabType?: "session" | "file";
   scope: string;
   workspaceRoot: string;
   workspaceName: string;
@@ -134,6 +134,7 @@ export interface TabMeta {
   mode: Mode;
   collaborationMode?: CollaborationMode;
   toolApprovalMode?: ToolApprovalMode;
+  tokenMode?: TokenMode;
   goal?: string;
   goalStatus?: GoalStatus;
   startupErr?: string;
@@ -143,7 +144,7 @@ export interface TabMeta {
 
 export interface ProjectNode {
   key: string;
-  kind: 'project' | 'topic' | 'global_folder' | 'global_topic';
+  kind: "project" | "topic" | "global_folder" | "global_topic";
   label: string;
   root?: string;
   topicId?: string;
@@ -157,12 +158,7 @@ export interface ProjectNode {
   children?: ProjectNode[];
 }
 
-export type ProjectTopicStatus =
-  | 'thinking'
-  | 'streaming'
-  | 'waiting_confirmation'
-  | 'paused'
-  | 'error';
+export type ProjectTopicStatus = "thinking" | "streaming" | "waiting_confirmation" | "paused" | "error";
 
 export interface TopicMeta {
   id: string;
@@ -214,7 +210,7 @@ export interface HistoryMessage {
   role: string;
   content: string;
   reasoning?: string;
-  level?: 'info' | 'warn';
+  level?: "info" | "warn";
   toolCalls?: HistoryToolCall[];
   toolCallId?: string;
   toolName?: string;
@@ -253,7 +249,7 @@ export interface SessionMeta {
   deletedAt?: number; // unix milliseconds, present for trashed sessions
   current: boolean;
   open: boolean;
-  scope?: string; // "project" | "global"; empty for legacy → treated as "global"
+  scope?: string;       // "project" | "global"; empty for legacy → treated as "global"
   workspaceRoot?: string;
   topicId?: string;
   topicTitle?: string;
@@ -290,60 +286,60 @@ export interface Meta {
   cwd: string;
   autoApproveTools?: boolean;
   bypass?: boolean; // legacy JSON key for YOLO/full-access tool auto-approval
+  collaborationMode?: CollaborationMode;
   toolApprovalMode?: ToolApprovalMode;
+  tokenMode?: TokenMode;
   goal?: string;
   goalStatus?: GoalStatus;
 }
 
-export type CollaborationMode = 'normal' | 'plan' | 'goal';
-export type ToolApprovalMode = 'ask' | 'auto' | 'yolo';
-export type GoalStatus = 'running' | 'complete' | 'blocked' | 'stopped';
+export type CollaborationMode = "normal" | "plan" | "goal";
+export type ToolApprovalMode = "ask" | "auto" | "yolo";
+export type TokenMode = "full" | "economy";
+export type GoalStatus = "running" | "complete" | "blocked" | "stopped";
 
-export function normalizeCollaborationMode(
-  mode?: string,
-  goal?: string,
-  legacyMode?: Mode,
-): CollaborationMode {
-  if (mode === 'plan' || mode === 'goal' || mode === 'normal') return mode;
-  if (legacyMode && modeHasPlan(legacyMode)) return 'plan';
-  if ((goal ?? '').trim()) return 'goal';
-  return 'normal';
+export function normalizeCollaborationMode(mode?: string, goal?: string, legacyMode?: Mode): CollaborationMode {
+  if (mode === "plan" || mode === "goal" || mode === "normal") return mode;
+  if (legacyMode && modeHasPlan(legacyMode)) return "plan";
+  if ((goal ?? "").trim()) return "goal";
+  return "normal";
 }
 
-export function normalizeToolApprovalMode(
-  mode?: string,
-  legacyMode?: Mode,
-  legacyAutoApproveTools?: boolean,
-): ToolApprovalMode {
-  if (mode === 'auto' || mode === 'yolo' || mode === 'ask') return mode;
-  if (legacyAutoApproveTools || (legacyMode && modeHasAutoApproveTools(legacyMode))) return 'yolo';
-  return 'ask';
+export function normalizeToolApprovalMode(mode?: string, legacyMode?: Mode, legacyAutoApproveTools?: boolean): ToolApprovalMode {
+  if (mode === "auto" || mode === "yolo" || mode === "ask") return mode;
+  if (legacyAutoApproveTools || (legacyMode && modeHasAutoApproveTools(legacyMode))) return "yolo";
+  return "ask";
+}
+
+export function normalizeTokenMode(mode?: string): TokenMode {
+  if (mode === "economy") return "economy";
+  return "full";
 }
 
 // Mode is the compatibility string for two independent composer axes:
 // plan (read-only/user-plan gate) and yolo/full access (tool auto-approval).
-export type Mode = 'normal' | 'plan' | 'yolo' | 'plan-yolo';
+export type Mode = "normal" | "plan" | "yolo" | "plan-yolo";
 
 export function normalizeMode(mode?: string): Mode {
-  if (mode === 'plan' || mode === 'yolo' || mode === 'plan-yolo' || mode === 'yolo-plan') {
-    return mode === 'yolo-plan' ? 'plan-yolo' : mode;
+  if (mode === "plan" || mode === "yolo" || mode === "plan-yolo" || mode === "yolo-plan") {
+    return mode === "yolo-plan" ? "plan-yolo" : mode;
   }
-  return 'normal';
+  return "normal";
 }
 
 export function modeHasPlan(mode: Mode): boolean {
-  return mode === 'plan' || mode === 'plan-yolo';
+  return mode === "plan" || mode === "plan-yolo";
 }
 
 export function modeHasAutoApproveTools(mode: Mode): boolean {
-  return mode === 'yolo' || mode === 'plan-yolo';
+  return mode === "yolo" || mode === "plan-yolo";
 }
 
 export function modeFromAxes(plan: boolean, autoApproveTools: boolean): Mode {
-  if (plan && autoApproveTools) return 'plan-yolo';
-  if (plan) return 'plan';
-  if (autoApproveTools) return 'yolo';
-  return 'normal';
+  if (plan && autoApproveTools) return "plan-yolo";
+  if (plan) return "plan";
+  if (autoApproveTools) return "yolo";
+  return "normal";
 }
 
 export function modeWithPlan(mode: Mode, plan: boolean): Mode {
@@ -358,7 +354,7 @@ export interface CommandInfo {
   name: string; // without the leading slash
   description: string;
   hint?: string;
-  kind: 'builtin' | 'custom' | 'mcp' | 'skill';
+  kind: "builtin" | "custom" | "mcp" | "skill";
 }
 
 export interface DirEntry {
@@ -367,7 +363,7 @@ export interface DirEntry {
 }
 
 export interface DroppedItem {
-  kind: 'workspace' | 'attachment';
+  kind: "workspace" | "attachment";
   path: string;
   isDir?: boolean;
   previewUrl?: string;
@@ -379,7 +375,7 @@ export interface FilePreview {
   size: number;
   truncated: boolean;
   binary: boolean;
-  kind?: 'image' | 'pdf';
+  kind?: "image" | "pdf";
   mime?: string;
   url?: string;
   err?: string;
@@ -424,11 +420,11 @@ export interface ComposerInsertRequest {
 export interface ServerView {
   name: string;
   transport: string;
-  status: 'connected' | 'deferred' | 'failed' | 'initializing' | 'disabled';
+  status: "connected" | "deferred" | "failed" | "initializing" | "disabled";
   builtIn?: boolean;
   configured?: boolean;
   autoStart: boolean;
-  tier?: 'lazy' | 'background' | 'eager' | string;
+  tier?: "lazy" | "background" | "eager" | string;
   command?: string;
   args?: string[];
   url?: string;
@@ -438,7 +434,7 @@ export interface ServerView {
   resources: number;
   error?: string;
   toolList?: MCPToolView[];
-  authStatus?: 'none' | 'possible' | 'required' | string;
+  authStatus?: "none" | "possible" | "required" | string;
   authUrl?: string;
   authConfigured?: boolean;
 }
@@ -526,33 +522,56 @@ export interface MemoryFact {
   body: string;
 }
 
+export interface MemoryArchive extends MemoryFact {
+  path: string;
+  archivedAt?: string;
+}
+
 export interface MemoryScope {
   scope: string; // "user" | "project" | "local"
   path: string;
 }
 
+export interface MemorySuggestion {
+  id: string;
+  name: string;
+  title: string;
+  description: string;
+  type: string;
+  body: string;
+  reason: string;
+  evidence: string[];
+}
+
+export interface SkillSuggestion {
+  id: string;
+  name: string;
+  description: string;
+  scope: string;
+  body: string;
+  reason: string;
+  evidence: string[];
+}
+
+export interface MemorySuggestionsView {
+  memories: MemorySuggestion[];
+  skills: SkillSuggestion[];
+  generatedAt: string;
+  available: boolean;
+  source: string;
+}
+
 export interface MemoryView {
   docs: MemoryDoc[];
   facts: MemoryFact[];
+  archives: MemoryArchive[];
   scopes: MemoryScope[];
   storeDir: string;
   available: boolean;
 }
 
 // SettingsTab is the top-level navigation item in the Settings Centre modal.
-export type SettingsTab =
-  | 'general'
-  | 'models'
-  | 'providers'
-  | 'bots'
-  | 'mcp'
-  | 'skills'
-  | 'memory'
-  | 'permissions'
-  | 'sandbox'
-  | 'network'
-  | 'appearance'
-  | 'updates';
+export type SettingsTab = "general" | "models" | "providers" | "bots" | "mcp" | "skills" | "memory" | "hooks" | "permissions" | "sandbox" | "network" | "appearance" | "updates";
 
 // Settings panel payloads (desktop/settings_app.go).
 export interface ProviderView {
@@ -603,6 +622,7 @@ export interface SandboxView {
   network: boolean;
   workspaceRoot: string;
   allowWrite: string[];
+  shell: string; // "auto" | "bash" | "powershell" | "pwsh"
 }
 
 export interface NetworkProxyView {
@@ -676,19 +696,20 @@ export interface BotConnectionCredentialView {
 export interface BotConnectionSessionMappingView {
   remoteId: string;
   sessionId: string;
-  scope: 'global' | 'project' | string;
+  scope: "global" | "project" | string;
   workspaceRoot: string;
   updatedAt: string;
 }
 
 export interface BotConnectionView {
   id: string;
-  provider: 'qq' | 'feishu' | 'weixin' | string;
-  domain: 'qq' | 'feishu' | 'lark' | 'weixin' | string;
+  provider: "qq" | "feishu" | "weixin" | string;
+  domain: "qq" | "feishu" | "lark" | "weixin" | string;
   label: string;
   enabled: boolean;
-  status: 'disconnected' | 'pending' | 'connected' | 'error' | string;
+  status: "disconnected" | "pending" | "connected" | "error" | string;
   model: string;
+  toolApprovalMode: ToolApprovalMode | "" | string;
   workspaceRoot: string;
   credential: BotConnectionCredentialView;
   sessionMappings: BotConnectionSessionMappingView[];
@@ -700,6 +721,7 @@ export interface BotConnectionView {
 export interface BotSettingsView {
   enabled: boolean;
   model: string;
+  toolApprovalMode: ToolApprovalMode | "" | string;
   maxSteps: number;
   debounceMs: number;
   allowlist: BotAllowlistView;
@@ -707,6 +729,14 @@ export interface BotSettingsView {
   feishu: FeishuBotView;
   weixin: WeixinBotView;
   connections: BotConnectionView[];
+}
+
+export interface BotRuntimeStatusView {
+  running: boolean;
+  status: string;
+  message: string;
+  connections: number;
+  startedAt: string;
 }
 
 export interface BotInstallStartResult {
@@ -728,6 +758,24 @@ export interface BotInstallPollResult {
   status: string;
   message: string;
   error: string;
+}
+
+export interface HookConfigView {
+  event: string;
+  match?: string;
+  command: string;
+  description?: string;
+  timeout?: number;
+  cwd?: string;
+}
+
+export interface HooksSettingsView {
+  scope: string;
+  path: string;
+  projectRoot: string;
+  trusted: boolean;
+  hooks: HookConfigView[];
+  events: string[];
 }
 
 export interface BotConnectionDiagnostic {
@@ -755,7 +803,9 @@ export interface SettingsView {
   desktopTheme: string; // "auto" | "dark" | "light"
   desktopThemeStyle: string;
   closeBehavior: string; // "background" | "quit"
-  displayMode: string; // "standard" | "compact" | "minimal"
+  displayMode: string;   // "standard" | "compact" | "minimal"
+  statusBarStyle: string; // "icon" | "text"
+  statusBarItems: string[]; // ordered visible status bar item ids
   checkUpdates: boolean; // check for new versions on startup
   telemetry: boolean; // anonymous launch ping (install id + version + OS)
   metrics: boolean; // opt-in aggregate agent metrics (anonymous signal/bucket counts)
@@ -780,7 +830,7 @@ export interface UpdateInfo {
 }
 
 export interface UpdateProgress {
-  phase: 'downloading' | 'verifying' | 'applying' | 'done' | 'error';
+  phase: "downloading" | "verifying" | "applying" | "done" | "error";
   received: number;
   total: number;
   err?: string;

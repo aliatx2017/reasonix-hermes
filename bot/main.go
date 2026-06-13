@@ -69,7 +69,6 @@ func main() {
 		Model:          modelName,
 		MaxSteps:       cfg.Bot.MaxSteps,
 		WorkspaceRoot:  workspaceRoot,
-		ModelPrefsPath: bot.ModelPrefsFilePath(),
 		Enabled:        map[bot.Platform]bool{bot.PlatformDiscord: true},
 		Allowlist: bot.AllowlistConfig{
 			Enabled:  true,

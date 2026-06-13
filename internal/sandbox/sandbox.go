@@ -36,6 +36,10 @@ type Spec struct {
 	RemoteURL string
 	// RemoteToken is the bearer auth token for the remote sandbox API.
 	RemoteToken string
+	// Shell is the interpreter the bash tool runs under. A zero value (empty
+	// Path) means the tool resolves one itself; the composition root sets it from
+	// [tools.shell] so the configured choice rides along with the spec.
+	Shell Shell
 }
 
 // enforce reports whether the spec asks for local confinement.

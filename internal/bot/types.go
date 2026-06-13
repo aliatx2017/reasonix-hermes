@@ -29,40 +29,50 @@ const (
 // SessionSource is a compound session identifier for generating a stable
 // session key.
 type SessionSource struct {
-	Platform Platform `json:"platform"`
-	ChatType ChatType `json:"chat_type"`
-	ChatID   string   `json:"chat_id"`
-	UserID   string   `json:"user_id"`
-	ThreadID string   `json:"thread_id,omitempty"`
+	Platform     Platform `json:"platform"`
+	ConnectionID string   `json:"connection_id,omitempty"`
+	Domain       string   `json:"domain,omitempty"`
+	ChatType     ChatType `json:"chat_type"`
+	ChatID       string   `json:"chat_id"`
+	UserID       string   `json:"user_id"`
+	ThreadID     string   `json:"thread_id,omitempty"`
 }
 
 // InboundMessage is an incoming message received from any platform.
 type InboundMessage struct {
-	Platform  Platform `json:"platform"`
-	ChatType  ChatType `json:"chat_type"`
-	ChatID    string   `json:"chat_id"`
-	UserID    string   `json:"user_id"`
-	UserName  string   `json:"user_name"`
-	Text      string   `json:"text"`
-	MessageID string   `json:"message_id"`
-	ThreadID  string   `json:"thread_id,omitempty"`
-	MediaURLs []string `json:"media_urls,omitempty"`
-	Raw       any      `json:"-"`
+	Platform     Platform `json:"platform"`
+	ConnectionID string   `json:"connection_id,omitempty"`
+	Domain       string   `json:"domain,omitempty"`
+	ChatType     ChatType `json:"chat_type"`
+	ChatID       string   `json:"chat_id"`
+	UserID       string   `json:"user_id"`
+	UserName     string   `json:"user_name"`
+	// OperatorID, when set, is the authenticated actor gated by the allowlist; UserID stays routing-only.
+	OperatorID string   `json:"operator_id,omitempty"`
+	Text       string   `json:"text"`
+	MessageID  string   `json:"message_id"`
+	ThreadID   string   `json:"thread_id,omitempty"`
+	MediaURLs  []string `json:"media_urls,omitempty"`
+	Raw        any      `json:"-"`
 }
 
 // Session derives the SessionSource from this message.
 func (m InboundMessage) Session() SessionSource {
 	return SessionSource{
-		Platform: m.Platform,
-		ChatType: m.ChatType,
-		ChatID:   m.ChatID,
-		UserID:   m.UserID,
-		ThreadID: m.ThreadID,
+		Platform:     m.Platform,
+		ConnectionID: m.ConnectionID,
+		Domain:       m.Domain,
+		ChatType:     m.ChatType,
+		ChatID:       m.ChatID,
+		UserID:       m.UserID,
+		ThreadID:     m.ThreadID,
 	}
 }
 
 // OutboundMessage is a message to be sent to a platform.
 type OutboundMessage struct {
+	ConnectionID string           `json:"connection_id,omitempty"`
+	Domain       string           `json:"domain,omitempty"`
 	ChatID       string           `json:"chat_id"`
 	ChatType     ChatType         `json:"chat_type,omitempty"`
 	Text         string           `json:"text,omitempty"`

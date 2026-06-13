@@ -4,10 +4,13 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 
 	"reasonix/internal/config"
+	"reasonix/internal/hook"
 	"reasonix/internal/provider"
 )
 
@@ -173,112 +176,119 @@ func TestSetDesktopCheckUpdatesPersistsToUserConfig(t *testing.T) {
 	}
 }
 
-func TestHotbarViewDefaults(t *testing.T) {
-	v := defaultHotbarView()
-	tests := []struct {
-		key  string
-		want string
-	}{
-		{"1", "palette"},
-		{"2", "workspace"},
-		{"3", "new"},
-		{"4", "history"},
-		{"5", "dock"},
-		{"6", "sidebar"},
-		{"7", "settings"},
+func TestSaveHooksSettingsPreservesUnknownSettingsKeys(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	path := hook.GlobalSettingsPath("")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
 	}
-	for _, tt := range tests {
-		got := hotbarField(v, tt.key)
-		if got != tt.want {
-			t.Errorf("default hotbar key %s = %q, want %q", tt.key, got, tt.want)
-		}
+	if err := os.WriteFile(path, []byte(`{"theme":"dark","hooks":{"Stop":[{"command":"old"}]}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	app := NewApp()
+	if err := app.SaveHooksSettings("global", []HookConfigView{{
+		Event:   string(hook.PreToolUse),
+		Match:   "bash",
+		Command: "echo guard",
+	}}); err != nil {
+		t.Fatalf("SaveHooksSettings: %v", err)
+	}
+
+	var raw map[string]json.RawMessage
+	body, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(body, &raw); err != nil {
+		t.Fatal(err)
+	}
+	if string(raw["theme"]) != `"dark"` {
+		t.Fatalf("theme key was not preserved: %s", raw["theme"])
+	}
+	view := app.HooksSettings("global")
+	if len(view.Hooks) != 1 || view.Hooks[0].Event != string(hook.PreToolUse) || view.Hooks[0].Command != "echo guard" {
+		t.Fatalf("HooksSettings = %+v, want saved PreToolUse hook", view)
 	}
 }
 
-func TestHotbarViewFromConfig(t *testing.T) {
-	tests := []struct {
-		name string
-		cfg  config.HotbarConfig
-		want map[string]string
-	}{
-		{
-			name: "all custom",
-			cfg: config.HotbarConfig{
-				Key1: "settings", Key2: "dock", Key3: "sidebar",
-				Key4: "history", Key5: "new", Key6: "workspace", Key7: "palette",
-			},
-			want: map[string]string{
-				"1": "settings", "2": "dock", "3": "sidebar",
-				"4": "history", "5": "new", "6": "workspace", "7": "palette",
-			},
-		},
-		{
-			name: "partial with empty",
-			cfg:  config.HotbarConfig{Key1: "palette", Key3: "new", Key5: "dock"},
-			want: map[string]string{
-				"1": "palette", "2": "", "3": "new",
-				"4": "", "5": "dock", "6": "", "7": "",
-			},
-		},
-		{
-			name: "unbind all",
-			cfg:  config.HotbarConfig{Key1: "", Key2: "", Key3: "", Key4: "", Key5: "", Key6: "", Key7: ""},
-			want: map[string]string{
-				"1": "", "2": "", "3": "", "4": "", "5": "", "6": "", "7": "",
-			},
-		},
+func TestProjectHooksSettingsUseActiveWorkspaceRootAndTrust(t *testing.T) {
+	home := isolateDesktopUserDirs(t)
+	project := t.TempDir()
+	app := NewApp()
+	app.tabs = map[string]*WorkspaceTab{
+		"project": {ID: "project", Scope: "project", WorkspaceRoot: project, Ready: true},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			v := hotbarView(tt.cfg)
-			for k, want := range tt.want {
-				got := hotbarField(v, k)
-				if got != want {
-					t.Errorf("hotbar key %s = %q, want %q", k, got, want)
-				}
-			}
-		})
+	app.activeTabID = "project"
+
+	if err := app.SaveHooksSettings("project", []HookConfigView{{
+		Event:       string(hook.Stop),
+		Command:     "echo done",
+		Description: "Turn done",
+	}}); err != nil {
+		t.Fatalf("SaveHooksSettings(project): %v", err)
+	}
+	if err := app.TrustProjectHooks(); err != nil {
+		t.Fatalf("TrustProjectHooks: %v", err)
+	}
+	if !hook.IsTrusted(project, home) {
+		t.Fatal("project hooks were not trusted")
+	}
+	view := app.HooksSettings("project")
+	if view.Scope != "project" || view.ProjectRoot != project || !view.Trusted {
+		t.Fatalf("project hook view metadata = %+v", view)
+	}
+	if len(view.Hooks) != 1 || view.Hooks[0].Event != string(hook.Stop) || view.Hooks[0].Description != "Turn done" {
+		t.Fatalf("project hooks = %+v", view.Hooks)
+	}
+	if _, err := os.Stat(filepath.Join(project, ".reasonix", "settings.json")); err != nil {
+		t.Fatalf("project hooks settings file missing: %v", err)
 	}
 }
 
-func TestHotbarViewValidation(t *testing.T) {
-	// Unknown action names should not panic — they pass through silently
-	// (the warning goes to stderr in production; tests don't check stderr).
-	cfg := config.HotbarConfig{
-		Key1: "garbage",
-		Key2: "",
-		Key3: "palette",
+func TestTrustProjectHooksForRootUsesDisplayedProjectRoot(t *testing.T) {
+	home := isolateDesktopUserDirs(t)
+	projectA := t.TempDir()
+	projectB := t.TempDir()
+	app := NewApp()
+	app.tabs = map[string]*WorkspaceTab{
+		"a": {ID: "a", Scope: "project", WorkspaceRoot: projectA, Ready: true},
+		"b": {ID: "b", Scope: "project", WorkspaceRoot: projectB, Ready: true},
 	}
-	v := hotbarView(cfg)
-	if v.Key1 != "garbage" {
-		t.Errorf("unknown action should pass through, got %q", v.Key1)
+	app.activeTabID = "b"
+
+	if err := app.TrustProjectHooksForRoot(projectA); err != nil {
+		t.Fatalf("TrustProjectHooksForRoot: %v", err)
 	}
-	if v.Key2 != "" {
-		t.Errorf("empty should stay empty, got %q", v.Key2)
+	if !hook.IsTrusted(projectA, home) {
+		t.Fatal("displayed project root was not trusted")
 	}
-	if v.Key3 != "palette" {
-		t.Errorf("known action should pass through, got %q", v.Key3)
+	if hook.IsTrusted(projectB, home) {
+		t.Fatal("active project root was trusted instead of displayed project root")
 	}
 }
 
-// hotbarField returns the value for a numeric key from a HotbarView.
-func hotbarField(v HotbarView, key string) string {
-	switch key {
-	case "1":
-		return v.Key1
-	case "2":
-		return v.Key2
-	case "3":
-		return v.Key3
-	case "4":
-		return v.Key4
-	case "5":
-		return v.Key5
-	case "6":
-		return v.Key6
-	case "7":
-		return v.Key7
-	default:
-		return ""
+func TestSaveHooksSettingsForRootUsesDisplayedProjectRoot(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	projectA := t.TempDir()
+	projectB := t.TempDir()
+	app := NewApp()
+	app.tabs = map[string]*WorkspaceTab{
+		"a": {ID: "a", Scope: "project", WorkspaceRoot: projectA, Ready: true},
+		"b": {ID: "b", Scope: "project", WorkspaceRoot: projectB, Ready: true},
+	}
+	app.activeTabID = "b"
+
+	if err := app.SaveHooksSettingsForRoot("project", projectA, []HookConfigView{{
+		Event:   string(hook.Stop),
+		Command: "echo done",
+	}}); err != nil {
+		t.Fatalf("SaveHooksSettingsForRoot: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(projectA, ".reasonix", "settings.json")); err != nil {
+		t.Fatalf("displayed project root settings missing: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(projectB, ".reasonix", "settings.json")); err == nil {
+		t.Fatal("active project root was written instead of displayed project root")
 	}
 }

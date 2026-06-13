@@ -1,5 +1,5 @@
 // Package config loads Reasonix's runtime configuration from TOML. Resolution order:
-// flag > project ./reasonix.toml > user ~/.config/reasonix/config.toml > built-in defaults.
+// flag > project ./reasonix.toml > user config.toml (in the OS user-config dir) > built-in defaults.
 // Secrets come from the environment via api_key_env and are never stored in
 // config files.
 package config
@@ -39,39 +39,27 @@ func SkillNameKey(name string) string {
 
 // Config is Reasonix's runtime configuration.
 type Config struct {
-	ConfigVersion int                      `toml:"config_version"`
-	DefaultModel  string                   `toml:"default_model"`
-	Language      string                   `toml:"language"`       // ui/model language tag (e.g. "zh"); empty = auto-detect from $LANG / $REASONIX_LANG
-	ActiveProfile string                   `toml:"active_profile"` // named profile from [profiles]; "" = none
-	UI            UIConfig                 `toml:"ui"`
-	Desktop       DesktopConfig            `toml:"desktop"`
+	ConfigVersion int                 `toml:"config_version"`
+	DefaultModel  string              `toml:"default_model"`
+	Language      string              `toml:"language"` // ui/model language tag (e.g. "zh"); empty = auto-detect from $LANG / $REASONIX_LANG
+	UI            UIConfig            `toml:"ui"`
+	Desktop       DesktopConfig       `toml:"desktop"`
 	Notifications NotificationsConfig      `toml:"notifications"`
 	Agent         AgentConfig              `toml:"agent"`
 	Providers     []ProviderEntry          `toml:"providers"`
-	Tools         ToolsConfig              `toml:"tools"`
-	Permissions   PermissionsConfig        `toml:"permissions"`
-	Sandbox       SandboxConfig            `toml:"sandbox"`
-	Network       NetworkConfig            `toml:"network"`
-	Plugins       []PluginEntry            `toml:"plugins"`
-	Skills        SkillsConfig             `toml:"skills"`
-	Codegraph     CodegraphConfig          `toml:"codegraph"`
-	Statusline    StatuslineConfig         `toml:"statusline"`
-	LSP           LSPConfig                `toml:"lsp"`
-	Bot           BotConfig                `toml:"bot"`
+	ActiveProfile string                   `toml:"active_profile"` // named profile from [profiles]; "" = none
 	Profiles      map[string]ProfileConfig `toml:"profiles"`
-}
-
-// ProfileConfig is a named bundle of settings that overrides the active session
-// posture: model, effort, tool-approval mode, auto-plan, output style, and an
-// optional system-prompt prefix. Switch with /profile <name>.
-type ProfileConfig struct {
-	Description        string `toml:"description"`
-	Model              string `toml:"model"`
-	Effort             string `toml:"effort"`
-	ToolApproveMode    string `toml:"tool_approve_mode"`
-	AutoPlan           string `toml:"auto_plan"`
-	OutputStyle        string `toml:"output_style"`
-	SystemPromptPrefix string `toml:"system_prompt_prefix"`
+	Tools         ToolsConfig         `toml:"tools"`
+	Permissions   PermissionsConfig   `toml:"permissions"`
+	Sandbox       SandboxConfig       `toml:"sandbox"`
+	Network       NetworkConfig       `toml:"network"`
+	Plugins       []PluginEntry       `toml:"plugins"`
+	Skills        SkillsConfig        `toml:"skills"`
+	Codegraph     CodegraphConfig     `toml:"codegraph"`
+	BuiltInMCP    BuiltInMCPConfig    `toml:"builtin_mcp"`
+	Statusline    StatuslineConfig    `toml:"statusline"`
+	LSP           LSPConfig           `toml:"lsp"`
+	Bot           BotConfig           `toml:"bot"`
 }
 
 // UIConfig controls CLI presentation-only settings. Desktop appearance is kept in
@@ -88,30 +76,18 @@ type UIConfig struct {
 // separate from top-level language and [ui] so desktop choices do not affect CLI
 // language, terminal colours, or provider-visible prompt/request data.
 type DesktopConfig struct {
-	Language       string       `toml:"language"`        // auto|en|zh; empty/auto = browser/OS auto-detect
-	Theme          string       `toml:"theme"`           // auto|dark|light; empty resolves to dark
-	ThemeStyle     string       `toml:"theme_style"`     // graphite|aurora|slate|carbon|nocturne|amber and legacy aliases
-	CloseBehavior  string       `toml:"close_behavior"`  // quit|background; desktop window close behavior
-	DisplayMode    string       `toml:"display_mode"`    // standard|compact|minimal; transcript display mode
-	CheckUpdates   *bool        `toml:"check_updates"`   // startup update checks; nil keeps the default enabled
-	Telemetry      *bool        `toml:"telemetry"`       // anonymous launch ping (install id + version + OS); nil keeps the default enabled
-	Metrics        *bool        `toml:"metrics"`         // opt-in aggregate agent metrics (anonymous signal/bucket counts; no content); nil = disabled
-	ProviderAccess []string     `toml:"provider_access"` // desktop-only list of provider entries shown in Settings > Model > Access
-	ExpandThinking bool         `toml:"expand_thinking"` // true = show reasoning text expanded by default; false = collapsed
-	Hotbar         HotbarConfig `toml:"hotbar"`          // keyboard digit keys 1-7 → action mapping
-}
-
-// HotbarConfig maps keyboard digit keys (1-7) to desktop actions.
-// Valid action names: palette, workspace, new, history, dock, sidebar, settings, and "" (unbind).
-// Keys not present or set to "" keep their built-in default.
-type HotbarConfig struct {
-	Key1 string `toml:"1"` // default: palette
-	Key2 string `toml:"2"` // default: workspace
-	Key3 string `toml:"3"` // default: new
-	Key4 string `toml:"4"` // default: history
-	Key5 string `toml:"5"` // default: dock
-	Key6 string `toml:"6"` // default: sidebar
-	Key7 string `toml:"7"` // default: settings
+	Language       string   `toml:"language"`         // auto|en|zh; empty/auto = browser/OS auto-detect
+	Theme          string   `toml:"theme"`            // auto|dark|light; empty resolves to dark
+	ThemeStyle     string   `toml:"theme_style"`      // graphite|aurora|slate|carbon|nocturne|amber and legacy aliases
+	CloseBehavior  string   `toml:"close_behavior"`   // quit|background; desktop window close behavior
+	DisplayMode    string   `toml:"display_mode"`     // standard|compact|minimal; transcript display mode
+	StatusBarStyle string   `toml:"status_bar_style"` // icon|text; desktop status bar metric labels
+	StatusBarItems []string `toml:"status_bar_items"` // ordered visible desktop status bar items
+	CheckUpdates   *bool    `toml:"check_updates"`    // startup update checks; nil keeps the default enabled
+	Telemetry      *bool    `toml:"telemetry"`        // anonymous launch ping (install id + version + OS); nil keeps the default enabled
+	Metrics        *bool    `toml:"metrics"`          // opt-in aggregate agent metrics (anonymous signal/bucket counts; no content); nil = disabled
+	ProviderAccess []string `toml:"provider_access"`  // desktop-only list of provider entries shown in Settings > Model > Access
+	ExpandThinking bool     `toml:"expand_thinking"`  // true = show reasoning text expanded by default; false = collapsed
 }
 
 // NotificationsConfig controls optional system notifications for CLI chat/run.
@@ -121,6 +97,20 @@ type NotificationsConfig struct {
 	ApprovalRequest bool `toml:"approval_request"`
 	AskRequest      bool `toml:"ask_request"`
 	Sound           bool `toml:"sound"` // bell/beep on turn completion
+}
+
+// ProfileConfig is a named bundle of settings that overrides the active session
+// when selected via /profile or the desktop hotbar. Keys map to entries in
+// [profiles.<name>] blocks in reasonix.toml.
+type ProfileConfig struct {
+	Description        string `toml:"description"`
+	Model              string `toml:"model"`
+	Effort             string `toml:"effort"`
+	ToolApproveMode    string `toml:"tool_approve_mode"`
+	AutoPlan           string `toml:"auto_plan"`
+	OutputStyle        string `toml:"output_style"`
+	SystemPromptPrefix string `toml:"system_prompt_prefix"`
+	Yolo               bool   `toml:"yolo"` // auto-approve tools
 }
 
 // UITheme normalizes ui.theme to a supported value.
@@ -222,7 +212,7 @@ func (c *Config) UICloseBehavior() string {
 }
 
 // DesktopDisplayMode normalizes the transcript display mode. Default is
-// "minimal" (collapsed model-generated intermediate items).
+// "standard" (flat rendering, no folding).
 func (c *Config) DesktopDisplayMode() string {
 	switch strings.ToLower(strings.TrimSpace(c.Desktop.DisplayMode)) {
 	case "standard":
@@ -232,8 +222,79 @@ func (c *Config) DesktopDisplayMode() string {
 	case "minimal":
 		return "minimal"
 	default:
-		return "minimal"
+		return "standard"
 	}
+}
+
+// DesktopStatusBarStyle normalizes the desktop status bar metric label style.
+// Default is "text"; explicit "icon" preserves the user's compact choice.
+func (c *Config) DesktopStatusBarStyle() string {
+	switch strings.ToLower(strings.TrimSpace(c.Desktop.StatusBarStyle)) {
+	case "icon":
+		return "icon"
+	case "text":
+		return "text"
+	default:
+		return "text"
+	}
+}
+
+var defaultDesktopStatusBarItems = []string{
+	"model",
+	"cache",
+	"cache_avg",
+	"session_tokens",
+	"turn_tokens",
+	"turn_cost",
+	"session_turns",
+	"context",
+	"compact",
+	"cost",
+	"balance",
+}
+
+var knownDesktopStatusBarItems = map[string]bool{
+	"model":          true,
+	"cache":          true,
+	"cache_avg":      true,
+	"session_tokens": true,
+	"turn_tokens":    true,
+	"turn_cost":      true,
+	"session_turns":  true,
+	"context":        true,
+	"compact":        true,
+	"cost":           true,
+	"balance":        true,
+}
+
+// DefaultDesktopStatusBarItems returns the default ordered visible desktop
+// status bar items.
+func DefaultDesktopStatusBarItems() []string {
+	return append([]string(nil), defaultDesktopStatusBarItems...)
+}
+
+// DesktopStatusBarItems normalizes the ordered visible desktop status bar items.
+// An unset or empty list uses the default full set; explicit non-empty lists
+// preserve user order and omit hidden items.
+func (c *Config) DesktopStatusBarItems() []string {
+	return normalizeDesktopStatusBarItems(c.Desktop.StatusBarItems)
+}
+
+func normalizeDesktopStatusBarItems(items []string) []string {
+	out := make([]string, 0, len(items))
+	seen := map[string]bool{}
+	for _, raw := range items {
+		id := strings.TrimSpace(raw)
+		if !knownDesktopStatusBarItems[id] || seen[id] {
+			continue
+		}
+		out = append(out, id)
+		seen[id] = true
+	}
+	if len(out) == 0 {
+		return DefaultDesktopStatusBarItems()
+	}
+	return out
 }
 
 // DesktopCheckUpdates reports whether the desktop should check for updates on
@@ -320,58 +381,102 @@ func (c CodegraphConfig) ResolvedTier() string {
 	return "background"
 }
 
-// BotConfig controls the multi-channel IM bot message gateway.
-type BotConfig struct {
-	Enabled     bool                  `toml:"enabled"`
-	Model       string                `toml:"model"` // model name for bot responses; empty uses default_model
-	MaxSteps    int                   `toml:"max_steps"`
-	DebounceMs  int                   `toml:"debounce_ms"` // message merge window in milliseconds
-	Allowlist   BotAllowlist          `toml:"allowlist"`
-	QQ          QQBotConfig           `toml:"qq"`
-	Feishu      FeishuBotConfig       `toml:"feishu"`
-	Weixin      WeixinBotConfig       `toml:"weixin"`
-	Discord     DiscordBotConfig      `toml:"discord"`
-	Connections []BotConnectionConfig `toml:"connections"`
+// BuiltInMCPConfig controls Reasonix-shipped MCP servers that require no user
+// server definition. They are off by default and become provider-visible only
+// after the user enables them.
+type BuiltInMCPConfig struct {
+	TimeEnabled     bool `toml:"time_enabled"`
+	Context7Enabled bool `toml:"context7_enabled"`
 }
 
-// BotAllowlist controls which users may use the bot.
+func (c BuiltInMCPConfig) Enabled(name string) bool {
+	switch name {
+	case "time":
+		return c.TimeEnabled
+	case "context7":
+		return c.Context7Enabled
+	default:
+		return false
+	}
+}
+
+func (c *BuiltInMCPConfig) SetEnabled(name string, enabled bool) bool {
+	switch name {
+	case "time":
+		c.TimeEnabled = enabled
+		return true
+	case "context7":
+		c.Context7Enabled = enabled
+		return true
+	default:
+		return false
+	}
+}
+
+func (c BuiltInMCPConfig) EnabledNames() []string {
+	var out []string
+	if c.TimeEnabled {
+		out = append(out, "time")
+	}
+	if c.Context7Enabled {
+		out = append(out, "context7")
+	}
+	return out
+}
+
+// BotConfig 控制多渠道 IM bot 消息网关。
+type BotConfig struct {
+	Enabled          bool                  `toml:"enabled"`
+	Model            string                `toml:"model"` // 用于 bot 的模型名，空则用 default_model
+	ToolApprovalMode string                `toml:"tool_approval_mode"`
+	MaxSteps         int                   `toml:"max_steps"`
+	DebounceMs       int                   `toml:"debounce_ms"` // 消息合并窗口，毫秒
+	Allowlist        BotAllowlist          `toml:"allowlist"`
+	QQ               QQBotConfig           `toml:"qq"`
+	Feishu           FeishuBotConfig       `toml:"feishu"`
+	Weixin           WeixinBotConfig       `toml:"weixin"`
+	Discord          DiscordBotConfig      `toml:"discord"`
+	Connections      []BotConnectionConfig `toml:"connections"`
+}
+
+// BotAllowlist 控制哪些用户可以使用 bot。
 type BotAllowlist struct {
-	Enabled       bool     `toml:"enabled"`
-	AllowAll      bool     `toml:"allow_all"`
-	QQUsers       []string `toml:"qq_users"`
-	FeishuUsers   []string `toml:"feishu_users"`
-	WeixinUsers   []string `toml:"weixin_users"`
-	DiscordUsers  []string `toml:"discord_users"`
-	QQGroups      []string `toml:"qq_groups"`
-	FeishuGroups  []string `toml:"feishu_groups"`
-	WeixinGroups  []string `toml:"weixin_groups"`
+	Enabled      bool     `toml:"enabled"`
+	AllowAll     bool     `toml:"allow_all"`
+	QQUsers      []string `toml:"qq_users"`
+	FeishuUsers  []string `toml:"feishu_users"`
+	WeixinUsers  []string `toml:"weixin_users"`
+	DiscordUsers []string `toml:"discord_users"`
+	QQGroups     []string `toml:"qq_groups"`
+	FeishuGroups []string `toml:"feishu_groups"`
+	WeixinGroups []string `toml:"weixin_groups"`
 	DiscordGroups []string `toml:"discord_groups"`
 }
 
-// QQBotConfig configures the QQ Official Bot API v2.
+// QQBotConfig QQ 官方 Bot API v2 配置。
 type QQBotConfig struct {
 	Enabled      bool   `toml:"enabled"`
 	AppID        string `toml:"app_id"`
-	AppSecretEnv string `toml:"app_secret_env"` // env var name, e.g. QQ_BOT_APP_SECRET
+	AppSecretEnv string `toml:"app_secret_env"` // 环境变量名，如 QQ_BOT_APP_SECRET
 }
 
-// FeishuBotConfig configures a Feishu custom app bot.
+// FeishuBotConfig 飞书自建应用 Bot 配置。
 type FeishuBotConfig struct {
 	Enabled           bool   `toml:"enabled"`
-	Domain            string `toml:"domain"` // feishu (default) | lark
+	Domain            string `toml:"domain"` // feishu（默认）| lark
 	AppID             string `toml:"app_id"`
-	AppSecretEnv      string `toml:"app_secret_env"`     // e.g. FEISHU_BOT_APP_SECRET
-	VerificationToken string `toml:"verification_token"` // event subscription verification token
-	Mode              string `toml:"mode"`               // webhook (default) | websocket
-	WebhookPort       int    `toml:"webhook_port"`       // webhook mode listen port
+	AppSecretEnv      string `toml:"app_secret_env"`     // 如 FEISHU_BOT_APP_SECRET
+	VerificationToken string `toml:"verification_token"` // 事件订阅验证 token
+	Mode              string `toml:"mode"`               // webhook（默认）| websocket
+	WebhookPort       int    `toml:"webhook_port"`       // webhook 模式端口
 	RequireMention    bool   `toml:"require_mention"`
 }
 
-// WeixinBotConfig configures a WeChat iLink bot.
+// WeixinBotConfig 微信 iLink Bot 配置。
 type WeixinBotConfig struct {
 	Enabled   bool   `toml:"enabled"`
 	AccountID string `toml:"account_id"`
-	TokenEnv  string `toml:"token_env"` // env var name, e.g. WEIXIN_BOT_TOKEN
+	TokenEnv  string `toml:"token_env"` // 环境变量名，如 WEIXIN_BOT_TOKEN
 	APIBase   string `toml:"api_base"`  // iLink API base URL
 }
 
@@ -390,19 +495,20 @@ type DiscordBotConfig struct {
 // knobs so the UI can expose a simple "connect first" flow while old configs
 // keep working.
 type BotConnectionConfig struct {
-	ID              string                        `toml:"id"`
-	Provider        string                        `toml:"provider"` // qq|feishu|weixin|discord
-	Domain          string                        `toml:"domain"`   // feishu|lark|weixin|qq
-	Label           string                        `toml:"label"`
-	Enabled         bool                          `toml:"enabled"`
-	Status          string                        `toml:"status"` // disconnected|pending|connected|error
-	Model           string                        `toml:"model"`
-	WorkspaceRoot   string                        `toml:"workspace_root"`
-	Credential      BotConnectionCredential       `toml:"credential"`
-	SessionMappings []BotConnectionSessionMapping `toml:"session_mappings"`
-	LastError       string                        `toml:"last_error"`
-	CreatedAt       string                        `toml:"created_at"`
-	UpdatedAt       string                        `toml:"updated_at"`
+	ID               string                        `toml:"id"`
+	Provider         string                        `toml:"provider"` // qq|feishu|weixin
+	Domain           string                        `toml:"domain"`   // feishu|lark|weixin|qq
+	Label            string                        `toml:"label"`
+	Enabled          bool                          `toml:"enabled"`
+	Status           string                        `toml:"status"` // disconnected|pending|connected|error
+	Model            string                        `toml:"model"`
+	ToolApprovalMode string                        `toml:"tool_approval_mode"`
+	WorkspaceRoot    string                        `toml:"workspace_root"`
+	Credential       BotConnectionCredential       `toml:"credential"`
+	SessionMappings  []BotConnectionSessionMapping `toml:"session_mappings"`
+	LastError        string                        `toml:"last_error"`
+	CreatedAt        string                        `toml:"created_at"`
+	UpdatedAt        string                        `toml:"updated_at"`
 }
 
 type BotConnectionCredential struct {
@@ -601,18 +707,16 @@ type SandboxConfig struct {
 	WorkspaceRoot string   `toml:"workspace_root"`
 	AllowWrite    []string `toml:"allow_write"`
 	// Bash is the OS-sandbox mode for the bash tool: "enforce" (default) jails
-	// each command, "off" runs it unconfined, "remote" sends commands to a remote
-	// sandbox API (e.g. OpenSandbox). Phase 1; macOS only for now, with
+	// each command, "off" runs it unconfined. Phase 1; macOS only for now, with
 	// a graceful fallback elsewhere (see internal/sandbox).
 	Bash string `toml:"bash"`
 	// Network allows network egress from inside the bash sandbox. Defaults true
 	// so module/package downloads keep working; the boundary is then writes.
 	Network bool `toml:"network"`
-	// RemoteSandboxURL is the API endpoint for the remote sandbox backend. Only
-	// used when bash == "remote".
+	// RemoteSandboxURL is the API endpoint for a remote sandbox backend (OpenSandbox).
+	// Only used when Bash == "remote".
 	RemoteSandboxURL string `toml:"remote_sandbox_url"`
 	// RemoteSandboxToken is the bearer auth token for the remote sandbox API.
-	// Prefer REMOTE_SANDBOX_TOKEN env var over storing in config.
 	RemoteSandboxToken string `toml:"remote_sandbox_token"`
 }
 
@@ -653,11 +757,8 @@ func (c *Config) WriteRootsForRoot(fallbackRoot string) []string {
 // it; empty or any other value resolves to "enforce", so the sandbox is on by
 // default and fails safe.
 func (c *Config) BashMode() string {
-	switch c.Sandbox.Bash {
-	case "off":
+	if c.Sandbox.Bash == "off" {
 		return "off"
-	case "remote":
-		return "remote"
 	}
 	return "enforce"
 }
@@ -718,6 +819,16 @@ type ProviderEntry struct {
 	// Empty = provider default.
 	Thinking string `toml:"thinking"`
 	Effort   string `toml:"effort"`
+	// Vision marks the model as accepting image input. When set, images the user
+	// attaches are embedded in the request (image_url for openai-kind, base64
+	// blocks for anthropic). Off by default: text-only models 400 on image input,
+	// and image tokens are heavy — gating keeps text-only flows cheap (the prompt
+	// prefix is byte-identical with no image, so the cache is unaffected either way).
+	Vision bool `toml:"vision"`
+	// VisionDetail sets the openai image_url detail hint (low|high); empty = auto
+	// (the field is omitted). "low" caps an image to a fixed ~85 tokens for cheap
+	// coarse reads; ignored by providers without the knob (e.g. anthropic).
+	VisionDetail string `toml:"vision_detail"`
 	// ReasoningProtocol selects the request shape for OpenAI-compatible reasoning
 	// models. Empty/auto uses the model capability registry plus endpoint
 	// heuristics; none disables automatic reasoning controls for this provider.
@@ -843,6 +954,7 @@ type ToolsConfig struct {
 	Enabled            []string     `toml:"enabled"`
 	BashTimeoutSeconds *int         `toml:"bash_timeout_seconds"`
 	Search             SearchConfig `toml:"search"`
+	Shell              ShellConfig  `toml:"shell"`
 }
 
 const defaultBashTimeoutSeconds = 120
@@ -865,6 +977,15 @@ func (c *Config) BashTimeoutSeconds() int {
 type SearchConfig struct {
 	Engine string `toml:"engine"`
 	RgPath string `toml:"rg_path"`
+}
+
+// ShellConfig chooses the interpreter the bash tool runs commands under. Prefer
+// is "auto" (default — real bash when present, else PowerShell on Windows),
+// "bash", or "powershell"/"pwsh" (force it; warn at startup and fall back to
+// auto if absent). Path optionally points at a specific shell executable.
+type ShellConfig struct {
+	Prefer string `toml:"prefer"`
+	Path   string `toml:"path"`
 }
 
 // PermissionsConfig declares the per-call permission policy (see
@@ -1010,18 +1131,21 @@ func Default() *Config {
 		// write enabled = false instead, so only brand-new users start without it.
 		// AutoInstall fetches the runtime into the cache when enabled and missing.
 		Codegraph: CodegraphConfig{Enabled: true, AutoInstall: true},
+		// Time is dependency-free and bundled, so expose it by default. Context7
+		// can invoke a package runner and remains opt-in.
+		BuiltInMCP: BuiltInMCPConfig{TimeEnabled: true},
 		// LSP tools on by default, but dormant until a language server is on PATH;
 		// a missing server yields an install hint rather than an error.
 		LSP:     LSPConfig{Enabled: true},
 		Network: NetworkConfig{ProxyMode: netclient.ModeAuto},
 		Bot: BotConfig{
-			MaxSteps:   25,
-			DebounceMs: 1500,
-			Allowlist:  BotAllowlist{Enabled: true},
-			QQ:         QQBotConfig{AppSecretEnv: "QQ_BOT_APP_SECRET"},
-			Feishu:     FeishuBotConfig{Domain: "feishu", AppSecretEnv: "FEISHU_BOT_APP_SECRET", Mode: "webhook", WebhookPort: 8080, RequireMention: true},
-			Weixin:     WeixinBotConfig{AccountID: "default", TokenEnv: "WEIXIN_BOT_TOKEN", APIBase: "https://ilinkai.weixin.qq.com"},
-			Discord:    DiscordBotConfig{TokenEnv: "DISCORD_BOT_TOKEN", AllowDMs: true},
+			ToolApprovalMode: "ask",
+			MaxSteps:         25,
+			DebounceMs:       1500,
+			Allowlist:        BotAllowlist{Enabled: true},
+			QQ:               QQBotConfig{AppSecretEnv: "QQ_BOT_APP_SECRET"},
+			Feishu:           FeishuBotConfig{Domain: "feishu", AppSecretEnv: "FEISHU_BOT_APP_SECRET", Mode: "webhook", WebhookPort: 8080, RequireMention: true},
+			Weixin:           WeixinBotConfig{AccountID: "default", TokenEnv: "WEIXIN_BOT_TOKEN", APIBase: "https://ilinkai.weixin.qq.com"},
 		},
 		Providers: []ProviderEntry{
 			{Name: "deepseek-flash", Kind: "openai", BaseURL: "https://api.deepseek.com", Model: "deepseek-v4-flash", APIKeyEnv: "DEEPSEEK_API_KEY", BalanceURL: "https://api.deepseek.com/user/balance", ContextWindow: 1_000_000, Price: &provider.Pricing{CacheHit: 0.02, Input: 1, Output: 2, Currency: "¥"}},
@@ -1626,77 +1750,70 @@ func retargetDesktopOfficialRef(ref string, access map[string]bool) string {
 	}
 }
 
-// IsPortable reports whether REASONIX_PORTABLE is set, which redirects all
-// reasonix data (config, sessions, cache, memory) to a .reasonix/ directory next
-// to the binary instead of the user config dir. USB/sync-drive friendly.
-func IsPortable() bool { return os.Getenv("REASONIX_PORTABLE") != "" }
-
-// reasonixDir returns the reasonix data root directory:
-//
-//	REASONIX_PORTABLE=1 → <binary_dir>/.reasonix
-//	otherwise            → os.UserConfigDir()/reasonix (> 1.11; e.g. ~/.config/reasonix)
-//
-// When neither resolves, returns "" — callers must handle the empty string.
-func reasonixDir() string {
-	if IsPortable() {
-		if exe, err := os.Executable(); err == nil {
-			return filepath.Join(filepath.Dir(exe), ".reasonix")
-		}
-	}
+func userConfigPath() string {
 	dir, err := os.UserConfigDir()
 	if err != nil {
 		return ""
 	}
-	return filepath.Join(dir, "reasonix")
+	return filepath.Join(dir, "reasonix", "config.toml")
 }
 
-func userConfigPath() string {
-	dir := reasonixDir()
-	if dir == "" {
-		return ""
+// userConfigDisplayPath is userConfigPath collapsed to a ~-relative form for
+// comments rendered into the user's own config.toml, so macOS/Windows users see
+// the real location instead of a hardcoded ~/.config path.
+func userConfigDisplayPath() string {
+	p := userConfigPath()
+	if p == "" {
+		return "<os-config-dir>/reasonix/config.toml"
 	}
-	return filepath.Join(dir, "config.toml")
+	if home, err := os.UserHomeDir(); err == nil && home != "" {
+		if rel, err := filepath.Rel(home, p); err == nil && !strings.HasPrefix(rel, "..") {
+			return "~/" + filepath.ToSlash(rel)
+		}
+	}
+	return p
 }
 
-// UserConfigPath is the user-global config file (~/.config/reasonix/config.toml),
-// or "" when the user config dir can't be resolved.
+// UserConfigPath is the user-global config.toml under os.UserConfigDir(): ~/.config
+// on Linux, ~/Library/Application Support on macOS, %AppData% on Windows. "" when
+// the user config dir can't be resolved.
 func UserConfigPath() string { return userConfigPath() }
 
 // UserCredentialsPath is the reasonix-owned global secrets file, beside
-// config.toml in the user config dir (e.g. ~/.config/reasonix/credentials). It
+// config.toml in the user config dir (os.UserConfigDir()/reasonix/credentials). It
 // holds KEY=value lines loaded into the environment by loadDotEnv. The setup
 // wizard writes API keys here, deliberately NOT named .env: keys never land in a
 // project's own .env (which can't be selectively gitignored), never get
 // committed, and resolve from any working directory. "" when the user config dir
 // can't be resolved.
 func UserCredentialsPath() string {
-	dir := reasonixDir()
-	if dir == "" {
+	dir, err := os.UserConfigDir()
+	if err != nil {
 		return ""
 	}
-	return filepath.Join(dir, "credentials")
+	return filepath.Join(dir, "reasonix", "credentials")
 }
 
 // ArchiveDir is where compacted conversation history is archived for
 // traceability (one timestamped .jsonl per compaction). Empty if the user config
 // directory cannot be resolved, in which case archiving is skipped.
 func ArchiveDir() string {
-	dir := reasonixDir()
-	if dir == "" {
+	dir, err := os.UserConfigDir()
+	if err != nil {
 		return ""
 	}
-	return filepath.Join(dir, "archive")
+	return filepath.Join(dir, "reasonix", "archive")
 }
 
 // SessionDir is where chat sessions are persisted (one .jsonl per session).
 // Used by `reasonix chat --continue` / `--resume` to find the recent ones. Empty
 // if the user config dir can't be resolved — sessions then aren't saved.
 func SessionDir() string {
-	dir := reasonixDir()
-	if dir == "" {
+	dir, err := os.UserConfigDir()
+	if err != nil {
 		return ""
 	}
-	return filepath.Join(dir, "sessions")
+	return filepath.Join(dir, "reasonix", "sessions")
 }
 
 // ProjectSessionDir is the per-workspace session directory the desktop sidebar
@@ -1726,17 +1843,23 @@ func WorkspaceSlug(absPath string) string {
 // shares one root the user can wipe in a single rm. Empty when the OS dir is
 // unavailable — callers must tolerate that (caching is best-effort).
 func CacheDir() string {
-	dir := reasonixDir()
-	if dir == "" {
+	dir, err := os.UserConfigDir()
+	if err != nil {
 		return ""
 	}
-	return filepath.Join(dir, "cache")
+	return filepath.Join(dir, "reasonix", "cache")
 }
 
 // MemoryUserDir returns the reasonix user config root (…/reasonix), under which
 // the user-global REASONIX.md and the per-project auto-memory store live. Empty
 // when the user config dir can't be resolved, which disables user-scoped memory.
-func MemoryUserDir() string { return reasonixDir() }
+func MemoryUserDir() string {
+	dir, err := os.UserConfigDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(dir, "reasonix")
+}
 
 // ConventionDirs are the parent directories scanned for agent assets (skills,
 // commands), in canonical-first order. .reasonix is ours; .agents / .agent /
@@ -1778,8 +1901,8 @@ func CommandDirsForRoot(root string) []string {
 	if home, err := os.UserHomeDir(); err == nil {
 		dirs = append(dirs, conventionSubdirsAsc(home, "commands")...)
 	}
-	if dir := reasonixDir(); dir != "" {
-		dirs = append(dirs, filepath.Join(dir, "commands")) // legacy XDG user dir
+	if dir, err := os.UserConfigDir(); err == nil {
+		dirs = append(dirs, filepath.Join(dir, "reasonix", "commands")) // legacy XDG user dir
 	}
 	dirs = append(dirs, conventionSubdirsAsc(root, "commands")...)
 	return dirs
