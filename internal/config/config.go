@@ -87,7 +87,21 @@ type DesktopConfig struct {
 	Telemetry      *bool    `toml:"telemetry"`        // anonymous launch ping (install id + version + OS); nil keeps the default enabled
 	Metrics        *bool    `toml:"metrics"`          // opt-in aggregate agent metrics (anonymous signal/bucket counts; no content); nil = disabled
 	ProviderAccess []string `toml:"provider_access"`  // desktop-only list of provider entries shown in Settings > Model > Access
-	ExpandThinking bool     `toml:"expand_thinking"`  // true = show reasoning text expanded by default; false = collapsed
+	ExpandThinking bool         `toml:"expand_thinking"`  // true = show reasoning text expanded by default; false = collapsed
+	Hotbar         HotbarConfig `toml:"hotbar"`          // keyboard digit keys 1-7 → action mapping
+}
+
+// HotbarConfig maps keyboard digit keys (1-7) to desktop actions.
+// Valid action names: palette, workspace, new, history, dock, sidebar, settings, and "" (unbind).
+// Keys not present or set to "" keep their built-in default.
+type HotbarConfig struct {
+	Key1 string `toml:"1"` // default: palette
+	Key2 string `toml:"2"` // default: workspace
+	Key3 string `toml:"3"` // default: new
+	Key4 string `toml:"4"` // default: history
+	Key5 string `toml:"5"` // default: dock
+	Key6 string `toml:"6"` // default: sidebar
+	Key7 string `toml:"7"` // default: settings
 }
 
 // NotificationsConfig controls optional system notifications for CLI chat/run.
