@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"reasonix/internal/event"
 	"strings"
+	"sync"
 	"testing"
 
 	"reasonix/internal/provider"
@@ -14,6 +15,7 @@ import (
 
 // mockProvider replays preset chunks and records the last request it received.
 type mockProvider struct {
+	mu       sync.Mutex
 	name     string
 	chunks   []provider.Chunk
 	streams  [][]provider.Chunk
@@ -24,9 +26,11 @@ type mockProvider struct {
 func (m *mockProvider) Name() string { return m.name }
 
 func (m *mockProvider) Stream(ctx context.Context, req provider.Request) (<-chan provider.Chunk, error) {
+	m.mu.Lock()
 	m.lastReq = req
-	call := len(m.requests)
 	m.requests = append(m.requests, req)
+	call := len(m.requests) - 1
+	m.mu.Unlock()
 	chunks := m.chunks
 	if len(m.streams) > 0 {
 		if call >= len(m.streams) {
