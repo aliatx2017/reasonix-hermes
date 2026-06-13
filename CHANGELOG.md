@@ -21,6 +21,36 @@ Our fork (`aliatx2017/reasonix-hermes`) adds:
 - **Research findings** (`docs/RESEARCH-FINDINGS-JUNE-2026.md`) — June 2026 deep-web sweep
 - **Implementation plan** (`docs/HERMES-IMPLEMENTATION-PLAN.md`) — phased roadmap
 
+### Hermes v1.6.1-h1 (2026-07-13)
+
+**Write Mode (4 features):**
+- **Panel integration**: Write Mode is now a "Write" tab in the desktop right dock (alongside Overview/Files/Changed), with i18n in en/zh/zh-TW
+- **CodeMirror 6**: Replaced plain textarea with CodeMirror 6 editor — markdown syntax highlighting, line wrapping, history, autocompletion, Ctrl+S save
+- **FIM completions**: Ctrl+Space triggers Fill-in-the-Middle completions via Go binding → DeepSeek `/v1/completions` (prefix/suffix). Toolbar FIM button for programmatic trigger
+- **Hindsight injection**: Togglable Memory sidebar (Brain button) — filters all memory facts by keyword overlap with file name + content, shows top 10 as type-colored pills
+
+**Checkpoints & Memory:**
+- **Checkpoint actual diffs**: "Diff vs current" button per file in CheckpointFileList. Go binding computes unified diff (Myers via `internal/diff.Build`) between checkpoint snapshot and current file. Rendered via DiffView
+- **D3 force-directed memory graph**: MemoryFactGraph toggle between "Badges" (original) and "Graph" (D3 force-directed). Nodes colored by type, sized by title, intra-type cluster edges, zoom/pan, drag, tooltips
+
+**Desktop & CLI:**
+- **Hermes accent**: Window title "Reasonix-Hermes", gold-tinted background (#1e1c13/#faf7ef), 2px gold (#d4a853) underline on `.app-chrome` header, `data-accent="hermes"` attribute
+- **`/write` CLI command**: Lists .md files in workspace, opens in `$EDITOR`/`$VISUAL` as detached process. Slash completion + 3 i18n catalogs
+- **Windows terminal theme detection**: `theme_osc_windows.go` — OSC 11 query (Windows Terminal/WezTerm) + `GetConsoleScreenBufferInfo` fallback with 16-color→RGB mapping
+- **Constitution**: `.reasonix/constitution.json` with 7 principles, 6 constraints, 7 code-level rules tailored to the project
+
+**Discord bot integration:**
+- **Desktop Settings → Bots**: Discord as 4th install target with token-input flow (no QR needed). `ConnectDiscordBot` validates token via Discord API, saves config via `upsertBotConnection`
+- **Runtime wired**: `EnabledPlatforms`, `AdapterBindings`, `PlatformConfigured`, `rememberAllowlist` (users + groups) all handle Discord platform
+- **CLI**: `reasonix bot start --channels discord` with allowlist maps updated
+
+**Bug fixes:**
+- All hermes dashboard components hardened against nil-slice → `.length` crashes (Wails JSON null from nil Go slices). Go bindings now return `[]T{}` instead of `nil` for 5 methods
+- `SubagentTreePanel`, `ConstitutionHealthPanel`, `CompactionTimeline`, `TokenBreakdownChart` — null guards added
+- `CheckpointFileList` Go binding restored after accidental truncation during CheckpointFileDiff edits
+
+**Upstream synced**: 5 new commits merged (d40797b) — sandbox nul redirect, cold-resume toggle, GSAP refactor, compact sound controls
+
 ### Hermes v1.5.0-h3 (2026-06-12)
 
 **Layout & Docs:**

@@ -32,7 +32,7 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 ## Notes
 
-- **Upstream synced**: `v1.6.0` merged (commit 6cf4a95, 2026-07-13). 40 commits total, 6 conflicts in latest sync resolved.
+- **Upstream synced**: `v1.6.1` merged (commit d40797b, 2026-07-13). 45 commits total, 5 new upstream commits in latest sync (sandbox nul redirect, cold-resume toggle, GSAP refactor, compact sound controls). Zero conflicts.
 - **Key v1.6.0 additions**: vision support (image downscaling + detail knob), built-in Time + Context7 MCP servers, configurable shell interpreter (`[tools.shell]`), notification sound system, token economy composer mode, desktop time filter + custom fonts + status bar customization + Windows ARM64, crash capture (Go panics/breadcrumbs/group summaries), lightweight local history + memory retrieval, Traditional Chinese (zh-TW) locale, updater resilience, agent fixes (decline-ask guard, compaction bounds), desktop hooks UI.
 - **Language policy**: All Chinese comments translated to English in `internal/bot/` and `internal/config/` — SPEC §1 compliance restored. Upstream v1.6.0 still has some Chinese comments in IM bot code; these are upstream-authored and left as-is.
 - **Layout**: Executables moved from `pkg/` to `cmd/`: `pkg/mcpbridge/` → `cmd/reasonix-mcpbridge/`, `pkg/memoryserver/` → `cmd/reasonix-memoryserver/`.
@@ -63,7 +63,18 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
   - **Frontend**: 7 new components in `components/hermes/`, all null-safe with polling. Settings → Hermes tab has 7 sections total.
 - **CLI TUI Hermes banner**: Custom ╔═╗ double-border header with ⚚ caduceus, "REASONIX-HERMES" branding, compact stats line (model · turns · msgs · tokens · cache% · cost · uptime). `/stats` toggles detailed session statistics panel.
 - **Bug fixes** (2026-07-06): duplicate `price` key in `reasonix.example.toml`, data race in `mockProvider.Stream()` (+`sync.Mutex`), `TestSaveToScopesUserAndProjectFiles` cross-platform fix (`HOME` not `XDG_CONFIG_HOME`).
-- **Session 2026-07-12** (Hermes enrichment wave):
+- **Session 2026-07-13** (Discord + Write Mode + D3 + accent wave):
+  - **Write Mode**: Panel integration (Write dock tab), CodeMirror 6 with markdown highlighting, FIM completions (Ctrl+Space → DeepSeek API), Hindsight memory sidebar
+  - **Checkpoints**: Diff-vs-current button per file, Myers unified diff via `internal/diff.Build`
+  - **Memory graph**: D3 force-directed graph with Badges/Graph toggle, zoom/pan/drag
+  - **Desktop Hermes accent**: Window title "Reasonix-Hermes", gold-tinted background, CSS accent underline
+  - **CLI `/write`**: Opens .md files in $EDITOR, slash-completion + 3 i18n catalogs
+  - **Windows theme detection**: OSC 11 + GetConsoleScreenBufferInfo fallback, cross-compiles clean
+  - **Constitution**: `.reasonix/constitution.json` with 7 principles, 6 constraints, 7 rules
+  - **Discord bot**: Desktop token-input UI, Go ConnectDiscordBot binding, runtime fully wired, CLI bot start support
+  - **Bug fixes**: 5 hermes components null-slice hardened, Go bindings return []T{} instead of nil
+  - **Upstream**: Merged 5 new commits (v1.6.1, d40797b) — sandbox nul, cold-resume, GSAP, compact sound
+  - **38 files changed**, +2989/-154 across Go backend + TypeScript frontend. All 6 binaries rebuilt (34MB desktop, 27MB CLI, 15MB bot, 14MB memory, 9MB bridge, 8MB hooks)
   - **Desktop**: Hermes accent theme ("hermes" — caduceus gold #d4a853), live data push (Wails event loop replaces 5s polling), token sparkline bar chart (ring buffer on Agent → Controller → Wails binding), compaction timeline panel, checkpoint file preview (Store.FileSnaps → expandable per-turn file list), Write Mode (Go filesystem bindings + React split-pane editor + live markdown preview), memory fact graph (clustered by type with color badges)
   - **Desktop config**: `reasonix.example.toml` now documents 24 sections covering all v1.6.0 + Hermes keys (348 lines, taplo-clean)
   - **Remote sandbox**: 10 httptest-based e2e tests covering commandRemote, Spec.remote(), Run() — all success/error/timeout paths
@@ -74,14 +85,9 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 ## Next session — ideas & follow-ups
 
-- [x] **Upstream sync check** — `git fetch upstream && git log HEAD..upstream/main-v2 --oneline`. No new commits since v1.6.0 (6cf4a95). ✅
-- [ ] **Discord bot integration test** — verify bot still starts and responds after gateway changes from upstream merge.
-- [x] **Write Mode FIM + CodeMirror** — CodeMirror 6 replaces textarea, FIM completions via DeepSeek API. ✅
-- [x] **Write Mode Hindsight injection** — Memory facts sidebar, filtered by file relevance. ✅
-- [x] **Write Mode panel integration** — Wired into right dock as "Write" tab. ✅
-- [x] **Cross-session memory graph D3** — D3 force-directed graph with Badges/Graph toggle. ✅
-- [x] **Checkpoint actual diffs** — Diff vs current file state via Go diff.Build + DiffView. ✅
-- [x] **Desktop Hermes accent in tray/title bar** — Window title "Reasonix-Hermes", gold-tinted background, CSS accent underline. ✅
-- [x] **CLI TUI `/write` command** — Opens .md files in $EDITOR, detached. ✅
-- [ ] **Sandbox Windows support** — investigate Windows Job Objects or Hyper-V containers as sandbox backend.
-- [x] **CLI terminal theme detection** — Windows OSC 11 + GetConsoleScreenBufferInfo fallback. ✅
+- [ ] **Discord bot integration test** — verify bot starts and responds via desktop gateway after runtime wiring.
+- [ ] **Sandbox Windows support** — investigate Windows Job Objects or Hyper-V containers.
+- [ ] **Desktop Hermes gold tray icon** — tint the tray icon with hermes gold when accent is active.
+- [ ] **Desktop Write Mode enhancements** — inline markdown preview side-by-side, file tabs, auto-save.
+- [ ] **CLI TUI `/stats` sparkline** — the Unicode token sparkline already works; consider per-provider cost breakdown.
+- [ ] **Memory graph D3 enhancements** — add vector similarity links, filter by type, click-to-inspect facts.
