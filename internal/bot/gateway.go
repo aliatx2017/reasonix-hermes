@@ -316,7 +316,7 @@ func (gw *BotGateway) handleMessage(ctx context.Context, binding AdapterBinding,
 		return
 	}
 
-	gw.runTurn(ctx, binding.Adapter, key, msg)
+	go gw.runTurn(ctx, binding.Adapter, key, msg)
 }
 
 func (gw *BotGateway) addPendingReaction(ctx context.Context, plat Platform, adapter Adapter, msg InboundMessage) {
