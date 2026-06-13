@@ -178,7 +178,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	if st, ok := outputstyle.Resolve(cfg.Agent.OutputStyle, outputstyle.Dirs()); ok {
 		sysPrompt = outputstyle.Apply(sysPrompt, st)
 	}
-	sysPrompt += "\n\n" + config.LanguagePolicy
+	sysPrompt += "\n\n" + languagePolicy(cfg.Language)
 	if tokenEconomy {
 		sysPrompt += "\n\n" + tokenEconomyPrompt
 	}
@@ -1438,4 +1438,18 @@ func truncateHead(s string, maxLen int) string {
 		}
 	}
 	return s[:cut] + "\n\n[... " + strconv.Itoa(len(s)-cut) + " more bytes]"
+}
+
+// languagePolicy returns the language instruction appended to the system prompt.
+// When an explicit language is configured (not auto/empty), it enforces that
+// language instead of the adaptive follow-the-user policy.
+func languagePolicy(explicitLang string) string {
+	switch strings.ToLower(strings.TrimSpace(explicitLang)) {
+	case "en":
+		return "You must respond in English only — never use any other language. Always keep code, identifiers, file paths, shell commands, and technical terms in their original form."
+	case "zh":
+		return config.LanguagePolicy // Chinese users get adaptive behavior
+	default:
+		return config.LanguagePolicy
+	}
 }
