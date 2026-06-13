@@ -1466,6 +1466,7 @@ func (m *chatTUI) commitSpacer() {
 func (m chatTUI) bottomRows() int {
 	rows := 0
 	for _, s := range []string{
+		m.renderPinnedBanner(),
 		m.renderTodoPanel(),
 		m.renderApprovalBanner(),
 		m.renderChooser(),
@@ -2285,6 +2286,29 @@ func (m chatTUI) View() tea.View {
 	if m.balance != "" {
 		data = append(data, dim(m.balance))
 	}
+	// Session counters — always visible at the bottom.
+	data = append(data, dim("turns")+" "+strconv.Itoa(m.sessionTurns))
+	msgs := m.ctrl.History()
+	data = append(data, dim("msgs")+" "+strconv.Itoa(len(msgs)))
+	// Goal progress when active.
+	if goal := m.ctrl.Goal(); goal != "" {
+		turns := m.ctrl.GoalTurns()
+		blocks := m.ctrl.GoalBlocks()
+		parts := []string{dim("goal") + " " + dim(goal)}
+		if turns > 0 {
+			parts = append(parts, dim("t"+strconv.Itoa(turns)))
+		}
+		if blocks > 0 {
+			parts = append(parts, dim("⛔"+strconv.Itoa(blocks)))
+		}
+		data = append(data, strings.Join(parts, " "))
+	}
+	// Memory facts count.
+	if mv := m.ctrl.Memory(); mv != nil {
+		if n := len(mv.Store.List()); n > 0 {
+			data = append(data, dim("mem")+" "+strconv.Itoa(n))
+		}
+	}
 	dataLine := "  " + strings.Join(data, " · ")
 	// A configured custom status line replaces the built-in data row entirely.
 	if m.statuslineCmd != "" && m.statuslineOut != "" {
@@ -2296,6 +2320,11 @@ func (m chatTUI) View() tea.View {
 	// transcriptHeight so the viewport above fills exactly the rest of the screen.
 	var parts []string
 	rowsAboveBox := 0 // terminal rows occupied by panels/working line before the composer
+	// Pinned Hermes header — compact one-line branding that stays visible.
+	if banner := m.renderPinnedBanner(); banner != "" {
+		parts = append(parts, banner)
+		rowsAboveBox += strings.Count(banner, "\n") + 1
+	}
 	if todo := m.renderTodoPanel(); todo != "" {
 		parts = append(parts, todo)
 		rowsAboveBox += strings.Count(todo, "\n") + 1
@@ -2717,9 +2746,101 @@ func (m chatTUI) renderStatsPanel() string {
 		row("Balance", m.balance)
 	}
 
+	// Goal progress.
+	if goal := m.ctrl.Goal(); goal != "" {
+		b.WriteString(accent("╟" + strings.Repeat("─", w-2) + "╢") + "\n")
+		row("Goal", goal)
+		row("  Status", m.ctrl.GoalStatus())
+		row("  Turns", fmt.Sprintf("%d · %d blocks", m.ctrl.GoalTurns(), m.ctrl.GoalBlocks()))
+	}
+
+	// Per-turn token sparkline.
+	history := m.ctrl.TurnUsageHistory()
+	if len(history) > 0 {
+		b.WriteString(accent("╟" + strings.Repeat("─", w-2) + "╢") + "\n")
+		spark := renderTokenSparkline(history, w-4)
+		b.WriteString(accent("║") + " " + dim("tokens/turn") + " " + spark + " " + accent("║") + "\n")
+	}
+
+	// Compaction log.
+	compactions := m.ctrl.CompactionHistory()
+	if len(compactions) > 0 {
+		b.WriteString(accent("╟" + strings.Repeat("─", w-2) + "╢") + "\n")
+		b.WriteString(accent("║") + " " + dim("compactions (" + strconv.Itoa(len(compactions)) + ")") + strings.Repeat(" ", w-3-lipgloss.Width("compactions ("+strconv.Itoa(len(compactions))+")")) + accent("║") + "\n")
+		for _, c := range compactions {
+			trigger := c.Trigger
+			summary := c.Summary
+			if len(summary) > w-20 {
+				summary = summary[:w-23] + "…"
+			}
+			if summary == "" {
+				summary = "(aborted)"
+			}
+			line := fmt.Sprintf("  %s · %d msgs · %s", trigger, c.Messages, summary)
+			b.WriteString(accent("║") + dim(line) + strings.Repeat(" ", w-2-lipgloss.Width(line)) + accent("║") + "\n")
+		}
+	}
+
+	// Memory facts.
+	if mv := m.ctrl.Memory(); mv != nil {
+		facts := mv.Store.List()
+		if len(facts) > 0 {
+			b.WriteString(accent("╟" + strings.Repeat("─", w-2) + "╢") + "\n")
+			b.WriteString(accent("║") + " " + dim("memory facts (" + strconv.Itoa(len(facts)) + ")") + strings.Repeat(" ", w-3-lipgloss.Width("memory facts ("+strconv.Itoa(len(facts))+")")) + accent("║") + "\n")
+			for _, f := range facts {
+				line := fmt.Sprintf("  %s · %s", f.Name, f.Title)
+				if len(line) > w-3 {
+					line = line[:w-6] + "…"
+				}
+				b.WriteString(accent("║") + dim(line) + strings.Repeat(" ", w-2-lipgloss.Width(line)) + accent("║") + "\n")
+			}
+		}
+	}
+
 	b.WriteString(accent("╚" + strings.Repeat("═", w-2) + "╝"))
 
 	return b.String()
+}
+
+// renderTokenSparkline draws a Unicode sparkline bar chart from per-turn usage.
+// Uses block characters ▁▂▃▄▅▆▇█ scaled to fit the available width.
+func renderTokenSparkline(history []provider.Usage, maxWidth int) string {
+	if len(history) == 0 || maxWidth < 4 {
+		return ""
+	}
+	// Find max to scale against.
+	var maxToks int
+	for _, u := range history {
+		t := u.PromptTokens + u.CompletionTokens
+		if t > maxToks {
+			maxToks = t
+		}
+	}
+	if maxToks == 0 {
+		return ""
+	}
+	// Thin out to fit maxWidth chars.
+	step := 1
+	if len(history) > maxWidth {
+		step = len(history) / maxWidth
+		if step < 1 {
+			step = 1
+		}
+	}
+	blocks := []rune{'▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'}
+	var sb strings.Builder
+	for i := 0; i < len(history); i += step {
+		t := history[i].PromptTokens + history[i].CompletionTokens
+		idx := t * (len(blocks) - 1) / maxToks
+		if idx < 0 {
+			idx = 0
+		}
+		if idx >= len(blocks) {
+			idx = len(blocks) - 1
+		}
+		sb.WriteRune(blocks[idx])
+	}
+	return accent(sb.String())
 }
 
 // truncateSubject trims a tool subject so the approval banner fits one line.
@@ -3894,53 +4015,60 @@ func replaySectionsFor(history []provider.Message, width int, renderer *mdRender
 	return out
 }
 
-// renderHermesBanner draws the Reasonix-Hermes branded header with ASCII art,
-// session info, and a compact stats line that updates live. The banner appears
-// once at session start; the stats line is refreshed on every render.
+// renderPinnedBanner draws a compact one-line Hermes header that stays pinned
+// above the transcript — branding always visible, unlike the full banner which
+// scrolls away.
+func (m chatTUI) renderPinnedBanner() string {
+	if !m.started {
+		return ""
+	}
+	w := m.width
+	if w < 50 {
+		return ""
+	}
+	left := " ⚚ REASONIX-HERMES"
+	right := fmt.Sprintf("%s · v1.6.0", m.label)
+	gap := w - lipgloss.Width(left) - lipgloss.Width(right) - 2
+	if gap < 2 {
+		gap = 2
+	}
+	return accent("╔" + strings.Repeat("═", w-2) + "╗") + "\n" +
+		accent("║") + bold(left) + strings.Repeat(" ", gap) + dim(right) + accent("║")
+}
+
+// renderHermesBanner draws the session-start header with stats.
+// The compact ⚚ branding is now in the pinned header; this banner shows
+// the session stats snapshot at start time.
 func renderHermesBanner(m *chatTUI, width int) string {
 	w := width
-	if w < 50 {
-		w = 50
+	if w < 40 {
+		return renderTUIBanner(m.label, m.missing, w)
 	}
 	var b strings.Builder
 
-	// Top border — double-line for a heraldic look
+	// Stats row
+	stats := m.renderStatsLine()
 	b.WriteString(accent("╔" + strings.Repeat("═", w-2) + "╗") + "\n")
-
-	// Row 1: primary branding
-	nameLine := " ⚚  REASONIX-HERMES  ⚚"
-	pad := (w - 2 - lipgloss.Width(nameLine)) / 2
-	if pad < 0 {
-		pad = 0
+	tip := i18n.M.ChatTip
+	tipPad := w - 3 - lipgloss.Width(tip)
+	if tipPad < 1 {
+		tipPad = 1
 	}
-	b.WriteString(accent("║") + strings.Repeat(" ", pad) + bold(nameLine) + strings.Repeat(" ", w-2-pad-lipgloss.Width(nameLine)) + accent("║") + "\n")
-
-	// Row 2: subtitle — model + version
-	subtitle := fmt.Sprintf("the messenger agent  ·  %s  ·  v1.6.0", m.label)
-	spad := (w - 2 - lipgloss.Width(subtitle)) / 2
-	if spad < 0 {
-		spad = 0
-	}
-	b.WriteString(accent("║") + strings.Repeat(" ", spad) + dim(subtitle) + strings.Repeat(" ", w-2-spad-lipgloss.Width(subtitle)) + accent("║") + "\n")
-
-	// Missing key warning
+	b.WriteString(accent("║") + " " + dim(tip) + strings.Repeat(" ", tipPad) + accent("║") + "\n")
 	if m.missing != "" {
 		warnLine := "  ! " + m.missing
 		b.WriteString(accent("║") + wrapForViewport(warnLine, w-2, activeCLITheme.warn) + accent("║") + "\n")
 	}
-
-	// Stats divider
 	b.WriteString(accent("╠" + strings.Repeat("═", w-2) + "╣") + "\n")
-
-	// Stats row
-	stats := m.renderStatsLine()
 	statPad := (w - 2 - lipgloss.Width(stats)) / 2
 	if statPad < 0 {
 		statPad = 0
 	}
-	b.WriteString(accent("║") + strings.Repeat(" ", statPad) + stats + strings.Repeat(" ", w-2-statPad-lipgloss.Width(stats)) + accent("║") + "\n")
-
-	// Bottom border
+	rightPad := w - 2 - statPad - lipgloss.Width(stats)
+	if rightPad < 0 {
+		rightPad = 0
+	}
+	b.WriteString(accent("║") + strings.Repeat(" ", statPad) + stats + strings.Repeat(" ", rightPad) + accent("║") + "\n")
 	b.WriteString(accent("╚" + strings.Repeat("═", w-2) + "╝") + "\n")
 
 	return b.String()
@@ -3952,13 +4080,6 @@ func (m *chatTUI) renderStatsLine() string {
 
 	// Model
 	parts = append(parts, dim("model")+" "+m.label)
-
-	// Turns
-	parts = append(parts, dim("turns")+" "+strconv.Itoa(m.sessionTurns))
-
-	// Messages
-	msgs := m.ctrl.History()
-	parts = append(parts, dim("msgs")+" "+strconv.Itoa(len(msgs)))
 
 	// Tokens
 	tokIn := formatTokenCount(m.sessionTokensIn)

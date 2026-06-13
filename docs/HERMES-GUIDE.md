@@ -1310,6 +1310,50 @@ cd desktop && wails dev
 - **Desktop toolchain**: `biome` (TS formatting/linting), `taplo` (TOML
   validation) recommended for development. `wails dev` for hot-reload.
 
+**Hermes enrichment (v1.6.1, 2026-07-12):**
+- **Hermes accent theme** — 7th theme style "hermes" with caduceus gold accent
+  (#d4a853 dark / #b8912e light), warm dark surfaces, and teal highlights.
+  Selectable in Settings → Appearance alongside Graphite/Aurora/Slate/Carbon/
+  Nocturne/Amber.
+- **Write Mode** — split-pane Markdown workspace with file browser sidebar,
+  textarea editor, and live rendered HTML preview. Cmd+S to save, refresh to
+  reload, plus button to create new `.md` files. Accessible from the workspace
+  panel.
+- **Live data push** — 3-second Wails event loop (`hermes:dashboard`) replaces
+  frontend `setInterval` polling. All dashboard components (cache, memory, bot,
+  goal, subagents, constitution, token chart, compaction log, memory facts)
+  receive push updates from Go.
+- **Token sparkline chart** — per-turn stacked bar chart showing prompt +
+  completion tokens with cache hit-rate and peak token display. Accumulated
+  in a 64-turn ring buffer on the Agent.
+- **Compaction timeline** — shows each compaction pass (auto/manual) with
+  trigger, message count, and truncated summary. 32-event ring buffer.
+- **Checkpoint file preview** — expandable per-turn file list showing pre-edit
+  content (up to 500 chars) from the checkpoint file snapshots.
+- **Memory fact graph** — facts clustered by type (user/project/feedback/
+  reference) with color-coded badges.
+- **StatusBar updates** — Discord monitor and cache gauge now use push events
+  instead of independent `setInterval` polling.
+- All enrichment components live under `desktop/frontend/src/components/hermes/`
+  and are accessible in the Hermes tab of Settings.
+
+**CLI TUI enhancement (v1.6.1):**
+- **Pinned banner** — compact ╔╗-bordered ⚚ REASONIX-HERMES header stays
+  visible above the transcript; never scrolls away.
+- **Bottom status counters** — turns, messages, goal progress, and memory
+  facts moved to the always-visible bottom data row.
+- **`/stats` sparkline** — Unicode block character (▁▂▃▄▅▆▇█) token bar chart,
+  one bar per turn, scaled to terminal width.
+- **`/stats` compaction log** — each compaction pass with trigger, message
+  count, and summary.
+- **`/stats` memory facts** — fact name and title list.
+- **`/stats` goal progress** — status, turns, and blocks when `/goal` is active.
+- **Fixed banner alignment** — padding math clamped to non-negative, no more
+  crashes on narrow terminals.
+- **Fixed workspace slug** — memory store paths now use `$HOME`-relativized
+  slugs with spaces replaced by dashes (e.g.
+  `$HOME-Library-Application-Support-reasonix-global-workspace`).
+
 The desktop app drives the same `control.Controller` as the CLI — they share
 all agent behavior, permissions, and plugin support.
 

@@ -282,6 +282,7 @@ func (a *App) startup(ctx context.Context) {
 	go a.sendStartupPing()
 	go a.flushMetrics()
 	go a.flushPendingCrash()
+	go a.startHermesEventLoop(ctx)
 }
 
 func (a *App) beforeClose(ctx context.Context) bool {

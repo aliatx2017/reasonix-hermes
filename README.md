@@ -42,6 +42,43 @@ persistent memory:
 | **Native hook runner** | Zero-dependency Go binary for PreToolUse/Stop hooks — replaces shell scripts, POSTs retain/reflect to the memory server |
 | **Portable mode** | `REASONIX_PORTABLE=1` redirects all data (config, sessions, cache, memory, skills) to `<binary_dir>/.reasonix/` — run from a USB drive or air-gapped machine |
 
+### Desktop Hermes enrichment
+
+The desktop app (Wails + React 19) has been enriched with 19 Hermes-specific features:
+
+| Feature | What it does |
+|---------|-------------|
+| **Hermes accent theme** | 7th theme style — caduceus gold (#d4a853) with warm dark surfaces and teal highlights |
+| **Live data push** | Wails event loop replaces 5s frontend polling — all dashboard data pushed from Go |
+| **Token sparkline chart** | Per-turn stacked bar chart (prompt + completion) with cache hit-rate and peak tokens |
+| **Compaction timeline** | Timeline panel showing auto/manual compactions with trigger, message count, and summary |
+| **Checkpoint file preview** | Expandable per-turn file list with pre-edit content preview (up to 500 chars) |
+| **Write Mode** | Split-pane Markdown editor with file browser, live preview, Cmd+S save, new file creation |
+| **Memory fact graph** | Facts clustered by type with color-coded badges (user/project/feedback/reference) |
+| **Cache economy gauge** | Session-wide cache hit-rate badge |
+| **Hindsight memory dashboard** | Facts, docs, and scopes from the auto-memory store |
+| **Discord bot monitor** | Live online/offline status and session count in StatusBar |
+| **Goal progress widget** | Active goal bar with turn/block status badges |
+| **Skills hub browser** | 17 skills with search and category filter |
+| **Sub-agent task tree** | Indented tree with status badges (running/done/failed) |
+| **Constitution health check** | Rules viewer with JSON template from .reasonix/constitution.json |
+| **StatusBar compact widgets** | Cache% gauge and Discord dot in the bottom bar |
+| **Hotbar** | 7 keyboard digit shortcuts (Ctrl+1-7) for palette/workspace/new/history/dock/sidebar/settings |
+| **Profiles** | Named profile switching — fast/cheap vs. deep reasoning with model/effort/mode overrides |
+
+Full reference: **[Hermes Master Guide](./docs/HERMES-GUIDE.md)** — 19 sections covering all upstream + Hermes features.
+
+### CLI TUI Hermes enrichment
+
+The terminal chat UI has been enhanced:
+
+- ⚚ **Pinned header** — REASONIX-HERMES branding visible above the transcript at all times
+- **Bottom status counters** — turns, messages, goal progress, and memory facts always visible
+- **`/stats` sparkline** — Unicode block character (▁▂▃▄▅▆▇█) token bar chart per turn
+- **`/stats` compaction log** — each compaction pass with trigger, message count, and summary
+- **`/stats` memory facts** — fact list with name and title
+- **`/stats` goal progress** — status, turns, and blocks when a goal is active
+
 <br/>
 
 ## Upstream foundation

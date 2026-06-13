@@ -62,6 +62,12 @@ import type {
   CheckpointFileView,
   ConstitutionHealthView,
   SubagentNodeView,
+  TurnUsagePoint,
+  CompactionEvent,
+  CheckpointFileSnap,
+  MarkdownFileEntry,
+  MarkdownContent,
+  MemoryFactView,
   MemoryDashboardView,
   WorkspaceView,
 } from "./types";
@@ -218,6 +224,14 @@ export interface AppBindings {
   SubagentTree(): Promise<SubagentNodeView[]>;
   SubagentTreeForTab(tabID: string): Promise<SubagentNodeView[]>;
   ConstitutionHealth(): Promise<ConstitutionHealthView>;
+  TurnUsageHistory(): Promise<TurnUsagePoint[]>;
+  CompactionHistory(): Promise<CompactionEvent[]>;
+  CheckpointFileList(turn: number): Promise<CheckpointFileSnap[]>;
+  ListMarkdownFiles(): Promise<MarkdownFileEntry[]>;
+  ReadMarkdownFile(relPath: string): Promise<MarkdownContent | null>;
+  SaveMarkdownFile(relPath: string, content: string): Promise<void>;
+  CreateMarkdownFile(relPath: string, content: string): Promise<string>;
+  MemoryFacts(): Promise<MemoryFactView[]>;
   CheckpointTurnList(): Promise<number[]>;
   CheckpointFiles(turn: number): Promise<CheckpointFileView | null>;
   Settings(): Promise<SettingsView>;
@@ -2323,6 +2337,14 @@ function makeMockApp(): AppBindings {
         async SubagentTree() { return []; },
         async SubagentTreeForTab(_tabID: string) { return []; },
         async ConstitutionHealth() { return { loaded: false, path: "", version: 0, rules: [], principles: [], constraints: [], status: "no_config" }; },
+        async TurnUsageHistory() { return []; },
+        async CompactionHistory() { return []; },
+        async CheckpointFileList(_turn: number) { return []; },
+        async ListMarkdownFiles() { return []; },
+        async ReadMarkdownFile(_relPath: string) { return null; },
+        async SaveMarkdownFile(_relPath: string, _content: string) { return; },
+        async CreateMarkdownFile(_relPath: string, _content: string) { return ""; },
+        async MemoryFacts() { return []; },
         async CheckpointTurnList() { return []; },
         async CheckpointFiles(_turn: number) { return null; },
         async StartBotConnectionInstall(provider: string, domain: string) {

@@ -2,6 +2,9 @@
 # Resolution order: flag > ./reasonix.toml > ~/.config/reasonix/config.toml > built-in defaults.
 # Secrets come from the environment via api_key_env; never put keys here.
 
+# Config version marker for future schema migrations.
+# config_version = 2
+
 default_model = "deepseek" # a provider name (→ its default model) or "provider/model"
 # language      = "zh"   # ui language; empty = auto-detect from $LANG / $REASONIX_LANG
 
@@ -9,12 +12,49 @@ default_model = "deepseek" # a provider name (→ its default model) or "provide
 theme = "auto" # auto|dark|light; controls CLI colors only; REASONIX_THEME can override per run
 # theme_style = "graphite"   # graphite|ember|aurora|midnight|sandstone|porcelain|linen|glacier
 # shortcut_layout = "desktop"   # classic|desktop; compatibility setting; Shift+Tab toggles Plan, Ctrl+Y toggles YOLO
+# show_reasoning = true   # CLI: show thinking text by default; false = collapsed (toggle with Ctrl+O)
+
+[desktop]
+# language = "zh"   # desktop UI language; empty/auto = browser/OS auto-detect (en|zh)
+theme = "light" # auto|dark|light
+# theme_style = "graphite"   # graphite|ember|aurora|midnight|sandstone|porcelain|linen|glacier
+close_behavior = "background" # quit|background when the window close button is clicked
+# display_mode = "standard"   # standard|compact; transcript display mode
+status_bar_style = "text" # icon|text metric labels in the bottom status bar
+status_bar_items = [
+  "model",
+  "cache",
+  "cache_avg",
+  "session_tokens",
+  "turn_tokens",
+  "turn_cost",
+  "session_turns",
+  "context",
+  "compact",
+  "cost",
+  "balance",
+]
+check_updates = true # check for new versions on startup
+telemetry = true # anonymous launch ping (install id + version + OS); never content
+# metrics = false   # opt-in aggregate agent metrics (anonymous signal/bucket counts); never content
+# provider_access = ["deepseek", "mimo-pro"]   # providers shown in desktop Settings > Model > Access
+# expand_thinking = false   # show reasoning text expanded by default; false = collapsed
+
+[desktop.hotbar]
+# 1 = "palette"     # default: palette
+# 2 = "workspace"   # default: workspace
+# 3 = "new"         # default: new
+# 4 = "history"     # default: history
+# 5 = "dock"        # default: dock
+# 6 = "sidebar"     # default: sidebar
+# 7 = "settings"    # default: settings
 
 [notifications]
 enabled = false         # system notifications for CLI chat/run; default off
 turn_done = true        # notify when a turn finishes
 approval_request = true # notify when a tool approval is waiting
 ask_request = true      # notify when a question is waiting
+# sound = false          # bell/beep on turn completion
 
 [agent]
 system_prompt = """
@@ -34,6 +74,8 @@ compact_force_ratio = 0.9 # force compacting at this high-water mark
 # planner_model = "mimo-pro"   # optional: enable two-model collaboration
 # subagent_model = "deepseek-pro"   # optional default for runAs=subagent skills
 # subagent_models = { review = "deepseek-pro", security_review = "deepseek-pro" }   # per-skill overrides
+# subagent_effort = "high"   # optional default effort for subagents
+# subagent_efforts = { review = "max", task = "high" }   # per-tool/skill effort overrides
 # output_style = "explanatory"   # persona/tone folded into the prompt: explanatory | learning | concise,
 #                                  or a custom .reasonix/output-styles/<name>.md ; empty = default
 
@@ -110,6 +152,14 @@ effort = "high"
 enabled = []               # empty = all built-in tools
 bash_timeout_seconds = 120 # foreground safety cap; set 0 for no tool-local cap
 
+[tools.search]
+# engine = "auto"   # auto|native|rg; auto uses ripgrep when on PATH, else native Go scanner
+# rg_path = ""      # optional explicit ripgrep binary path
+
+[tools.shell]
+# prefer = "auto"   # auto|bash|powershell|pwsh; auto = real bash on unix, PowerShell on Windows
+# path = ""         # optional explicit shell executable path
+
 # CodeGraph code intelligence (symbol/call-graph search via tree-sitter + SQLite),
 # a built-in MCP server giving the agent codegraph_* search / context / explore /
 # trace / node tools. Off by default for first-run sessions. Once enabled, the
@@ -121,6 +171,11 @@ bash_timeout_seconds = 120 # foreground safety cap; set 0 for no tool-local cap
 # auto_install = true
 # path         = ""   # empty = cache, then PATH, then a bundle beside reasonix
 
+# Built-in MCP servers that ship with Reasonix — off until manually enabled.
+[builtin_mcp]
+time_enabled = true      # built-in Time MCP server
+context7_enabled = false # built-in Context7 documentation MCP server
+
 # Skills are invokable playbooks (SKILL.md / <name>.md with frontmatter), found
 # under .reasonix/skills, .agents/skills, .agent/skills, .claude/skills (project)
 # and the same dirs under ~ (global). Built-ins (explore/research/review/security-review/test)
@@ -130,6 +185,7 @@ bash_timeout_seconds = 120 # foreground safety cap; set 0 for no tool-local cap
 # paths = ["~/my-skills", "../shared/skills"]   # extra "custom"-scope skill roots
 # excluded_paths = ["~/.agents/skills"]         # hide convention roots without deleting folders
 # disabled_skills = ["review"]                  # hide from prompt, slash invocation, and skill tools
+# max_depth = 3                                  # nested scan depth; set 1 for legacy root-only discovery
 
 # Hooks run shell commands around the loop (PreToolUse / PostToolUse /
 # UserPromptSubmit / Stop). They are NOT configured here — put them in
@@ -141,6 +197,53 @@ bash_timeout_seconds = 120 # foreground safety cap; set 0 for no tool-local cap
 #       "PreToolUse":  [ { "match": "bash", "command": "my-guard.sh" } ],
 #       "PostToolUse": [ { "match": ".*file", "command": "gofmt -w ." } ],
 #       "Stop":        [ { "command": "notify-send 'turn done'" } ] } }
+
+# Language Server Protocol — agent-accessible IDE-like tools (definition, hover,
+# references, diagnostics). Servers launch lazily the first time they are used.
+[lsp]
+enabled = true # language server tools; servers launch lazily when used
+
+# [lsp.servers.go]
+# command = "gopls"
+# args = []
+# env = {}
+# language_id = "go"
+# extensions = [".go"]
+# install_hint = "go install golang.org/x/tools/gopls@latest"
+
+# [lsp.servers.rust]
+# command = "rust-analyzer"
+# extensions = [".rs"]
+
+# Proxy/network settings for API calls to LLM providers.
+[network]
+proxy_mode = "auto" # auto|env|custom|off; auto currently uses environment proxy
+# proxy_url  = "socks5://127.0.0.1:7890"   # optional custom override
+# no_proxy   = "localhost,127.0.0.1,.local"   # honored when proxy_mode = "custom"
+
+# [network.proxy]
+# type = "socks5"   # http|https|socks5|socks5h
+# server = "127.0.0.1"
+# port = 7890
+# username = ""
+# password = "${REASONIX_PROXY_PASSWORD}"   # optional; supports ${VAR} expansion
+
+# Tool-call permission gating. mode = writer fallback when no rule matches.
+# Readers always default to allow. Precedence: deny > ask > allow > fallback.
+[permissions]
+mode = "ask" # ask|allow|deny
+# deny = ["Bash(rm -rf*)", "Bash(git push*)"]   # hard-blocked in every mode
+# allow = ["Bash(go test:*)", "Bash(git status:*)"]   # never prompted
+# ask = ["Edit(src/**)"]   # force a prompt even if otherwise allowed
+
+# File-writer confinement and bash sandboxing.
+[sandbox]
+# workspace_root = ""            # default: current working directory
+# allow_write = ["/tmp"]          # extra dirs writers may also modify
+bash = "enforce" # enforce (OS sandbox) | off; macOS Seatbelt, Linux bubblewrap
+network = true
+# remote_sandbox_url = ""        # API endpoint for remote sandbox backend (OpenSandbox)
+# remote_sandbox_token = ""      # bearer auth token for the remote sandbox API
 
 # A custom status line: a command whose first stdout line replaces the built-in
 # data row. It receives {"model","contextUsed","contextWindow"} as JSON on stdin.
@@ -161,8 +264,51 @@ bash_timeout_seconds = 120 # foreground safety cap; set 0 for no tool-local cap
 # name    = "collab"
 # command = "collab"
 # args    = ["mcp"]
+# env     = { COLLAB_LOG_LEVEL = "warn" }   # environment variables for the subprocess
+# auto_start = true   # connect at session startup (default: true)
+# tier       = "background"   # eager|lazy|background; startup connection strategy
 
-# Bot gateway: multi-channel IM bot for QQ, Feishu, and WeChat.
+# HTTP/SSE MCP plugin — no local command; talks to a remote server.
+# [[plugins]]
+# name    = "stripe"
+# type    = "http"
+# url     = "https://mcp.stripe.com"
+# headers = { Authorization = "Bearer ${STRIPE_KEY}" }
+
+# --- Named profiles: switch with /profile or set active_profile below. ---
+# Each profile can override model, effort, tool-approval mode, auto-plan,
+# output style, system prompt prefix, and yolo mode. Use /profile list to
+# see available profiles; /profile <name> to switch at runtime.
+# active_profile = "fast"   # named profile to activate at startup; "" = none
+
+# [profiles.fast]
+# description = "Fast and cheap for quick edits"
+# model = "deepseek-flash"
+# effort = "high"
+# tool_approve_mode = "yolo"
+# auto_plan = "off"
+# output_style = "concise"
+# system_prompt_prefix = ""
+# yolo = false
+
+# [profiles.deep]
+# description = "Deep reasoning for complex tasks"
+# model = "deepseek-pro"
+# effort = "max"
+# tool_approve_mode = "ask"
+# auto_plan = "on"
+# output_style = "explanatory"
+# system_prompt_prefix = "Think step by step."
+# yolo = false
+
+# --- Provider extensions ---
+# Per-provider fields recognized by all [[providers]] entries:
+#   models_url = "https://api.example.com/v1/models"   # auto-fetch model list on startup
+#   vision = false          # set true for models that accept image input
+#   vision_detail = "auto"  # image detail hint: low|high; empty = auto
+#   no_proxy = true         # reach this base_url directly, never via the proxy
+
+# Bot gateway: multi-channel IM bot for QQ, Feishu, WeChat, and Discord.
 # Start with `reasonix bot start --channels qq,feishu,weixin`.
 # All secrets are read from environment variables; never put keys here.
 # [bot]
@@ -170,6 +316,7 @@ bash_timeout_seconds = 120 # foreground safety cap; set 0 for no tool-local cap
 # model      = ""        # 用于 bot 的模型，空则用 default_model
 # max_steps  = 25
 # debounce_ms = 1500      # 消息合并窗口（毫秒）
+# tool_approval_mode = "ask"   # ask|auto|yolo; yolo skips tool approvals only
 #
 # [bot.allowlist]
 # enabled     = true
@@ -180,6 +327,8 @@ bash_timeout_seconds = 120 # foreground safety cap; set 0 for no tool-local cap
 # qq_groups   = []
 # feishu_groups = []
 # weixin_groups = []
+# discord_users = []
+# discord_groups = []
 #
 # [bot.qq]
 # enabled        = false
@@ -194,9 +343,18 @@ bash_timeout_seconds = 120 # foreground safety cap; set 0 for no tool-local cap
 # mode                = "webhook"   # webhook | websocket（websocket 需接官方 SDK 长连接）
 # webhook_port        = 8080
 # require_mention     = true
+# domain              = "feishu"   # feishu | lark
 #
 # [bot.weixin]
 # enabled   = false
 # account_id = "default"
 # token_env = "WEIXIN_BOT_TOKEN"
 # api_base  = "https://ilinkai.weixin.qq.com"   # Tencent iLink Bot API base URL
+
+# [bot.discord]
+# enabled = false
+# token_env = "DISCORD_BOT_TOKEN"
+# server_id = ""
+# channel_id = ""
+# allow_dms = true
+# webhook_url_env = "DISCORD_WEBHOOK_URL"

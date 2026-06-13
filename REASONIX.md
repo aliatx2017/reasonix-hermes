@@ -63,18 +63,25 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
   - **Frontend**: 7 new components in `components/hermes/`, all null-safe with polling. Settings → Hermes tab has 7 sections total.
 - **CLI TUI Hermes banner**: Custom ╔═╗ double-border header with ⚚ caduceus, "REASONIX-HERMES" branding, compact stats line (model · turns · msgs · tokens · cache% · cost · uptime). `/stats` toggles detailed session statistics panel.
 - **Bug fixes** (2026-07-06): duplicate `price` key in `reasonix.example.toml`, data race in `mockProvider.Stream()` (+`sync.Mutex`), `TestSaveToScopesUserAndProjectFiles` cross-platform fix (`HOME` not `XDG_CONFIG_HOME`).
+- **Session 2026-07-12** (Hermes enrichment wave):
+  - **Desktop**: Hermes accent theme ("hermes" — caduceus gold #d4a853), live data push (Wails event loop replaces 5s polling), token sparkline bar chart (ring buffer on Agent → Controller → Wails binding), compaction timeline panel, checkpoint file preview (Store.FileSnaps → expandable per-turn file list), Write Mode (Go filesystem bindings + React split-pane editor + live markdown preview), memory fact graph (clustered by type with color badges)
+  - **Desktop config**: `reasonix.example.toml` now documents 24 sections covering all v1.6.0 + Hermes keys (348 lines, taplo-clean)
+  - **Remote sandbox**: 10 httptest-based e2e tests covering commandRemote, Spec.remote(), Run() — all success/error/timeout paths
+  - **Go internals**: `WorkspaceSlug`/`slugify` now relativize paths to `$HOME` and replace spaces with dashes (fixed `-Users-alex.maksimchuk-Library-Application Support-reasonix-global-workspace` → `$HOME-Library-Application-Support-reasonix-global-workspace`)
+  - **CLI TUI**: Pinned ⚚ REASONIX-HERMES header (never scrolls away), turns/msgs/goal/mem moved to bottom status line, `/stats` panel enhanced with Unicode token sparkline (▁▂▃▄▅▆▇█), compaction timeline, memory facts list, goal progress. Banner padding math fixed (no more negative Repeat panics).
+  - **VS Code extension fork**: Deleted — not pursuing.
+- **VS Code extension fork**: Removed from plans.
 
 ## Next session — ideas & follow-ups
 
 - [ ] **Upstream sync check** — `git fetch upstream && git log HEAD..upstream/main-v2 --oneline`. Merge if any new commits.
-- [ ] **Write Mode** — separate Markdown workspace with live preview, FIM completions via DeepSeek API, Hindsight memory context injection. Requires new Go bindings for filesystem operations + CodeMirror/Monaco editor integration. Reference: Kun's Write Mode implementation.
-- [ ] **Cross-session memory graph** — visual network of Hindsight memory connections across sessions using vector similarity. Needs memoryserver API query + D3/vis.js frontend.
-- [ ] **Checkpoint diff preview** — inline code diffs for file changes at each checkpoint. Needs Go binding to access FileSnap content from the unexported checkpoint store.
-- [ ] **Per-turn token breakdown chart** — accumulate per-turn usage events into a ring buffer on App/tab, expose as history array, render as sparkline bar chart.
-- [ ] **Compaction history log** — store CompactionDone events (trigger, messages saved, summary) and expose as a timeline panel.
-- [ ] **Live data wiring for Write Mode + Constitution** — currently the dashboard polls data; need to hook into Wails event stream for push updates.
-- [ ] **Desktop dark/light theme Hermes accent** — add a Hermes-specific accent color option to the theme settings.
 - [ ] **Discord bot integration test** — verify bot still starts and responds after gateway changes from upstream merge.
-- [ ] **Update reasonix.example.toml** — add all new v1.6.0 + Hermes config keys.
-- [ ] **Remote sandbox e2e test** — test external sandbox against a real OpenSandbox instance.
-- [ ] **VS Code extension fork** — `whishi47/deepseekcode-reasonix-vscode` → `reasonix-hermes-vscode`.
+- [ ] **Write Mode FIM + CodeMirror** — the Markdown editor has a textarea; integrate CodeMirror 6 or Monaco for syntax highlighting and FIM completions via DeepSeek API.
+- [ ] **Write Mode Hindsight injection** — inject relevant memory facts into the Write Mode context.
+- [ ] **Cross-session memory graph D3** — upgrade MemoryFactGraph from clustered badges to a D3/vis.js force-directed graph with vector similarity links.
+- [ ] **Write Mode panel integration** — add WriteMode component to the desktop workspace sidebar as an actual panel (currently a standalone component, not wired into the layout).
+- [ ] **Checkpoint actual diffs** — currently shows pre-edit content; add unified diff against current file state.
+- [ ] **Desktop Hermes accent in tray/title bar** — apply the Hermes gold accent to window chrome on supported platforms.
+- [ ] **CLI TUI `/write` command** — open Write Mode as a separate Bubble Tea TUI session.
+- [ ] **Sandbox Windows support** — investigate Windows Job Objects or Hyper-V containers as sandbox backend.
+- [ ] **CLI terminal theme detection** — auto-detect terminal background and switch theme (currently no-op on Windows).

@@ -217,6 +217,20 @@ func (s *Store) List() []Meta {
 	return out
 }
 
+// FileSnaps returns file snapshots for a specific turn, or nil if not found.
+func (s *Store) FileSnaps(turn int) []FileSnap {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, c := range s.all() {
+		if c.Turn == turn {
+			out := make([]FileSnap, len(c.Files))
+			copy(out, c.Files)
+			return out
+		}
+	}
+	return nil
+}
+
 // all returns done + cur in turn order. Caller holds the lock.
 func (s *Store) all() []*Checkpoint {
 	cps := append([]*Checkpoint(nil), s.done...)

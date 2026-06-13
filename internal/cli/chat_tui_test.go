@@ -22,6 +22,9 @@ import (
 	"reasonix/internal/provider"
 )
 
+// pinnedBannerRows is the terminal rows consumed by the Hermes pinned header.
+const pinnedBannerRows = 2
+
 type blockingTurnRunner struct{ started chan struct{} }
 
 func TestMain(m *testing.M) {
@@ -213,14 +216,14 @@ func TestTranscriptViewportSizing(t *testing.T) {
 	m0, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
 	m = m0.(chatTUI)
 
-	if got := m.bottomRows(); got != 5 {
-		t.Fatalf("bottomRows with an empty composer = %d, want 5 (input 1 + border 2 + status 2)", got)
+	if got := m.bottomRows(); got != 7 {
+		t.Fatalf("bottomRows with an empty composer = %d, want 7 (pinned banner 2 + input 1 + border 2 + status 2)", got)
 	}
 	if m.viewport.Width() != 79 {
 		t.Errorf("viewport content width = %d, want 79 (terminal 80 - 1 scrollbar column)", m.viewport.Width())
 	}
-	if want := m.transcriptHeight(); m.viewport.Height() != want || want != 19 {
-		t.Errorf("viewport height = %d, transcriptHeight = %d, want 19 (24-5)", m.viewport.Height(), want)
+	if want := m.transcriptHeight(); m.viewport.Height() != want || want != 17 {
+		t.Errorf("viewport height = %d, transcriptHeight = %d, want 17 (24-7)", m.viewport.Height(), want)
 	}
 	if m.viewport.TotalLineCount() == 0 {
 		t.Errorf("viewport should hold the committed banner after the first resize")
@@ -402,8 +405,8 @@ func TestMCPManagerHidesComposerBox(t *testing.T) {
 	m = m0.(chatTUI)
 
 	footerRows := strings.Count(m.renderMainManagerFooter(), "\n") + 1
-	if got, want := m.bottomRows(), footerRows+m.statusLineCount; got != want {
-		t.Fatalf("bottomRows with MCP manager = %d, want %d (footer + status rows; manager content renders in main area)", got, want)
+	if got, want := m.bottomRows(), pinnedBannerRows+footerRows+m.statusLineCount; got != want {
+		t.Fatalf("bottomRows with MCP manager = %d, want %d (banner + footer + status rows; manager content renders in main area)", got, want)
 	}
 	if !m.hideComposer() {
 		t.Fatal("MCP manager should hide the composer")
@@ -444,8 +447,8 @@ func TestClearCommandRequiresConfirmationAndDiscardsSession(t *testing.T) {
 	m0, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
 	m = m0.(chatTUI)
 	footerRows := strings.Count(m.renderMainManagerFooter(), "\n") + 1
-	if got, want := m.bottomRows(), footerRows+m.statusLineCount; got != want {
-		t.Fatalf("bottomRows with /clear confirmation = %d, want %d (footer + status rows; confirmation renders in main area)", got, want)
+	if got, want := m.bottomRows(), pinnedBannerRows+footerRows+m.statusLineCount; got != want {
+		t.Fatalf("bottomRows with /clear confirmation = %d, want %d (banner + footer + status rows; confirmation renders in main area)", got, want)
 	}
 	if !m.hideComposer() {
 		t.Fatal("/clear confirmation should hide the composer")
@@ -581,8 +584,8 @@ func TestModalPanelsHideComposerBox(t *testing.T) {
 				t.Fatalf("%s panel did not render", tt.name)
 			}
 			cardRows := strings.Count(card, "\n") + 1
-			if got, want := m.bottomRows(), cardRows+m.statusLineCount; got != want {
-				t.Fatalf("bottomRows with %s = %d, want %d (panel + status rows, no composer box)", tt.name, got, want)
+			if got, want := m.bottomRows(), pinnedBannerRows+cardRows+m.statusLineCount; got != want {
+				t.Fatalf("bottomRows with %s = %d, want %d (banner + panel + status rows, no composer box)", tt.name, got, want)
 			}
 		})
 	}
@@ -639,8 +642,8 @@ func TestInputOwnedOverlaysKeepComposerBox(t *testing.T) {
 				t.Fatalf("%s panel did not render", tt.name)
 			}
 			panelRows := strings.Count(panel, "\n") + 1
-			if got, want := m.bottomRows(), panelRows+m.input.Height()+2+m.statusLineCount; got != want {
-				t.Fatalf("bottomRows with %s = %d, want %d (panel + composer box + status rows)", tt.name, got, want)
+			if got, want := m.bottomRows(), pinnedBannerRows+panelRows+m.input.Height()+2+m.statusLineCount; got != want {
+				t.Fatalf("bottomRows with %s = %d, want %d (banner + panel + composer box + status rows)", tt.name, got, want)
 			}
 		})
 	}

@@ -3,10 +3,27 @@ import { GitBranch, Clock } from "lucide-react";
 import { app } from "../../lib/bridge";
 import type { SubagentNodeView } from "../../lib/types";
 
+interface HermesDashboardPayload {
+  subagents?: SubagentNodeView[];
+}
+
 export function SubagentTreePanel() {
   const [nodes, setNodes] = useState<SubagentNodeView[]>([]);
 
   useEffect(() => {
+    // Prefer push events; fall back to polling.
+    try {
+      const w = window as any;
+      if (w.runtime?.EventsOn) {
+        const unsub = w.runtime.EventsOn("hermes:dashboard", (payload: HermesDashboardPayload) => {
+          if (payload?.subagents) setNodes(payload.subagents);
+        });
+        app.SubagentTree().then(setNodes).catch(() => {});
+        return () => { try { unsub(); } catch { /* ignore */ } };
+      }
+    } catch { /* fall through */ }
+
+    // Polling fallback.
     app.SubagentTree().then(setNodes).catch(() => {});
     const id = setInterval(() => app.SubagentTree().then(setNodes).catch(() => {}), 10000);
     return () => clearInterval(id);

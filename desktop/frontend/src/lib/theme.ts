@@ -17,7 +17,7 @@ import {
 export type Theme = 'auto' | 'light' | 'dark';
 export type ResolvedTheme = Exclude<Theme, 'auto'>;
 
-export const THEME_STYLES = ['graphite', 'aurora', 'slate', 'carbon', 'nocturne', 'amber'] as const;
+export const THEME_STYLES = ['graphite', 'aurora', 'slate', 'carbon', 'nocturne', 'amber', 'hermes'] as const;
 
 export type ThemeStyle = (typeof THEME_STYLES)[number];
 

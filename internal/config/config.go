@@ -159,7 +159,7 @@ func (c *Config) UIShortcutLayout() string {
 
 func normalizeThemeStyle(style string) string {
 	switch strings.ToLower(strings.TrimSpace(style)) {
-	case "graphite", "aurora", "slate", "carbon", "nocturne", "amber", "ember", "midnight", "sandstone", "porcelain", "linen", "glacier":
+	case "graphite", "aurora", "slate", "carbon", "nocturne", "amber", "hermes", "ember", "midnight", "sandstone", "porcelain", "linen", "glacier":
 		return strings.ToLower(strings.TrimSpace(style))
 	default:
 		return ""
@@ -1844,9 +1844,16 @@ func ProjectSessionDir(workspaceRoot string) string {
 }
 
 // WorkspaceSlug flattens an absolute workspace path into the directory name
-// used under <config root>/projects.
+// used under <config root>/projects. Paths under the home directory are
+// relativized first so the slug stays short and readable.
 func WorkspaceSlug(absPath string) string {
-	return strings.NewReplacer(string(os.PathSeparator), "-", "/", "-", "\\", "-", ":", "-").Replace(absPath)
+	clean := filepath.Clean(absPath)
+	if home, err := os.UserHomeDir(); err == nil {
+		if rel, err := filepath.Rel(home, clean); err == nil && !strings.HasPrefix(rel, "..") {
+			clean = "$HOME/" + filepath.ToSlash(rel)
+		}
+	}
+	return strings.NewReplacer(string(os.PathSeparator), "-", "/", "-", "\\", "-", ":", "-", " ", "-").Replace(clean)
 }
 
 // CacheDir is the per-user cache root for derived/regenerable artefacts: MCP

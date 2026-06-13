@@ -1,4 +1,4 @@
-import { BookOpen, FileText, GitBranch, Keyboard, Shield, Sliders, Zap } from "lucide-react";
+import { BarChart3, BookOpen, FileText, GitBranch, History, Keyboard, Network, Shield, Sliders, Zap } from "lucide-react";
 import type { SettingsView, HotbarView, ProfileView } from "../../lib/types";
 import { CacheEconomyGauge } from "./CacheEconomyGauge";
 import { DiscordMonitor } from "./DiscordMonitor";
@@ -6,6 +6,10 @@ import { GoalProgressWidget } from "./GoalProgressWidget";
 import { SkillsHubBrowser } from "./SkillsHubBrowser";
 import { SubagentTreePanel } from "./SubagentTreePanel";
 import { ConstitutionHealthPanel } from "./ConstitutionHealthPanel";
+import { TokenBreakdownChart } from "./TokenBreakdownChart";
+import { CompactionTimeline } from "./CompactionTimeline";
+import { CheckpointFileList } from "./CheckpointFileList";
+import { MemoryFactGraph } from "./MemoryFactGraph";
 
 interface HermesSettingsProps {
   s: SettingsView;
@@ -56,6 +60,50 @@ export function HermesSettings({ s, onHotbarChange: _onHotbar, onProfileSelect: 
             <GoalProgressWidget goal={goal ?? null} compact />
           </div>
         </div>
+      </section>
+
+      <hr style={{ margin: "24px 0", border: "none", borderTop: "1px solid var(--color-border)" }} />
+
+      <section className="settings-section">
+        <h3 className="settings-section__title">
+          <BarChart3 size={16} style={{ marginRight: 6 }} />
+          Token Breakdown
+        </h3>
+        <TokenBreakdownChart />
+      </section>
+
+      <hr style={{ margin: "24px 0", border: "none", borderTop: "1px solid var(--color-border)" }} />
+
+      <section className="settings-section">
+        <h3 className="settings-section__title">
+          <History size={16} style={{ marginRight: 6 }} />
+          Compaction Timeline
+        </h3>
+        <CompactionTimeline />
+      </section>
+
+      <hr style={{ margin: "24px 0", border: "none", borderTop: "1px solid var(--color-border)" }} />
+
+      <section className="settings-section">
+        <h3 className="settings-section__title">
+          <FileText size={16} style={{ marginRight: 6 }} />
+          Checkpoint Files
+        </h3>
+        <p className="settings-section__desc" style={{ fontSize: 12, color: "var(--color-text-muted)", marginBottom: 8 }}>
+          Per-turn file snapshots captured before the agent writes or edits. Click a turn to see pre-edit contents.
+        </p>
+        {/* Checkpoints are fetched from the rewind data; pass empty for standalone section */}
+        <CheckpointFileList checkpoints={[]} />
+      </section>
+
+      <hr style={{ margin: "24px 0", border: "none", borderTop: "1px solid var(--color-border)" }} />
+
+      <section className="settings-section">
+        <h3 className="settings-section__title">
+          <Network size={16} style={{ marginRight: 6 }} />
+          Memory Fact Graph
+        </h3>
+        <MemoryFactGraph />
       </section>
 
       <hr style={{ margin: "24px 0", border: "none", borderTop: "1px solid var(--color-border)" }} />

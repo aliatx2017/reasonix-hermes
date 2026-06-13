@@ -1466,6 +1466,14 @@ func (c *Controller) Checkpoints() []checkpoint.Meta {
 	return c.cp.List()
 }
 
+// CheckpointFileSnaps returns file snapshots for a specific turn, or nil.
+func (c *Controller) CheckpointFileSnaps(turn int) []checkpoint.FileSnap {
+	if c.cp == nil {
+		return nil
+	}
+	return c.cp.FileSnaps(turn)
+}
+
 // rewindFail emits the error as a Warn notice (so a frontend that swallows the
 // returned error — e.g. the desktop bridge's .catch — still shows the user why
 // the rewind did nothing) and returns it.
@@ -1998,6 +2006,23 @@ func (c *Controller) SessionCache() (hit, miss int) {
 		return 0, 0
 	}
 	return c.executor.SessionCache()
+}
+
+// TurnUsageHistory returns a snapshot of the last N per-turn Usage samples for
+// rendering token breakdown charts in the frontend.
+func (c *Controller) TurnUsageHistory() []provider.Usage {
+	if c.executor == nil {
+		return nil
+	}
+	return c.executor.TurnUsageHistory()
+}
+
+// CompactionHistory returns compaction events for the timeline panel.
+func (c *Controller) CompactionHistory() []event.Compaction {
+	if c.executor == nil {
+		return nil
+	}
+	return c.executor.CompactionHistory()
 }
 
 // Balance queries the active provider's wallet balance, or (nil, nil) when the

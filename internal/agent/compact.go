@@ -267,6 +267,9 @@ func (a *Agent) compact(ctx context.Context, trigger, instructions string, force
 	a.sink.Emit(event.Event{Kind: event.CompactionDone, Compaction: event.Compaction{
 		Trigger: trigger, Messages: len(fold), Summary: summary, Archive: archived,
 	}})
+	a.appendCompactionLog(event.Compaction{
+		Trigger: trigger, Messages: len(fold), Summary: summary, Archive: archived,
+	})
 	return nil
 }
 
@@ -276,6 +279,7 @@ func (a *Agent) compact(ctx context.Context, trigger, instructions string, force
 // no text of its own.
 func (a *Agent) emitCompactionAborted(trigger string) {
 	a.sink.Emit(event.Event{Kind: event.CompactionDone, Compaction: event.Compaction{Trigger: trigger}})
+	a.appendCompactionLog(event.Compaction{Trigger: trigger})
 }
 
 // SummarizeFrom replaces the messages from fromIdx onward with a single summary,

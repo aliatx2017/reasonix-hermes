@@ -4247,6 +4247,7 @@ const THEME_STYLE_META: Record<ThemeStyle, { name: string; zh: DictKey; note: Di
   carbon: { name: "Carbon", zh: "settings.style.carbon.zh", note: "settings.style.carbon.note", desc: "settings.style.carbon.desc" },
   nocturne: { name: "Nocturne", zh: "settings.style.nocturne.zh", note: "settings.style.nocturne.note", desc: "settings.style.nocturne.desc" },
   amber: { name: "Amber", zh: "settings.style.amber.zh", note: "settings.style.amber.note", desc: "settings.style.amber.desc" },
+  hermes: { name: "Hermes", zh: "settings.style.hermes.zh", note: "settings.style.hermes.note", desc: "settings.style.hermes.desc" },
 };
 
 function AppearanceSection({

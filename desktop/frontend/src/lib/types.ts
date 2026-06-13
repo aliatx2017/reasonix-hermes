@@ -604,6 +604,44 @@ export interface CacheEconomyView {
   hitRate: number;
 }
 
+export interface TurnUsagePoint {
+  turn: number;
+  promptTokens: number;
+  completionTokens: number;
+  cacheHitTokens: number;
+  cacheMissTokens: number;
+}
+
+export interface CompactionEvent {
+  trigger: string;
+  messages: number;
+  summary: string;
+}
+
+export interface CheckpointFileSnap {
+  path: string;
+  content: string;
+}
+
+export interface MarkdownFileEntry {
+  name: string;
+  path: string;
+  relPath: string;
+  size: number;
+}
+
+export interface MarkdownContent {
+  path: string;
+  name: string;
+  content: string;
+}
+
+export interface MemoryFactView {
+  title: string;
+  type: string;
+  description: string;
+}
+
 export interface BotLiveStatusView {
   running: boolean;
   platform: string;

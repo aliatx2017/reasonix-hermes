@@ -130,6 +130,7 @@ skills-hub/            17-skill community registry + static catalog site
 - **New packages**: `internal/constitution/` (structured project invariants from `.reasonix/constitution.json`)
 - **New files**: `flake.nix`, `Dockerfile`, `.dockerignore`, `internal/sandbox/remote.go`
 - **Config additions**: `[notifications].sound`, `active_profile`, `[profiles.<name>]` blocks, `[sandbox].remote_sandbox_url`, `[sandbox].remote_sandbox_token`
+- **2026-07-12 session** — 13 features shipped: Hermes accent theme, live data push (Wails events), token sparkline chart, compaction timeline, checkpoint file preview, Write Mode (Go fs bindings + React editor), memory fact graph, reasonix.example.toml full update, remote sandbox e2e tests, workspace slug fix ($HOME relativization), CLI TUI enhancements (pinned banner, bottom counters, /stats sparkline+compaction+memory+goal). Built CLI (26MB) + desktop (33MB). VS Code fork removed.
 
 ## roach-code Multi-Provider Research
 
@@ -154,21 +155,3 @@ A multi-model rewrite of deepseek-reasonix that generalizes from DeepSeek-only t
 
 **Relevance to Hermes**: The `internal/provider/` registry already supports adding new providers via `init()` registration. Adding MiniMax/GLM would follow the same pattern as `provider/openai/` and `provider/anthropic/`. The key work is implementing each provider's wire format (OpenAI-compatible for MiniMax/GLM, proprietary for Codex).
 
-## VS Code Extension Fork
-
-**Source**: `whishi47/deepseekcode-reasonix-vscode` (⭐1, MIT, TypeScript)
-
-**To fork** (manual GitHub action):
-1. Fork to `aliatx2017/reasonix-hermes-vscode`
-2. Rename branding: `DeepSeekCode` → `Reasonix Hermes`, 🐋 → Hermes icon
-3. Update `package.json`: name, displayName, description, publisher, repository
-4. Update `README.md`: replace DeepSeekCode references with Hermes
-5. Terminal name: `DeepSeekCode` → `Hermes`
-6. Command prefix: `deepseekcode` → `reasonix` (or keep as configurable)
-7. Publish to VS Code Marketplace as `reasonix-hermes-vscode`
-
-**Key features to preserve**:
-- 3 keyboard shortcuts (Ctrl+Esc, Ctrl+Shift+Esc, Ctrl+Alt+K)
-- 2.5s readiness delay before auto-injecting `@file#L10-L20`
-- Smart terminal reuse (same-name terminal not duplicated)
-- Compatible with Windsurf/Trae

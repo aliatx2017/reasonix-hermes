@@ -298,6 +298,17 @@ export function StatusBar({
 function DiscordMonitorCompact() {
   const [status, setStatus] = useState<BotLiveStatusView | null>(null);
   useEffect(() => {
+    // Prefer push events; fall back to polling.
+    try {
+      const w = window as any;
+      if (w.runtime?.EventsOn) {
+        const unsub = w.runtime.EventsOn("hermes:dashboard", (payload: any) => {
+          if (payload?.bot) setStatus(payload.bot);
+        });
+        app.BotLiveStatus().then(setStatus).catch(() => {});
+        return () => { try { unsub(); } catch { /* ignore */ } };
+      }
+    } catch { /* fall through */ }
     const poll = () => { app.BotLiveStatus().then(setStatus).catch(() => {}); };
     poll();
     const id = setInterval(poll, 10000);
@@ -316,6 +327,17 @@ function DiscordMonitorCompact() {
 function CacheGaugeCompact() {
   const [cache, setCache] = useState<CacheEconomyView | null>(null);
   useEffect(() => {
+    // Prefer push events; fall back to polling.
+    try {
+      const w = window as any;
+      if (w.runtime?.EventsOn) {
+        const unsub = w.runtime.EventsOn("hermes:dashboard", (payload: any) => {
+          if (payload?.cache) setCache(payload.cache);
+        });
+        app.CacheEconomy().then(setCache).catch(() => {});
+        return () => { try { unsub(); } catch { /* ignore */ } };
+      }
+    } catch { /* fall through */ }
     const poll = () => { app.CacheEconomy().then(setCache).catch(() => {}); };
     poll();
     const id = setInterval(poll, 15000);

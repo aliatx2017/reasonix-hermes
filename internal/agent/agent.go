@@ -191,6 +191,16 @@ type Agent struct {
 	sessCacheHit  atomic.Int64
 	sessCacheMiss atomic.Int64
 
+	// turnUsageHistory is a ring buffer of the last N per-turn Usage samples,
+	// keyed by turn number. The run loop appends while frontends read for charts.
+	turnUsageHistory   []provider.Usage
+	turnUsageHistoryMu sync.Mutex
+
+	// compactionLog is a ring buffer of the last N CompactionDone events for
+	// the compaction history timeline panel.
+	compactionLog   []event.Compaction
+	compactionLogMu sync.Mutex
+
 	// lastPrefixShape records the previous provider request's cacheable prefix
 	// so usage events can explain prefix churn on the next request.
 	lastPrefixShape     PrefixShape
@@ -371,6 +381,53 @@ func (a *Agent) LastUsage() *provider.Usage { return a.lastUsage.Load() }
 // API call this session — the basis for the status line's aggregate hit-rate.
 func (a *Agent) SessionCache() (hit, miss int) {
 	return int(a.sessCacheHit.Load()), int(a.sessCacheMiss.Load())
+}
+
+const maxTurnUsageHistory = 64
+
+// TurnUsageHistory returns a snapshot of the last N per-turn Usage samples,
+// oldest first, for rendering token breakdown charts.
+func (a *Agent) TurnUsageHistory() []provider.Usage {
+	a.turnUsageHistoryMu.Lock()
+	defer a.turnUsageHistoryMu.Unlock()
+	out := make([]provider.Usage, len(a.turnUsageHistory))
+	copy(out, a.turnUsageHistory)
+	return out
+}
+
+func (a *Agent) appendTurnUsage(u *provider.Usage) {
+	if u == nil {
+		return
+	}
+	a.turnUsageHistoryMu.Lock()
+	defer a.turnUsageHistoryMu.Unlock()
+	a.turnUsageHistory = append(a.turnUsageHistory, *u)
+	if len(a.turnUsageHistory) > maxTurnUsageHistory {
+		// Drop oldest entries; keep the ring bounded.
+		excess := len(a.turnUsageHistory) - maxTurnUsageHistory
+		a.turnUsageHistory = a.turnUsageHistory[excess:]
+	}
+}
+
+const maxCompactionLog = 32
+
+// CompactionHistory returns a snapshot of compaction events, oldest first.
+func (a *Agent) CompactionHistory() []event.Compaction {
+	a.compactionLogMu.Lock()
+	defer a.compactionLogMu.Unlock()
+	out := make([]event.Compaction, len(a.compactionLog))
+	copy(out, a.compactionLog)
+	return out
+}
+
+func (a *Agent) appendCompactionLog(c event.Compaction) {
+	a.compactionLogMu.Lock()
+	defer a.compactionLogMu.Unlock()
+	a.compactionLog = append(a.compactionLog, c)
+	if len(a.compactionLog) > maxCompactionLog {
+		excess := len(a.compactionLog) - maxCompactionLog
+		a.compactionLog = a.compactionLog[excess:]
+	}
 }
 
 // ContextWindow returns the configured context-window size in tokens. 0
@@ -1058,6 +1115,7 @@ func (a *Agent) stream(ctx context.Context, turn int) (string, string, string, [
 			a.lastUsage.Store(chunk.Usage)
 			a.sessCacheHit.Add(int64(chunk.Usage.CacheHitTokens))
 			a.sessCacheMiss.Add(int64(chunk.Usage.CacheMissTokens))
+			a.appendTurnUsage(chunk.Usage)
 		case provider.ChunkError:
 			if provider.IsStreamInterrupted(chunk.Err) {
 				stored, _ := finishReasoning()

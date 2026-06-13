@@ -14,6 +14,17 @@ export function ConstitutionHealthPanel() {
   const [data, setData] = useState<ConstitutionHealthView | null>(null);
 
   useEffect(() => {
+    // Prefer push events; fall back to fetch-once.
+    try {
+      const w = window as any;
+      if (w.runtime?.EventsOn) {
+        const unsub = w.runtime.EventsOn("hermes:dashboard", (payload: any) => {
+          if (payload?.constitution) setData(payload.constitution);
+        });
+        app.ConstitutionHealth().then(setData).catch(() => {});
+        return () => { try { unsub(); } catch { /* ignore */ } };
+      }
+    } catch { /* fall through */ }
     app.ConstitutionHealth().then(setData).catch(() => {});
   }, []);
 

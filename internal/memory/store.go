@@ -77,12 +77,18 @@ func StoreFor(userDir, cwd string) Store {
 // indexFile is the human-readable index of saved memories.
 const indexFile = "MEMORY.md"
 
-// slugify turns an absolute project path into a single filesystem-safe segment,
-// matching the auto-memory convention (path separators → '-'), e.g.
-// "/Users/me/proj" → "-Users-me-proj".
+// slugify turns an absolute project path into a single filesystem-safe segment.
+// Paths under the home directory are relativized first so the slug stays short
+// and readable, e.g. "~/projects/my-app" → "$HOME-projects-my-app".
 func slugify(absPath string) string {
-	r := strings.NewReplacer(string(os.PathSeparator), "-", "/", "-", "\\", "-", ":", "-")
-	return r.Replace(absPath)
+	clean := filepath.Clean(absPath)
+	if home, err := os.UserHomeDir(); err == nil {
+		if rel, err := filepath.Rel(home, clean); err == nil && !strings.HasPrefix(rel, "..") {
+			clean = "$HOME/" + filepath.ToSlash(rel)
+		}
+	}
+	r := strings.NewReplacer(string(os.PathSeparator), "-", "/", "-", "\\", "-", ":", "-", " ", "-")
+	return r.Replace(clean)
 }
 
 // Index returns the MEMORY.md contents (the per-line index of saved memories),

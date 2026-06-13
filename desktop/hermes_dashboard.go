@@ -1,7 +1,12 @@
 package main
 
 import (
+	"context"
+	"path/filepath"
 	"reasonix/internal/control"
+	"time"
+
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // --- Cache Economy Gauge ---
@@ -127,4 +132,152 @@ func (a *App) ctrlForTab(tabID string) *control.Controller {
 		return tab.Ctrl
 	}
 	return nil
+}
+
+// --- Live Dashboard Event Loop ---
+
+// HermesDashboardEvent is the push payload sent to the frontend every few seconds.
+type HermesDashboardEvent struct {
+	Cache        CacheEconomyView        `json:"cache"`
+	Memory       MemoryDashboardView     `json:"memory"`
+	Bot          BotLiveStatusView       `json:"bot"`
+	Goal         GoalProgressView        `json:"goal"`
+	Subagents    []SubagentNodeView      `json:"subagents"`
+	Constitution ConstitutionHealthView  `json:"constitution"`
+	TurnUsage    []TurnUsagePoint        `json:"turnUsage"`
+	Compactions  []CompactionEvent       `json:"compactions"`
+	MemoryFacts  []MemoryFactView        `json:"memoryFacts"`
+}
+
+// MemoryFactView is one fact from the auto-memory store.
+type MemoryFactView struct {
+	Title       string `json:"title"`
+	Type        string `json:"type"`
+	Description string `json:"description"`
+}
+
+// MemoryFacts returns facts and docs from the auto-memory store for graph display.
+func (a *App) MemoryFacts() []MemoryFactView {
+	mv := a.Memory()
+	var facts []MemoryFactView
+	for _, f := range mv.Facts {
+		facts = append(facts, MemoryFactView{
+			Title:       f.Title,
+			Type:        f.Type,
+			Description: f.Description,
+		})
+	}
+	for _, d := range mv.Docs {
+		facts = append(facts, MemoryFactView{
+			Title:       filepath.Base(d.Path),
+			Type:        "doc:" + d.Scope,
+			Description: d.Path,
+		})
+	}
+	return facts
+}
+
+// CompactionEvent is one compaction pass for the timeline.
+type CompactionEvent struct {
+	Trigger  string `json:"trigger"`
+	Messages int    `json:"messages"`
+	Summary  string `json:"summary"`
+}
+
+// CheckpointFileSnap is one file's pre-edit state at a checkpoint.
+type CheckpointFileSnap struct {
+	Path    string `json:"path"`
+	Content string `json:"content"`
+}
+
+// CheckpointFileList returns file snapshots for a specific checkpoint turn.
+func (a *App) CheckpointFileList(turn int) []CheckpointFileSnap {
+	ctrl := a.ctrlForTab("")
+	if ctrl == nil {
+		return nil
+	}
+	snaps := ctrl.CheckpointFileSnaps(turn)
+	out := make([]CheckpointFileSnap, len(snaps))
+	for i, s := range snaps {
+		content := ""
+		if s.Content != nil {
+			content = *s.Content
+		}
+		out[i] = CheckpointFileSnap{Path: s.Path, Content: content}
+	}
+	return out
+}
+func (a *App) CompactionHistory() []CompactionEvent {
+	ctrl := a.ctrlForTab("")
+	if ctrl == nil {
+		return nil
+	}
+	history := ctrl.CompactionHistory()
+	events := make([]CompactionEvent, len(history))
+	for i, c := range history {
+		events[i] = CompactionEvent{
+			Trigger:  c.Trigger,
+			Messages: c.Messages,
+			Summary:  c.Summary,
+		}
+	}
+	return events
+}
+
+// TurnUsagePoint is one entry in the per-turn token breakdown chart.
+type TurnUsagePoint struct {
+	Turn             int `json:"turn"`
+	PromptTokens     int `json:"promptTokens"`
+	CompletionTokens int `json:"completionTokens"`
+	CacheHitTokens   int `json:"cacheHitTokens"`
+	CacheMissTokens  int `json:"cacheMissTokens"`
+}
+
+// TurnUsageHistory returns per-turn token usage for sparkline charts.
+func (a *App) TurnUsageHistory() []TurnUsagePoint {
+	ctrl := a.ctrlForTab("")
+	if ctrl == nil {
+		return nil
+	}
+	history := ctrl.TurnUsageHistory()
+	points := make([]TurnUsagePoint, len(history))
+	for i, u := range history {
+		points[i] = TurnUsagePoint{
+			Turn:             i + 1,
+			PromptTokens:     u.PromptTokens,
+			CompletionTokens: u.CompletionTokens,
+			CacheHitTokens:   u.CacheHitTokens,
+			CacheMissTokens:  u.CacheMissTokens,
+		}
+	}
+	return points
+}
+
+// startHermesEventLoop pushes dashboard data to the frontend on a timer
+// so components can subscribe via EventsOn instead of polling individually.
+func (a *App) startHermesEventLoop(ctx context.Context) {
+	const interval = 3 * time.Second
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				ev := HermesDashboardEvent{
+					Cache:         a.CacheEconomy(),
+					Memory:        a.MemoryDashboard(),
+					Bot:           a.BotLiveStatus(),
+					Goal:          a.GoalProgress(),
+					Subagents:     a.SubagentTree(),
+					Constitution:  a.ConstitutionHealth(),
+					TurnUsage:     a.TurnUsageHistory(),
+					Compactions:   a.CompactionHistory(),
+					MemoryFacts:   a.MemoryFacts(),
+				}
+				runtime.EventsEmit(ctx, "hermes:dashboard", ev)
+			}
+		}
+	}()
 }
