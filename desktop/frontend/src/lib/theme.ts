@@ -14,6 +14,8 @@ import {
   WindowSetSystemDefaultTheme,
 } from '../../wailsjs/runtime/runtime';
 
+import { app } from './bridge';
+
 export type Theme = 'auto' | 'light' | 'dark';
 export type ResolvedTheme = Exclude<Theme, 'auto'>;
 
@@ -120,6 +122,11 @@ export function applyTheme(
     root.setAttribute('data-accent', 'hermes');
   } else {
     root.removeAttribute('data-accent');
+  }
+
+  // Update tray icon to match theme.
+  if (typeof window !== 'undefined' && window.runtime) {
+    try { app.UpdateTrayIcon(); } catch { /* tray may not be ready */ }
   }
 
   // Sync the native window theme (title bar, traffic lights) to match.

@@ -27,7 +27,11 @@ func (a *App) startTray() {
 	a.mu.Unlock()
 
 	t.end = startDesktopTray(func() {
-		systray.SetIcon(trayIconBytes)
+		icon := trayIconBytes
+		if a.isHermesTheme() {
+			icon = goldTrayIcon()
+		}
+		systray.SetIcon(icon)
 		systray.SetTitle("Reasonix-Hermes")
 		systray.SetTooltip("Reasonix")
 		// Run off the systray Win32 message loop: SetOnTapped fires inside wndProc,
@@ -93,6 +97,30 @@ func (a *App) trayLocale() string {
 		return ""
 	}
 	return cfg.DesktopLanguage()
+}
+
+func (a *App) isHermesTheme() bool {
+	cfg, _, err := a.loadDesktopUserConfigForEdit()
+	if err != nil {
+		return false
+	}
+	return cfg.DesktopThemeStyle() == "hermes"
+}
+
+// UpdateTrayIcon refreshes the tray icon based on the current theme style.
+func (a *App) UpdateTrayIcon() {
+	a.mu.RLock()
+	t := a.tray
+	ready := a.trayReady
+	a.mu.RUnlock()
+	if t == nil || !ready {
+		return
+	}
+	icon := trayIconBytes
+	if a.isHermesTheme() {
+		icon = goldTrayIcon()
+	}
+	systray.SetIcon(icon)
 }
 
 func (a *App) showFromTray() {

@@ -163,11 +163,13 @@ function CodeMirrorEditor({ initialValue, relPath, onChange, onSave }: CodeMirro
 
 export function WriteMode() {
   const [files, setFiles] = useState<MarkdownFileEntry[]>([]);
-  const [selectedFile, setSelectedFile] = useState<string | null>(null);
-  const [content, setContent] = useState("");
-  const [fileName, setFileName] = useState("");
-  const [dirty, setDirty] = useState(false);
-  const [preview, setPreview] = useState(false);
+  const [openFiles, setOpenFiles] = useState<{relPath: string; name: string; content: string; dirty: boolean}[]>([]);
+  const [activeFileIdx, setActiveFileIdx] = useState(-1);
+  const selectedFile = activeFileIdx >= 0 ? openFiles[activeFileIdx]?.relPath : null;
+  const content = activeFileIdx >= 0 ? openFiles[activeFileIdx]?.content ?? "" : "";
+  const dirty = activeFileIdx >= 0 ? openFiles[activeFileIdx]?.dirty ?? false : false;
+  const fileName = activeFileIdx >= 0 ? openFiles[activeFileIdx]?.name ?? "" : "";
+  const [viewMode, setViewMode] = useState<"edit" | "split" | "preview">("edit");
   const [newFileName, setNewFileName] = useState("");
   const [showNewFile, setShowNewFile] = useState(false);
   const [fimBusy, setFimBusy] = useState(false);
@@ -182,25 +184,63 @@ export function WriteMode() {
   }, []);
 
   const openFile = useCallback(async (relPath: string) => {
+    // Check if already open.
+    setOpenFiles((prev) => {
+      const existing = prev.findIndex((f) => f.relPath === relPath);
+      if (existing >= 0) { setActiveFileIdx(existing); return prev; }
+      return prev;
+    });
+    // Load and add if not already open.
     try {
       const data = await app.ReadMarkdownFile(relPath);
       if (data) {
-        setSelectedFile(relPath);
-        setContent(data.content);
-        setFileName(data.name);
-        setDirty(false);
-        setPreview(false);
+        setOpenFiles((prev) => {
+          const already = prev.findIndex((f) => f.relPath === relPath);
+          if (already >= 0) return prev;
+          const next = [...prev, { relPath, name: data.name, content: data.content, dirty: false }];
+          setActiveFileIdx(next.length - 1);
+          return next;
+        });
       }
     } catch { /* ignore */ }
   }, []);
 
+  const closeFile = useCallback((idx: number) => {
+    setOpenFiles((prev) => {
+      const next = prev.filter((_, i) => i !== idx);
+      if (next.length === 0) setActiveFileIdx(-1);
+      else if (idx >= next.length) setActiveFileIdx(next.length - 1);
+      else setActiveFileIdx(Math.max(0, idx));
+      return next;
+    });
+  }, []);
+
   const saveFile = useCallback(async () => {
-    if (!selectedFile) return;
+    const file = openFiles[activeFileIdx];
+    if (!file) return;
     try {
-      await app.SaveMarkdownFile(selectedFile, content);
-      setDirty(false);
+      await app.SaveMarkdownFile(file.relPath, file.content);
+      setOpenFiles((prev) => prev.map((f, i) => i === activeFileIdx ? { ...f, dirty: false } : f));
     } catch { /* ignore */ }
-  }, [selectedFile, content]);
+  }, [openFiles, activeFileIdx]);
+
+  // Auto-save: debounced 2s after last edit.
+  const autoSaveTimer = useRef<number>(0);
+  const handleContentChange = useCallback((value: string) => {
+    setOpenFiles((prev) => prev.map((f, i) => i === activeFileIdx ? { ...f, content: value, dirty: true } : f));
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    autoSaveTimer.current = setTimeout(() => {
+      setOpenFiles((prev) => {
+        const file = prev[activeFileIdx];
+        if (file?.relPath) {
+          app.SaveMarkdownFile(file.relPath, value).then(() => {
+            setOpenFiles((p) => p.map((f, i) => i === activeFileIdx ? { ...f, dirty: false } : f));
+          }).catch(() => {});
+        }
+        return prev;
+      });
+    }, 2000);
+  }, [activeFileIdx]);
 
   const createFile = useCallback(async () => {
     if (!newFileName.trim()) return;
@@ -216,11 +256,6 @@ export function WriteMode() {
   }, [newFileName, loadFiles, openFile]);
 
   useEffect(() => { loadFiles(); }, [loadFiles]);
-
-  const handleContentChange = useCallback((value: string) => {
-    setContent(value);
-    setDirty(true);
-  }, []);
 
   // Load memory facts filtered by relevance to the current file.
   useEffect(() => {
@@ -332,6 +367,39 @@ export function WriteMode() {
 
       {/* Editor / Preview */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+        {/* Tab bar */}
+        {openFiles.length > 0 && (
+          <div style={{
+            display: "flex", borderBottom: "1px solid var(--color-border)",
+            background: "var(--bg-soft)", overflow: "auto",
+          }}>
+            {openFiles.map((f, i) => (
+              <button
+                key={f.relPath}
+                onClick={() => setActiveFileIdx(i)}
+                title={f.relPath}
+                style={{
+                  display: "flex", alignItems: "center", gap: 4,
+                  padding: "4px 10px", border: "none",
+                  borderBottom: i === activeFileIdx ? "2px solid var(--accent)" : "2px solid transparent",
+                  background: i === activeFileIdx ? "var(--bg)" : "none",
+                  cursor: "pointer", fontSize: 11, color: i === activeFileIdx ? "var(--fg)" : "var(--color-text-muted)",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                <FileText size={10} />
+                {f.name}
+                {f.dirty && <span style={{ color: "var(--color-warn)", marginLeft: 2 }}>●</span>}
+                <span
+                  onClick={(e) => { e.stopPropagation(); closeFile(i); }}
+                  style={{ marginLeft: 4, cursor: "pointer", opacity: 0.5, fontSize: 10 }}
+                  title="Close"
+                >✕</span>
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Toolbar */}
         {selectedFile ? (
           <div style={{
@@ -358,12 +426,12 @@ export function WriteMode() {
                 <Brain size={12} />
                 <span style={{ fontSize: 10 }}>Memory</span>
               </button>
-              <button onClick={() => setPreview(!preview)} style={{
-                ...iconBtnStyle, fontWeight: preview ? 700 : 400,
-                color: preview ? "var(--accent)" : "var(--fg)",
+              <button onClick={() => setViewMode(viewMode === "edit" ? "split" : viewMode === "split" ? "preview" : "edit")} style={{
+                ...iconBtnStyle, fontWeight: viewMode !== "edit" ? 700 : 400,
+                color: viewMode !== "edit" ? "var(--accent)" : "var(--fg)",
               }}>
-                {preview ? <Edit3 size={12} /> : <Eye size={12} />}
-                <span style={{ fontSize: 10 }}>{preview ? "Edit" : "Preview"}</span>
+                {viewMode === "edit" ? <Eye size={12} /> : viewMode === "split" ? <Edit3 size={12} /> : <Edit3 size={12} />}
+                <span style={{ fontSize: 10 }}>{viewMode === "edit" ? "Preview" : viewMode === "split" ? "Edit" : "Edit"}</span>
               </button>
               <button onClick={saveFile} disabled={!dirty} style={{
                 ...iconBtnStyle, opacity: dirty ? 1 : 0.4,
@@ -385,8 +453,21 @@ export function WriteMode() {
         {/* Content area */}
         {selectedFile && (
           <div style={{ flex: 1, minHeight: 0, overflow: "hidden", display: "flex" }}>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              {preview ? (
+            {/* Editor pane */}
+            {(viewMode === "edit" || viewMode === "split") && (
+              <div style={{ flex: viewMode === "split" ? 1 : 1, minWidth: 0, borderRight: viewMode === "split" ? "1px solid var(--color-border)" : "none" }}>
+                <CodeMirrorEditor
+                  initialValue={content}
+                  relPath={selectedFile}
+                  onChange={handleContentChange}
+                  onSave={saveFile}
+                />
+              </div>
+            )}
+
+            {/* Preview pane */}
+            {(viewMode === "preview" || viewMode === "split") && (
+              <div style={{ flex: viewMode === "split" ? 1 : 1, minWidth: 0 }}>
                 <div
                   className="write-mode-preview"
                   dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }}
@@ -395,15 +476,8 @@ export function WriteMode() {
                     fontSize: 14, lineHeight: 1.7, color: "var(--fg)",
                   }}
                 />
-              ) : (
-                <CodeMirrorEditor
-                  initialValue={content}
-                  relPath={selectedFile}
-                  onChange={handleContentChange}
-                  onSave={saveFile}
-                />
-              )}
-            </div>
+              </div>
+            )}
 
             {/* Memory facts sidebar */}
             {memoryOpen && (
