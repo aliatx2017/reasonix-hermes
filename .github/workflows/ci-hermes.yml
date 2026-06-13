@@ -23,7 +23,13 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
-      - run: go test ./...
+      - run: go test -json ./... > test-output.jsonl
+      - name: Summarize failures
+        if: failure()
+        run: grep -E '"Action":"fail"' test-output.jsonl | head -20 || true
+      - name: Dump failures
+        if: failure()
+        run: grep -B1 -A5 '"Action":"fail"' test-output.jsonl | head -100 || true
 
   race:
     name: Test (-race)
