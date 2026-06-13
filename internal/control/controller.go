@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -63,19 +64,20 @@ type Controller struct {
 	sink     event.Sink
 	policy   permission.Policy
 
-	label         string
-	systemPrompt  string
-	sessionDir    string
-	host          *plugin.Host
-	commands      []command.Command
-	skills        []skill.Skill
-	allSkills     []skill.Skill
-	skillStore    *skill.Store
-	allSkillStore *skill.Store
-	hooks         *hook.Runner // session hook runner; nil-safe (no hooks configured)
-	mem           *memory.Set
-	cleanup       func()
-	autoPlan      string
+	label             string
+	systemPrompt      string
+	sessionDir        string
+	host              *plugin.Host
+	commands          []command.Command
+	skills            []skill.Skill
+	allSkills         []skill.Skill
+	skillStore        *skill.Store
+	allSkillStore     *skill.Store
+	hooks             *hook.Runner // session hook runner; nil-safe (no hooks configured)
+	mem               *memory.Set
+	cleanup           func()
+	autoPlan          string
+	reasoningLanguage string
 	// disableColdResumePrune skips stale-tool-result elision on cold resume.
 	// Zero value keeps the prune on (the cheaper default).
 	disableColdResumePrune bool
@@ -256,6 +258,10 @@ type Options struct {
 	// no confinement). Frontends pass the cwd they launched the session in.
 	WorkspaceRoot string
 	AutoPlan      string
+	// ReasoningLanguage controls visible reasoning language preference. Empty/auto
+	// means no transient injection because the stable language policy already
+	// follows the conversation language.
+	ReasoningLanguage string
 	// DisableColdResumePrune skips the stale-tool-result elision that otherwise
 	// runs when a session resumes past the provider cache window. Zero value
 	// keeps the prune on (the cheaper default).
@@ -303,6 +309,7 @@ func New(opts Options) *Controller {
 		mem:                    opts.Memory,
 		cleanup:                opts.Cleanup,
 		autoPlan:               normalizeAutoPlan(opts.AutoPlan),
+		reasoningLanguage:      config.NormalizeReasoningLanguage(opts.ReasoningLanguage),
 		disableColdResumePrune: opts.DisableColdResumePrune,
 		shell:                  opts.Shell,
 		classifier:             classifier,
@@ -321,6 +328,7 @@ func New(opts Options) *Controller {
 	}
 	// Checkpoints: bind a store to the session and route writer pre-edits into it.
 	c.rebindCheckpoints(opts.SessionPath)
+	c.setActiveJobSession(opts.SessionPath)
 	if c.executor != nil {
 		c.executor.SetPreEditHook(func(ch diff.Change) {
 			if c.cp != nil {
@@ -534,7 +542,9 @@ func (c *Controller) runGoalLoopWithRawDisplay(ctx context.Context, input, raw, 
 func (c *Controller) runTurnWithRawDisplay(ctx context.Context, input, raw, display string) error {
 	c.maybeSessionStart(ctx)
 	c.maybeAutoPlan(ctx, raw)
-	ctx = agent.WithParentSession(ctx, c.parentSessionID())
+	parentSession := c.parentSessionID()
+	ctx = agent.WithParentSession(ctx, parentSession)
+	ctx = jobs.WithSession(ctx, parentSession)
 	ctx = agent.WithUserImages(ctx, c.inputImages(input))
 	input = c.Compose(input)
 	startMessages := c.messageCount()
@@ -579,9 +589,11 @@ func (c *Controller) runTurnWithRawDisplay(ctx context.Context, input, raw, disp
 		return nil // keep planning; plan mode stays on
 	}
 	c.SetPlanMode(false)
-	seededTodos := c.seedPlanTodos(proposal)
+	todoArgs := c.seedPlanTodos(proposal)
+	execStart := c.sessionMessageCount()
 	// The plan is the go-ahead: don't re-prompt for each write of the approved
-	// work. Auto-approve writers for the duration of this execution turn only.
+	// work. Auto-approve writers for the duration of this execution turn only; a
+	// later turn (even "continue") falls back to the normal per-tool approval.
 	c.mu.Lock()
 	c.approvedPlanAutoApproveTools = true
 	c.mu.Unlock()
@@ -593,7 +605,9 @@ func (c *Controller) runTurnWithRawDisplay(ctx context.Context, input, raw, disp
 	if err := c.runner.Run(ctx, planApprovedMessage); err != nil {
 		return err
 	}
-	c.completePlanTodos(seededTodos)
+	if todoArgs != "" && !c.hasTodoUpdateSince(execStart) {
+		c.completePlanTodos(todoArgs)
+	}
 	return nil
 }
 
@@ -1068,8 +1082,11 @@ func (c *Controller) notice(text string) {
 // just needs the exit status — no TurnDone event, no cancel bookkeeping.
 func (c *Controller) Run(ctx context.Context, input string) error {
 	c.maybeSessionStart(ctx)
-	ctx = agent.WithParentSession(ctx, c.parentSessionID())
+	parentSession := c.parentSessionID()
+	ctx = agent.WithParentSession(ctx, parentSession)
+	ctx = jobs.WithSession(ctx, parentSession)
 	ctx = agent.WithUserImages(ctx, c.inputImages(input))
+	input = c.Compose(input)
 	startMessages := c.messageCount()
 	defer c.snapshotActivityIfChanged(startMessages)
 	if c.hooks.Enabled() {
@@ -1289,6 +1306,14 @@ func (c *Controller) SetAutoPlan(mode string) {
 	c.mu.Unlock()
 }
 
+// SetReasoningLanguage updates the visible reasoning language preference for
+// subsequent turns.
+func (c *Controller) SetReasoningLanguage(lang string) {
+	c.mu.Lock()
+	c.reasoningLanguage = config.NormalizeReasoningLanguage(lang)
+	c.mu.Unlock()
+}
+
 // PlanMode reports whether outgoing turns currently receive the plan-mode
 // marker. Frontends use it after Compose because auto-plan may flip the mode.
 func (c *Controller) PlanMode() bool {
@@ -1397,6 +1422,7 @@ func (c *Controller) NewSession() error {
 		c.sessionPath = agent.NewSessionPath(c.sessionDir, c.label)
 		c.mu.Unlock()
 	}
+	c.setActiveJobSession(c.SessionPath())
 	c.executor.SetSession(agent.NewSession(c.systemPrompt))
 	c.rebindCheckpoints(c.SessionPath())
 	c.mu.Lock()
@@ -1419,8 +1445,13 @@ func (c *Controller) ClearSession() error {
 	if running {
 		return fmt.Errorf("cannot clear while a turn is running")
 	}
-	if err := removeSessionArtifacts(oldPath); err != nil {
-		return err
+	destroy := c.BeginDestroySession(oldPath)
+	if !destroy.Async {
+		if err := removeSessionArtifacts(oldPath); err != nil {
+			destroy.Finish()
+			return err
+		}
+		destroy.Finish()
 	}
 	c.hooks.SessionEnd(context.Background())
 	if c.sessionDir != "" {
@@ -1428,12 +1459,22 @@ func (c *Controller) ClearSession() error {
 		c.sessionPath = agent.NewSessionPath(c.sessionDir, c.label)
 		c.mu.Unlock()
 	}
+	c.setActiveJobSession(c.SessionPath())
 	c.executor.SetSession(agent.NewSession(c.systemPrompt))
 	c.rebindCheckpoints(c.SessionPath())
 	c.mu.Lock()
 	c.startedOnce = true
 	c.mu.Unlock()
 	c.hooks.SessionStart(context.Background())
+	if destroy.Async {
+		go func() {
+			destroy.Wait()
+			if err := removeSessionArtifacts(oldPath); err != nil {
+				c.sink.Emit(event.Event{Kind: event.Notice, Level: event.LevelWarn, Text: "clear session cleanup failed: " + err.Error()})
+			}
+			destroy.Finish()
+		}()
+	}
 	return nil
 }
 
@@ -1453,6 +1494,9 @@ func removeSessionArtifacts(path string) error {
 		if err := os.RemoveAll(dir); err != nil && !os.IsNotExist(err) {
 			return err
 		}
+	}
+	if err := agent.DeleteSubagentsByParent(filepath.Dir(path), agent.BranchID(path)); err != nil {
+		return err
 	}
 	return nil
 }
@@ -1513,8 +1557,10 @@ func (c *Controller) Rewind(turn int, scope RewindScope) error {
 		if err != nil {
 			return c.rewindFail(fmt.Errorf("rewind code: %w", err))
 		}
-		c.sink.Emit(event.Event{Kind: event.Notice, Level: event.LevelInfo,
-			Text: fmt.Sprintf("rewound code to turn %d — %d file(s) restored, %d removed", turn, len(written), len(deleted))})
+		if len(written) > 0 || len(deleted) > 0 {
+			c.sink.Emit(event.Event{Kind: event.Notice, Level: event.LevelInfo,
+				Text: fmt.Sprintf("rewound code to turn %d — %d file(s) restored, %d removed", turn, len(written), len(deleted))})
+		}
 	}
 	if scope == RewindConversation || scope == RewindBoth {
 		if !hasBound {
@@ -1615,6 +1661,7 @@ func (c *Controller) forkNamed(turn int, name string, switchToFork bool) (string
 		c.mu.Lock()
 		c.sessionPath = newPath
 		c.mu.Unlock()
+		c.setActiveJobSession(newPath)
 		c.rebindCheckpoints(newPath)
 	}
 	c.sink.Emit(event.Event{Kind: event.Notice, Level: event.LevelInfo,
@@ -1625,8 +1672,14 @@ func (c *Controller) forkNamed(turn int, name string, switchToFork bool) (string
 func (c *Controller) CheckpointHasBoundary(turn int) bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	_, ok := c.cpBound[turn]
-	return ok
+	boundary, ok := c.cpBound[turn]
+	if !ok {
+		return false
+	}
+	// After compaction the key may still exist but the boundary value is
+	// stale (it points past the truncated message log).  Treat those
+	// turns the same as "no boundary" so the UI can disable the button.
+	return boundary <= len(c.executor.Session().Messages)
 }
 
 // Branch copies the current conversation into a child branch and switches to it.
@@ -1673,6 +1726,7 @@ func (c *Controller) Branch(name string) (string, error) {
 	c.mu.Lock()
 	c.sessionPath = newPath
 	c.mu.Unlock()
+	c.setActiveJobSession(newPath)
 	c.rebindCheckpoints(newPath)
 	c.sink.Emit(event.Event{Kind: event.Notice, Level: event.LevelInfo,
 		Text: fmt.Sprintf("created branch %s", agent.BranchID(newPath))})
@@ -1719,6 +1773,7 @@ func (c *Controller) SwitchBranch(ref string) (agent.BranchInfo, error) {
 	c.mu.Lock()
 	c.sessionPath = match.Path
 	c.mu.Unlock()
+	c.setActiveJobSession(match.Path)
 	c.rebindCheckpoints(match.Path)
 	c.sink.Emit(event.Event{Kind: event.Notice, Level: event.LevelInfo,
 		Text: fmt.Sprintf("switched to branch %s", branchDisplayName(match))})
@@ -1817,6 +1872,7 @@ func (c *Controller) Resume(s *agent.Session, path string) {
 	c.mu.Lock()
 	c.sessionPath = path
 	c.mu.Unlock()
+	c.setActiveJobSession(path)
 	c.rebindCheckpoints(path)
 	c.maybeColdResumePrune(path)
 }
@@ -1947,7 +2003,54 @@ func (c *Controller) SetSessionPath(p string) {
 	c.mu.Lock()
 	c.sessionPath = p
 	c.mu.Unlock()
+	c.setActiveJobSession(p)
 	c.rebindCheckpoints(p)
+}
+
+// SessionDestroyHandle separates waiting for cancelled jobs from ending the
+// destroy window, so callers can move/delete persistent artifacts in between.
+type SessionDestroyHandle struct {
+	Wait   func()
+	Finish func()
+	Async  bool
+}
+
+// BeginDestroySession marks a session as leaving active use and cancels its
+// background jobs. Call Wait before moving/deleting artifacts, then Finish after
+// persistent cleanup/move work is complete.
+func (c *Controller) BeginDestroySession(sessionPath string) SessionDestroyHandle {
+	parentSession := agent.BranchID(sessionPath)
+	if c.jobs == nil || parentSession == "" {
+		noop := func() {}
+		return SessionDestroyHandle{Wait: noop, Finish: noop}
+	}
+	done := c.jobs.DestroySession(parentSession)
+	return SessionDestroyHandle{
+		Wait: func() {
+			for _, ch := range done {
+				<-ch
+			}
+		},
+		Finish: func() {
+			c.jobs.FinishDestroySession(parentSession)
+		},
+		Async: len(done) > 0,
+	}
+}
+
+// IsDestroyingSession reports whether sessionPath is currently in the destroy
+// window for this controller's job manager.
+func (c *Controller) IsDestroyingSession(sessionPath string) bool {
+	if c.jobs == nil {
+		return false
+	}
+	return c.jobs.IsDestroying(agent.BranchID(sessionPath))
+}
+
+func (c *Controller) setActiveJobSession(sessionPath string) {
+	if c.jobs != nil {
+		c.jobs.SetActiveSession(agent.BranchID(sessionPath))
+	}
 }
 
 // SessionDir reports the directory new session files land in ("" disables
@@ -2403,7 +2506,7 @@ func (c *Controller) Jobs() []jobs.View {
 	if c.jobs == nil {
 		return nil
 	}
-	return c.jobs.Running()
+	return c.jobs.RunningForSession(c.parentSessionID())
 }
 
 // SetToolApprovalMode changes the runtime approval posture for permission-gated
@@ -2627,8 +2730,9 @@ type gateApprover struct{ c *Controller }
 func (g gateApprover) Approve(ctx context.Context, tool, subject string, args json.RawMessage) (bool, bool, error) {
 	subject = approvalDisplaySubject(tool, subject, args)
 	// Auto-allow without prompting while executing a just-approved plan (the plan
-	// was the approval) or while YOLO/full-access tool auto-approval is on. Deny
-	// rules already bit before this point, so they still block.
+	// was the approval), during an explicit continuation turn of that approved
+	// plan, or while YOLO/full-access tool auto-approval is on. Deny rules already
+	// bit before this point, so they still block.
 	g.c.mu.Lock()
 	auto := g.c.approvalBypassAllowsLocked(tool)
 	g.c.mu.Unlock()
@@ -2834,6 +2938,40 @@ func parsePlanTodos(plan string) []seedTodo {
 	return todos
 }
 
+func (c *Controller) sessionMessageCount() int {
+	if c.executor == nil {
+		return 0
+	}
+	return len(c.executor.Session().Messages)
+}
+
+// hasTodoUpdateSince reports whether the model emitted its own todo_write after
+// index start, so the seeded plan todos aren't auto-completed over the model's
+// own bookkeeping.
+func (c *Controller) hasTodoUpdateSince(start int) bool {
+	if c.executor == nil {
+		return false
+	}
+	msgs := c.executor.Session().Messages
+	if start < 0 || start > len(msgs) {
+		start = len(msgs)
+	}
+	_, ok := latestTodoArgsSince(msgs, start)
+	return ok
+}
+
+func latestTodoArgsSince(msgs []provider.Message, start int) (string, bool) {
+	for i := len(msgs) - 1; i >= start; i-- {
+		for j := len(msgs[i].ToolCalls) - 1; j >= 0; j-- {
+			tc := msgs[i].ToolCalls[j]
+			if tc.Name == "todo_write" {
+				return tc.Arguments, true
+			}
+		}
+	}
+	return "", false
+}
+
 // listItem parses a markdown list line ("- x", "* x", "1. x", "2) x") into its
 // task text and a nesting level derived from leading indentation (0 for a
 // top-level item, 1 for an indented sub-step — capped at 1 since the plan is
@@ -2997,7 +3135,11 @@ func approvalNotificationText(tool, subject string) string {
 }
 
 func (c *Controller) approvalBypassAllowsLocked(tool string) bool {
-	return !requiresFreshApprovalTool(tool) && (c.toolApprovalMode == ToolApprovalYolo || c.approvedPlanAutoApproveTools)
+	if requiresFreshApprovalTool(tool) {
+		return false
+	}
+	return c.toolApprovalMode == ToolApprovalYolo ||
+		c.approvedPlanAutoApproveTools
 }
 
 func (c *Controller) autoApprovalWouldAllowLocked(tool, subject string) bool {

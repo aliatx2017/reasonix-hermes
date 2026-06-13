@@ -4320,6 +4320,65 @@ a[href] {
   background: var(--chat-bg);
   padding: 12px 32px 10px;
 }
+
+/* ── undo-rewind banner (above composer after a rewind) ─────────────── */
+.undo-rewind {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: var(--maxw);
+  margin: 0 auto 8px;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-elev);
+  font-size: 12.5px;
+  color: var(--fg-dim);
+}
+.undo-rewind__info {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  overflow: hidden;
+}
+.undo-rewind__label {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.undo-rewind__files {
+  color: var(--fg-faint);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.undo-rewind__btn {
+  flex-shrink: 0;
+  padding: 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-soft);
+  color: var(--fg-dim);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s, color 0.12s;
+}
+.undo-rewind__btn:hover {
+  border-color: var(--accent-soft);
+  color: var(--accent);
+}
+.undo-rewind__btn--confirm {
+  color: var(--accent);
+  border-color: var(--accent-soft);
+  background: var(--accent-soft);
+}
+.undo-rewind__btn--confirm:hover {
+  background: color-mix(in srgb, var(--accent-soft) 80%, transparent);
+}
+
 .composer-wrap {
   position: relative;
   max-width: var(--maxw);
@@ -7626,6 +7685,18 @@ a[href] {
   flex-direction: column;
   gap: 22px;
 }
+.mem-tab-selector {
+  margin-bottom: 8px;
+}
+.mem-tab-select {
+  width: 100%;
+  padding: 6px 8px;
+  font-size: 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+}
 .mem-section {
   min-width: 0;
 }
@@ -10025,6 +10096,7 @@ a[href] {
   margin-bottom: 12px;
 }
 
+.settings-section__head > div:first-child,
 .settings-page--manager .mem-section__head > div:first-child {
   min-width: 0;
 }
@@ -10613,10 +10685,6 @@ a[href] {
   color: var(--accent);
 }
 
-.settings-page .settings-model-current {
-  margin-top: 14px;
-}
-
 .settings-page .prov-card,
 .settings-page .cap-server-entry,
 .settings-page .cap-source,
@@ -11049,58 +11117,6 @@ a[href] {
   }
 }
 
-.settings-model-current {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  min-width: 0;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg-elev-1);
-  padding: 11px 12px;
-}
-.settings-model-current > div:first-child {
-  min-width: 0;
-}
-.settings-model-current span,
-.settings-model-current strong {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.settings-model-current > div:first-child span {
-  color: var(--fg-dim);
-  font-size: var(--font-caption);
-  margin-bottom: 5px;
-}
-.settings-model-current strong {
-  min-width: 0;
-  font-size: var(--text-base);
-  font-weight: 700;
-  color: var(--fg);
-  font-family: inherit;
-}
-.settings-model-current__meta {
-  display: flex;
-  flex: 0 1 auto;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 6px;
-  min-width: 0;
-}
-.settings-model-current__meta span {
-  max-width: 220px;
-  border: 1px solid var(--border-soft);
-  border-radius: 999px;
-  background: var(--bg-elev-2);
-  color: var(--fg-muted);
-  font-family: inherit;
-  font-size: var(--text-2xs);
-  line-height: 1;
-  padding: 5px 8px;
-}
 .settings-field__control > .settings-model-picker {
   width: 100%;
   max-width: 520px;
@@ -13447,14 +13463,6 @@ a[href] {
   }
   .set-rules-grid {
     grid-template-columns: 1fr;
-  }
-  .settings-model-current,
-  .settings-model-current__meta {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-  .settings-model-current__meta {
-    width: 100%;
   }
   .bot-detail {
     padding: 18px;
