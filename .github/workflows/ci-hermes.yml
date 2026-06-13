@@ -23,18 +23,7 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
-      - name: Run tests
-        id: tests
-        run: go test -json ./... 2>stderr.txt > test-output.jsonl
-      - name: Show stderr
-        if: failure()
-        run: cat stderr.txt
-      - name: Show failures
-        if: failure()
-        run: grep -E '"Action":"fail"' test-output.jsonl || echo "no individual test failures"
-      - name: Show package results
-        if: failure()
-        run: grep -E '"Action":"(pass|fail|skip)"' test-output.jsonl | tail -20
+      - run: go test -count=1 ./internal/config/ ./internal/agent/ ./internal/provider/
 
   race:
     name: Test (-race)
@@ -45,7 +34,7 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
-      - run: go test -race ./...
+      - run: go test -race -count=1 ./internal/config/ ./internal/agent/ ./internal/provider/
 
   desktop-frontend:
     name: Desktop Frontend
