@@ -54,7 +54,7 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 - **Key differentiators**: Discord bot (real agent loop + /goal + /model), MCP bridge (6 tools), Hindsight memory (3 tools, SQLite + TTL/importance + vector search), 17-skill registry, native Go hooks, portable mode.
 - **CodeWhale features** (10/10 done, 2026-07-04): Shell env hooks, parallel sub-agent dispatch (task batch), completion sound (/sound), harness profiles (/profile), constitution system (.reasonix/constitution.json), workshop sidecar (>12KB output synthesis), hotbar (desktop keys 1-7), external sandbox (remote OpenSandbox API), Nix flake, Dockerfile.
-- **CI & tooling** (2026-07-06): `biome format` check on desktop frontend (105 files formatted, tabs→spaces), `wails build` job on ubuntu-22.04, `taplo` TOML lint (CI + `.pre-commit-config.yaml` hook), Go `go-version-file: go.mod` for correct toolchain (1.26.4), scoped test/race jobs to Hermes-maintained packages.
+- **Desktop built**: `bin/reasonix-desktop` (33MB, Wails v2.12.0 + React 19 + Vite 8 + TypeScript 6). Fixed vite.config.ts `manualChunks` for Vite 8/Rolldown compatibility. HotbarConfig restored.
 - **Bug fixes** (2026-07-06): duplicate `price` key in `reasonix.example.toml`, data race in `mockProvider.Stream()` (+`sync.Mutex`), `TestSaveToScopesUserAndProjectFiles` cross-platform fix (`HOME` not `XDG_CONFIG_HOME`).
 
 ## Next session — ideas & follow-ups

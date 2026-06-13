@@ -38,6 +38,10 @@ go build -o bin/reasonix-hooks ./cmd/reasonix-hooks
 # Install skills via upstream install_source
 reasonix install-source install --source https://github.com/aliatx2017/reasonix-hermes/tree/main/skills-hub/skills
 
+# Build the Desktop app (Wails + React 19 + frontend)
+cd desktop/frontend && npm install && cd ../..
+cd desktop && wails build -o ../bin/reasonix-desktop
+
 # Build + vet everything
 go build ./...
 go vet ./...
