@@ -1,14 +1,19 @@
-import type { ButtonHTMLAttributes } from "react";
-import { X } from "lucide-react";
-import { Tooltip } from "./Tooltip";
+import { X } from 'lucide-react';
+import type { ButtonHTMLAttributes } from 'react';
+import { Tooltip } from './Tooltip';
 
-interface ModalCloseButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children"> {
+interface ModalCloseButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'> {
   label: string;
 }
 
-export function ModalCloseButton({ label, className = "", type = "button", ...props }: ModalCloseButtonProps) {
-  const ariaLabel = props["aria-label"] ?? label;
-  const classes = `modal-close-button${className ? ` ${className}` : ""}`;
+export function ModalCloseButton({
+  label,
+  className = '',
+  type = 'button',
+  ...props
+}: ModalCloseButtonProps) {
+  const ariaLabel = props['aria-label'] ?? label;
+  const classes = `modal-close-button${className ? ` ${className}` : ''}`;
 
   return (
     <Tooltip label={label}>

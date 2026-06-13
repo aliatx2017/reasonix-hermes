@@ -1,12 +1,12 @@
-import { createRoot, type Root } from "react-dom/client";
-import ReactMarkdown from "react-markdown";
-import type { Components } from "react-markdown";
-import rehypeKatex from "rehype-katex";
-import katexCss from "katex/dist/katex.min.css?inline";
-import remarkGfm from "remark-gfm";
-import remarkMath from "remark-math";
-import { highlightToHtml } from "./highlight";
-import { normalizeMath } from "../components/mathNormalize";
+import katexCss from 'katex/dist/katex.min.css?inline';
+import { type Root, createRoot } from 'react-dom/client';
+import ReactMarkdown from 'react-markdown';
+import type { Components } from 'react-markdown';
+import rehypeKatex from 'rehype-katex';
+import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
+import { normalizeMath } from '../components/mathNormalize';
+import { highlightToHtml } from './highlight';
 
 const EXPORT_WIDTH = 920;
 const MAX_CANVAS_SIDE = 16384;
@@ -194,13 +194,15 @@ ${katexCss}
 const staticMarkdownComponents: Components = {
   pre: ({ children }) => <>{children}</>,
   code: ({ className, children }) => {
-    const text = String(children ?? "");
-    const match = /language-([\w-]+)/.exec(className ?? "");
-    const isBlock = match !== null || text.includes("\n");
+    const text = String(children ?? '');
+    const match = /language-([\w-]+)/.exec(className ?? '');
+    const isBlock = match !== null || text.includes('\n');
     if (!isBlock) return <code className="md-code">{children}</code>;
     return (
       <pre className="code hljs" data-lang={match?.[1]}>
-        <code dangerouslySetInnerHTML={{ __html: highlightToHtml(text.replace(/\n$/, ""), match?.[1]) }} />
+        <code
+          dangerouslySetInnerHTML={{ __html: highlightToHtml(text.replace(/\n$/, ''), match?.[1]) }}
+        />
       </pre>
     );
   },
@@ -243,13 +245,13 @@ function nextFrame(): Promise<void> {
 }
 
 async function renderExportSurface(markdown: string): Promise<RenderedExport> {
-  const host = document.createElement("div");
-  host.style.position = "fixed";
-  host.style.left = "-100000px";
-  host.style.top = "0";
+  const host = document.createElement('div');
+  host.style.position = 'fixed';
+  host.style.left = '-100000px';
+  host.style.top = '0';
   host.style.width = `${EXPORT_WIDTH}px`;
-  host.style.pointerEvents = "none";
-  host.style.background = "#ffffff";
+  host.style.pointerEvents = 'none';
+  host.style.background = '#ffffff';
   document.body.appendChild(host);
 
   const root = createRoot(host);
@@ -260,11 +262,11 @@ async function renderExportSurface(markdown: string): Promise<RenderedExport> {
   await document.fonts?.ready.catch(() => undefined);
   await nextFrame();
 
-  const surface = host.querySelector<HTMLElement>(".session-export-page");
+  const surface = host.querySelector<HTMLElement>('.session-export-page');
   if (!surface) {
     root.unmount();
     host.remove();
-    throw new Error("Export surface was not rendered");
+    throw new Error('Export surface was not rendered');
   }
 
   return { root, host, surface };
@@ -277,10 +279,14 @@ function disposeExport(rendered: RenderedExport): void {
 
 function canvasToBlob(canvas: HTMLCanvasElement, type: string, quality?: number): Promise<Blob> {
   return new Promise((resolve, reject) => {
-    canvas.toBlob((blob) => {
-      if (blob) resolve(blob);
-      else reject(new Error("Could not encode export image"));
-    }, type, quality);
+    canvas.toBlob(
+      (blob) => {
+        if (blob) resolve(blob);
+        else reject(new Error('Could not encode export image'));
+      },
+      type,
+      quality,
+    );
   });
 }
 
@@ -288,41 +294,47 @@ function loadImage(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error("Could not render export image"));
+    img.onerror = () => reject(new Error('Could not render export image'));
     img.src = url;
   });
 }
 
 function serializeSurface(surface: HTMLElement, width: number, height: number): string {
   const clone = surface.cloneNode(true) as HTMLElement;
-  clone.setAttribute("xmlns", "http://www.w3.org/1999/xhtml");
+  clone.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
   clone.style.width = `${width}px`;
   clone.style.minHeight = `${height}px`;
-  const style = document.createElement("style");
+  const style = document.createElement('style');
   style.textContent = EXPORT_STYLES;
   clone.insertBefore(style, clone.firstChild);
   return new XMLSerializer().serializeToString(clone);
 }
 
 async function renderSurfaceToCanvas(surface: HTMLElement): Promise<HTMLCanvasElement> {
-  const width = Math.max(1, Math.ceil(surface.scrollWidth || surface.getBoundingClientRect().width || EXPORT_WIDTH));
-  const height = Math.max(1, Math.ceil(surface.scrollHeight || surface.getBoundingClientRect().height || 1));
+  const width = Math.max(
+    1,
+    Math.ceil(surface.scrollWidth || surface.getBoundingClientRect().width || EXPORT_WIDTH),
+  );
+  const height = Math.max(
+    1,
+    Math.ceil(surface.scrollHeight || surface.getBoundingClientRect().height || 1),
+  );
   const preferredScale = Math.min(2, Math.max(1, window.devicePixelRatio || 1));
   const scale = Math.min(preferredScale, MAX_CANVAS_SIDE / width, MAX_CANVAS_SIDE / height);
   const canvasWidth = Math.max(1, Math.floor(width * scale));
   const canvasHeight = Math.max(1, Math.floor(height * scale));
   const serialized = serializeSurface(surface, width, height);
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><foreignObject width="100%" height="100%">${serialized}</foreignObject></svg>`;
-  const svgUrl = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml;charset=utf-8" }));
+  const svgUrl = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }));
 
   try {
     const image = await loadImage(svgUrl);
-    const canvas = document.createElement("canvas");
+    const canvas = document.createElement('canvas');
     canvas.width = canvasWidth;
     canvas.height = canvasHeight;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) throw new Error("Canvas is not available");
-    ctx.fillStyle = "#ffffff";
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Canvas is not available');
+    ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvasWidth, canvasHeight);
     ctx.scale(scale, scale);
     ctx.drawImage(image, 0, 0, width, height);
@@ -358,18 +370,23 @@ function arrayBufferFromBytes(bytes: Uint8Array): ArrayBuffer {
 }
 
 function pdfNumber(value: number): string {
-  return value.toFixed(3).replace(/\.?0+$/, "");
+  return value.toFixed(3).replace(/\.?0+$/, '');
 }
 
 function pdfString(value: string): string {
   return value
-    .replace(/[^\x20-\x7e]/g, "")
-    .replace(/\\/g, "\\\\")
-    .replace(/\(/g, "\\(")
-    .replace(/\)/g, "\\)");
+    .replace(/[^\x20-\x7e]/g, '')
+    .replace(/\\/g, '\\\\')
+    .replace(/\(/g, '\\(')
+    .replace(/\)/g, '\\)');
 }
 
-function createRasterPdf(jpegBytes: Uint8Array, imageWidth: number, imageHeight: number, title: string): Uint8Array {
+function createRasterPdf(
+  jpegBytes: Uint8Array,
+  imageWidth: number,
+  imageHeight: number,
+  title: string,
+): Uint8Array {
   const contentWidth = PDF_PAGE_WIDTH - PDF_MARGIN * 2;
   const contentHeight = PDF_PAGE_HEIGHT - PDF_MARGIN * 2;
   const renderedHeight = imageHeight * (contentWidth / imageWidth);
@@ -382,7 +399,7 @@ function createRasterPdf(jpegBytes: Uint8Array, imageWidth: number, imageHeight:
   let position = 0;
 
   const push = (value: string | Uint8Array) => {
-    const bytes = typeof value === "string" ? bytesFromString(value) : value;
+    const bytes = typeof value === 'string' ? bytesFromString(value) : value;
     chunks.push(bytes);
     position += bytes.length;
   };
@@ -394,13 +411,13 @@ function createRasterPdf(jpegBytes: Uint8Array, imageWidth: number, imageHeight:
     offsets[id] = position;
     push(`${id} 0 obj\n${header}\nstream\n`);
     push(body);
-    push("\nendstream\nendobj\n");
+    push('\nendstream\nendobj\n');
   };
 
-  push("%PDF-1.4\n%\xff\xff\xff\xff\n");
-  addObject(1, "<< /Type /Catalog /Pages 2 0 R >>");
+  push('%PDF-1.4\n%\xff\xff\xff\xff\n');
+  addObject(1, '<< /Type /Catalog /Pages 2 0 R >>');
 
-  const kids = Array.from({ length: pageCount }, (_, index) => `${3 + index * 2} 0 R`).join(" ");
+  const kids = Array.from({ length: pageCount }, (_, index) => `${3 + index * 2} 0 R`).join(' ');
   addObject(2, `<< /Type /Pages /Kids [ ${kids} ] /Count ${pageCount} >>`);
 
   for (let index = 0; index < pageCount; index++) {
@@ -427,9 +444,11 @@ function createRasterPdf(jpegBytes: Uint8Array, imageWidth: number, imageHeight:
   const xrefStart = position;
   push(`xref\n0 ${objectCount + 1}\n0000000000 65535 f \n`);
   for (let id = 1; id <= objectCount; id++) {
-    push(`${String(offsets[id]).padStart(10, "0")} 00000 n \n`);
+    push(`${String(offsets[id]).padStart(10, '0')} 00000 n \n`);
   }
-  push(`trailer\n<< /Size ${objectCount + 1} /Root 1 0 R /Info ${infoObjectId} 0 R >>\nstartxref\n${xrefStart}\n%%EOF\n`);
+  push(
+    `trailer\n<< /Size ${objectCount + 1} /Root 1 0 R /Info ${infoObjectId} 0 R >>\nstartxref\n${xrefStart}\n%%EOF\n`,
+  );
 
   return concatBytes(chunks);
 }
@@ -438,10 +457,10 @@ export function blobToBase64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
-      const result = String(reader.result ?? "");
-      resolve(result.includes(",") ? result.slice(result.indexOf(",") + 1) : result);
+      const result = String(reader.result ?? '');
+      resolve(result.includes(',') ? result.slice(result.indexOf(',') + 1) : result);
     };
-    reader.onerror = () => reject(reader.error ?? new Error("Could not read export payload"));
+    reader.onerror = () => reject(reader.error ?? new Error('Could not read export payload'));
     reader.readAsDataURL(blob);
   });
 }
@@ -450,7 +469,7 @@ export async function renderSessionImageBlob(markdown: string): Promise<Blob> {
   const rendered = await renderExportSurface(markdown);
   try {
     const canvas = await renderSurfaceToCanvas(rendered.surface);
-    return await canvasToBlob(canvas, "image/png");
+    return await canvasToBlob(canvas, 'image/png');
   } finally {
     disposeExport(rendered);
   }
@@ -460,10 +479,10 @@ export async function renderSessionPdfBlob(markdown: string, title: string): Pro
   const rendered = await renderExportSurface(markdown);
   try {
     const canvas = await renderSurfaceToCanvas(rendered.surface);
-    const jpegBlob = await canvasToBlob(canvas, "image/jpeg", 0.92);
+    const jpegBlob = await canvasToBlob(canvas, 'image/jpeg', 0.92);
     const jpegBytes = new Uint8Array(await jpegBlob.arrayBuffer());
     const pdfBytes = createRasterPdf(jpegBytes, canvas.width, canvas.height, title);
-    return new Blob([arrayBufferFromBytes(pdfBytes)], { type: "application/pdf" });
+    return new Blob([arrayBufferFromBytes(pdfBytes)], { type: 'application/pdf' });
   } finally {
     disposeExport(rendered);
   }

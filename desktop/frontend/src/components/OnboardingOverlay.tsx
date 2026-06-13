@@ -1,26 +1,26 @@
-import { useCallback, useRef, useState } from "react";
-import logo from "../assets/logo.svg";
-import { useT } from "../lib/i18n";
-import { app, openExternal } from "../lib/bridge";
+import { useCallback, useRef, useState } from 'react';
+import logo from '../assets/logo.svg';
+import { app, openExternal } from '../lib/bridge';
+import { useT } from '../lib/i18n';
 
 // Full-window first-run gate: validate a pasted key via Go, then onComplete
 // unmounts us so the rebuilt controller's main UI takes over.
 export function OnboardingOverlay({ onComplete }: { onComplete: () => void }) {
   const t = useT();
-  const [value, setValue] = useState("");
-  const [state, setState] = useState<"idle" | "validating" | "error">("idle");
+  const [value, setValue] = useState('');
+  const [state, setState] = useState<'idle' | 'validating' | 'error'>('idle');
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const submit = useCallback(async () => {
     const key = value.trim();
     if (!key) {
-      setError(t("onboarding.error.empty"));
-      setState("error");
+      setError(t('onboarding.error.empty'));
+      setState('error');
       inputRef.current?.focus();
       return;
     }
-    setState("validating");
+    setState('validating');
     setError(null);
     try {
       await app.ConnectKey(key);
@@ -28,13 +28,13 @@ export function OnboardingOverlay({ onComplete }: { onComplete: () => void }) {
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       if (/status\s*401|status\s*403|invalid/i.test(msg)) {
-        setError(t("onboarding.error.invalid"));
+        setError(t('onboarding.error.invalid'));
       } else if (/network|unreachable|timeout|dial/i.test(msg)) {
-        setError(t("onboarding.error.network"));
+        setError(t('onboarding.error.network'));
       } else {
-        setError(msg || t("onboarding.error.unknown"));
+        setError(msg || t('onboarding.error.unknown'));
       }
-      setState("error");
+      setState('error');
       inputRef.current?.focus();
       inputRef.current?.select();
     }
@@ -44,11 +44,11 @@ export function OnboardingOverlay({ onComplete }: { onComplete: () => void }) {
     <div className="onboarding">
       <div className="onboarding__card">
         <img src={logo} className="onboarding__logo" alt="Reasonix" draggable={false} />
-        <div className="onboarding__title">{t("onboarding.title")}</div>
-        <div className="onboarding__tag">{t("onboarding.tagline")}</div>
+        <div className="onboarding__title">{t('onboarding.title')}</div>
+        <div className="onboarding__tag">{t('onboarding.tagline')}</div>
 
         <label className="onboarding__label" htmlFor="onboarding-key">
-          {t("onboarding.inputLabel")}
+          {t('onboarding.inputLabel')}
         </label>
         <input
           id="onboarding-key"
@@ -57,22 +57,22 @@ export function OnboardingOverlay({ onComplete }: { onComplete: () => void }) {
           type="password"
           autoComplete="off"
           spellCheck={false}
-          placeholder={t("onboarding.inputPlaceholder")}
+          placeholder={t('onboarding.inputPlaceholder')}
           value={value}
           onChange={(e) => {
             setValue(e.target.value);
-            if (state === "error") setState("idle");
+            if (state === 'error') setState('idle');
           }}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && state !== "validating") {
+            if (e.key === 'Enter' && state !== 'validating') {
               e.preventDefault();
               void submit();
             }
           }}
-          disabled={state === "validating"}
+          disabled={state === 'validating'}
         />
 
-        {state === "error" && error && (
+        {state === 'error' && error && (
           <div className="onboarding__error" role="alert">
             {error}
           </div>
@@ -81,15 +81,15 @@ export function OnboardingOverlay({ onComplete }: { onComplete: () => void }) {
         <button
           className="onboarding__submit"
           onClick={() => void submit()}
-          disabled={state === "validating"}
+          disabled={state === 'validating'}
         >
-          {state === "validating" ? (
+          {state === 'validating' ? (
             <>
               <span className="onboarding__spinner" />
-              {t("onboarding.validating")}
+              {t('onboarding.validating')}
             </>
           ) : (
-            t("onboarding.submit")
+            t('onboarding.submit')
           )}
         </button>
 
@@ -97,21 +97,21 @@ export function OnboardingOverlay({ onComplete }: { onComplete: () => void }) {
           <button
             type="button"
             className="onboarding__link"
-            onClick={() => openExternal("https://platform.deepseek.com/api_keys")}
+            onClick={() => openExternal('https://platform.deepseek.com/api_keys')}
           >
-            {t("onboarding.getKey")}
+            {t('onboarding.getKey')}
           </button>
           <span className="onboarding__sep">·</span>
-          <span className="onboarding__privacy">{t("onboarding.privacy")}</span>
+          <span className="onboarding__privacy">{t('onboarding.privacy')}</span>
         </div>
 
         <button
           type="button"
           className="onboarding__skip"
           onClick={onComplete}
-          disabled={state === "validating"}
+          disabled={state === 'validating'}
         >
-          {t("onboarding.skip")}
+          {t('onboarding.skip')}
         </button>
       </div>
     </div>

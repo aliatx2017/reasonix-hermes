@@ -1,11 +1,7 @@
-import {
-  normalizeCollaborationMode,
-  type CollaborationMode,
-  type Mode,
-} from "./types";
+import { type CollaborationMode, type Mode, normalizeCollaborationMode } from './types';
 
 export function keepGoalDraftMode(current: boolean, goal?: string): boolean {
-  return current && !(goal ?? "").trim();
+  return current && !(goal ?? '').trim();
 }
 
 export function displayedCollaborationMode(params: {
@@ -16,8 +12,15 @@ export function displayedCollaborationMode(params: {
   goal?: string;
   legacyMode?: Mode;
 }): CollaborationMode {
-  if (params.goalDraftMode) return "goal";
-  return params.localMode ?? normalizeCollaborationMode(params.metaGoal ? "goal" : params.tabMode, params.goal, params.legacyMode);
+  if (params.goalDraftMode) return 'goal';
+  return (
+    params.localMode ??
+    normalizeCollaborationMode(
+      params.metaGoal ? 'goal' : params.tabMode,
+      params.goal,
+      params.legacyMode,
+    )
+  );
 }
 
 export function tabListCollaborationMode(params: {
@@ -27,8 +30,11 @@ export function tabListCollaborationMode(params: {
   tabGoal?: string;
   legacyMode?: Mode;
 }): CollaborationMode {
-  if (params.goalDraftMode) return "goal";
-  return params.localMode ?? normalizeCollaborationMode(params.tabMode, params.tabGoal, params.legacyMode);
+  if (params.goalDraftMode) return 'goal';
+  return (
+    params.localMode ??
+    normalizeCollaborationMode(params.tabMode, params.tabGoal, params.legacyMode)
+  );
 }
 
 export function metaSyncedCollaborationMode(params: {
@@ -37,15 +43,15 @@ export function metaSyncedCollaborationMode(params: {
   legacyMode?: Mode;
 }): CollaborationMode {
   return params.nextGoal || params.goalDraftMode
-    ? "goal"
-    : normalizeCollaborationMode(undefined, "", params.legacyMode);
+    ? 'goal'
+    : normalizeCollaborationMode(undefined, '', params.legacyMode);
 }
 
 export function controllerCollaborationMode(params: {
   collaborationMode: CollaborationMode;
   goal?: string;
 }): CollaborationMode {
-  return params.collaborationMode === "goal" && !params.goal?.trim()
-    ? "normal"
+  return params.collaborationMode === 'goal' && !params.goal?.trim()
+    ? 'normal'
     : params.collaborationMode;
 }

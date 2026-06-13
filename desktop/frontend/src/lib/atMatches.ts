@@ -16,7 +16,7 @@
 // once. The local list takes precedence (it represents the user's
 // current directory and is more immediate).
 
-import type { DirEntry } from "./types";
+import type { DirEntry } from './types';
 
 export function filterAtMatches(
   entries: readonly DirEntry[],

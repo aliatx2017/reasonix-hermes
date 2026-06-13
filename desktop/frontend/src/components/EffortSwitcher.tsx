@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Check, ChevronsUpDown, Gauge } from "lucide-react";
-import { asArray } from "../lib/array";
-import type { EffortInfo } from "../lib/types";
-import { ANCHORED_POPOVER_CLOSE_MS, AnchoredPopover } from "./AnchoredPopover";
+import { Check, ChevronsUpDown, Gauge } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { asArray } from '../lib/array';
+import type { EffortInfo } from '../lib/types';
+import { ANCHORED_POPOVER_CLOSE_MS, AnchoredPopover } from './AnchoredPopover';
 
 export function EffortSwitcher({
   effort,
@@ -18,7 +18,7 @@ export function EffortSwitcher({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const closeTimerRef = useRef<number | null>(null);
   const levels = asArray(effort?.levels);
-  const current = effort?.current || "auto";
+  const current = effort?.current || 'auto';
 
   const clearCloseTimer = useCallback(() => {
     if (closeTimerRef.current === null) return;
@@ -32,17 +32,23 @@ export function EffortSwitcher({
     setOpen(true);
   }, [clearCloseTimer]);
 
-  const closeMenu = useCallback((afterClose?: () => void) => {
-    clearCloseTimer();
-    setClosing(true);
-    window.requestAnimationFrame(() => setOpen(false));
-    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    closeTimerRef.current = window.setTimeout(() => {
-      closeTimerRef.current = null;
-      setClosing(false);
-      afterClose?.();
-    }, reduceMotion ? 0 : ANCHORED_POPOVER_CLOSE_MS);
-  }, [clearCloseTimer]);
+  const closeMenu = useCallback(
+    (afterClose?: () => void) => {
+      clearCloseTimer();
+      setClosing(true);
+      window.requestAnimationFrame(() => setOpen(false));
+      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      closeTimerRef.current = window.setTimeout(
+        () => {
+          closeTimerRef.current = null;
+          setClosing(false);
+          afterClose?.();
+        },
+        reduceMotion ? 0 : ANCHORED_POPOVER_CLOSE_MS,
+      );
+    },
+    [clearCloseTimer],
+  );
 
   useEffect(() => () => clearCloseTimer(), [clearCloseTimer]);
 
@@ -59,7 +65,7 @@ export function EffortSwitcher({
       <button
         ref={triggerRef}
         type="button"
-        className={`modelsw__trigger effortsw__trigger ${current !== "auto" ? "effortsw__trigger--explicit" : ""}`}
+        className={`modelsw__trigger effortsw__trigger ${current !== 'auto' ? 'effortsw__trigger--explicit' : ''}`}
         disabled={disabled}
         aria-expanded={open && !closing}
         onClick={() => (open || closing ? closeMenu() : openMenu())}
@@ -83,7 +89,7 @@ export function EffortSwitcher({
               type="button"
               role="option"
               aria-selected={level === current}
-              className={`modelsw__item ${level === current ? "modelsw__item--current" : ""}`}
+              className={`modelsw__item ${level === current ? 'modelsw__item--current' : ''}`}
               onClick={() => pick(level)}
             >
               <span className="modelsw__model">{level}</span>

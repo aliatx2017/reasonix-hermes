@@ -1,12 +1,12 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { CSSProperties, ReactNode, RefObject } from "react";
-import { createPortal } from "react-dom";
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import type { CSSProperties, ReactNode, RefObject } from 'react';
+import { createPortal } from 'react-dom';
 
 type PopoverPosition = {
   left: number;
   top: number;
 };
-type PopoverPhase = "closed" | "open" | "closing";
+type PopoverPhase = 'closed' | 'open' | 'closing';
 
 const EDGE_GAP = 8;
 const DEFAULT_OFFSET = 8;
@@ -23,22 +23,26 @@ function samePosition(a: PopoverPosition | null, b: PopoverPosition): boolean {
 function calculatePosition(
   anchor: DOMRect,
   menu: DOMRect,
-  align: "start" | "end",
+  align: 'start' | 'end',
   offset: number,
-  placement: "auto" | "bottom",
+  placement: 'auto' | 'bottom',
 ): PopoverPosition {
   const viewportWidth = window.innerWidth;
   const viewportHeight = window.innerHeight;
   const preferredTop = anchor.top - menu.height - offset;
   const fallbackTop = anchor.bottom + offset;
-  const top = placement === "bottom"
-    ? Math.min(fallbackTop, Math.max(EDGE_GAP, viewportHeight - menu.height - EDGE_GAP))
-    : preferredTop >= EDGE_GAP
-    ? preferredTop
-    : Math.min(fallbackTop, Math.max(EDGE_GAP, viewportHeight - menu.height - EDGE_GAP));
-  const rawLeft = align === "end" ? anchor.right - menu.width : anchor.left;
+  const top =
+    placement === 'bottom'
+      ? Math.min(fallbackTop, Math.max(EDGE_GAP, viewportHeight - menu.height - EDGE_GAP))
+      : preferredTop >= EDGE_GAP
+        ? preferredTop
+        : Math.min(fallbackTop, Math.max(EDGE_GAP, viewportHeight - menu.height - EDGE_GAP));
+  const rawLeft = align === 'end' ? anchor.right - menu.width : anchor.left;
   const left = clamp(rawLeft, EDGE_GAP, Math.max(EDGE_GAP, viewportWidth - menu.width - EDGE_GAP));
-  return { left, top: clamp(top, EDGE_GAP, Math.max(EDGE_GAP, viewportHeight - menu.height - EDGE_GAP)) };
+  return {
+    left,
+    top: clamp(top, EDGE_GAP, Math.max(EDGE_GAP, viewportHeight - menu.height - EDGE_GAP)),
+  };
 }
 
 export function AnchoredPopover({
@@ -47,9 +51,9 @@ export function AnchoredPopover({
   onClose,
   className,
   children,
-  align = "start",
+  align = 'start',
   offset = DEFAULT_OFFSET,
-  placement = "auto",
+  placement = 'auto',
   style,
   closing = false,
 }: {
@@ -58,13 +62,13 @@ export function AnchoredPopover({
   onClose: () => void;
   className: string;
   children: ReactNode;
-  align?: "start" | "end";
+  align?: 'start' | 'end';
   offset?: number;
-  placement?: "auto" | "bottom";
+  placement?: 'auto' | 'bottom';
   style?: CSSProperties;
   closing?: boolean;
 }) {
-  const [phase, setPhase] = useState<PopoverPhase>(open ? "open" : "closed");
+  const [phase, setPhase] = useState<PopoverPhase>(open ? 'open' : 'closed');
   const [position, setPosition] = useState<PopoverPosition | null>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
   const phaseRef = useRef<PopoverPhase>(phase);
@@ -72,25 +76,28 @@ export function AnchoredPopover({
   useLayoutEffect(() => {
     let id: number | undefined;
     if (open) {
-      phaseRef.current = "open";
-      setPhase("open");
+      phaseRef.current = 'open';
+      setPhase('open');
       return undefined;
     }
-    if (phaseRef.current === "closed") return undefined;
-    phaseRef.current = "closing";
-    setPhase("closing");
-    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    id = window.setTimeout(() => {
-      phaseRef.current = "closed";
-      setPhase("closed");
-      setPosition(null);
-    }, reduceMotion ? 0 : ANCHORED_POPOVER_CLOSE_MS);
+    if (phaseRef.current === 'closed') return undefined;
+    phaseRef.current = 'closing';
+    setPhase('closing');
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    id = window.setTimeout(
+      () => {
+        phaseRef.current = 'closed';
+        setPhase('closed');
+        setPosition(null);
+      },
+      reduceMotion ? 0 : ANCHORED_POPOVER_CLOSE_MS,
+    );
     return () => {
       if (id !== undefined) window.clearTimeout(id);
     };
   }, [open]);
 
-  const rendered = closing || phase !== "closed";
+  const rendered = closing || phase !== 'closed';
 
   useLayoutEffect(() => {
     if (!rendered) {
@@ -116,7 +123,7 @@ export function AnchoredPopover({
     const anchor = anchorRef.current;
     const menu = popoverRef.current;
     let observer: ResizeObserver | null = null;
-    if (typeof ResizeObserver !== "undefined") {
+    if (typeof ResizeObserver !== 'undefined') {
       observer = new ResizeObserver(scheduleUpdate);
       if (anchor) observer.observe(anchor);
       if (menu) observer.observe(menu);
@@ -131,7 +138,7 @@ export function AnchoredPopover({
   useEffect(() => {
     if (!open || closing) return;
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === 'Escape') onClose();
     };
     const closeOnOutsideClick = (event: MouseEvent) => {
       const target = event.target;
@@ -140,13 +147,13 @@ export function AnchoredPopover({
       onClose();
     };
     const closeOnViewportChange = () => onClose();
-    window.addEventListener("keydown", closeOnEscape);
-    document.addEventListener("click", closeOnOutsideClick);
-    window.addEventListener("resize", closeOnViewportChange);
+    window.addEventListener('keydown', closeOnEscape);
+    document.addEventListener('click', closeOnOutsideClick);
+    window.addEventListener('resize', closeOnViewportChange);
     return () => {
-      window.removeEventListener("keydown", closeOnEscape);
-      document.removeEventListener("click", closeOnOutsideClick);
-      window.removeEventListener("resize", closeOnViewportChange);
+      window.removeEventListener('keydown', closeOnEscape);
+      document.removeEventListener('click', closeOnOutsideClick);
+      window.removeEventListener('resize', closeOnViewportChange);
     };
   }, [anchorRef, onClose, open]);
 
@@ -156,15 +163,15 @@ export function AnchoredPopover({
     <div
       ref={popoverRef}
       data-anchored-popover="active"
-      data-ready={position ? "true" : "false"}
-      data-state={closing || phase === "closing" ? "closing" : "open"}
-      aria-hidden={closing || phase === "closing" ? true : undefined}
+      data-ready={position ? 'true' : 'false'}
+      data-state={closing || phase === 'closing' ? 'closing' : 'open'}
+      aria-hidden={closing || phase === 'closing' ? true : undefined}
       className={`anchored-popover ${className}`}
       style={{
         ...style,
         left: position?.left ?? -9999,
         top: position?.top ?? -9999,
-        visibility: position ? "visible" : "hidden",
+        visibility: position ? 'visible' : 'hidden',
       }}
       onMouseDown={(event) => {
         event.stopPropagation();

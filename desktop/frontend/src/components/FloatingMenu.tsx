@@ -1,5 +1,5 @@
-import type { MouseEvent as ReactMouseEvent, ReactNode } from "react";
-import { useMemo } from "react";
+import type { MouseEvent as ReactMouseEvent, ReactNode } from 'react';
+import { useMemo } from 'react';
 
 const FLOATING_MENU_MARGIN = 8;
 
@@ -10,8 +10,13 @@ export interface FloatingMenuItem {
   disabled?: boolean;
 }
 
-function clampFloatingMenuPosition(x: number, y: number, width: number, height: number): { left: number; top: number } {
-  if (typeof window === "undefined") return { left: x, top: y };
+function clampFloatingMenuPosition(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+): { left: number; top: number } {
+  if (typeof window === 'undefined') return { left: x, top: y };
   const maxLeft = Math.max(FLOATING_MENU_MARGIN, window.innerWidth - width - FLOATING_MENU_MARGIN);
   const maxTop = Math.max(FLOATING_MENU_MARGIN, window.innerHeight - height - FLOATING_MENU_MARGIN);
   return {
@@ -25,7 +30,7 @@ export function FloatingMenu({
   y,
   width = 240,
   estimatedHeight,
-  className = "",
+  className = '',
   children,
 }: {
   x: number;
@@ -35,10 +40,13 @@ export function FloatingMenu({
   className?: string;
   children: ReactNode;
 }) {
-  const pos = useMemo(() => clampFloatingMenuPosition(x, y, width, estimatedHeight), [estimatedHeight, width, x, y]);
+  const pos = useMemo(
+    () => clampFloatingMenuPosition(x, y, width, estimatedHeight),
+    [estimatedHeight, width, x, y],
+  );
   return (
     <div
-      className={`floating-menu${className ? ` ${className}` : ""}`}
+      className={`floating-menu${className ? ` ${className}` : ''}`}
       style={{ left: pos.left, top: pos.top }}
       onMouseDown={(e) => {
         e.preventDefault();

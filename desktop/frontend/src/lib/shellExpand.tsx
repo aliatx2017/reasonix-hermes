@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useRef, type ReactNode } from "react";
+import { type ReactNode, createContext, useCallback, useContext, useMemo, useRef } from 'react';
 
 // Shell-expand coordination: ToolCards register their toggle callbacks, and
 // Cmd+B (from App) calls the most recent one.

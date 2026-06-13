@@ -1,13 +1,29 @@
+import { FileText, Plus, Search, X } from 'lucide-react';
 // TabBar renders the browser-like workspace tab strip. Each tab represents one
 // open project/global topic, so switching tabs switches the active conversation.
-import { useEffect, useRef, useState } from "react";
-import type { CSSProperties, DragEvent, KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
-import { FileText, Plus, Search, X } from "lucide-react";
-import { normalizeCollaborationMode, normalizeMode, normalizeToolApprovalMode, type Mode, type TabMeta } from "../lib/types";
-import { projectColorValue } from "../lib/projectColors";
-import { useT } from "../lib/i18n";
-import { Tooltip } from "./Tooltip";
-import { ContextMenu, contextMenuPointFromEvent, type ContextMenuItem, type ContextMenuPoint } from "./ContextMenu";
+import { useEffect, useRef, useState } from 'react';
+import type {
+  CSSProperties,
+  DragEvent,
+  KeyboardEvent as ReactKeyboardEvent,
+  MouseEvent as ReactMouseEvent,
+} from 'react';
+import { useT } from '../lib/i18n';
+import { projectColorValue } from '../lib/projectColors';
+import {
+  type Mode,
+  type TabMeta,
+  normalizeCollaborationMode,
+  normalizeMode,
+  normalizeToolApprovalMode,
+} from '../lib/types';
+import {
+  ContextMenu,
+  type ContextMenuItem,
+  type ContextMenuPoint,
+  contextMenuPointFromEvent,
+} from './ContextMenu';
+import { Tooltip } from './Tooltip';
 
 interface TabBarProps {
   tabs: TabMeta[];
@@ -22,23 +38,24 @@ interface TabBarProps {
   revealActiveSignal?: number;
 }
 
-type DropSide = "before" | "after";
+type DropSide = 'before' | 'after';
 
 function tabDisplayTitle(tab: TabMeta): string {
-  if (tab.tabType === "file" || tab.scope === "file") return tab.topicTitle?.trim() || tab.filePath?.split("/").filter(Boolean).pop() || "File";
+  if (tab.tabType === 'file' || tab.scope === 'file')
+    return tab.topicTitle?.trim() || tab.filePath?.split('/').filter(Boolean).pop() || 'File';
   const title = tab.topicTitle?.trim();
-  if (tab.scope === "global") return title || "Global";
-  return title || "Untitled";
+  if (tab.scope === 'global') return title || 'Global';
+  return title || 'Untitled';
 }
 
 function tabFullTitle(tab: TabMeta): string {
-  if (tab.tabType === "file" || tab.scope === "file") return tab.filePath || tabDisplayTitle(tab);
-  if (tab.scope === "global") {
+  if (tab.tabType === 'file' || tab.scope === 'file') return tab.filePath || tabDisplayTitle(tab);
+  if (tab.scope === 'global') {
     const title = tabDisplayTitle(tab);
-    const workspaceName = tab.workspaceName?.trim() || "Global";
+    const workspaceName = tab.workspaceName?.trim() || 'Global';
     return title === workspaceName ? workspaceName : `${workspaceName} / ${title}`;
   }
-  const workspaceName = tab.workspaceName?.trim() || "Project";
+  const workspaceName = tab.workspaceName?.trim() || 'Project';
   return `${workspaceName} / ${tabDisplayTitle(tab)}`;
 }
 
@@ -49,10 +66,21 @@ function tabMode(tab: TabMeta): Mode {
 function projectAccentStyle(color?: string): CSSProperties | undefined {
   const value = projectColorValue(color);
   if (!value) return undefined;
-  return { "--project-accent": value } as CSSProperties;
+  return { '--project-accent': value } as CSSProperties;
 }
 
-export function TabBar({ tabs, activeTabId, onTabChange, onTabClose, onTabsClose, onTabsReorder, onNewTab, onOpenPalette, commandCompact = false, revealActiveSignal = 0 }: TabBarProps) {
+export function TabBar({
+  tabs,
+  activeTabId,
+  onTabChange,
+  onTabClose,
+  onTabsClose,
+  onTabsReorder,
+  onNewTab,
+  onOpenPalette,
+  commandCompact = false,
+  revealActiveSignal = 0,
+}: TabBarProps) {
   const t = useT();
   const [draggingTabId, setDraggingTabId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<{ id: string; side: DropSide } | null>(null);
@@ -63,14 +91,14 @@ export function TabBar({ tabs, activeTabId, onTabChange, onTabClose, onTabsClose
   const backendActiveTabId = tabs.find((tab) => tab.active)?.id;
   const activeTabIdExists = Boolean(activeTabId && tabs.some((tab) => tab.id === activeTabId));
   const resolvedActiveTabId = activeTabIdExists ? activeTabId : backendActiveTabId;
-  const tabOrderKey = tabs.map((tab) => tab.id).join("\u0000");
+  const tabOrderKey = tabs.map((tab) => tab.id).join('\u0000');
 
   useEffect(() => {
     if (!resolvedActiveTabId) return;
     const frame = window.requestAnimationFrame(() => {
       tabRefs.current.get(resolvedActiveTabId)?.scrollIntoView({
-        block: "nearest",
-        inline: "nearest",
+        block: 'nearest',
+        inline: 'nearest',
       });
     });
     return () => window.cancelAnimationFrame(frame);
@@ -87,7 +115,7 @@ export function TabBar({ tabs, activeTabId, onTabChange, onTabClose, onTabsClose
 
   const dropSideForEvent = (event: DragEvent<HTMLButtonElement>): DropSide => {
     const rect = event.currentTarget.getBoundingClientRect();
-    return event.clientX > rect.left + rect.width / 2 ? "after" : "before";
+    return event.clientX > rect.left + rect.width / 2 ? 'after' : 'before';
   };
 
   const reorderTabIds = (draggedId: string, targetId: string, side: DropSide): string[] => {
@@ -97,7 +125,7 @@ export function TabBar({ tabs, activeTabId, onTabChange, onTabClose, onTabsClose
     if (from < 0 || target < 0 || draggedId === targetId) return ids;
     const next = ids.filter((id) => id !== draggedId);
     const targetAfterRemoval = next.indexOf(targetId);
-    const insertAt = side === "after" ? targetAfterRemoval + 1 : targetAfterRemoval;
+    const insertAt = side === 'after' ? targetAfterRemoval + 1 : targetAfterRemoval;
     next.splice(insertAt, 0, draggedId);
     return next;
   };
@@ -105,25 +133,25 @@ export function TabBar({ tabs, activeTabId, onTabChange, onTabClose, onTabsClose
   const handleDragStart = (event: DragEvent<HTMLButtonElement>, tabId: string) => {
     setDraggingTabId(tabId);
     setDropTarget(null);
-    event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData("text/plain", tabId);
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', tabId);
   };
 
   const handleDragOver = (event: DragEvent<HTMLButtonElement>, tabId: string) => {
     if (!draggingTabId || draggingTabId === tabId) return;
     event.preventDefault();
-    event.dataTransfer.dropEffect = "move";
+    event.dataTransfer.dropEffect = 'move';
     setDropTarget({ id: tabId, side: dropSideForEvent(event) });
   };
 
   const handleDrop = (event: DragEvent<HTMLButtonElement>, tabId: string) => {
     event.preventDefault();
-    const draggedId = draggingTabId || event.dataTransfer.getData("text/plain");
+    const draggedId = draggingTabId || event.dataTransfer.getData('text/plain');
     const side = dropTarget?.id === tabId ? dropTarget.side : dropSideForEvent(event);
     clearDragState();
     if (!draggedId || draggedId === tabId) return;
     const next = reorderTabIds(draggedId, tabId, side);
-    if (next.join("\u0000") !== tabs.map((tab) => tab.id).join("\u0000")) {
+    if (next.join('\u0000') !== tabs.map((tab) => tab.id).join('\u0000')) {
       suppressClickRef.current = true;
       onTabsReorder(next);
     }
@@ -137,7 +165,10 @@ export function TabBar({ tabs, activeTabId, onTabChange, onTabClose, onTabsClose
     onTabChange(tabId);
   };
 
-  const openTabMenu = (event: ReactMouseEvent<HTMLButtonElement> | ReactKeyboardEvent<HTMLButtonElement>, tabId: string) => {
+  const openTabMenu = (
+    event: ReactMouseEvent<HTMLButtonElement> | ReactKeyboardEvent<HTMLButtonElement>,
+    tabId: string,
+  ) => {
     event.preventDefault();
     event.stopPropagation();
     setMenuTabId(tabId);
@@ -155,32 +186,40 @@ export function TabBar({ tabs, activeTabId, onTabChange, onTabClose, onTabsClose
   };
 
   const menuTabIndex = menuTabId ? tabs.findIndex((tab) => tab.id === menuTabId) : -1;
-  const tabMenuItems: ContextMenuItem[] = menuTabId && menuTabIndex >= 0
-    ? [
-        {
-          key: "close-current",
-          label: t("tabBar.closeTab"),
-          disabled: tabs.length <= 1,
-          onSelect: () => closeTabsFromMenu([menuTabId]),
-        },
-        {
-          key: "close-other",
-          label: t("tabBar.closeOtherTabs"),
-          disabled: tabs.length <= 1,
-          onSelect: () => closeTabsFromMenu(tabs.filter((tab) => tab.id !== menuTabId).map((tab) => tab.id), menuTabId),
-        },
-        {
-          key: "close-right",
-          label: t("tabBar.closeTabsToRight"),
-          disabled: menuTabIndex >= tabs.length - 1,
-          onSelect: () => {
-            const rightTabIds = tabs.slice(menuTabIndex + 1).map((tab) => tab.id);
-            const nextActiveTabId = resolvedActiveTabId && rightTabIds.includes(resolvedActiveTabId) ? menuTabId : undefined;
-            closeTabsFromMenu(rightTabIds, nextActiveTabId);
+  const tabMenuItems: ContextMenuItem[] =
+    menuTabId && menuTabIndex >= 0
+      ? [
+          {
+            key: 'close-current',
+            label: t('tabBar.closeTab'),
+            disabled: tabs.length <= 1,
+            onSelect: () => closeTabsFromMenu([menuTabId]),
           },
-        },
-      ]
-    : [];
+          {
+            key: 'close-other',
+            label: t('tabBar.closeOtherTabs'),
+            disabled: tabs.length <= 1,
+            onSelect: () =>
+              closeTabsFromMenu(
+                tabs.filter((tab) => tab.id !== menuTabId).map((tab) => tab.id),
+                menuTabId,
+              ),
+          },
+          {
+            key: 'close-right',
+            label: t('tabBar.closeTabsToRight'),
+            disabled: menuTabIndex >= tabs.length - 1,
+            onSelect: () => {
+              const rightTabIds = tabs.slice(menuTabIndex + 1).map((tab) => tab.id);
+              const nextActiveTabId =
+                resolvedActiveTabId && rightTabIds.includes(resolvedActiveTabId)
+                  ? menuTabId
+                  : undefined;
+              closeTabsFromMenu(rightTabIds, nextActiveTabId);
+            },
+          },
+        ]
+      : [];
 
   return (
     <div className="tabbar">
@@ -189,17 +228,23 @@ export function TabBar({ tabs, activeTabId, onTabChange, onTabClose, onTabsClose
           const displayTitle = tabDisplayTitle(tab);
           const fullTitle = tabFullTitle(tab);
           const mode = tabMode(tab);
-          const collaborationMode = normalizeCollaborationMode(tab.collaborationMode, tab.goal, mode);
-          const planMode = collaborationMode === "plan";
-          const goalMode = collaborationMode === "goal";
+          const collaborationMode = normalizeCollaborationMode(
+            tab.collaborationMode,
+            tab.goal,
+            mode,
+          );
+          const planMode = collaborationMode === 'plan';
+          const goalMode = collaborationMode === 'goal';
           const toolApprovalMode = normalizeToolApprovalMode(tab.toolApprovalMode, mode);
           const stateTitle = [
-            tab.running ? "Running" : "",
-            planMode ? "Plan" : "",
-            goalMode ? "Goal" : "",
-            toolApprovalMode === "auto" ? "Auto approve" : "",
-            toolApprovalMode === "yolo" ? "YOLO approval" : "",
-          ].filter(Boolean).join(" · ");
+            tab.running ? 'Running' : '',
+            planMode ? 'Plan' : '',
+            goalMode ? 'Goal' : '',
+            toolApprovalMode === 'auto' ? 'Auto approve' : '',
+            toolApprovalMode === 'yolo' ? 'YOLO approval' : '',
+          ]
+            .filter(Boolean)
+            .join(' · ');
           const annotatedTitle = stateTitle ? `${stateTitle} · ${fullTitle}` : fullTitle;
           return (
             <button
@@ -213,20 +258,22 @@ export function TabBar({ tabs, activeTabId, onTabChange, onTabClose, onTabsClose
               }}
               draggable
               className={[
-                "tabbar__tab",
-                tab.id === resolvedActiveTabId ? "tabbar__tab--active" : "",
-                tab.running ? "tabbar__tab--running" : "",
-                toolApprovalMode === "yolo" ? "tabbar__tab--yolo" : "",
-                draggingTabId === tab.id ? "tabbar__tab--dragging" : "",
-                dropTarget?.id === tab.id ? `tabbar__tab--drop-${dropTarget.side}` : "",
-              ].filter(Boolean).join(" ")}
+                'tabbar__tab',
+                tab.id === resolvedActiveTabId ? 'tabbar__tab--active' : '',
+                tab.running ? 'tabbar__tab--running' : '',
+                toolApprovalMode === 'yolo' ? 'tabbar__tab--yolo' : '',
+                draggingTabId === tab.id ? 'tabbar__tab--dragging' : '',
+                dropTarget?.id === tab.id ? `tabbar__tab--drop-${dropTarget.side}` : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
               title={annotatedTitle}
               aria-label={annotatedTitle}
               style={projectAccentStyle(tab.projectColor)}
               onClick={() => handleTabClick(tab.id)}
               onContextMenu={(event) => openTabMenu(event, tab.id)}
               onKeyDown={(event) => {
-                if (event.key === "ContextMenu" || (event.shiftKey && event.key === "F10")) {
+                if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) {
                   openTabMenu(event, tab.id);
                 }
               }}
@@ -235,21 +282,28 @@ export function TabBar({ tabs, activeTabId, onTabChange, onTabClose, onTabsClose
               onDrop={(event) => handleDrop(event, tab.id)}
               onDragEnd={clearDragState}
             >
-              {tab.tabType === "file" || tab.scope === "file" ? (
+              {tab.tabType === 'file' || tab.scope === 'file' ? (
                 <FileText size={12} className="tabbar__file-icon" />
               ) : (
                 <span
-                  className={[
-                    "tabbar__status",
-                    tab.running ? "tabbar__status--running" : "",
-                  ].filter(Boolean).join(" ")}
+                  className={['tabbar__status', tab.running ? 'tabbar__status--running' : '']
+                    .filter(Boolean)
+                    .join(' ')}
                 />
               )}
               <span className="tabbar__tab-label">{displayTitle}</span>
-              {planMode && <span className="tabbar__mode-badge tabbar__mode-badge--plan">plan</span>}
-              {goalMode && <span className="tabbar__mode-badge tabbar__mode-badge--plan">goal</span>}
-              {toolApprovalMode === "auto" && <span className="tabbar__mode-badge tabbar__mode-badge--plan">auto</span>}
-              {toolApprovalMode === "yolo" && <span className="tabbar__mode-badge tabbar__mode-badge--yolo">yolo</span>}
+              {planMode && (
+                <span className="tabbar__mode-badge tabbar__mode-badge--plan">plan</span>
+              )}
+              {goalMode && (
+                <span className="tabbar__mode-badge tabbar__mode-badge--plan">goal</span>
+              )}
+              {toolApprovalMode === 'auto' && (
+                <span className="tabbar__mode-badge tabbar__mode-badge--plan">auto</span>
+              )}
+              {toolApprovalMode === 'yolo' && (
+                <span className="tabbar__mode-badge tabbar__mode-badge--yolo">yolo</span>
+              )}
               <span
                 className="tabbar__tab-close"
                 onClick={(e) => {
@@ -263,22 +317,33 @@ export function TabBar({ tabs, activeTabId, onTabChange, onTabClose, onTabsClose
           );
         })}
       </div>
-      <Tooltip label={t("tabBar.newSession")}>
-        <button className="tabbar__new" type="button" aria-label={t("tabBar.newSession")} onClick={onNewTab}>
+      <Tooltip label={t('tabBar.newSession')}>
+        <button
+          className="tabbar__new"
+          type="button"
+          aria-label={t('tabBar.newSession')}
+          onClick={onNewTab}
+        >
           <Plus size={13} />
         </button>
       </Tooltip>
       {onOpenPalette && <span className="tabbar__spacer" aria-hidden="true" />}
       {onOpenPalette && (
         <button
-          className={["tabbar__command", commandCompact ? "tabbar__command--compact" : ""].filter(Boolean).join(" ")}
+          className={['tabbar__command', commandCompact ? 'tabbar__command--compact' : '']
+            .filter(Boolean)
+            .join(' ')}
           type="button"
           onClick={onOpenPalette}
-          aria-label={t("palette.placeholder")}
+          aria-label={t('palette.placeholder')}
         >
           <Search size={13} className="tabbar__command-icon" />
-          <span className="tabbar__command-text tabbar__command-text--full">{t("tabBar.commandSearch")}</span>
-          <span className="tabbar__command-text tabbar__command-text--compact">{t("tabBar.commandSearchCompact")}</span>
+          <span className="tabbar__command-text tabbar__command-text--full">
+            {t('tabBar.commandSearch')}
+          </span>
+          <span className="tabbar__command-text tabbar__command-text--compact">
+            {t('tabBar.commandSearchCompact')}
+          </span>
           <kbd className="tabbar__command-kbd">⌘K</kbd>
         </button>
       )}
@@ -287,7 +352,7 @@ export function TabBar({ tabs, activeTabId, onTabChange, onTabClose, onTabsClose
         point={menuPoint}
         items={tabMenuItems}
         minWidth={170}
-        ariaLabel={t("tabBar.tabActions")}
+        ariaLabel={t('tabBar.tabActions')}
         onClose={closeTabMenu}
       />
     </div>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState } from 'react';
 
 // Row-level destructive actions should confirm in place instead of opening a
 // global modal. First click arms the action, second click confirms it, and the
@@ -36,7 +36,7 @@ export function InlineConfirmButton({
   return (
     <span className="inline-confirm">
       <button
-        className={`btn btn--small${armed && danger ? " btn--danger" : ""}`}
+        className={`btn btn--small${armed && danger ? ' btn--danger' : ''}`}
         disabled={disabled}
         type="button"
         onClick={run}
@@ -44,7 +44,12 @@ export function InlineConfirmButton({
         {armed ? confirmLabel : label}
       </button>
       {armed && (
-        <button className="btn btn--small" disabled={disabled} type="button" onClick={() => setArmed(false)}>
+        <button
+          className="btn btn--small"
+          disabled={disabled}
+          type="button"
+          onClick={() => setArmed(false)}
+        >
           {cancelLabel}
         </button>
       )}

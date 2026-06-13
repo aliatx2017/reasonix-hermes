@@ -3,46 +3,46 @@
 // the engine behind the editor seam's HljsCode / HljsDiff; token colors are
 // themed in styles.css (.hljs-*) to match the app palette rather than a stock CSS.
 
-import hljs from "highlight.js/lib/core";
-import bash from "highlight.js/lib/languages/bash";
-import css from "highlight.js/lib/languages/css";
-import diff from "highlight.js/lib/languages/diff";
-import go from "highlight.js/lib/languages/go";
-import javascript from "highlight.js/lib/languages/javascript";
-import json from "highlight.js/lib/languages/json";
-import markdown from "highlight.js/lib/languages/markdown";
-import python from "highlight.js/lib/languages/python";
-import rust from "highlight.js/lib/languages/rust";
-import typescript from "highlight.js/lib/languages/typescript";
-import xml from "highlight.js/lib/languages/xml";
-import yaml from "highlight.js/lib/languages/yaml";
+import hljs from 'highlight.js/lib/core';
+import bash from 'highlight.js/lib/languages/bash';
+import css from 'highlight.js/lib/languages/css';
+import diff from 'highlight.js/lib/languages/diff';
+import go from 'highlight.js/lib/languages/go';
+import javascript from 'highlight.js/lib/languages/javascript';
+import json from 'highlight.js/lib/languages/json';
+import markdown from 'highlight.js/lib/languages/markdown';
+import python from 'highlight.js/lib/languages/python';
+import rust from 'highlight.js/lib/languages/rust';
+import typescript from 'highlight.js/lib/languages/typescript';
+import xml from 'highlight.js/lib/languages/xml';
+import yaml from 'highlight.js/lib/languages/yaml';
 
-import { ALIASES } from "./lang";
+import { ALIASES } from './lang';
 
-hljs.registerLanguage("bash", bash);
-hljs.registerLanguage("css", css);
-hljs.registerLanguage("diff", diff);
-hljs.registerLanguage("go", go);
-hljs.registerLanguage("javascript", javascript);
-hljs.registerLanguage("json", json);
-hljs.registerLanguage("markdown", markdown);
-hljs.registerLanguage("python", python);
-hljs.registerLanguage("rust", rust);
-hljs.registerLanguage("typescript", typescript);
-hljs.registerLanguage("xml", xml);
-hljs.registerLanguage("yaml", yaml);
+hljs.registerLanguage('bash', bash);
+hljs.registerLanguage('css', css);
+hljs.registerLanguage('diff', diff);
+hljs.registerLanguage('go', go);
+hljs.registerLanguage('javascript', javascript);
+hljs.registerLanguage('json', json);
+hljs.registerLanguage('markdown', markdown);
+hljs.registerLanguage('python', python);
+hljs.registerLanguage('rust', rust);
+hljs.registerLanguage('typescript', typescript);
+hljs.registerLanguage('xml', xml);
+hljs.registerLanguage('yaml', yaml);
 
 function escapeHtml(s: string): string {
-  return s.replace(/[&<>]/g, (c) => (c === "&" ? "&amp;" : c === "<" ? "&lt;" : "&gt;"));
+  return s.replace(/[&<>]/g, (c) => (c === '&' ? '&amp;' : c === '<' ? '&lt;' : '&gt;'));
 }
 
 // resolveLang maps a markdown fence tag or guessed name to a registered language,
 // or "" when we can't highlight it (caller renders escaped plain text).
 export function resolveLang(lang?: string): string {
-  if (!lang) return "";
+  if (!lang) return '';
   const l = lang.toLowerCase();
   const resolved = ALIASES[l] ?? l;
-  return hljs.getLanguage(resolved) ? resolved : "";
+  return hljs.getLanguage(resolved) ? resolved : '';
 }
 
 // LRU cache for highlighted output. The same code block can re-render many
@@ -76,7 +76,7 @@ interface CacheEntry {
 const hlCache = new Map<number, CacheEntry>();
 
 function cacheGet(code: string, lang: string): string | null {
-  const key = hashCode(lang + "\0" + code);
+  const key = hashCode(lang + '\0' + code);
   const e = hlCache.get(key);
   if (!e) return null;
   // Defend against the (rare) hash collision: the stored code must match
@@ -89,7 +89,7 @@ function cacheGet(code: string, lang: string): string | null {
 }
 
 function cachePut(code: string, lang: string, html: string): void {
-  const key = hashCode(lang + "\0" + code);
+  const key = hashCode(lang + '\0' + code);
   if (hlCache.has(key)) hlCache.delete(key); // refresh
   hlCache.set(key, { code, html });
   while (hlCache.size > HL_CACHE_MAX) {

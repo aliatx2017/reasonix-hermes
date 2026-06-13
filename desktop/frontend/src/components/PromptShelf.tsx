@@ -1,5 +1,5 @@
-import type { ReactNode, RefObject } from "react";
-import { ChevronDown, ChevronUp, PauseCircle } from "lucide-react";
+import { ChevronDown, ChevronUp, PauseCircle } from 'lucide-react';
+import type { ReactNode, RefObject } from 'react';
 
 export function PromptShelf({
   titleId,
@@ -25,7 +25,10 @@ export function PromptShelf({
   actionsWrap?: boolean;
 }) {
   return (
-    <div className={`prompt-shelf${actionsWrap ? " prompt-shelf--actions-wrap" : ""}`} aria-live="polite">
+    <div
+      className={`prompt-shelf${actionsWrap ? ' prompt-shelf--actions-wrap' : ''}`}
+      aria-live="polite"
+    >
       <div
         ref={barRef}
         className="prompt-shelf__bar"
@@ -71,7 +74,10 @@ export function PromptAction({
   selected?: boolean;
 }) {
   return (
-    <button className={`prompt-action${primary || selected ? " prompt-action--selected" : ""}`} onClick={onClick}>
+    <button
+      className={`prompt-action${primary || selected ? ' prompt-action--selected' : ''}`}
+      onClick={onClick}
+    >
       <span className="prompt-action__key">{keyLabel}</span>
       <span className="prompt-action__label">{label}</span>
     </button>
@@ -92,7 +98,11 @@ export function PromptDetailToggle({
   return (
     <button className="prompt-detail-toggle" onClick={onClick}>
       <span>{open ? openLabel : label}</span>
-      {open ? <ChevronUp size={14} aria-hidden="true" /> : <ChevronDown size={14} aria-hidden="true" />}
+      {open ? (
+        <ChevronUp size={14} aria-hidden="true" />
+      ) : (
+        <ChevronDown size={14} aria-hidden="true" />
+      )}
     </button>
   );
 }

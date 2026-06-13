@@ -1,8 +1,8 @@
-import { Children, type ReactNode, type SVGProps, useState } from "react";
+import { Children, type ReactNode, type SVGProps, useState } from 'react';
 
 type IconProps = SVGProps<SVGSVGElement> & { size?: number };
-export type ProcessTone = "default" | "success" | "warning" | "danger" | "accent" | "violet";
-export type ProcessState = "running" | "done" | "failed" | "waiting" | "stopped";
+export type ProcessTone = 'default' | 'success' | 'warning' | 'danger' | 'accent' | 'violet';
+export type ProcessState = 'running' | 'done' | 'failed' | 'waiting' | 'stopped';
 
 function ProcessIcon({ size = 14, children, ...rest }: IconProps & { children: ReactNode }) {
   return (
@@ -97,14 +97,36 @@ export function ProcessCompactIcon(props: IconProps) {
 }
 
 export function ProcessStatusIcon({ state, label }: { state: ProcessState; label: string }) {
-  if (state === "running") return <span className="process-card__spin" role="img" aria-label={label} title={label} />;
-  if (state === "done") return <ProcessCheckIcon className="process-card__status process-card__status--done" size={12} aria-label={label} />;
-  if (state === "failed") return <ProcessXIcon className="process-card__status process-card__status--failed" size={12} aria-label={label} />;
-  return <span className={`process-card__dot process-card__dot--${state}`} role="img" aria-label={label} title={label} />;
+  if (state === 'running')
+    return <span className="process-card__spin" role="img" aria-label={label} title={label} />;
+  if (state === 'done')
+    return (
+      <ProcessCheckIcon
+        className="process-card__status process-card__status--done"
+        size={12}
+        aria-label={label}
+      />
+    );
+  if (state === 'failed')
+    return (
+      <ProcessXIcon
+        className="process-card__status process-card__status--failed"
+        size={12}
+        aria-label={label}
+      />
+    );
+  return (
+    <span
+      className={`process-card__dot process-card__dot--${state}`}
+      role="img"
+      aria-label={label}
+      title={label}
+    />
+  );
 }
 
 export function ProcessCard({
-  tone = "default",
+  tone = 'default',
   icon,
   kind,
   name,
@@ -137,12 +159,22 @@ export function ProcessCard({
   };
 
   return (
-    <div className={`process-card${className ? ` ${className}` : ""}`} data-tone={tone} data-open={actualOpen} data-has-body={hasBody}>
+    <div
+      className={`process-card${className ? ` ${className}` : ''}`}
+      data-tone={tone}
+      data-open={actualOpen}
+      data-has-body={hasBody}
+    >
       <button
         type="button"
         className="process-card__head"
         onClick={toggle}
-        onKeyDown={(e) => { if (e.key === "Escape") { e.preventDefault(); toggle(); } }}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') {
+            e.preventDefault();
+            toggle();
+          }
+        }}
         aria-expanded={hasBody ? actualOpen : undefined}
       >
         <span className="process-card__icon">{icon}</span>

@@ -6,10 +6,10 @@
 // keys on the SHA-256 of the file bytes, with a path fallback for the
 // case where a file:// URL or data: URL is the only available signal.
 
-const HEX = "0123456789abcdef";
+const HEX = '0123456789abcdef';
 
 function bytesToHex(bytes: Uint8Array): string {
-  let out = "";
+  let out = '';
   for (let i = 0; i < bytes.length; i++) {
     const b = bytes[i];
     out += HEX[(b >> 4) & 0xf] + HEX[b & 0xf];
@@ -24,13 +24,13 @@ function bytesToHex(bytes: Uint8Array): string {
 // at all. The caller checks the empty-string return and skips the
 // dedup step in that case.
 export async function sha256(blob: Blob): Promise<string> {
-  if (typeof crypto === "undefined" || !crypto.subtle) return "";
+  if (typeof crypto === 'undefined' || !crypto.subtle) return '';
   try {
     const buf = await blob.arrayBuffer();
-    const digest = await crypto.subtle.digest("SHA-256", buf);
+    const digest = await crypto.subtle.digest('SHA-256', buf);
     return bytesToHex(new Uint8Array(digest));
   } catch {
-    return "";
+    return '';
   }
 }
 

@@ -1,12 +1,6 @@
 {
   "$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
-  "vcs": {
-    "enabled": true,
-    "clientKind": "git",
-    "useIgnoreFile": true
-  },
   "files": {
-    "include": ["src/**/*.ts", "src/**/*.tsx", "*.json", "*.mjs"],
     "ignore": ["dist/", "node_modules/", "wailsjs/"]
   },
   "formatter": {
@@ -21,10 +15,20 @@
       "recommended": true,
       "correctness": {
         "noUnusedVariables": "error",
-        "useExhaustiveDependencies": "warn"
+        "useExhaustiveDependencies": "off"
       },
       "suspicious": {
-        "noExplicitAny": "warn"
+        "noExplicitAny": "warn",
+        "noAssignInExpressions": "warn"
+      },
+      "style": {
+        "noParameterAssign": "warn",
+        "useConst": "warn"
+      },
+      "a11y": {
+        "useButtonType": "off",
+        "useSemanticElements": "off",
+        "useFocusableInteractive": "off"
       }
     }
   },

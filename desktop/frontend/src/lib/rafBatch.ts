@@ -24,7 +24,7 @@ export function createRafBatch<T>(flush: Flush<T>): BatchHandle<T> {
   const handle: BatchHandle<T> = {
     push(item: T) {
       buffer.push(item);
-      if (scheduled === null && typeof requestAnimationFrame !== "undefined") {
+      if (scheduled === null && typeof requestAnimationFrame !== 'undefined') {
         scheduled = requestAnimationFrame(run);
       } else if (scheduled === null) {
         // No rAF (SSR / JSDOM) — fall back to a microtask.
@@ -34,7 +34,7 @@ export function createRafBatch<T>(flush: Flush<T>): BatchHandle<T> {
     },
     drain() {
       if (scheduled !== null) {
-        if (typeof cancelAnimationFrame !== "undefined" && scheduled !== 1) {
+        if (typeof cancelAnimationFrame !== 'undefined' && scheduled !== 1) {
           cancelAnimationFrame(scheduled);
         }
         scheduled = null;

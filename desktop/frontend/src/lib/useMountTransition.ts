@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from 'react';
 
 // useMountTransition keeps a conditionally-rendered overlay mounted long enough
 // to play an exit animation. Callers flip `open`; the hook returns whether the
@@ -14,11 +14,11 @@ import { useEffect, useRef, useState } from "react";
 // rapid close→open reuses the live node instead of unmounting it. Honors
 // prefers-reduced-motion by collapsing the exit delay to ~0, matching the
 // global reduced-motion rule that zeroes every animation.
-export type MountStatus = "open" | "closing";
+export type MountStatus = 'open' | 'closing';
 
 function prefersReducedMotion(): boolean {
-  if (typeof window === "undefined" || !window.matchMedia) return false;
-  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (typeof window === 'undefined' || !window.matchMedia) return false;
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
 export function useMountTransition(
@@ -26,7 +26,7 @@ export function useMountTransition(
   duration: number,
 ): { mounted: boolean; status: MountStatus } {
   const [mounted, setMounted] = useState(open);
-  const [status, setStatus] = useState<MountStatus>(open ? "open" : "closing");
+  const [status, setStatus] = useState<MountStatus>(open ? 'open' : 'closing');
   const timerRef = useRef<number | null>(null);
 
   const clearTimer = () => {
@@ -42,11 +42,11 @@ export function useMountTransition(
       setMounted(true);
       // Defer the "open" status by a frame so the node mounts in its
       // enter-from state before the enter animation is applied.
-      const raf = requestAnimationFrame(() => setStatus("open"));
+      const raf = requestAnimationFrame(() => setStatus('open'));
       return () => cancelAnimationFrame(raf);
     }
     if (!mounted) return;
-    setStatus("closing");
+    setStatus('closing');
     const wait = prefersReducedMotion() ? 0 : duration;
     clearTimer();
     timerRef.current = window.setTimeout(() => {
@@ -93,5 +93,5 @@ export function useDeferredClose(
     [],
   );
 
-  return { status: closing ? "closing" : "open", requestClose };
+  return { status: closing ? 'closing' : 'open', requestClose };
 }

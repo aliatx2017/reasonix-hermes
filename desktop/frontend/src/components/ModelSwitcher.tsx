@@ -1,14 +1,18 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Brain, Check, ChevronsUpDown } from "lucide-react";
-import { asArray } from "../lib/array";
-import { app } from "../lib/bridge";
-import { useT } from "../lib/i18n";
-import type { ModelInfo } from "../lib/types";
-import { ANCHORED_POPOVER_CLOSE_MS, AnchoredPopover } from "./AnchoredPopover";
+import { Brain, Check, ChevronsUpDown } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { asArray } from '../lib/array';
+import { app } from '../lib/bridge';
+import { useT } from '../lib/i18n';
+import type { ModelInfo } from '../lib/types';
+import { ANCHORED_POPOVER_CLOSE_MS, AnchoredPopover } from './AnchoredPopover';
 
 // ModelSwitcher opens an upward popover listing configured providers. Selecting
 // one switches the active model while the current conversation continues.
-export function ModelSwitcher({ label, tabId, onPick }: { label: string; tabId?: string; onPick: (name: string) => void }) {
+export function ModelSwitcher({
+  label,
+  tabId,
+  onPick,
+}: { label: string; tabId?: string; onPick: (name: string) => void }) {
   const t = useT();
   const [open, setOpen] = useState(false);
   const [closing, setClosing] = useState(false);
@@ -29,21 +33,29 @@ export function ModelSwitcher({ label, tabId, onPick }: { label: string; tabId?:
     setOpen(true);
   }, [clearCloseTimer]);
 
-  const closeMenu = useCallback((afterClose?: () => void) => {
-    clearCloseTimer();
-    setClosing(true);
-    window.requestAnimationFrame(() => setOpen(false));
-    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    closeTimerRef.current = window.setTimeout(() => {
-      closeTimerRef.current = null;
-      setClosing(false);
-      afterClose?.();
-    }, reduceMotion ? 0 : ANCHORED_POPOVER_CLOSE_MS);
-  }, [clearCloseTimer]);
+  const closeMenu = useCallback(
+    (afterClose?: () => void) => {
+      clearCloseTimer();
+      setClosing(true);
+      window.requestAnimationFrame(() => setOpen(false));
+      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      closeTimerRef.current = window.setTimeout(
+        () => {
+          closeTimerRef.current = null;
+          setClosing(false);
+          afterClose?.();
+        },
+        reduceMotion ? 0 : ANCHORED_POPOVER_CLOSE_MS,
+      );
+    },
+    [clearCloseTimer],
+  );
 
   useEffect(() => {
     if (open) {
-      (tabId ? app.ModelsForTab(tabId) : app.Models()).then((next) => setModels(asArray(next))).catch(() => {});
+      (tabId ? app.ModelsForTab(tabId) : app.Models())
+        .then((next) => setModels(asArray(next)))
+        .catch(() => {});
     }
   }, [open, tabId]);
 
@@ -75,19 +87,23 @@ export function ModelSwitcher({ label, tabId, onPick }: { label: string; tabId?:
         style={{ minWidth: triggerWidth ? Math.max(triggerWidth, 160) : undefined, maxWidth: 400 }}
       >
         <div role="listbox">
-          {models.length === 0 && <div className="modelsw__empty">{t("status.noModels")}</div>}
+          {models.length === 0 && <div className="modelsw__empty">{t('status.noModels')}</div>}
           {models.map((m) => (
             <button
               key={m.ref}
               type="button"
               role="option"
               aria-selected={m.current}
-              className={`modelsw__item ${m.current ? "modelsw__item--current" : ""}`}
+              className={`modelsw__item ${m.current ? 'modelsw__item--current' : ''}`}
               onClick={() => pick(m.ref)}
             >
               <span className="modelsw__copy">
-                <span className="modelsw__model" title={m.model}>{m.model}</span>
-                <span className="modelsw__provider" title={providerLabel(m.provider, t)}>{providerLabel(m.provider, t)}</span>
+                <span className="modelsw__model" title={m.model}>
+                  {m.model}
+                </span>
+                <span className="modelsw__provider" title={providerLabel(m.provider, t)}>
+                  {providerLabel(m.provider, t)}
+                </span>
               </span>
               {m.current && <Check size={13} className="modelsw__check" />}
             </button>
@@ -100,18 +116,18 @@ export function ModelSwitcher({ label, tabId, onPick }: { label: string; tabId?:
 
 function providerLabel(provider: string, t: ReturnType<typeof useT>): string {
   switch (provider) {
-    case "deepseek":
-    case "deepseek-flash":
-    case "deepseek-pro":
-      return t("settings.providerLabel.deepseek");
-    case "mimo-api":
-    case "mimo":
-    case "xiaomi-mimo":
-      return t("settings.providerLabel.mimoApi");
-    case "mimo-token-plan":
-    case "mimo-pro":
-    case "mimo-flash":
-      return t("settings.providerLabel.mimoTokenPlan");
+    case 'deepseek':
+    case 'deepseek-flash':
+    case 'deepseek-pro':
+      return t('settings.providerLabel.deepseek');
+    case 'mimo-api':
+    case 'mimo':
+    case 'xiaomi-mimo':
+      return t('settings.providerLabel.mimoApi');
+    case 'mimo-token-plan':
+    case 'mimo-pro':
+    case 'mimo-flash':
+      return t('settings.providerLabel.mimoTokenPlan');
     default:
       return provider;
   }

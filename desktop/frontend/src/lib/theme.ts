@@ -8,68 +8,61 @@
 // theme (title bar, traffic lights, etc.) so the OS chrome matches the webview.
 
 import {
+  WindowSetBackgroundColour,
   WindowSetDarkTheme,
   WindowSetLightTheme,
   WindowSetSystemDefaultTheme,
-  WindowSetBackgroundColour,
-} from "../../wailsjs/runtime/runtime";
+} from '../../wailsjs/runtime/runtime';
 
-export type Theme = "auto" | "light" | "dark";
-export type ResolvedTheme = Exclude<Theme, "auto">;
+export type Theme = 'auto' | 'light' | 'dark';
+export type ResolvedTheme = Exclude<Theme, 'auto'>;
 
-export const THEME_STYLES = [
-  "graphite",
-  "aurora",
-  "slate",
-  "carbon",
-  "nocturne",
-  "amber",
-] as const;
+export const THEME_STYLES = ['graphite', 'aurora', 'slate', 'carbon', 'nocturne', 'amber'] as const;
 
 export type ThemeStyle = (typeof THEME_STYLES)[number];
 
 // Old style identifiers map to the closest new direction so settings stored
 // from previous versions still resolve to a valid value.
 const LEGACY_STYLE_MAP: Record<string, ThemeStyle> = {
-  ember: "carbon",
-  midnight: "nocturne",
-  sandstone: "amber",
-  porcelain: "nocturne",
-  linen: "amber",
-  glacier: "slate",
+  ember: 'carbon',
+  midnight: 'nocturne',
+  sandstone: 'amber',
+  porcelain: 'nocturne',
+  linen: 'amber',
+  glacier: 'slate',
 };
 
-const DEFAULT_THEME_STYLE: ThemeStyle = "graphite";
-const DEFAULT_THEME: Theme = "light";
+const DEFAULT_THEME_STYLE: ThemeStyle = 'graphite';
+const DEFAULT_THEME: Theme = 'light';
 
-const THEME_KEY = "reasonix-theme";
-const STYLE_KEY = "reasonix-theme-style";
+const THEME_KEY = 'reasonix-theme';
+const STYLE_KEY = 'reasonix-theme-style';
 let currentTheme: Theme = DEFAULT_THEME;
 let currentThemeStyle: ThemeStyle = DEFAULT_THEME_STYLE;
 
 export function normalizeThemePreference(value: unknown): Theme {
-  if (typeof value === "object" && value !== null) {
+  if (typeof value === 'object' && value !== null) {
     return normalizeThemePreference((value as { mode?: unknown }).mode);
   }
-  if (typeof value !== "string") return DEFAULT_THEME;
+  if (typeof value !== 'string') return DEFAULT_THEME;
   switch (value) {
-    case "auto":
-      return "auto";
-    case "light":
-    case "focus":
-    case "forest":
-      return "light";
-    case "dark":
-    case "midnight":
-    case "contrast":
-      return "dark";
+    case 'auto':
+      return 'auto';
+    case 'light':
+    case 'focus':
+    case 'forest':
+      return 'light';
+    case 'dark':
+    case 'midnight':
+    case 'contrast':
+      return 'dark';
     default:
       return DEFAULT_THEME;
   }
 }
 
 export function isThemeStyle(value: unknown): value is ThemeStyle {
-  return typeof value === "string" && (THEME_STYLES as readonly string[]).includes(value);
+  return typeof value === 'string' && (THEME_STYLES as readonly string[]).includes(value);
 }
 
 export function getTheme(): Theme {
@@ -77,9 +70,10 @@ export function getTheme(): Theme {
 }
 
 export function getResolvedTheme(theme: Theme = getTheme()): ResolvedTheme {
-  if (theme === "light" || theme === "dark") return theme;
-  if (typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: light)").matches) return "light";
-  return "dark";
+  if (theme === 'light' || theme === 'dark') return theme;
+  if (typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: light)').matches)
+    return 'light';
+  return 'dark';
 }
 
 // Direction is orthogonal to theme, but keep this helper so callers that
@@ -99,31 +93,35 @@ export function getThemeStyle(_theme: Theme = getTheme()): ThemeStyle {
 }
 
 export function normalizeThemeStyleForTheme(style: string | undefined, _theme?: Theme): ThemeStyle {
-  if (typeof style !== "string") return DEFAULT_THEME_STYLE;
+  if (typeof style !== 'string') return DEFAULT_THEME_STYLE;
   if (isThemeStyle(style)) return style;
   return LEGACY_STYLE_MAP[style] ?? DEFAULT_THEME_STYLE;
 }
 
-export function applyTheme(theme: Theme, style: ThemeStyle = getThemeStyle(theme), options: { persist?: boolean } = {}): void {
-  if (typeof document === "undefined") return;
+export function applyTheme(
+  theme: Theme,
+  style: ThemeStyle = getThemeStyle(theme),
+  options: { persist?: boolean } = {},
+): void {
+  if (typeof document === 'undefined') return;
   const root = document.documentElement;
-  root.removeAttribute("data-theme-mode");
-  root.removeAttribute("data-theme-scheme");
-  if (theme === "auto") root.removeAttribute("data-theme");
-  else root.setAttribute("data-theme", theme);
+  root.removeAttribute('data-theme-mode');
+  root.removeAttribute('data-theme-scheme');
+  if (theme === 'auto') root.removeAttribute('data-theme');
+  else root.setAttribute('data-theme', theme);
 
   const nextStyle: ThemeStyle = isThemeStyle(style) ? style : DEFAULT_THEME_STYLE;
   currentTheme = theme;
   currentThemeStyle = nextStyle;
-  root.setAttribute("data-theme-style", nextStyle);
+  root.setAttribute('data-theme-style', nextStyle);
 
   // Sync the native window theme (title bar, traffic lights) to match.
-  if (typeof window !== "undefined" && window.runtime) {
-    if (theme === "auto") {
+  if (typeof window !== 'undefined' && window.runtime) {
+    if (theme === 'auto') {
       WindowSetSystemDefaultTheme();
-    } else if (theme === "light") {
+    } else if (theme === 'light') {
       WindowSetLightTheme();
-    } else if (theme === "dark") {
+    } else if (theme === 'dark') {
       WindowSetDarkTheme();
     }
   }
@@ -131,8 +129,13 @@ export function applyTheme(theme: Theme, style: ThemeStyle = getThemeStyle(theme
   void options;
 }
 
-export function readLegacyThemePreference(): { theme: Theme; style: ThemeStyle; hasValue: boolean } {
-  if (typeof localStorage === "undefined") return { theme: DEFAULT_THEME, style: DEFAULT_THEME_STYLE, hasValue: false };
+export function readLegacyThemePreference(): {
+  theme: Theme;
+  style: ThemeStyle;
+  hasValue: boolean;
+} {
+  if (typeof localStorage === 'undefined')
+    return { theme: DEFAULT_THEME, style: DEFAULT_THEME_STYLE, hasValue: false };
   let rawTheme: string | null = null;
   let rawStyle: string | null = null;
   try {
@@ -170,9 +173,9 @@ export function initTheme(): void {
   const theme = getTheme();
   applyTheme(theme, getThemeStyle(theme), { persist: false });
 
-  if (typeof window !== "undefined" && window.runtime) {
+  if (typeof window !== 'undefined' && window.runtime) {
     const resolved = getResolvedTheme(theme);
-    if (resolved === "light") {
+    if (resolved === 'light') {
       // Light shell: matches graphite --bg (#f4f3ef).
       WindowSetBackgroundColour(244, 243, 239, 255);
     } else {

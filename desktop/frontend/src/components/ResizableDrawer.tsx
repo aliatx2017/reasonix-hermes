@@ -1,8 +1,13 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import type { CSSProperties, KeyboardEvent, PointerEvent as ReactPointerEvent, ReactNode } from "react";
-import { useT } from "../lib/i18n";
-import { loadLayoutSize, saveLayoutSize, type LayoutSizeKey } from "../lib/layoutPreferences";
-import { useDeferredClose } from "../lib/useMountTransition";
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import type {
+  CSSProperties,
+  KeyboardEvent,
+  ReactNode,
+  PointerEvent as ReactPointerEvent,
+} from 'react';
+import { useT } from '../lib/i18n';
+import { type LayoutSizeKey, loadLayoutSize, saveLayoutSize } from '../lib/layoutPreferences';
+import { useDeferredClose } from '../lib/useMountTransition';
 
 const DRAWER_DEFAULT_WIDTH = 440;
 const DRAWER_MIN_WIDTH = 360;
@@ -16,14 +21,14 @@ const SETTINGS_DRAWER_MAX_RATIO = 0.82;
 function drawerConfig(wide: boolean) {
   return wide
     ? {
-        key: "settingsDrawerWidth" as LayoutSizeKey,
+        key: 'settingsDrawerWidth' as LayoutSizeKey,
         defaultWidth: SETTINGS_DRAWER_DEFAULT_WIDTH,
         minWidth: SETTINGS_DRAWER_MIN_WIDTH,
         maxWidth: SETTINGS_DRAWER_MAX_WIDTH,
         maxRatio: SETTINGS_DRAWER_MAX_RATIO,
       }
     : {
-        key: "drawerWidth" as LayoutSizeKey,
+        key: 'drawerWidth' as LayoutSizeKey,
         defaultWidth: DRAWER_DEFAULT_WIDTH,
         minWidth: DRAWER_MIN_WIDTH,
         maxWidth: DRAWER_MAX_WIDTH,
@@ -51,20 +56,28 @@ export function ResizableDrawer({
 }) {
   const t = useT();
   const config = drawerConfig(wide);
-  const [viewportWidth, setViewportWidth] = useState(() => (typeof window === "undefined" ? 1440 : window.innerWidth));
+  const [viewportWidth, setViewportWidth] = useState(() =>
+    typeof window === 'undefined' ? 1440 : window.innerWidth,
+  );
   const [width, setWidth] = useState(() =>
     loadLayoutSize(config.key, config.defaultWidth, (value) => clampDrawerWidth(value, wide)),
   );
   const [resizing, setResizing] = useState(false);
   // Slide the drawer back out before the parent unmounts it.
   const { status, requestClose } = useDeferredClose(onClose, 240);
-  const effectiveWidth = useMemo(() => clampDrawerWidth(width, wide, viewportWidth), [viewportWidth, wide, width]);
-  const style = useMemo(() => ({ "--drawer-width": `${effectiveWidth}px` }) as CSSProperties, [effectiveWidth]);
+  const effectiveWidth = useMemo(
+    () => clampDrawerWidth(width, wide, viewportWidth),
+    [viewportWidth, wide, width],
+  );
+  const style = useMemo(
+    () => ({ '--drawer-width': `${effectiveWidth}px` }) as CSSProperties,
+    [effectiveWidth],
+  );
 
   useEffect(() => {
     const onResize = () => setViewportWidth(window.innerWidth);
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
   }, []);
 
   const saveWidth = useCallback(
@@ -83,37 +96,41 @@ export function ResizableDrawer({
       setResizing(true);
       let nextWidth = effectiveWidth;
       const onMove = (moveEvent: PointerEvent) => {
-        nextWidth = clampDrawerWidth(window.innerWidth - moveEvent.clientX, wide, window.innerWidth);
+        nextWidth = clampDrawerWidth(
+          window.innerWidth - moveEvent.clientX,
+          wide,
+          window.innerWidth,
+        );
         setWidth(nextWidth);
       };
       const onDone = () => {
         setWidth(nextWidth);
         saveLayoutSize(config.key, nextWidth);
         setResizing(false);
-        window.removeEventListener("pointermove", onMove);
-        window.removeEventListener("pointerup", onDone);
-        window.removeEventListener("pointercancel", onDone);
-        document.body.style.cursor = "";
-        document.body.style.userSelect = "";
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onDone);
+        window.removeEventListener('pointercancel', onDone);
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
       };
-      document.body.style.cursor = "col-resize";
-      document.body.style.userSelect = "none";
-      window.addEventListener("pointermove", onMove);
-      window.addEventListener("pointerup", onDone);
-      window.addEventListener("pointercancel", onDone);
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onDone);
+      window.addEventListener('pointercancel', onDone);
     },
     [config.key, effectiveWidth, wide],
   );
 
   const onKeyDown = useCallback(
     (event: KeyboardEvent<HTMLButtonElement>) => {
-      if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+      if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
         event.preventDefault();
-        saveWidth(effectiveWidth + (event.key === "ArrowLeft" ? 16 : -16));
-      } else if (event.key === "Home") {
+        saveWidth(effectiveWidth + (event.key === 'ArrowLeft' ? 16 : -16));
+      } else if (event.key === 'Home') {
         event.preventDefault();
         saveWidth(config.minWidth);
-      } else if (event.key === "End") {
+      } else if (event.key === 'End') {
         event.preventDefault();
         saveWidth(config.maxWidth);
       }
@@ -122,9 +139,13 @@ export function ResizableDrawer({
   );
 
   return (
-    <div className={`drawer-backdrop${subtle ? " drawer-backdrop--subtle" : ""}`} data-state={status} onClick={requestClose}>
+    <div
+      className={`drawer-backdrop${subtle ? ' drawer-backdrop--subtle' : ''}`}
+      data-state={status}
+      onClick={requestClose}
+    >
       <aside
-        className={`drawer${wide ? " drawer--wide" : ""}${resizing ? " drawer--resizing" : ""}`}
+        className={`drawer${wide ? ' drawer--wide' : ''}${resizing ? ' drawer--resizing' : ''}`}
         data-state={status}
         onClick={(e) => e.stopPropagation()}
         style={style}
@@ -134,7 +155,7 @@ export function ResizableDrawer({
           type="button"
           role="separator"
           aria-orientation="vertical"
-          aria-label={t("drawer.resize")}
+          aria-label={t('drawer.resize')}
           aria-valuemin={config.minWidth}
           aria-valuemax={config.maxWidth}
           aria-valuenow={effectiveWidth}

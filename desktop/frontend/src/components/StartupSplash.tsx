@@ -1,15 +1,15 @@
-import { useEffect, useRef, useState } from "react";
-import logoSymbol from "../assets/logo-symbol.svg";
-import { useT } from "../lib/i18n";
+import { useEffect, useRef, useState } from 'react';
+import logoSymbol from '../assets/logo-symbol.svg';
+import { useT } from '../lib/i18n';
 
-const SPLASH_FLAG = "reasonix.splash.shown";
+const SPLASH_FLAG = 'reasonix.splash.shown';
 const MIN_VISIBLE_MS = 1400;
 const FADE_OUT_MS = 420;
 const MAX_HOLD_MS = 6000;
 
 export function shouldShowStartupSplash(): boolean {
   try {
-    return window.sessionStorage.getItem(SPLASH_FLAG) !== "1";
+    return window.sessionStorage.getItem(SPLASH_FLAG) !== '1';
   } catch {
     return true;
   }
@@ -17,7 +17,7 @@ export function shouldShowStartupSplash(): boolean {
 
 function markSplashShown(): void {
   try {
-    window.sessionStorage.setItem(SPLASH_FLAG, "1");
+    window.sessionStorage.setItem(SPLASH_FLAG, '1');
   } catch {
     /* sessionStorage unavailable */
   }
@@ -58,11 +58,11 @@ export function StartupSplash({ hold, onDone }: { hold: boolean; onDone: () => v
 
   useEffect(() => {
     const skip = (event: KeyboardEvent) => {
-      if (event.key !== "Escape" && event.key !== "Enter" && event.key !== " ") return;
+      if (event.key !== 'Escape' && event.key !== 'Enter' && event.key !== ' ') return;
       finish(true);
     };
-    window.addEventListener("keydown", skip);
-    return () => window.removeEventListener("keydown", skip);
+    window.addEventListener('keydown', skip);
+    return () => window.removeEventListener('keydown', skip);
   }, []);
 
   return (
@@ -72,7 +72,7 @@ export function StartupSplash({ hold, onDone }: { hold: boolean; onDone: () => v
           <img src={logoSymbol} alt="" draggable={false} />
         </div>
         <div className="startup-splash__name">Reasonix</div>
-        <div className="startup-splash__sub">{t("app.splashSubtitle")}</div>
+        <div className="startup-splash__sub">{t('app.splashSubtitle')}</div>
         <div className="startup-splash__dots" aria-hidden="true">
           <span />
           <span />

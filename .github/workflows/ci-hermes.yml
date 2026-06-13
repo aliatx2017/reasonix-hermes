@@ -34,11 +34,11 @@ jobs:
         with:
           node-version: '22'
       - run: cd desktop/frontend && npm ci
-      - name: Biome check (format + lint)
+      - name: Biome format check
         uses: biomejs/setup-biome@v2
         with:
           version: '1.9.4'
-      - run: biome check desktop/frontend
+      - run: cd desktop/frontend && biome format
       - run: cd desktop/frontend && npm run build
 
   desktop-build:

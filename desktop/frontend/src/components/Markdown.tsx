@@ -1,13 +1,13 @@
-import { memo, useDeferredValue, useLayoutEffect, useRef } from "react";
-import ReactMarkdown from "react-markdown";
-import type { Components } from "react-markdown";
-import remarkGfm from "remark-gfm";
-import remarkMath from "remark-math";
-import rehypeKatex from "rehype-katex";
-import "katex/dist/katex.min.css";
-import { CodeViewer } from "./CodeViewer";
-import { normalizeMath } from "./mathNormalize";
-import { openExternal } from "../lib/bridge";
+import { memo, useDeferredValue, useLayoutEffect, useRef } from 'react';
+import ReactMarkdown from 'react-markdown';
+import type { Components } from 'react-markdown';
+import rehypeKatex from 'rehype-katex';
+import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
+import 'katex/dist/katex.min.css';
+import { openExternal } from '../lib/bridge';
+import { CodeViewer } from './CodeViewer';
+import { normalizeMath } from './mathNormalize';
 
 // Markdown rendering via react-markdown + remark-gfm (tables, task lists,
 // strike, autolinks) and remark-math + rehype-katex for $/$$ KaTeX math.
@@ -19,16 +19,14 @@ import { openExternal } from "../lib/bridge";
 // pairs through a classifier to avoid false positives on $5, $PATH, etc.,
 // and runs KaTeX-specific normalisations (text-mode escapes, |→\vert).
 
-const STREAMING_CURSOR_CLASS = "cursor";
+const STREAMING_CURSOR_CLASS = 'cursor';
 
 // Inject a blinking cursor span at the end of the last inline content node
 // inside the container, skipping code blocks entirely.  Called from
 // useLayoutEffect so the cursor appears synchronously before paint.
 function injectStreamingCursor(container: HTMLElement): void {
   // Remove any cursor injected by a previous render cycle.
-  container
-    .querySelectorAll(`.${STREAMING_CURSOR_CLASS}`)
-    .forEach((el) => el.remove());
+  container.querySelectorAll(`.${STREAMING_CURSOR_CLASS}`).forEach((el) => el.remove());
 
   // Walk the rendered tree and collect every text node outside <pre> blocks.
   const walker = document.createTreeWalker(
@@ -39,14 +37,12 @@ function injectStreamingCursor(container: HTMLElement): void {
         if (node.nodeType === Node.ELEMENT_NODE) {
           const tag = (node as Element).tagName;
           // Skip entire code-block subtrees.
-          if (tag === "PRE") return NodeFilter.FILTER_REJECT;
+          if (tag === 'PRE') return NodeFilter.FILTER_REJECT;
           return NodeFilter.FILTER_SKIP;
         }
         // Accept text nodes (but reject whitespace-only noise).
         if (node.nodeType === Node.TEXT_NODE) {
-          return (node as Text).data.trim()
-            ? NodeFilter.FILTER_ACCEPT
-            : NodeFilter.FILTER_SKIP;
+          return (node as Text).data.trim() ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
         }
         return NodeFilter.FILTER_SKIP;
       },
@@ -56,9 +52,9 @@ function injectStreamingCursor(container: HTMLElement): void {
   let lastText: Text | null = null;
   while (walker.nextNode()) lastText = walker.currentNode as Text;
 
-  const cursor = document.createElement("span");
+  const cursor = document.createElement('span');
   cursor.className = STREAMING_CURSOR_CLASS;
-  cursor.dataset.streamingCursor = "true";
+  cursor.dataset.streamingCursor = 'true';
 
   if (lastText?.parentElement) {
     lastText.parentElement.appendChild(cursor);
@@ -69,19 +65,17 @@ function injectStreamingCursor(container: HTMLElement): void {
 }
 
 function removeStreamingCursor(container: HTMLElement): void {
-  container
-    .querySelectorAll(`.${STREAMING_CURSOR_CLASS}`)
-    .forEach((el) => el.remove());
+  container.querySelectorAll(`.${STREAMING_CURSOR_CLASS}`).forEach((el) => el.remove());
 }
 
 const components: Components = {
   pre: ({ children }) => <>{children}</>,
   code: ({ className, children }) => {
-    const text = String(children ?? "");
-    const match = /language-([\w-]+)/.exec(className ?? "");
-    const isBlock = match !== null || text.includes("\n");
+    const text = String(children ?? '');
+    const match = /language-([\w-]+)/.exec(className ?? '');
+    const isBlock = match !== null || text.includes('\n');
     if (isBlock) {
-      return <CodeViewer value={text.replace(/\n$/, "")} language={match?.[1]} maxHeight={360} />;
+      return <CodeViewer value={text.replace(/\n$/, '')} language={match?.[1]} maxHeight={360} />;
     }
     return <code className="md-code">{children}</code>;
   },

@@ -19,8 +19,8 @@
 //   7. Each recognised math source is run through latexNormalizeForKatex
 //      (text-mode escapes, |→\vert).
 
-import { isLikelyInlineMath } from "./mathClassify";
-import { latexNormalizeForKatex } from "./latexNormalize";
+import { latexNormalizeForKatex } from './latexNormalize';
+import { isLikelyInlineMath } from './mathClassify';
 
 // Matches $\cmd{...}...$ where the body may contain $ and one level of nested
 // braces. Group 1 captures the full \cmd{...} including the outer }. After
@@ -29,10 +29,10 @@ import { latexNormalizeForKatex } from "./latexNormalize";
 // rather than split at stray $ signs inside \text{}.
 const TEXT_MODE_PAIR = /\$\s*(\\[A-Za-z]+\{(?:[^{}]|\{[^{}]*\})*\}[^$]*?)\s*\$/g;
 
-const DM = "__REASONIX_MATH_DISPLAY__";
-const IM = "__REASONIX_MATH_INLINE__";
-const LB = "__REASONIX_LATEX_LINEBREAK__";
-const DOLLAR = "&#36;";
+const DM = '__REASONIX_MATH_DISPLAY__';
+const IM = '__REASONIX_MATH_INLINE__';
+const LB = '__REASONIX_LATEX_LINEBREAK__';
+const DOLLAR = '&#36;';
 
 export function normalizeMath(s: string): string {
   const protectedCode = protectMarkdownCode(s);
@@ -52,11 +52,11 @@ function normalizeMathText(s: string): string {
   // Arrow functions are required because "$$" in a JS replace string means
   // a single literal $.
   r = r
-    .replace(/\\\[/g, () => "$$")
-    .replace(/\\\]/g, () => "$$")
-    .replace(/\\\(/g, () => "$")
-    .replace(/\\\)/g, () => "$");
-  r = r.replace(new RegExp(LB, "g"), "\\\\[");
+    .replace(/\\\[/g, () => '$$')
+    .replace(/\\\]/g, () => '$$')
+    .replace(/\\\(/g, () => '$')
+    .replace(/\\\)/g, () => '$');
+  r = r.replace(new RegExp(LB, 'g'), '\\\\[');
 
   // Step 3: $$…$$ → display placeholders. The KaTeX-specific normalisation
   // runs here so |→\vert (with \| protected) and \text{} escapes both apply
@@ -81,15 +81,13 @@ function normalizeMathText(s: string): string {
   });
 
   // Step 6: restore standard $/$$ delimiters for remark-math to parse.
-  return r
-    .replace(new RegExp(DM, "g"), () => "$$")
-    .replace(new RegExp(IM, "g"), () => "$");
+  return r.replace(new RegExp(DM, 'g'), () => '$$').replace(new RegExp(IM, 'g'), () => '$');
 }
 
 function protectMarkdownCode(s: string): { text: string; prefix: string; segments: string[] } {
   const prefix = unusedPlaceholderPrefix(s);
   const segments: string[] = [];
-  let out = "";
+  let out = '';
   let i = 0;
 
   const pushSegment = (segment: string) => {
@@ -106,7 +104,7 @@ function protectMarkdownCode(s: string): { text: string; prefix: string; segment
       continue;
     }
 
-    if (s[i] === "`") {
+    if (s[i] === '`') {
       const tickEnd = inlineCodeEnd(s, i);
       if (tickEnd > i) {
         pushSegment(s.slice(i, tickEnd));
@@ -123,7 +121,7 @@ function protectMarkdownCode(s: string): { text: string; prefix: string; segment
 }
 
 function unusedPlaceholderPrefix(s: string): string {
-  let prefix = "__REASONIX_PROTECTED_CODE__";
+  let prefix = '__REASONIX_PROTECTED_CODE__';
   let n = 0;
   while (s.includes(prefix)) {
     n += 1;
@@ -133,17 +131,17 @@ function unusedPlaceholderPrefix(s: string): string {
 }
 
 function fencedCodeEnd(s: string, start: number): number {
-  if (start !== 0 && s[start - 1] !== "\n") return -1;
+  if (start !== 0 && s[start - 1] !== '\n') return -1;
 
   let markerStart = start;
   let spaces = 0;
-  while (spaces < 4 && s[markerStart] === " ") {
+  while (spaces < 4 && s[markerStart] === ' ') {
     markerStart += 1;
     spaces += 1;
   }
 
   const marker = s[markerStart];
-  if (marker !== "`" && marker !== "~") return -1;
+  if (marker !== '`' && marker !== '~') return -1;
 
   let fenceLen = 0;
   while (s[markerStart + fenceLen] === marker) fenceLen += 1;
@@ -164,10 +162,16 @@ function fencedCodeEnd(s: string, start: number): number {
   return s.length;
 }
 
-function isClosingFenceLine(s: string, start: number, end: number, marker: string, minLen: number): boolean {
+function isClosingFenceLine(
+  s: string,
+  start: number,
+  end: number,
+  marker: string,
+  minLen: number,
+): boolean {
   let i = start;
   let spaces = 0;
-  while (spaces < 4 && s[i] === " ") {
+  while (spaces < 4 && s[i] === ' ') {
     i += 1;
     spaces += 1;
   }
@@ -177,21 +181,21 @@ function isClosingFenceLine(s: string, start: number, end: number, marker: strin
   if (count < minLen) return false;
 
   for (let j = i + count; j < end; j += 1) {
-    if (s[j] !== " " && s[j] !== "\t") return false;
+    if (s[j] !== ' ' && s[j] !== '\t') return false;
   }
   return true;
 }
 
 function inlineCodeEnd(s: string, start: number): number {
   let tickLen = 0;
-  while (s[start + tickLen] === "`") tickLen += 1;
+  while (s[start + tickLen] === '`') tickLen += 1;
 
-  const ticks = "`".repeat(tickLen);
+  const ticks = '`'.repeat(tickLen);
   const end = s.indexOf(ticks, start + tickLen);
   return end < 0 ? -1 : end + tickLen;
 }
 
 function lineEnd(s: string, start: number): number {
-  const end = s.indexOf("\n", start);
+  const end = s.indexOf('\n', start);
   return end < 0 ? s.length : end;
 }

@@ -1,6 +1,6 @@
-import { useEffect, useRef } from "react";
-import { useT } from "../lib/i18n";
-import { PromptAction, PromptBadge, PromptShelf } from "./PromptShelf";
+import { useEffect, useRef } from 'react';
+import { useT } from '../lib/i18n';
+import { PromptAction, PromptBadge, PromptShelf } from './PromptShelf';
 
 export function ClearContextCard({
   onCancel,
@@ -20,39 +20,39 @@ export function ClearContextCard({
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
       const tag = target?.tagName.toLowerCase();
-      if (tag === "input" || tag === "textarea" || target?.isContentEditable) return;
+      if (tag === 'input' || tag === 'textarea' || target?.isContentEditable) return;
 
-      if (event.key === "Escape" || event.key === "1") {
+      if (event.key === 'Escape' || event.key === '1') {
         event.preventDefault();
         onCancel();
         return;
       }
-      if (event.key === "2" || event.key.toLowerCase() === "y") {
+      if (event.key === '2' || event.key.toLowerCase() === 'y') {
         event.preventDefault();
         onConfirm();
       }
     };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
   }, [onCancel, onConfirm]);
 
   return (
     <PromptShelf
       barRef={shelfRef}
       titleId="clear-context-shelf-title"
-      title={t("clearContext.title")}
-      badges={<PromptBadge>{t("clearContext.badge")}</PromptBadge>}
-      meta={t("clearContext.prompt")}
+      title={t('clearContext.title')}
+      badges={<PromptBadge>{t('clearContext.badge')}</PromptBadge>}
+      meta={t('clearContext.prompt')}
       actions={
         <>
-          <PromptAction keyLabel="1" label={t("common.cancel")} selected onClick={onCancel} />
-          <PromptAction keyLabel="2" label={t("clearContext.clear")} onClick={onConfirm} />
+          <PromptAction keyLabel="1" label={t('common.cancel')} selected onClick={onCancel} />
+          <PromptAction keyLabel="2" label={t('clearContext.clear')} onClick={onConfirm} />
         </>
       }
     >
       <div className="ask-shelf__detail-list">
         <div className="ask-shelf__detail clear-context-card__detail">
-          <span className="ask-shelf__detail-desc">{t("clearContext.detail")}</span>
+          <span className="ask-shelf__detail-desc">{t('clearContext.detail')}</span>
         </div>
       </div>
     </PromptShelf>

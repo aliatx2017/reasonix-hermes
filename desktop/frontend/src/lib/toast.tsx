@@ -1,14 +1,14 @@
-import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from "react";
+import { type ReactNode, createContext, useCallback, useContext, useRef, useState } from 'react';
 
 export interface Toast {
   id: number;
   text: string;
-  level: "info" | "warn" | "error";
+  level: 'info' | 'warn' | 'error';
 }
 
 export interface ToastContextValue {
   toasts: Toast[];
-  showToast: (text: string, level?: Toast["level"]) => void;
+  showToast: (text: string, level?: Toast['level']) => void;
 }
 
 const ToastContext = createContext<ToastContextValue>({ toasts: [], showToast: () => {} });
@@ -23,7 +23,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const timers = useRef(new Map<number, ReturnType<typeof setTimeout>>());
 
-  const showToast = useCallback((text: string, level: Toast["level"] = "info") => {
+  const showToast = useCallback((text: string, level: Toast['level'] = 'info') => {
     const id = nextId++;
     setToasts((prev) => [...prev, { id, text, level }]);
     const timer = setTimeout(() => {
@@ -46,8 +46,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       <div className="toast-container" role="status" aria-live="polite">
         {toasts.map((t) => (
           <div key={t.id} className={`toast toast--${t.level}`} onClick={() => dismissToast(t.id)}>
-            {t.level === "warn" && <span className="toast__icon">⚠️</span>}
-            {t.level === "error" && <span className="toast__icon">❌</span>}
+            {t.level === 'warn' && <span className="toast__icon">⚠️</span>}
+            {t.level === 'error' && <span className="toast__icon">❌</span>}
             <span className="toast__text">{t.text}</span>
           </div>
         ))}

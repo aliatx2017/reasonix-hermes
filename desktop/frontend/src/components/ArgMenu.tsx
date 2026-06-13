@@ -1,5 +1,5 @@
-import { useEffect, useRef } from "react";
-import type { SlashArgItem } from "../lib/types";
+import { useEffect, useRef } from 'react';
+import type { SlashArgItem } from '../lib/types';
 
 // ArgMenu is the autocomplete dropdown for a slash command's arguments (the part
 // after the command word) — e.g. /skill → list/show/new/paths, /model → refs.
@@ -19,7 +19,7 @@ export function ArgMenu({
   // Keep the keyboard-selected item in view (the list overflows at 280px).
   const activeRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
-    activeRef.current?.scrollIntoView({ block: "nearest" });
+    activeRef.current?.scrollIntoView({ block: 'nearest' });
   }, [activeIndex]);
   return (
     <div className="slashmenu" role="listbox">
@@ -29,7 +29,7 @@ export function ArgMenu({
           ref={i === activeIndex ? activeRef : undefined}
           role="option"
           aria-selected={i === activeIndex}
-          className={`slashmenu__item ${i === activeIndex ? "slashmenu__item--active" : ""}`}
+          className={`slashmenu__item ${i === activeIndex ? 'slashmenu__item--active' : ''}`}
           onMouseDown={(e) => {
             e.preventDefault();
             onPick(it);

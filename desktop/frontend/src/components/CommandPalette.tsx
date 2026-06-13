@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import type { ReactNode } from "react";
-import { Command, Search } from "lucide-react";
-import { useMountTransition } from "../lib/useMountTransition";
+import { Command, Search } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
+import { useMountTransition } from '../lib/useMountTransition';
 
 // CommandPalette is a ⌘K / Ctrl+K modal that surfaces the desktop app's
 // long-tail navigation surface. Tabs through sessions, slash-commands, and
@@ -57,7 +57,7 @@ export function CommandPalette({
   placeholder: string;
   emptyText: string;
 }) {
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   // Keep the palette mounted through its exit animation after `open` flips
@@ -69,7 +69,7 @@ export function CommandPalette({
   // render) means a previously-typed query doesn't leak across opens.
   useEffect(() => {
     if (open) {
-      setQuery("");
+      setQuery('');
       setActive(0);
       requestAnimationFrame(() => inputRef.current?.focus());
     }
@@ -86,7 +86,7 @@ export function CommandPalette({
     const tokens = q.split(/\s+/);
     const scored: { item: PaletteItem; score: number }[] = [];
     for (const it of items) {
-      const hay = [it.title, it.hint ?? "", ...(it.keywords ?? [])].join("\n").toLowerCase();
+      const hay = [it.title, it.hint ?? '', ...(it.keywords ?? [])].join('\n').toLowerCase();
       let cursor = 0;
       let score = 0;
       let ok = true;
@@ -145,22 +145,22 @@ export function CommandPalette({
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
+      if (e.key === 'Escape') {
         e.preventDefault();
         onClose();
         return;
       }
-      if (e.key === "ArrowDown") {
+      if (e.key === 'ArrowDown') {
         e.preventDefault();
         setActive((i) => (flat.length === 0 ? 0 : (i + 1) % flat.length));
         return;
       }
-      if (e.key === "ArrowUp") {
+      if (e.key === 'ArrowUp') {
         e.preventDefault();
         setActive((i) => (flat.length === 0 ? 0 : (i - 1 + flat.length) % flat.length));
         return;
       }
-      if (e.key === "Enter") {
+      if (e.key === 'Enter') {
         e.preventDefault();
         const it = flat[active];
         if (it) void it.run();
@@ -168,8 +168,8 @@ export function CommandPalette({
         return;
       }
     };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
   }, [open, flat, active, onClose]);
 
   if (!mounted) return null;
@@ -179,13 +179,15 @@ export function CommandPalette({
   let running = 0;
 
   return (
-    <div
-      className="drawer-backdrop"
-      data-state={status}
-      onClick={onClose}
-      role="presentation"
-    >
-      <div className="palette" data-state={status} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={placeholder}>
+    <div className="drawer-backdrop" data-state={status} onClick={onClose} role="presentation">
+      <div
+        className="palette"
+        data-state={status}
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label={placeholder}
+      >
         <div className="palette__inputrow">
           <Search className="palette__search-icon" size={18} aria-hidden="true" />
           <input
@@ -206,69 +208,72 @@ export function CommandPalette({
             grouped.map((g) => {
               const isCompact = g.items[0]?.compact;
               return (
-              <div className={`palette__group ${isCompact ? "palette__group--grid" : ""}`} key={g.group}>
-                <div className="palette__group-title">{g.group}</div>
-                {isCompact ? (
-                  <div className="palette__grid">
-                  {g.items.map((it) => {
-                    const idx = running++;
-                    const on = idx === active;
-                    return (
-                      <button
-                        type="button"
-                        role="option"
-                        aria-selected={on}
-                        key={it.id}
-                        className={`palette__chip ${on ? "palette__chip--on" : ""}`}
-                        onMouseEnter={() => setActive(idx)}
-                        onClick={() => {
-                          void it.run();
-                          onClose();
-                        }}
-                      >
-                        <span className="palette__chip-icon" aria-hidden="true">
-                          {it.icon ?? <Command size={15} />}
-                        </span>
-                        <span className="palette__chip-label">{it.title}</span>
-                      </button>
-                    );
-                  })}
-                  </div>
-                ) : (
-                  g.items.map((it) => {
-                    const idx = running++;
-                    const on = idx === active;
-                    return (
-                      <button
-                        type="button"
-                        role="option"
-                        aria-selected={on}
-                        key={it.id}
-                        className={`palette__item ${on ? "palette__item--on" : ""}`}
-                        onMouseEnter={() => setActive(idx)}
-                        onClick={() => {
-                          void it.run();
-                          onClose();
-                        }}
-                      >
-                        <span className="palette__item-icon" aria-hidden="true">
-                          {it.icon ?? <Command size={15} />}
-                        </span>
-                        <span className="palette__body">
-                          <span className="palette__title">{it.title}</span>
-                          {(it.hint || it.meta || it.badge) && (
-                            <span className="palette__hint">
-                              {it.hint && <span className="palette__hint-text">{it.hint}</span>}
-                              {it.meta && <span className="palette__meta">{it.meta}</span>}
-                              {it.badge && <span className="palette__badge">{it.badge}</span>}
+                <div
+                  className={`palette__group ${isCompact ? 'palette__group--grid' : ''}`}
+                  key={g.group}
+                >
+                  <div className="palette__group-title">{g.group}</div>
+                  {isCompact ? (
+                    <div className="palette__grid">
+                      {g.items.map((it) => {
+                        const idx = running++;
+                        const on = idx === active;
+                        return (
+                          <button
+                            type="button"
+                            role="option"
+                            aria-selected={on}
+                            key={it.id}
+                            className={`palette__chip ${on ? 'palette__chip--on' : ''}`}
+                            onMouseEnter={() => setActive(idx)}
+                            onClick={() => {
+                              void it.run();
+                              onClose();
+                            }}
+                          >
+                            <span className="palette__chip-icon" aria-hidden="true">
+                              {it.icon ?? <Command size={15} />}
                             </span>
-                          )}
-                        </span>
-                      </button>
-                    );
-                  })
-                )}
-              </div>
+                            <span className="palette__chip-label">{it.title}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    g.items.map((it) => {
+                      const idx = running++;
+                      const on = idx === active;
+                      return (
+                        <button
+                          type="button"
+                          role="option"
+                          aria-selected={on}
+                          key={it.id}
+                          className={`palette__item ${on ? 'palette__item--on' : ''}`}
+                          onMouseEnter={() => setActive(idx)}
+                          onClick={() => {
+                            void it.run();
+                            onClose();
+                          }}
+                        >
+                          <span className="palette__item-icon" aria-hidden="true">
+                            {it.icon ?? <Command size={15} />}
+                          </span>
+                          <span className="palette__body">
+                            <span className="palette__title">{it.title}</span>
+                            {(it.hint || it.meta || it.badge) && (
+                              <span className="palette__hint">
+                                {it.hint && <span className="palette__hint-text">{it.hint}</span>}
+                                {it.meta && <span className="palette__meta">{it.meta}</span>}
+                                {it.badge && <span className="palette__badge">{it.badge}</span>}
+                              </span>
+                            )}
+                          </span>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
               );
             })
           )}

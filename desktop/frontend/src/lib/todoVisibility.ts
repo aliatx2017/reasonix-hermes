@@ -1,4 +1,4 @@
-import type { Todo } from "./tools";
+import type { Todo } from './tools';
 
 export function shouldShowTodoPanel(
   todoId: string | null | undefined,

@@ -11,7 +11,10 @@ export function availableWorkspacePanelWidth({
   chatMinWidth: number;
   resizerWidth: number;
 }): number {
-  return Math.max(0, viewportWidth - (sidebarCollapsed ? 0 : sidebarWidth) - chatMinWidth - resizerWidth);
+  return Math.max(
+    0,
+    viewportWidth - (sidebarCollapsed ? 0 : sidebarWidth) - chatMinWidth - resizerWidth,
+  );
 }
 
 export function resolveWorkspacePanelWidth({

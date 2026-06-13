@@ -1,4 +1,4 @@
-const MESSAGE_SELECTION_SELECTOR = ".msg__body, .reasoning__body";
+const MESSAGE_SELECTION_SELECTOR = '.msg__body, .reasoning__body';
 
 export interface MessageSelectionCopyState {
   text: string;
@@ -13,7 +13,7 @@ export function messageSelectionCopyText(state: MessageSelectionCopyState): stri
   if (state.targetIsEditable) return null;
   if (!state.intersectsMessage) return null;
   if (!state.canWriteClipboard) return null;
-  if (state.text.trim() === "") return null;
+  if (state.text.trim() === '') return null;
   return state.text;
 }
 
@@ -21,7 +21,7 @@ export function installMessageSelectionCopy(doc: Document = document): () => voi
   const onCopy = (event: ClipboardEvent) => {
     const selection = doc.getSelection();
     const text = messageSelectionCopyText({
-      text: selection?.toString() ?? "",
+      text: selection?.toString() ?? '',
       isCollapsed: selection == null || selection.isCollapsed,
       targetIsEditable: isEditableTarget(event.target),
       intersectsMessage: selectionIntersectsMessage(selection, doc),
@@ -29,12 +29,12 @@ export function installMessageSelectionCopy(doc: Document = document): () => voi
     });
     if (text == null || event.clipboardData == null) return;
 
-    event.clipboardData.setData("text/plain", text);
+    event.clipboardData.setData('text/plain', text);
     event.preventDefault();
   };
 
-  doc.addEventListener("copy", onCopy);
-  return () => doc.removeEventListener("copy", onCopy);
+  doc.addEventListener('copy', onCopy);
+  return () => doc.removeEventListener('copy', onCopy);
 }
 
 function selectionIntersectsMessage(selection: Selection | null, root: ParentNode): boolean {
@@ -51,9 +51,10 @@ function rangeIntersectsMessage(range: Range, root: ParentNode): boolean {
   if (directMessage) return true;
 
   const scope = common ?? root;
-  const candidates = scope instanceof Element && scope.matches(MESSAGE_SELECTION_SELECTOR)
-    ? [scope, ...Array.from(scope.querySelectorAll(MESSAGE_SELECTION_SELECTOR))]
-    : Array.from(scope.querySelectorAll(MESSAGE_SELECTION_SELECTOR));
+  const candidates =
+    scope instanceof Element && scope.matches(MESSAGE_SELECTION_SELECTOR)
+      ? [scope, ...Array.from(scope.querySelectorAll(MESSAGE_SELECTION_SELECTOR))]
+      : Array.from(scope.querySelectorAll(MESSAGE_SELECTION_SELECTOR));
 
   return candidates.some((node) => {
     try {
@@ -67,7 +68,7 @@ function rangeIntersectsMessage(range: Range, root: ParentNode): boolean {
 function isEditableTarget(target: EventTarget | null): boolean {
   const el = elementFromEventTarget(target);
   if (!el) return false;
-  if (el.closest("input, textarea, select")) return true;
+  if (el.closest('input, textarea, select')) return true;
   for (let node: Element | null = el; node; node = node.parentElement) {
     if (node instanceof HTMLElement && node.isContentEditable) return true;
   }
@@ -80,5 +81,5 @@ function elementFromEventTarget(target: EventTarget | null): Element | null {
 
 function elementFromNode(node: Node | null): Element | null {
   if (!node) return null;
-  return node.nodeType === Node.ELEMENT_NODE ? node as Element : node.parentElement;
+  return node.nodeType === Node.ELEMENT_NODE ? (node as Element) : node.parentElement;
 }

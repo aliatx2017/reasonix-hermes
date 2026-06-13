@@ -10,7 +10,7 @@
 // search UI and a keybinding the OS doesn't already take. The arrow
 // navigation is the common case and is the smallest useful addition.
 
-const KEY = "reasonix.composer.history";
+const KEY = 'reasonix.composer.history';
 const CAP = 200;
 
 export interface HistoryEntry {
@@ -27,20 +27,22 @@ export interface HistoryEntry {
 }
 
 function readAll(): HistoryEntry[] {
-  if (typeof localStorage === "undefined") return [];
+  if (typeof localStorage === 'undefined') return [];
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) return [];
     const v = JSON.parse(raw);
     if (!Array.isArray(v)) return [];
-    return v.filter((e): e is HistoryEntry => !!e && typeof e.text === "string" && typeof e.at === "number");
+    return v.filter(
+      (e): e is HistoryEntry => !!e && typeof e.text === 'string' && typeof e.at === 'number',
+    );
   } catch {
     return [];
   }
 }
 
 function writeAll(list: HistoryEntry[]): void {
-  if (typeof localStorage === "undefined") return;
+  if (typeof localStorage === 'undefined') return;
   try {
     localStorage.setItem(KEY, JSON.stringify(list));
   } catch {

@@ -1,5 +1,5 @@
-import { useEffect, useRef, type ReactNode } from "react";
-import { useVirtualizer } from "@tanstack/react-virtual";
+import { useVirtualizer } from '@tanstack/react-virtual';
+import { type ReactNode, useEffect, useRef } from 'react';
 
 // VirtualMenu is the shared scroll container for the composer's "/" and "@"
 // dropdowns. Rows are virtualized so a directory with thousands of entries (or a
@@ -27,7 +27,7 @@ export function VirtualMenu<T>({
 
   useEffect(() => {
     if (activeIndex >= 0 && activeIndex < items.length) {
-      virtualizer.scrollToIndex(activeIndex, { align: "auto" });
+      virtualizer.scrollToIndex(activeIndex, { align: 'auto' });
     }
   }, [activeIndex, items.length, virtualizer]);
 

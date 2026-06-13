@@ -1,42 +1,73 @@
-import { createContext, memo, type CSSProperties, type MouseEvent as ReactMouseEvent, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import type { Item, LiveStream } from "../lib/useController";
-import type { CheckpointMeta } from "../lib/types";
-import { useT } from "../lib/i18n";
-import { replaceAttachmentRefsForDisplay } from "../lib/attachmentDisplay";
-import { AssistantMessage, TurnActions, UserMessage } from "./Message";
-import { ProcessCompactIcon, ProcessPhaseIcon } from "./ProcessCard";
-import { ToolCard } from "./ToolCard";
-import { ChevronRight } from "lucide-react";
-import { Welcome } from "./Welcome";
-import { ReadOnlyBatch } from "./ReadOnlyBatch";
-import { getDisplayMode, onDisplayModeChange, type DisplayMode } from "../lib/displayMode";
+import { ChevronRight } from 'lucide-react';
+import {
+  type CSSProperties,
+  type MouseEvent as ReactMouseEvent,
+  type ReactNode,
+  createContext,
+  memo,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import { replaceAttachmentRefsForDisplay } from '../lib/attachmentDisplay';
+import { type DisplayMode, getDisplayMode, onDisplayModeChange } from '../lib/displayMode';
+import { useT } from '../lib/i18n';
+import type { CheckpointMeta } from '../lib/types';
+import type { Item, LiveStream } from '../lib/useController';
+import { AssistantMessage, TurnActions, UserMessage } from './Message';
+import { ProcessCompactIcon, ProcessPhaseIcon } from './ProcessCard';
+import { ReadOnlyBatch } from './ReadOnlyBatch';
+import { ToolCard } from './ToolCard';
+import { Welcome } from './Welcome';
 
 /** Matches Go backend's ReadOnly() + codegraph ReadOnlyToolNames(). */
 function isReadOnlyTool(name: string): boolean {
   switch (name) {
-    case "read_file": case "ls": case "grep": case "glob": case "web_fetch":
-    case "bash_output": case "waitJob": case "todo_write": case "read_skill":
-    case "codegraph_callees": case "codegraph_callers": case "codegraph_context":
-    case "codegraph_explore": case "codegraph_files": case "codegraph_impact":
-    case "codegraph_node": case "codegraph_search": case "codegraph_status":
-    case "codegraph_trace":
+    case 'read_file':
+    case 'ls':
+    case 'grep':
+    case 'glob':
+    case 'web_fetch':
+    case 'bash_output':
+    case 'waitJob':
+    case 'todo_write':
+    case 'read_skill':
+    case 'codegraph_callees':
+    case 'codegraph_callers':
+    case 'codegraph_context':
+    case 'codegraph_explore':
+    case 'codegraph_files':
+    case 'codegraph_impact':
+    case 'codegraph_node':
+    case 'codegraph_search':
+    case 'codegraph_status':
+    case 'codegraph_trace':
       return true;
     default:
       return false;
   }
 }
 
-type ToolItem = Extract<Item, { kind: "tool" }>;
-type AssistantItem = Extract<Item, { kind: "assistant" }>;
-type OpenTurnAction = { turn: number; menu: "summary" | "rewind" };
+type ToolItem = Extract<Item, { kind: 'tool' }>;
+type AssistantItem = Extract<Item, { kind: 'assistant' }>;
+type OpenTurnAction = { turn: number; menu: 'summary' | 'rewind' };
 type QuestionAnchor = { id: string; text: string; turn: number };
 
 const QUESTION_NAV_MIN_COUNT = 2;
 const LiveStreamContext = createContext<LiveStream | undefined>(undefined);
 
-const LiveAssistantMessage = memo(function LiveAssistantMessage({ item, defaultExpanded = false }: { item: AssistantItem; defaultExpanded?: boolean }) {
+const LiveAssistantMessage = memo(function LiveAssistantMessage({
+  item,
+  defaultExpanded = false,
+}: { item: AssistantItem; defaultExpanded?: boolean }) {
   const live = useContext(LiveStreamContext);
-  const shown = live && live.id === item.id ? { ...item, text: live.text, reasoning: live.reasoning, streaming: true } : item;
+  const shown =
+    live && live.id === item.id
+      ? { ...item, text: live.text, reasoning: live.reasoning, streaming: true }
+      : item;
   return <AssistantMessage item={shown} defaultExpanded={defaultExpanded} />;
 });
 
@@ -64,7 +95,7 @@ function questionAnchorId(id: string): string {
 }
 
 function compactQuestionText(text: string): string {
-  const cleaned = replaceAttachmentRefsForDisplay(text).replace(/\s+/g, " ").trim();
+  const cleaned = replaceAttachmentRefsForDisplay(text).replace(/\s+/g, ' ').trim();
   if (cleaned.length <= 80) return cleaned;
   return cleaned.slice(0, 80);
 }
@@ -73,15 +104,15 @@ function scrollVersion(items: Item[]): string {
   return items
     .map((it) => {
       switch (it.kind) {
-        case "assistant":
+        case 'assistant':
           return `${it.id}:a:${it.text?.length ?? 0}:${it.reasoning?.length ?? 0}:${it.streaming ? 1 : 0}`;
-        case "tool":
+        case 'tool':
           return `${it.id}:t:${it.name}:${it.status}:${it.args?.length ?? 0}:${it.output?.length ?? 0}:${it.error?.length ?? 0}:${it.truncated ? 1 : 0}`;
         default:
           return `${it.id}:${it.kind}`;
       }
     })
-    .join("|");
+    .join('|');
 }
 
 function repinIfWasPinned(
@@ -102,8 +133,8 @@ function repinIfWasPinned(
 
 // Summarise a warm turn for its compact card.
 function warmUserPreview(text: string): string {
-  const cleaned = replaceAttachmentRefsForDisplay(text).replace(/\s+/g, " ").trim();
-  return cleaned.length <= 80 ? cleaned : cleaned.slice(0, 77) + "...";
+  const cleaned = replaceAttachmentRefsForDisplay(text).replace(/\s+/g, ' ').trim();
+  return cleaned.length <= 80 ? cleaned : cleaned.slice(0, 77) + '...';
 }
 
 // ── Turn grouping ─────────────────────────────────────────────────────────────
@@ -116,7 +147,7 @@ interface TurnGroup {
   assistantPreview: string;
   toolCount: number;
   startIdx: number; // first index in items[] (the user message)
-  endIdx: number;   // exclusive end
+  endIdx: number; // exclusive end
 }
 
 function buildTurnGroups(items: Item[], questions: QuestionAnchor[]): TurnGroup[] {
@@ -124,7 +155,7 @@ function buildTurnGroups(items: Item[], questions: QuestionAnchor[]): TurnGroup[
   let turnIdx = 0;
   let start = -1;
   for (let i = 0; i < items.length; i++) {
-    if (items[i].kind === "user") {
+    if (items[i].kind === 'user') {
       if (start >= 0) {
         // finalise previous turn
         groups[groups.length - 1].endIdx = i;
@@ -134,7 +165,7 @@ function buildTurnGroups(items: Item[], questions: QuestionAnchor[]): TurnGroup[
       if (turnIdx < 0) turnIdx = groups.length;
       groups.push({
         userItem: items[i],
-        assistantPreview: "",
+        assistantPreview: '',
         toolCount: 0,
         startIdx: i,
         endIdx: items.length,
@@ -142,13 +173,13 @@ function buildTurnGroups(items: Item[], questions: QuestionAnchor[]): TurnGroup[
     } else if (start >= 0 && groups.length > 0) {
       const g = groups[groups.length - 1];
       const it = items[i];
-      if (it.kind === "assistant" && !it.streaming) {
-        const previewText = it.text?.trim() || "";
+      if (it.kind === 'assistant' && !it.streaming) {
+        const previewText = it.text?.trim() || '';
         if (previewText) {
           g.assistantPreview = warmUserPreview(previewText);
         }
       }
-      if (it.kind === "tool" && !it.parentId) {
+      if (it.kind === 'tool' && !it.parentId) {
         g.toolCount++;
       }
     }
@@ -194,7 +225,7 @@ export function Transcript({
     const anchors: QuestionAnchor[] = [];
     let turn = 0;
     for (const it of items) {
-      if (it.kind !== "user") continue;
+      if (it.kind !== 'user') continue;
       anchors.push({ id: it.id, text: compactQuestionText(it.text), turn });
       turn += 1;
     }
@@ -238,7 +269,7 @@ export function Transcript({
 
   useEffect(() => {
     const el = scrollRef.current;
-    if (!el || typeof ResizeObserver === "undefined") return;
+    if (!el || typeof ResizeObserver === 'undefined') return;
     lastClientHeight.current = el.clientHeight;
     const observer = new ResizeObserver(() => {
       const previous = lastClientHeight.current ?? el.clientHeight;
@@ -274,7 +305,7 @@ export function Transcript({
   const subcallsByParent = useMemo(() => {
     const m = new Map<string, ToolItem[]>();
     for (const it of items) {
-      if (it.kind === "tool" && it.parentId) {
+      if (it.kind === 'tool' && it.parentId) {
         const arr = m.get(it.parentId) ?? [];
         arr.push(it);
         m.set(it.parentId, arr);
@@ -296,7 +327,7 @@ export function Transcript({
   const hotStartIdx = useMemo(() => {
     let needed = HOT_TURNS;
     for (let i = items.length - 1; i >= 0; i--) {
-      if (items[i].kind === "user") {
+      if (items[i].kind === 'user') {
         needed--;
         if (needed <= 0) return i;
       }
@@ -315,14 +346,20 @@ export function Transcript({
     if (openAction === null) return;
     const onDown = (e: MouseEvent) => {
       const el = e.target as Element | null;
-      if (!el || !el.closest(".turn-actions")) setOpenAction(null);
+      if (!el || !el.closest('.turn-actions')) setOpenAction(null);
     };
-    document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
   }, [openAction]);
 
-  const userTurn = useMemo(() => new Map(questions.map((question) => [question.id, question.turn])), [questions]);
-  const checkpointsByTurn = useMemo(() => new Map(checkpoints.map((checkpoint) => [checkpoint.turn, checkpoint])), [checkpoints]);
+  const userTurn = useMemo(
+    () => new Map(questions.map((question) => [question.id, question.turn])),
+    [questions],
+  );
+  const checkpointsByTurn = useMemo(
+    () => new Map(checkpoints.map((checkpoint) => [checkpoint.turn, checkpoint])),
+    [checkpoints],
+  );
 
   // ── JumpBar integration ───────────────────────────────────────────────────
   const jumpToQuestion = (question: QuestionAnchor) => {
@@ -337,20 +374,23 @@ export function Transcript({
     const scrollerRect = el.getBoundingClientRect();
     const nodeRect = node.getBoundingClientRect();
     const top = el.scrollTop + nodeRect.top - scrollerRect.top - 12;
-    el.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+    el.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
   };
 
-  const handleJumpToQuestion = useCallback((question: QuestionAnchor) => {
-    // Auto-expand the warm turn when jumping to an old question.
-    const warmTurnStart = turnGroups.length - HOT_TURNS;
-    if (question.turn < warmTurnStart) {
-      setExpandedWarmTurns((prev) => {
-        if (prev.has(question.turn)) return prev;
-        return new Set([...prev, question.turn]);
-      });
-    }
-    jumpToQuestion(question);
-  }, [turnGroups.length]);
+  const handleJumpToQuestion = useCallback(
+    (question: QuestionAnchor) => {
+      // Auto-expand the warm turn when jumping to an old question.
+      const warmTurnStart = turnGroups.length - HOT_TURNS;
+      if (question.turn < warmTurnStart) {
+        setExpandedWarmTurns((prev) => {
+          if (prev.has(question.turn)) return prev;
+          return new Set([...prev, question.turn]);
+        });
+      }
+      jumpToQuestion(question);
+    },
+    [turnGroups.length],
+  );
 
   // ── Hot zone: fully rendered from hotStartIdx to end ─────────────────────
   // Memoized separately from the assembly so streaming tokens don't rebuild
@@ -360,11 +400,11 @@ export function Transcript({
 
   const hotZoneNodes = useMemo<ReactNode[]>(() => {
     const out: ReactNode[] = [];
-    let actionText = "";
+    let actionText = '';
     let actionReady = false;
     let activeTurn: number | undefined;
     const pushTurnActions = () => {
-      if (activeTurn == null || !actionReady || actionText.trim() === "") return;
+      if (activeTurn == null || !actionReady || actionText.trim() === '') return;
       const turn = activeTurn;
       const openMenu = openAction && openAction.turn === turn ? openAction.menu : null;
       out.push(
@@ -383,7 +423,7 @@ export function Transcript({
           }}
         />,
       );
-      actionText = "";
+      actionText = '';
       actionReady = false;
     };
 
@@ -391,11 +431,17 @@ export function Transcript({
     // long run of reads stays quiet; running reads, writers, and the model's own
     // text + thinking render directly so the turn's substance stays visible.
     // Standard: flat, no batching. The warm zone (WarmTurnItems) renders the same way.
-    const batchReadOnly = displayMode !== "standard";
+    const batchReadOnly = displayMode !== 'standard';
     const roBatch: ToolItem[] = [];
     const flushRO = () => {
       if (roBatch.length === 0) return;
-      out.push(<ReadOnlyBatch key={`rob-${roBatch[0].id}`} items={[...roBatch]} subcalls={subcallsByParent} />);
+      out.push(
+        <ReadOnlyBatch
+          key={`rob-${roBatch[0].id}`}
+          items={[...roBatch]}
+          subcalls={subcallsByParent}
+        />,
+      );
       roBatch.length = 0;
     };
 
@@ -403,11 +449,11 @@ export function Transcript({
       const it = items[i];
       if (
         batchReadOnly &&
-        it.kind === "tool" &&
+        it.kind === 'tool' &&
         !it.parentId &&
-        it.status !== "running" &&
-        it.name !== "todo_write" &&
-        it.name !== "exit_plan_mode" &&
+        it.status !== 'running' &&
+        it.name !== 'todo_write' &&
+        it.name !== 'exit_plan_mode' &&
         isReadOnlyTool(it.name)
       ) {
         roBatch.push(it as ToolItem);
@@ -415,37 +461,67 @@ export function Transcript({
       }
       flushRO();
       switch (it.kind) {
-        case "user": {
+        case 'user': {
           pushTurnActions();
           const tn = userTurn.get(it.id);
           activeTurn = tn;
           out.push(
-            <UserMessage key={it.id} text={it.text} failed={it.failed} turn={tn} anchorId={questionAnchorId(it.id)} />,
+            <UserMessage
+              key={it.id}
+              text={it.text}
+              failed={it.failed}
+              turn={tn}
+              anchorId={questionAnchorId(it.id)}
+            />,
           );
           break;
         }
-        case "assistant":
-          out.push(<LiveAssistantMessage key={it.id} item={it as AssistantItem} defaultExpanded={defaultExpandThinking} />);
-          if (!it.streaming && it.text.trim() !== "") {
+        case 'assistant':
+          out.push(
+            <LiveAssistantMessage
+              key={it.id}
+              item={it as AssistantItem}
+              defaultExpanded={defaultExpandThinking}
+            />,
+          );
+          if (!it.streaming && it.text.trim() !== '') {
             actionText = it.text;
             actionReady = true;
           }
           break;
-        case "tool":
+        case 'tool':
           if (it.parentId) break;
-          if (it.name === "todo_write") break;
-          if (it.name === "exit_plan_mode") break;
+          if (it.name === 'todo_write') break;
+          if (it.name === 'exit_plan_mode') break;
           out.push(<ToolCard key={it.id} item={it} subcalls={subcallsByParent.get(it.id)} />);
           break;
-        case "phase": out.push(<PhaseCard key={it.id} text={it.text} />); break;
-        case "notice": out.push(<NoticeCard key={it.id} level={it.level} text={it.text} />); break;
-        case "compaction": out.push(<CompactionCard key={it.id} item={it} />); break;
+        case 'phase':
+          out.push(<PhaseCard key={it.id} text={it.text} />);
+          break;
+        case 'notice':
+          out.push(<NoticeCard key={it.id} level={it.level} text={it.text} />);
+          break;
+        case 'compaction':
+          out.push(<CompactionCard key={it.id} item={it} />);
+          break;
       }
     }
     flushRO();
     pushTurnActions();
     return out;
-  }, [hotStartIdx, items, openAction, actionPending, rewindDisabled, onRewind, subcallsByParent, userTurn, checkpointsByTurn, displayMode, defaultExpandThinking]);
+  }, [
+    hotStartIdx,
+    items,
+    openAction,
+    actionPending,
+    rewindDisabled,
+    onRewind,
+    subcallsByParent,
+    userTurn,
+    checkpointsByTurn,
+    displayMode,
+    defaultExpandThinking,
+  ]);
 
   // ── Assemble rendered output ──────────────────────────────────────────────
   // Warm/cold zone is a separate memo'd WarmZone component so streaming tokens
@@ -453,7 +529,7 @@ export function Transcript({
   // LiveStreamContext) so streaming updates are captured immediately.
   return (
     <div
-      className={`transcript${empty ? " transcript--empty" : ""}`}
+      className={`transcript${empty ? ' transcript--empty' : ''}`}
       ref={scrollRef}
       onScroll={onScroll}
     >
@@ -485,7 +561,8 @@ export function Transcript({
             onToggleWarmTurn={(g, expand) => {
               setExpandedWarmTurns((prev) => {
                 const next = new Set(prev);
-                if (expand) next.add(g); else next.delete(g);
+                if (expand) next.add(g);
+                else next.delete(g);
                 return next;
               });
             }}
@@ -550,7 +627,7 @@ const WarmZone = memo(function WarmZone({
         className="warm-collapse"
         onClick={onToggleColdPage}
       >
-        {t("transcript.showEarlierHistory", { n: coldTurnCount })}
+        {t('transcript.showEarlierHistory', { n: coldTurnCount })}
       </button>,
     );
   }
@@ -565,7 +642,7 @@ const WarmZone = memo(function WarmZone({
       const expanded = expandedWarmTurns.has(g);
 
       if (expanded) {
-        const userText = group.userItem.kind === "user" ? group.userItem.text : "";
+        const userText = group.userItem.kind === 'user' ? group.userItem.text : '';
         out.push(
           <WarmTurnCard
             key={`warm-${g}`}
@@ -594,7 +671,7 @@ const WarmZone = memo(function WarmZone({
           </WarmTurnCard>,
         );
       } else {
-        const userText = group.userItem.kind === "user" ? group.userItem.text : "";
+        const userText = group.userItem.kind === 'user' ? group.userItem.text : '';
         out.push(
           <WarmTurnCard
             key={`warm-${g}`}
@@ -608,7 +685,7 @@ const WarmZone = memo(function WarmZone({
               const node = document.getElementById(questionAnchorId(group.userItem.id));
               if (el && node) {
                 requestAnimationFrame(() => {
-                  el.scrollTo({ top: node.offsetTop - el.offsetTop - 80, behavior: "smooth" });
+                  el.scrollTo({ top: node.offsetTop - el.offsetTop - 80, behavior: 'smooth' });
                 });
               }
             }}
@@ -649,11 +726,11 @@ function WarmTurnItems({
   defaultExpandThinking?: boolean;
 }) {
   const nodes: React.ReactNode[] = [];
-  let actionText = "";
+  let actionText = '';
   let actionReady = false;
   let activeTurn: number | undefined;
   const pushTurnActions = () => {
-    if (activeTurn == null || !actionReady || actionText.trim() === "") return;
+    if (activeTurn == null || !actionReady || actionText.trim() === '') return;
     const turn = activeTurn;
     const openMenu = openAction && openAction.turn === turn ? openAction.menu : null;
     nodes.push(
@@ -672,7 +749,7 @@ function WarmTurnItems({
         }}
       />,
     );
-    actionText = "";
+    actionText = '';
     actionReady = false;
   };
 
@@ -680,7 +757,9 @@ function WarmTurnItems({
   const roBatch: ToolItem[] = [];
   const flushRO = () => {
     if (roBatch.length === 0) return;
-    nodes.push(<ReadOnlyBatch key={`rob-${roBatch[0].id}`} items={[...roBatch]} subcalls={subcalls} />);
+    nodes.push(
+      <ReadOnlyBatch key={`rob-${roBatch[0].id}`} items={[...roBatch]} subcalls={subcalls} />,
+    );
     roBatch.length = 0;
   };
 
@@ -688,40 +767,60 @@ function WarmTurnItems({
     const it = items[i];
 
     // Completed read-only tools → batch into ReadOnlyBatch
-    if (it.kind === "tool" && !it.parentId && it.name !== "todo_write" && it.name !== "exit_plan_mode" && isReadOnlyTool(it.name)) {
+    if (
+      it.kind === 'tool' &&
+      !it.parentId &&
+      it.name !== 'todo_write' &&
+      it.name !== 'exit_plan_mode' &&
+      isReadOnlyTool(it.name)
+    ) {
       roBatch.push(it as ToolItem);
       continue;
     }
     flushRO();
 
     switch (it.kind) {
-      case "user": {
+      case 'user': {
         pushTurnActions();
         const tn = userTurnMap.get(it.id);
         activeTurn = tn;
         nodes.push(
-          <UserMessage key={it.id} text={it.text} failed={it.failed} turn={tn} anchorId={questionAnchorId(it.id)} />,
+          <UserMessage
+            key={it.id}
+            text={it.text}
+            failed={it.failed}
+            turn={tn}
+            anchorId={questionAnchorId(it.id)}
+          />,
         );
         break;
       }
-      case "assistant": {
-        nodes.push(<AssistantMessage key={it.id} item={it} defaultExpanded={defaultExpandThinking} />);
-        if (!it.streaming && it.text.trim() !== "") {
+      case 'assistant': {
+        nodes.push(
+          <AssistantMessage key={it.id} item={it} defaultExpanded={defaultExpandThinking} />,
+        );
+        if (!it.streaming && it.text.trim() !== '') {
           actionText = it.text;
           actionReady = true;
         }
         break;
       }
-      case "tool": {
+      case 'tool': {
         if (it.parentId) break;
-        if (it.name === "todo_write") break;
-        if (it.name === "exit_plan_mode") break;
+        if (it.name === 'todo_write') break;
+        if (it.name === 'exit_plan_mode') break;
         nodes.push(<ToolCard key={it.id} item={it} subcalls={subcalls.get(it.id)} />);
         break;
       }
-      case "phase": nodes.push(<PhaseCard key={it.id} text={it.text} />); break;
-      case "notice": nodes.push(<NoticeCard key={it.id} level={it.level} text={it.text} />); break;
-      case "compaction": nodes.push(<CompactionCard key={it.id} item={it} />); break;
+      case 'phase':
+        nodes.push(<PhaseCard key={it.id} text={it.text} />);
+        break;
+      case 'notice':
+        nodes.push(<NoticeCard key={it.id} level={it.level} text={it.text} />);
+        break;
+      case 'compaction':
+        nodes.push(<CompactionCard key={it.id} item={it} />);
+        break;
     }
   }
   flushRO();
@@ -748,19 +847,14 @@ function WarmTurnCard({
 }) {
   const t = useT();
   return (
-    <div className={`warm-turn${expanded ? " warm-turn--expanded" : ""}`}>
-      <button
-        type="button"
-        className="warm-turn__head"
-        onClick={onToggle}
-        aria-expanded={expanded}
-      >
+    <div className={`warm-turn${expanded ? ' warm-turn--expanded' : ''}`}>
+      <button type="button" className="warm-turn__head" onClick={onToggle} aria-expanded={expanded}>
         <span className="warm-turn__chevron">
-          <ChevronRight className={expanded ? "warm-turn__chevron--open" : ""} size={13} />
+          <ChevronRight className={expanded ? 'warm-turn__chevron--open' : ''} size={13} />
         </span>
         <span className="warm-turn__preview">{userText}</span>
         <span className="warm-turn__meta">
-          {toolCount > 0 && <span>{t("transcript.toolCount", { n: toolCount })}</span>}
+          {toolCount > 0 && <span>{t('transcript.toolCount', { n: toolCount })}</span>}
         </span>
       </button>
       {expanded ? (
@@ -774,7 +868,10 @@ function WarmTurnCard({
 
 // ── JumpBar, PhaseCard, NoticeCard, CompactionCard ────────────────────────────
 
-function QuestionJumpBar({ questions, onJump }: { questions: QuestionAnchor[]; onJump: (question: QuestionAnchor) => void }) {
+function QuestionJumpBar({
+  questions,
+  onJump,
+}: { questions: QuestionAnchor[]; onJump: (question: QuestionAnchor) => void }) {
   const t = useT();
   const [hovered, setHovered] = useState<number | null>(null);
   const [active, setActive] = useState<number | null>(null);
@@ -790,19 +887,23 @@ function QuestionJumpBar({ questions, onJump }: { questions: QuestionAnchor[]; o
   useEffect(() => {
     if (active === null) return;
     const el = barRef.current?.querySelector(`[data-turn="${active}"]`);
-    el?.scrollIntoView({ block: "nearest" });
+    el?.scrollIntoView({ block: 'nearest' });
   }, [active]);
 
-  const hoverIdx = hovered !== null ? questions.findIndex((question) => question.turn === hovered) : -1;
-  const hoveredQuestion = hovered !== null ? questions.find((question) => question.turn === hovered) : undefined;
+  const hoverIdx =
+    hovered !== null ? questions.findIndex((question) => question.turn === hovered) : -1;
+  const hoveredQuestion =
+    hovered !== null ? questions.find((question) => question.turn === hovered) : undefined;
 
-  const closestQuestionFromY = (clientY: number): { question: QuestionAnchor; previewY: number } | null => {
+  const closestQuestionFromY = (
+    clientY: number,
+  ): { question: QuestionAnchor; previewY: number } | null => {
     const el = barRef.current;
     if (!el) return null;
-    const markers = el.querySelectorAll<HTMLElement>(".jump-item");
+    const markers = el.querySelectorAll<HTMLElement>('.jump-item');
     const barRect = el.getBoundingClientRect();
     let closest = -1;
-    let closestDist = Infinity;
+    let closestDist = Number.POSITIVE_INFINITY;
     let closestY = 0;
     markers.forEach((item, index) => {
       const rect = item.getBoundingClientRect();
@@ -847,20 +948,19 @@ function QuestionJumpBar({ questions, onJump }: { questions: QuestionAnchor[]; o
     scrollTo(question);
   };
 
-  const dotProps = (
-    idx: number,
-    turn: number,
-  ): { style: CSSProperties; "data-d"?: string } => {
+  const dotProps = (idx: number, turn: number): { style: CSSProperties; 'data-d'?: string } => {
     const isActive = active === turn;
     if (hoverIdx < 0) {
-      return { style: { width: isActive ? 18 : 12, background: isActive ? "var(--accent)" : undefined } };
+      return {
+        style: { width: isActive ? 18 : 12, background: isActive ? 'var(--accent)' : undefined },
+      };
     }
     const d = Math.abs(idx - hoverIdx);
     const width = d === 0 ? 32 : d === 1 ? 20 : d === 2 ? 14 : isActive ? 18 : 12;
-    const background = d <= 2 ? undefined : isActive ? "var(--accent)" : undefined;
+    const background = d <= 2 ? undefined : isActive ? 'var(--accent)' : undefined;
     return {
       style: { width, transitionDelay: `${d * 20}ms`, background },
-      "data-d": d <= 2 ? String(d) : undefined,
+      'data-d': d <= 2 ? String(d) : undefined,
     };
   };
 
@@ -868,7 +968,7 @@ function QuestionJumpBar({ questions, onJump }: { questions: QuestionAnchor[]; o
     <nav
       className="jump-bar"
       ref={barRef}
-      aria-label={t("questionNav.label")}
+      aria-label={t('questionNav.label')}
       onMouseMove={onMove}
       onMouseLeave={() => {
         setHovered(null);
@@ -882,7 +982,7 @@ function QuestionJumpBar({ questions, onJump }: { questions: QuestionAnchor[]; o
             key={question.id}
             type="button"
             data-turn={question.turn}
-            aria-label={t("questionNav.jump", { n: question.turn + 1 })}
+            aria-label={t('questionNav.jump', { n: question.turn + 1 })}
             onMouseDown={(e) => onItemMouseDown(e, question)}
             onClick={(e) => {
               e.stopPropagation();
@@ -902,17 +1002,22 @@ function QuestionJumpBar({ questions, onJump }: { questions: QuestionAnchor[]; o
   );
 }
 
-type CompactionItem = Extract<Item, { kind: "compaction" }>;
-type NoticeItem = Extract<Item, { kind: "notice" }>;
+type CompactionItem = Extract<Item, { kind: 'compaction' }>;
+type NoticeItem = Extract<Item, { kind: 'notice' }>;
 
 function PhaseCard({ text }: { text: string }) {
-  return <div className="phase"><ProcessPhaseIcon size={12} /><span>{text}</span></div>;
+  return (
+    <div className="phase">
+      <ProcessPhaseIcon size={12} />
+      <span>{text}</span>
+    </div>
+  );
 }
 
-function NoticeCard({ level, text }: { level: NoticeItem["level"]; text: string }) {
+function NoticeCard({ level, text }: { level: NoticeItem['level']; text: string }) {
   return (
     <div className={`notice-line notice-line--${level}`}>
-      <span className="notice-line__icon">{level === "warn" ? "⚠ " : "ℹ "}</span>
+      <span className="notice-line__icon">{level === 'warn' ? '⚠ ' : 'ℹ '}</span>
       <span className="notice-line__text">{text}</span>
     </div>
   );
@@ -922,15 +1027,28 @@ function CompactionCard({ item }: { item: CompactionItem }) {
   const t = useT();
   const [open, setOpen] = useState(false);
   if (item.pending) {
-    return <div className="compaction compaction--pending"><ProcessCompactIcon size={12} /><span>{t("compaction.working")}</span></div>;
+    return (
+      <div className="compaction compaction--pending">
+        <ProcessCompactIcon size={12} />
+        <span>{t('compaction.working')}</span>
+      </div>
+    );
   }
   return (
     <div className="compaction">
-      <button type="button" className="compaction__head" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+      <button
+        type="button"
+        className="compaction__head"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+      >
         <ProcessCompactIcon size={12} />
-        <span>{t("compaction.title")}</span>
-        <span className="compaction__meta">{t("compaction.messages", { n: item.messages })}{item.trigger ? ` · ${item.trigger}` : ""}</span>
-        <ChevronRight className={open ? "compaction__chevron--open" : ""} size={12} />
+        <span>{t('compaction.title')}</span>
+        <span className="compaction__meta">
+          {t('compaction.messages', { n: item.messages })}
+          {item.trigger ? ` · ${item.trigger}` : ''}
+        </span>
+        <ChevronRight className={open ? 'compaction__chevron--open' : ''} size={12} />
       </button>
       {open && <pre className="compaction__body">{item.summary}</pre>}
     </div>

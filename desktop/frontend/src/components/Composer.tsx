@@ -1,27 +1,65 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { CSSProperties, ClipboardEvent, DragEvent, KeyboardEvent, PointerEvent as ReactPointerEvent } from "react";
-import { ArrowUp, Check, Eye, FileText, Folder, Gauge, List, MessageSquare, MoreHorizontal, Search, Shield, ShieldAlert, ShieldCheck, SlidersHorizontal, Square, Target, Trash2, X } from "lucide-react";
-import { asArray } from "../lib/array";
-import { filterAtMatches } from "../lib/atMatches";
-import { DedupIndex, sha256 } from "../lib/attachDedup";
-import { app, onFilesDropped } from "../lib/bridge";
-import { SPINNER_WORDS, useI18n } from "../lib/i18n";
-import { clearLayoutSize, loadOptionalLayoutSize, saveLayoutSize } from "../lib/layoutPreferences";
-import { useToast } from "../lib/toast";
-import { type CollaborationMode, type CommandInfo, type ComposerInsertRequest, type DirEntry, type EffortInfo, type HistoryMessage, type Mode, type SessionMeta, type SessionReference, type SlashArgItem, type SlashArgsResult, type ToolApprovalMode } from "../lib/types";
 import {
+  ArrowUp,
+  Check,
+  Eye,
+  FileText,
+  Folder,
+  Gauge,
+  List,
+  MessageSquare,
+  MoreHorizontal,
+  Search,
+  Shield,
+  ShieldAlert,
+  ShieldCheck,
+  SlidersHorizontal,
+  Square,
+  Target,
+  Trash2,
+  X,
+} from 'lucide-react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import type {
+  CSSProperties,
+  ClipboardEvent,
+  DragEvent,
+  KeyboardEvent,
+  PointerEvent as ReactPointerEvent,
+} from 'react';
+import { asArray } from '../lib/array';
+import { filterAtMatches } from '../lib/atMatches';
+import { DedupIndex, sha256 } from '../lib/attachDedup';
+import { app, onFilesDropped } from '../lib/bridge';
+import { SPINNER_WORDS, useI18n } from '../lib/i18n';
+import { clearLayoutSize, loadOptionalLayoutSize, saveLayoutSize } from '../lib/layoutPreferences';
+import { useToast } from '../lib/toast';
+import type {
+  CollaborationMode,
+  CommandInfo,
+  ComposerInsertRequest,
+  DirEntry,
+  EffortInfo,
+  HistoryMessage,
+  Mode,
+  SessionMeta,
+  SessionReference,
+  SlashArgItem,
+  SlashArgsResult,
+  ToolApprovalMode,
+} from '../lib/types';
+import {
+  WORKSPACE_REF_DRAG_TYPE,
   formatWorkspaceReference,
   parseWorkspaceReference,
   readWorkspaceReferenceDrag,
-  WORKSPACE_REF_DRAG_TYPE,
-} from "../lib/workspaceDrag";
-import { SlashMenu } from "./SlashMenu";
-import { ArgMenu } from "./ArgMenu";
-import { VirtualMenu } from "./VirtualMenu";
-import { ANCHORED_POPOVER_CLOSE_MS, AnchoredPopover } from "./AnchoredPopover";
-import { EffortSwitcher } from "./EffortSwitcher";
-import { ModelSwitcher } from "./ModelSwitcher";
-import { Tooltip } from "./Tooltip";
+} from '../lib/workspaceDrag';
+import { ANCHORED_POPOVER_CLOSE_MS, AnchoredPopover } from './AnchoredPopover';
+import { ArgMenu } from './ArgMenu';
+import { EffortSwitcher } from './EffortSwitcher';
+import { ModelSwitcher } from './ModelSwitcher';
+import { SlashMenu } from './SlashMenu';
+import { Tooltip } from './Tooltip';
+import { VirtualMenu } from './VirtualMenu';
 
 interface Attachment {
   path: string;
@@ -60,7 +98,7 @@ type WebkitFileEntry = {
 };
 
 function lineCount(s: string): number {
-  if (s === "") return 0;
+  if (s === '') return 0;
   return s.split(/\r\n|\r|\n/).length;
 }
 
@@ -73,21 +111,26 @@ function renderPastedBlock(block: PastedBlock): string {
 }
 
 function baseName(path: string): string {
-  const clean = path.replace(/[\\/]+$/, "");
+  const clean = path.replace(/[\\/]+$/, '');
   return clean.split(/[\\/]/).filter(Boolean).pop() ?? path;
 }
 
 function attachmentName(attachment: Attachment): string {
-  return (attachment.displayName || baseName(attachment.path) || "attachment").trim();
+  return (attachment.displayName || baseName(attachment.path) || 'attachment').trim();
 }
 
 function attachmentExt(name: string): string {
-  const dot = name.lastIndexOf(".");
-  return dot >= 0 ? name.slice(dot + 1).toUpperCase() : "";
+  const dot = name.lastIndexOf('.');
+  return dot >= 0 ? name.slice(dot + 1).toUpperCase() : '';
 }
 
 function displayRefName(name: string): string {
-  return name.replace(/[\[\]\(\)\r\n]+/g, " ").replace(/\s+/g, " ").trim() || "attachment";
+  return (
+    name
+      .replace(/[\[\]\(\)\r\n]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim() || 'attachment'
+  );
 }
 
 function formatAttachmentDisplayReference(attachment: Attachment): string {
@@ -103,7 +146,7 @@ function sortComposerAttachments(items: Attachment[]): Attachment[] {
 }
 
 function workspaceReferenceKey(ref: WorkspaceReference): string {
-  return `${ref.isDir ? "dir" : "file"}:${ref.path}`;
+  return `${ref.isDir ? 'dir' : 'file'}:${ref.path}`;
 }
 
 function fileKey(file: File): string {
@@ -114,7 +157,7 @@ function clipboardFiles(data: DataTransfer): File[] {
   const files = Array.from(data.files);
   const seen = new Set(files.map(fileKey));
   for (const item of Array.from(data.items)) {
-    if (item.kind !== "file") continue;
+    if (item.kind !== 'file') continue;
     const file = item.getAsFile();
     if (!file) continue;
     const key = fileKey(file);
@@ -128,17 +171,26 @@ function clipboardFiles(data: DataTransfer): File[] {
 function clipboardHasImageHint(data: DataTransfer): boolean {
   const imageType = (value: string) => {
     const type = value.toLowerCase();
-    return type.startsWith("image/") || type.includes("png") || type.includes("jpeg") || type.includes("jpg") || type.includes("tiff");
+    return (
+      type.startsWith('image/') ||
+      type.includes('png') ||
+      type.includes('jpeg') ||
+      type.includes('jpg') ||
+      type.includes('tiff')
+    );
   };
-  return Array.from(data.items).some((item) => imageType(item.type)) || Array.from(data.types).some(imageType);
+  return (
+    Array.from(data.items).some((item) => imageType(item.type)) ||
+    Array.from(data.types).some(imageType)
+  );
 }
 
 function isPasteShortcut(e: KeyboardEvent<HTMLTextAreaElement>): boolean {
-  return e.key.toLowerCase() === "v" && (e.metaKey || e.ctrlKey) && !e.altKey;
+  return e.key.toLowerCase() === 'v' && (e.metaKey || e.ctrlKey) && !e.altKey;
 }
 
 function isYoloToggleShortcut(e: KeyboardEvent<HTMLTextAreaElement>): boolean {
-  return e.key.toLowerCase() === "y" && (e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey;
+  return e.key.toLowerCase() === 'y' && (e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey;
 }
 
 async function dataURLHash(dataUrl: string): Promise<string> {
@@ -146,13 +198,16 @@ async function dataURLHash(dataUrl: string): Promise<string> {
     const res = await fetch(dataUrl);
     return sha256(await res.blob());
   } catch {
-    return "";
+    return '';
   }
 }
 
 function composerMaxHeight(): number {
-  if (typeof window === "undefined") return COMPOSER_MAX_HEIGHT;
-  return Math.max(COMPOSER_MIN_HEIGHT, Math.min(COMPOSER_MAX_HEIGHT, Math.floor(window.innerHeight * COMPOSER_MAX_VIEWPORT_RATIO)));
+  if (typeof window === 'undefined') return COMPOSER_MAX_HEIGHT;
+  return Math.max(
+    COMPOSER_MIN_HEIGHT,
+    Math.min(COMPOSER_MAX_HEIGHT, Math.floor(window.innerHeight * COMPOSER_MAX_VIEWPORT_RATIO)),
+  );
 }
 
 function clampComposerHeight(height: number): number {
@@ -164,11 +219,11 @@ function composerAutoInputMaxHeight(): number {
 }
 
 function loadComposerHeight(): number | null {
-  return loadOptionalLayoutSize("composerHeight", clampComposerHeight);
+  return loadOptionalLayoutSize('composerHeight', clampComposerHeight);
 }
 
 function fmtTokens(n: number): string {
-  if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, "") + "k";
+  if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
   return String(n);
 }
 
@@ -185,25 +240,25 @@ function fmtElapsed(ms: number): string {
 const PAST_CHAT_PREVIEW_MAX = 200;
 
 function truncatePreview(value?: string, max = PAST_CHAT_PREVIEW_MAX): string {
-  const text = (value || "").trim();
+  const text = (value || '').trim();
   if (text.length <= max) return text;
   return `${text.slice(0, max)}...`;
 }
 
 function fmtSessionTime(value?: number): string {
-  if (!value) return "";
+  if (!value) return '';
   const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "";
+  if (Number.isNaN(d.getTime())) return '';
   const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mi = String(d.getMinutes()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mi = String(d.getMinutes()).padStart(2, '0');
   return `${yyyy}-${mm}-${dd} ${hh}:${mi}`;
 }
 
 function pastChatTitle(session: SessionMeta): string {
-  return session.title || session.topicTitle || session.preview || "Untitled";
+  return session.title || session.topicTitle || session.preview || 'Untitled';
 }
 
 function useTick(on: boolean): number {
@@ -240,9 +295,9 @@ function isImeKeyEvent(
 // submitText so the model sees the referenced chat as background context.
 const SESSION_REF_MAX_MESSAGES = 30;
 const SESSION_REF_MAX_CHARS = 20_000;
-const SESSION_CONTEXT_HEADER = "以下是用户引用的历史会话上下文：";
-const SESSION_CONTEXT_FOOTER = "当前用户问题：";
-const PAST_CHATS_MENU_ITEM = "past:chats";
+const SESSION_CONTEXT_HEADER = '以下是用户引用的历史会话上下文：';
+const SESSION_CONTEXT_FOOTER = '当前用户问题：';
+const PAST_CHATS_MENU_ITEM = 'past:chats';
 
 // limitSessionMessages keeps the most recent useful messages within a char budget.
 // Walks from the end so the truncation is always "drop the oldest", which matches
@@ -255,8 +310,8 @@ function limitSessionMessages(
   const useful = messages
     .filter(
       (m) =>
-        (m.role === "user" || m.role === "assistant") &&
-        typeof m.content === "string" &&
+        (m.role === 'user' || m.role === 'assistant') &&
+        typeof m.content === 'string' &&
         m.content.trim().length > 0,
     )
     .slice(-maxMessages);
@@ -286,15 +341,15 @@ function formatSessionContext(
   truncated: boolean,
 ): string {
   const body = messages
-    .map((m) => `${m.role === "user" ? "用户" : "助手"}：${m.content.trim()}`)
-    .join("\n\n");
+    .map((m) => `${m.role === 'user' ? '用户' : '助手'}：${m.content.trim()}`)
+    .join('\n\n');
   return [
     `[会话：${ref.title}]`,
-    truncated ? "注意：该会话内容较长，以下只包含最近部分内容。" : "",
-    body || "注意：该会话没有可引用的用户/助手消息。",
+    truncated ? '注意：该会话内容较长，以下只包含最近部分内容。' : '',
+    body || '注意：该会话没有可引用的用户/助手消息。',
   ]
     .filter(Boolean)
-    .join("\n");
+    .join('\n');
 }
 
 // buildSessionContext reads each referenced session, formats the most recent
@@ -302,7 +357,7 @@ function formatSessionContext(
 // the others; the user gets a clear "读取失败" note for the bad one and the
 // remaining refs still flow through.
 async function buildSessionContext(refs: SessionReference[]): Promise<string> {
-  if (refs.length === 0) return "";
+  if (refs.length === 0) return '';
   let context = `${SESSION_CONTEXT_HEADER}\n\n`;
   for (const ref of refs) {
     try {
@@ -310,7 +365,7 @@ async function buildSessionContext(refs: SessionReference[]): Promise<string> {
       const limited = limitSessionMessages(asArray(raw));
       context += `${formatSessionContext(ref, limited.messages, limited.truncated)}\n\n---\n\n`;
     } catch (error) {
-      console.error("[past:chats] failed to preview session", ref.path, error);
+      console.error('[past:chats] failed to preview session', ref.path, error);
       context += `[会话：${ref.title}]\n注意：该会话读取失败，已跳过。\n\n---\n\n`;
     }
   }
@@ -384,7 +439,7 @@ export function Composer({
   const { t, locale } = useI18n();
   const { showToast } = useToast();
   const now = useTick(running);
-  const [text, setText] = useState("");
+  const [text, setText] = useState('');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [workspaceRefs, setWorkspaceRefs] = useState<WorkspaceReference[]>([]);
   const [pastedBlocks, setPastedBlocks] = useState<PastedBlock[]>([]);
@@ -405,7 +460,7 @@ export function Composer({
   const [moreMenuClosing, setMoreMenuClosing] = useState(false);
   const [showPastChats, setShowPastChats] = useState(false);
   const [pastChats, setPastChats] = useState<SessionMeta[]>([]);
-  const [pastChatQuery, setPastChatQuery] = useState("");
+  const [pastChatQuery, setPastChatQuery] = useState('');
   const [sessionRefs, setSessionRefs] = useState<SessionReference[]>([]);
   const [loadingPastChats, setLoadingPastChats] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -440,7 +495,7 @@ export function Composer({
   useEffect(() => () => clearNativeClipboardPasteTimer(), []);
 
   useEffect(() => {
-    if (wasRunning.current && !running && text.trim() === "") {
+    if (wasRunning.current && !running && text.trim() === '') {
       pastedBlocksRef.current = [];
       setPastedBlocks([]);
       setOpenPastedLabels([]);
@@ -451,15 +506,19 @@ export function Composer({
   // --- slash commands (whole-input "/token") ---
   const [commands, setCommands] = useState<CommandInfo[]>([]);
   useEffect(() => {
-    app.Commands().then((next) => setCommands(asArray(next))).catch(() => {});
+    app
+      .Commands()
+      .then((next) => setCommands(asArray(next)))
+      .catch(() => {});
   }, [ready, cwd, running]);
 
   const slashQuery = useMemo(() => {
-    if (!text.startsWith("/") || /\s/.test(text)) return null;
+    if (!text.startsWith('/') || /\s/.test(text)) return null;
     return text.slice(1).toLowerCase();
   }, [text]);
   const slashMatches = useMemo(
-    () => (slashQuery === null ? [] : commands.filter((c) => c.name.toLowerCase().includes(slashQuery))),
+    () =>
+      slashQuery === null ? [] : commands.filter((c) => c.name.toLowerCase().includes(slashQuery)),
     [slashQuery, commands],
   );
 
@@ -471,7 +530,7 @@ export function Composer({
   const [argRes, setArgRes] = useState<SlashArgsResult | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => {
-    if (!text.startsWith("/") || !/\s/.test(text)) {
+    if (!text.startsWith('/') || !/\s/.test(text)) {
       setArgRes(null);
       return;
     }
@@ -512,13 +571,13 @@ export function Composer({
     return m ? m[1] : null;
   }, [text]);
   const atDir = useMemo(() => {
-    if (atRaw === null) return "";
-    const slash = atRaw.lastIndexOf("/");
-    return slash >= 0 ? atRaw.slice(0, slash + 1) : "";
+    if (atRaw === null) return '';
+    const slash = atRaw.lastIndexOf('/');
+    return slash >= 0 ? atRaw.slice(0, slash + 1) : '';
   }, [atRaw]);
   const atFrag = useMemo(() => {
-    if (atRaw === null) return "";
-    const slash = atRaw.lastIndexOf("/");
+    if (atRaw === null) return '';
+    const slash = atRaw.lastIndexOf('/');
     return (slash >= 0 ? atRaw.slice(slash + 1) : atRaw).toLowerCase();
   }, [atRaw]);
 
@@ -541,7 +600,7 @@ export function Composer({
     setSearchEntries([]);
     setShowPastChats(false);
     setPastChats([]);
-    setPastChatQuery("");
+    setPastChatQuery('');
     setLoadingPastChats(false);
     setActive(0);
     setDismissed(false);
@@ -569,7 +628,7 @@ export function Composer({
     // re-fetch when the menu opens or the directory level changes
   }, [atRaw === null, atDir, cwd]);
   useEffect(() => {
-    if (atRaw === null || atDir !== "" || atFrag === "") {
+    if (atRaw === null || atDir !== '' || atFrag === '') {
       setSearchEntries([]);
       return;
     }
@@ -592,47 +651,42 @@ export function Composer({
       live = false;
     };
   }, [atRaw === null, atDir, atFrag, cwd]);
-  const atMatches = useMemo(
-    () => {
-      if (atRaw === null) return [];
-      return filterAtMatches(entries, searchEntries, atFrag);
-    },
-    [atRaw, atFrag, entries, searchEntries],
-  );
+  const atMatches = useMemo(() => {
+    if (atRaw === null) return [];
+    return filterAtMatches(entries, searchEntries, atFrag);
+  }, [atRaw, atFrag, entries, searchEntries]);
 
   // Unified menu item model for the @ menu. "past:chats" is a real selectable
   // item (kind "pastChats"), not an active===0 special case.
-  type AtMenuItem =
-    | { kind: "pastChats" }
-    | { kind: "file"; entry: DirEntry };
+  type AtMenuItem = { kind: 'pastChats' } | { kind: 'file'; entry: DirEntry };
 
-  const includePastChatsItem = atRaw !== null && atDir === "" && (atFrag === "" || PAST_CHATS_MENU_ITEM.startsWith(atFrag));
+  const includePastChatsItem =
+    atRaw !== null && atDir === '' && (atFrag === '' || PAST_CHATS_MENU_ITEM.startsWith(atFrag));
 
   const atMenuItems = useMemo<AtMenuItem[]>(
     () => [
-      ...(includePastChatsItem ? [{ kind: "pastChats" as const }] : []),
-      ...atMatches.map((entry) => ({ kind: "file" as const, entry })),
+      ...(includePastChatsItem ? [{ kind: 'pastChats' as const }] : []),
+      ...atMatches.map((entry) => ({ kind: 'file' as const, entry })),
     ],
     [includePastChatsItem, atMatches],
   );
 
-
   // --- which menu (if any) is open --- (slash command names win; then slash
   // arguments; then @-refs — they're rarely valid at once)
-  const menuMode: "slash" | "slasharg" | "at" | null =
+  const menuMode: 'slash' | 'slasharg' | 'at' | null =
     slashMatches.length > 0 && !dismissed
-      ? "slash"
+      ? 'slash'
       : argRes && argRes.items.length > 0 && !dismissed
-        ? "slasharg"
+        ? 'slasharg'
         : atRaw !== null && !dismissed
-          ? "at"
+          ? 'at'
           : null;
   const countBase =
-    menuMode === "slash"
+    menuMode === 'slash'
       ? slashMatches.length
-      : menuMode === "slasharg"
+      : menuMode === 'slasharg'
         ? argRes!.items.length
-        : menuMode === "at"
+        : menuMode === 'at'
           ? atMenuItems.length
           : 0;
 
@@ -643,7 +697,11 @@ export function Composer({
   }, [slashQuery, atRaw]);
 
   useEffect(() => {
-    if (transientDismissSignal === undefined || transientDismissSignal === lastTransientDismissSignal.current) return;
+    if (
+      transientDismissSignal === undefined ||
+      transientDismissSignal === lastTransientDismissSignal.current
+    )
+      return;
     lastTransientDismissSignal.current = transientDismissSignal;
     setDismissed(true);
   }, [transientDismissSignal]);
@@ -652,9 +710,9 @@ export function Composer({
   // sub-menu and reset related state. Without this, showPastChats can outlive
   // the @ token and leave the session list visible with no way to dismiss it.
   useEffect(() => {
-    if (menuMode !== "at" && showPastChats) {
+    if (menuMode !== 'at' && showPastChats) {
       setShowPastChats(false);
-      setPastChatQuery("");
+      setPastChatQuery('');
       setActive(0);
     }
   }, [menuMode]);
@@ -673,18 +731,26 @@ export function Composer({
   const rememberCaret = () => {
     const ta = taRef.current;
     if (!ta) return;
-    lastSelectionRef.current = { start: ta.selectionStart ?? text.length, end: ta.selectionEnd ?? text.length };
+    lastSelectionRef.current = {
+      start: ta.selectionStart ?? text.length,
+      end: ta.selectionEnd ?? text.length,
+    };
   };
 
   const insertTextAtCaret = (snippet: string) => {
     const ta = taRef.current;
-    const start = ta ? (ta.selectionStart ?? text.length) : Math.min(lastSelectionRef.current.start, text.length);
-    const end = ta ? (ta.selectionEnd ?? start) : Math.min(lastSelectionRef.current.end, text.length);
+    const start = ta
+      ? (ta.selectionStart ?? text.length)
+      : Math.min(lastSelectionRef.current.start, text.length);
+    const end = ta
+      ? (ta.selectionEnd ?? start)
+      : Math.min(lastSelectionRef.current.end, text.length);
     const before = text.slice(0, start);
     const after = text.slice(end);
-    const leading = before.length === 0 || before.endsWith("\n\n") ? "" : before.endsWith("\n") ? "\n" : "\n\n";
+    const leading =
+      before.length === 0 || before.endsWith('\n\n') ? '' : before.endsWith('\n') ? '\n' : '\n\n';
     const body = snippet.trimEnd();
-    const trailing = after.length === 0 ? "\n" : after.startsWith("\n") ? "" : "\n\n";
+    const trailing = after.length === 0 ? '\n' : after.startsWith('\n') ? '' : '\n\n';
     const inserted = leading + body + trailing;
     const next = before + inserted + after;
     const pos = before.length + inserted.length;
@@ -765,17 +831,23 @@ export function Composer({
     setIntentMenuOpen(true);
   }, [clearIntentCloseTimer]);
 
-  const closeIntentMenu = useCallback((afterClose?: () => void) => {
-    clearIntentCloseTimer();
-    setIntentMenuClosing(true);
-    window.requestAnimationFrame(() => setIntentMenuOpen(false));
-    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    intentCloseTimerRef.current = window.setTimeout(() => {
-      intentCloseTimerRef.current = null;
-      setIntentMenuClosing(false);
-      afterClose?.();
-    }, reduceMotion ? 0 : ANCHORED_POPOVER_CLOSE_MS);
-  }, [clearIntentCloseTimer]);
+  const closeIntentMenu = useCallback(
+    (afterClose?: () => void) => {
+      clearIntentCloseTimer();
+      setIntentMenuClosing(true);
+      window.requestAnimationFrame(() => setIntentMenuOpen(false));
+      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      intentCloseTimerRef.current = window.setTimeout(
+        () => {
+          intentCloseTimerRef.current = null;
+          setIntentMenuClosing(false);
+          afterClose?.();
+        },
+        reduceMotion ? 0 : ANCHORED_POPOVER_CLOSE_MS,
+      );
+    },
+    [clearIntentCloseTimer],
+  );
 
   useEffect(() => () => clearIntentCloseTimer(), [clearIntentCloseTimer]);
 
@@ -791,17 +863,23 @@ export function Composer({
     setMoreMenuOpen(true);
   }, [clearMoreCloseTimer]);
 
-  const closeMoreMenu = useCallback((afterClose?: () => void) => {
-    clearMoreCloseTimer();
-    setMoreMenuClosing(true);
-    window.requestAnimationFrame(() => setMoreMenuOpen(false));
-    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    moreCloseTimerRef.current = window.setTimeout(() => {
-      moreCloseTimerRef.current = null;
-      setMoreMenuClosing(false);
-      afterClose?.();
-    }, reduceMotion ? 0 : ANCHORED_POPOVER_CLOSE_MS);
-  }, [clearMoreCloseTimer]);
+  const closeMoreMenu = useCallback(
+    (afterClose?: () => void) => {
+      clearMoreCloseTimer();
+      setMoreMenuClosing(true);
+      window.requestAnimationFrame(() => setMoreMenuOpen(false));
+      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      moreCloseTimerRef.current = window.setTimeout(
+        () => {
+          moreCloseTimerRef.current = null;
+          setMoreMenuClosing(false);
+          afterClose?.();
+        },
+        reduceMotion ? 0 : ANCHORED_POPOVER_CLOSE_MS,
+      );
+    },
+    [clearMoreCloseTimer],
+  );
 
   useEffect(() => () => clearMoreCloseTimer(), [clearMoreCloseTimer]);
 
@@ -810,9 +888,9 @@ export function Composer({
     source: `file:${file.name}:${file.size}:${file.lastModified}`,
   });
 
-  const planModeOn = collaborationMode === "plan";
-  const activeGoal = (goal ?? "").trim();
-  const goalModeOn = collaborationMode === "goal";
+  const planModeOn = collaborationMode === 'plan';
+  const activeGoal = (goal ?? '').trim();
+  const goalModeOn = collaborationMode === 'goal';
 
   const submit = async () => {
     if (disabled || submittingRef.current) return;
@@ -820,7 +898,7 @@ export function Composer({
     if (pendingPaste > 0) return;
     if (!trimmedText && attachments.length === 0 && workspaceRefs.length === 0) {
       if (goalModeOn && !activeGoal) {
-        setComposerPrompt(t("composer.goalInputRequired"));
+        setComposerPrompt(t('composer.goalInputRequired'));
         requestAnimationFrame(() => taRef.current?.focus());
       }
       return;
@@ -829,28 +907,32 @@ export function Composer({
     submittingRef.current = true;
     setSubmitting(true);
     try {
-    const orderedAttachments = sortComposerAttachments(attachments);
-    const refs = [
-      ...workspaceRefs.map((ref) => formatWorkspaceReference(ref.path, ref.isDir)),
-      ...orderedAttachments.map((a) => `@${a.path}`),
-    ].join(" ");
-    const displayRefs = [
-      ...workspaceRefs.map((ref) => formatWorkspaceReference(ref.path, ref.isDir)),
-      ...orderedAttachments.map(formatAttachmentDisplayReference),
-    ].join(" ");
-    const displayText = [trimmedText, displayRefs].filter(Boolean).join(trimmedText && displayRefs ? " " : "");
-    // PR-B: when past:chats refs are attached, prepend their formatted transcript
-    // to submitText only (displayText stays unchanged so the user still sees their
-    // original prompt in the input preview). With no refs we keep the original
-    // submitText verbatim — no header, no rewording, byte-identical to pre-PR-B.
-    const sessionContext = sessionRefs.length === 0 ? "" : await buildSessionContext(sessionRefs);
-    const baseSubmitText = [expandPastedBlocks(trimmedText), refs].filter(Boolean).join(trimmedText && refs ? " " : "");
-    const submitText = sessionContext ? `${sessionContext}${baseSubmitText}` : baseSubmitText;
-    onSend(displayText, submitText);
-    setText("");
-    clearAttachments();
-    setWorkspaceRefs([]);
-    setSessionRefs([]);
+      const orderedAttachments = sortComposerAttachments(attachments);
+      const refs = [
+        ...workspaceRefs.map((ref) => formatWorkspaceReference(ref.path, ref.isDir)),
+        ...orderedAttachments.map((a) => `@${a.path}`),
+      ].join(' ');
+      const displayRefs = [
+        ...workspaceRefs.map((ref) => formatWorkspaceReference(ref.path, ref.isDir)),
+        ...orderedAttachments.map(formatAttachmentDisplayReference),
+      ].join(' ');
+      const displayText = [trimmedText, displayRefs]
+        .filter(Boolean)
+        .join(trimmedText && displayRefs ? ' ' : '');
+      // PR-B: when past:chats refs are attached, prepend their formatted transcript
+      // to submitText only (displayText stays unchanged so the user still sees their
+      // original prompt in the input preview). With no refs we keep the original
+      // submitText verbatim — no header, no rewording, byte-identical to pre-PR-B.
+      const sessionContext = sessionRefs.length === 0 ? '' : await buildSessionContext(sessionRefs);
+      const baseSubmitText = [expandPastedBlocks(trimmedText), refs]
+        .filter(Boolean)
+        .join(trimmedText && refs ? ' ' : '');
+      const submitText = sessionContext ? `${sessionContext}${baseSubmitText}` : baseSubmitText;
+      onSend(displayText, submitText);
+      setText('');
+      clearAttachments();
+      setWorkspaceRefs([]);
+      setSessionRefs([]);
     } finally {
       submittingRef.current = false;
       setSubmitting(false);
@@ -866,7 +948,7 @@ export function Composer({
     });
 
   const attachImageFiles = async (files: File[]) => {
-    const images = files.filter((f) => f.type.startsWith("image/"));
+    const images = files.filter((f) => f.type.startsWith('image/'));
     if (images.length === 0) return;
     for (const file of images) {
       setPendingPaste((n) => n + 1);
@@ -879,8 +961,8 @@ export function Composer({
         rememberAttachment(path, key);
         setAttachments((prev) => [...prev, { path, previewUrl, displayName: file.name }]);
       } catch (error) {
-        console.warn("[composer] failed to attach pasted image", error);
-        showToast(t("composer.attachImageFailed"), "warn");
+        console.warn('[composer] failed to attach pasted image', error);
+        showToast(t('composer.attachImageFailed'), 'warn');
         // non-fatal: a failed image attach must not block normal text input
       } finally {
         setPendingPaste((n) => Math.max(0, n - 1));
@@ -891,7 +973,7 @@ export function Composer({
   // Non-image pastes (PDFs, docs): the clipboard hands us bytes, not a path, so
   // the kernel stores them and we reference the saved path — attached, not ignored.
   const attachOtherFiles = async (files: File[]) => {
-    const others = files.filter((f) => !f.type.startsWith("image/"));
+    const others = files.filter((f) => !f.type.startsWith('image/'));
     if (others.length === 0) return;
     for (const file of others) {
       setPendingPaste((n) => n + 1);
@@ -925,8 +1007,8 @@ export function Composer({
       rememberAttachment(path, key);
       setAttachments((prev) => [...prev, { path, previewUrl }]);
     } catch (error) {
-      console.warn("[composer] failed to read native clipboard image", error);
-      if (notifyOnError) showToast(t("composer.pasteImageFailed"), "warn");
+      console.warn('[composer] failed to read native clipboard image', error);
+      if (notifyOnError) showToast(t('composer.pasteImageFailed'), 'warn');
     } finally {
       setPendingPaste((n) => Math.max(0, n - 1));
     }
@@ -940,14 +1022,17 @@ export function Composer({
     for (const path of paths) {
       setPendingPaste((n) => n + 1);
       try {
-        const key = { hash: "", source: `path:${path}` };
+        const key = { hash: '', source: `path:${path}` };
         if (attachmentDedupRef.current.seen(key.hash, key.source)) continue;
         const item = await app.AttachDropped(path);
-        if (item.kind === "workspace") {
+        if (item.kind === 'workspace') {
           addWorkspaceReference({ path: item.path, isDir: item.isDir });
         } else {
           rememberAttachment(item.path, key);
-          setAttachments((prev) => [...prev, { path: item.path, previewUrl: item.previewUrl, displayName: baseName(path) }]);
+          setAttachments((prev) => [
+            ...prev,
+            { path: item.path, previewUrl: item.previewUrl, displayName: baseName(path) },
+          ]);
         }
       } catch {
         // non-fatal: a failed drop attach must not block normal text input
@@ -970,9 +1055,9 @@ export function Composer({
       return;
     }
 
-    const pasted = e.clipboardData.getData("text");
+    const pasted = e.clipboardData.getData('text');
     const hasImageHint = clipboardHasImageHint(e.clipboardData);
-    if (hasImageHint || pasted === "") {
+    if (hasImageHint || pasted === '') {
       e.preventDefault();
       void attachNativeClipboardImage(hasImageHint);
       return;
@@ -985,7 +1070,7 @@ export function Composer({
     const end = ta.selectionEnd ?? text.length;
     const id = nextPasteId.current++;
     const lines = lineCount(pasted);
-    const label = t("composer.pastedLabel", { id, lines });
+    const label = t('composer.pastedLabel', { id, lines });
     const block: PastedBlock = { label, text: pasted };
     const next = text.slice(0, start) + label + text.slice(end);
 
@@ -1005,14 +1090,17 @@ export function Composer({
     Array.from(dataTransfer.types).includes(WORKSPACE_REF_DRAG_TYPE);
 
   const hasFileDrag = (dataTransfer: DataTransfer): boolean =>
-    Array.from(dataTransfer.items).some((it) => it.kind === "file") || dataTransfer.files.length > 0;
+    Array.from(dataTransfer.items).some((it) => it.kind === 'file') ||
+    dataTransfer.files.length > 0;
 
   const fileDragItems = (dataTransfer: DataTransfer): DataTransferItem[] =>
-    Array.from(dataTransfer.items).filter((item) => item.kind === "file");
+    Array.from(dataTransfer.items).filter((item) => item.kind === 'file');
 
   const getWebkitFileEntry = (item: DataTransferItem): WebkitFileEntry | null => {
-    const getAsEntry = (item as DataTransferItem & { webkitGetAsEntry?: () => WebkitFileEntry | null }).webkitGetAsEntry;
-    return typeof getAsEntry === "function" ? getAsEntry.call(item) : null;
+    const getAsEntry = (
+      item as DataTransferItem & { webkitGetAsEntry?: () => WebkitFileEntry | null }
+    ).webkitGetAsEntry;
+    return typeof getAsEntry === 'function' ? getAsEntry.call(item) : null;
   };
 
   const hasPathlessFileDrop = (dataTransfer: DataTransfer): boolean => {
@@ -1022,7 +1110,9 @@ export function Composer({
   };
 
   const clearWailsDropTarget = () => {
-    document.querySelectorAll(".wails-drop-target-active").forEach((el) => el.classList.remove("wails-drop-target-active"));
+    document
+      .querySelectorAll('.wails-drop-target-active')
+      .forEach((el) => el.classList.remove('wails-drop-target-active'));
   };
 
   const stopNativeFileDrop = (e: DragEvent<HTMLDivElement>) => {
@@ -1033,7 +1123,12 @@ export function Composer({
   };
 
   const onFileDropCapture = (e: DragEvent<HTMLDivElement>) => {
-    if (hasWorkspaceReferenceDrag(e.dataTransfer) || !hasFileDrag(e.dataTransfer) || !hasPathlessFileDrop(e.dataTransfer)) return;
+    if (
+      hasWorkspaceReferenceDrag(e.dataTransfer) ||
+      !hasFileDrag(e.dataTransfer) ||
+      !hasPathlessFileDrop(e.dataTransfer)
+    )
+      return;
     const files = Array.from(e.dataTransfer.files);
     if (files.length === 0) return;
     stopNativeFileDrop(e);
@@ -1058,7 +1153,7 @@ export function Composer({
   const onDragOver = (e: DragEvent<HTMLDivElement>) => {
     if (!hasWorkspaceReferenceDrag(e.dataTransfer) && !hasFileDrag(e.dataTransfer)) return;
     e.preventDefault(); // required for the drop event to fire
-    e.dataTransfer.dropEffect = "copy";
+    e.dataTransfer.dropEffect = 'copy';
     setDragOver(true);
   };
 
@@ -1068,13 +1163,13 @@ export function Composer({
   // replied, the just-sent text is handed back so we drop it back into the input.
   const handleCancel = () => {
     const restored = onCancel();
-    if (typeof restored === "string") setTextCaretEnd(restored);
+    if (typeof restored === 'string') setTextCaretEnd(restored);
   };
 
-  const pickCommand = (c: CommandInfo) => setTextCaretEnd("/" + c.name + " ");
+  const pickCommand = (c: CommandInfo) => setTextCaretEnd('/' + c.name + ' ');
 
   const activePastedBlocks = pastedBlocks.filter((block) => text.includes(block.label));
-  const shellModeActive = text.trimStart().startsWith("!");
+  const shellModeActive = text.trimStart().startsWith('!');
 
   const removeWorkspaceReference = (target: WorkspaceReference) => {
     const key = workspaceReferenceKey(target);
@@ -1083,11 +1178,13 @@ export function Composer({
   };
 
   const togglePastedPreview = (label: string) => {
-    setOpenPastedLabels((prev) => (prev.includes(label) ? prev.filter((x) => x !== label) : [...prev, label]));
+    setOpenPastedLabels((prev) =>
+      prev.includes(label) ? prev.filter((x) => x !== label) : [...prev, label],
+    );
   };
 
   const removePastedBlock = (block: PastedBlock) => {
-    const next = text.split(block.label).join("");
+    const next = text.split(block.label).join('');
     pastedBlocksRef.current = pastedBlocksRef.current.filter((x) => x.label !== block.label);
     setPastedBlocks((prev) => prev.filter((x) => x.label !== block.label));
     setOpenPastedLabels((prev) => prev.filter((x) => x !== block.label));
@@ -1103,9 +1200,10 @@ export function Composer({
   };
 
   useEffect(() => {
-    const onResize = () => setComposerHeight((height) => (height === null ? null : clampComposerHeight(height)));
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
+    const onResize = () =>
+      setComposerHeight((height) => (height === null ? null : clampComposerHeight(height)));
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
   }, []);
 
   const measureTextareaAutoHeight = useCallback(() => {
@@ -1117,7 +1215,7 @@ export function Composer({
     const node = taRef.current;
     if (!node) return;
     const previousHeight = node.style.height;
-    node.style.height = "auto";
+    node.style.height = 'auto';
     const maxHeight = composerAutoInputMaxHeight();
     const nextHeight = Math.min(node.scrollHeight, maxHeight);
     const nextOverflow = node.scrollHeight > maxHeight + 1;
@@ -1140,23 +1238,26 @@ export function Composer({
         measureTextareaAutoHeight();
       });
     };
-    window.addEventListener("resize", update);
+    window.addEventListener('resize', update);
     const observer = new MutationObserver(update);
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-text-size"] });
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-text-size'],
+    });
     return () => {
       if (frame) window.cancelAnimationFrame(frame);
-      window.removeEventListener("resize", update);
+      window.removeEventListener('resize', update);
       observer.disconnect();
     };
   }, [composerHeight, measureTextareaAutoHeight]);
 
   const saveComposerHeight = (height: number) => {
-    saveLayoutSize("composerHeight", height, clampComposerHeight);
+    saveLayoutSize('composerHeight', height, clampComposerHeight);
   };
 
   const resetComposerHeight = () => {
     setComposerHeight(null);
-    clearLayoutSize("composerHeight");
+    clearLayoutSize('composerHeight');
   };
 
   const onComposerResizeStart = (e: ReactPointerEvent<HTMLButtonElement>) => {
@@ -1170,7 +1271,7 @@ export function Composer({
     let nextHeight = clampComposerHeight(startHeight);
     let moved = false;
     setComposerResizing(true);
-    document.body.classList.add("composer-resizing");
+    document.body.classList.add('composer-resizing');
 
     const onMove = (event: PointerEvent) => {
       moved = true;
@@ -1179,16 +1280,16 @@ export function Composer({
     };
     const onUp = () => {
       setComposerResizing(false);
-      document.body.classList.remove("composer-resizing");
+      document.body.classList.remove('composer-resizing');
       if (moved) saveComposerHeight(nextHeight);
-      document.removeEventListener("pointermove", onMove);
-      document.removeEventListener("pointerup", onUp);
-      document.removeEventListener("pointercancel", onUp);
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onUp);
+      document.removeEventListener('pointercancel', onUp);
     };
 
-    document.addEventListener("pointermove", onMove);
-    document.addEventListener("pointerup", onUp);
-    document.addEventListener("pointercancel", onUp);
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+    document.addEventListener('pointercancel', onUp);
   };
 
   const onComposerResizeKeyDown = (e: KeyboardEvent<HTMLButtonElement>) => {
@@ -1196,10 +1297,10 @@ export function Composer({
     const current = composerHeight ?? card?.getBoundingClientRect().height ?? COMPOSER_MIN_HEIGHT;
     const step = e.shiftKey ? 32 : 16;
     let next: number | null = null;
-    if (e.key === "ArrowUp" || e.key === "PageUp") next = current + step;
-    else if (e.key === "ArrowDown" || e.key === "PageDown") next = current - step;
-    else if (e.key === "Home") next = COMPOSER_MIN_HEIGHT;
-    else if (e.key === "End") next = composerMaxHeight();
+    if (e.key === 'ArrowUp' || e.key === 'PageUp') next = current + step;
+    else if (e.key === 'ArrowDown' || e.key === 'PageDown') next = current - step;
+    else if (e.key === 'Home') next = COMPOSER_MIN_HEIGHT;
+    else if (e.key === 'End') next = composerMaxHeight();
     if (next === null) return;
     e.preventDefault();
     const height = clampComposerHeight(next);
@@ -1211,7 +1312,7 @@ export function Composer({
     const atPos = text.length - (atRaw?.length ?? 0) - 1; // index of '@'
     const prefix = text.slice(0, atPos);
     // A directory keeps the menu open (trailing "/"); a file completes it (space).
-    setTextCaretEnd(prefix + "@" + atDir + e.name + (e.isDir ? "/" : " "));
+    setTextCaretEnd(prefix + '@' + atDir + e.name + (e.isDir ? '/' : ' '));
   };
 
   // --- past:chats session reference ---
@@ -1219,7 +1320,7 @@ export function Composer({
     const snapshotCwd = cwdRef.current;
     setShowPastChats(true);
     setActive(0);
-    setPastChatQuery("");
+    setPastChatQuery('');
     setLoadingPastChats(true);
     try {
       const sessions = await app.ListSessions();
@@ -1250,23 +1351,15 @@ export function Composer({
     const q = pastChatQuery.trim().toLowerCase();
     if (!q) return pastChats;
     return pastChats.filter((session) =>
-      [
-        session.title,
-        session.topicTitle,
-        session.preview,
-        session.path,
-        session.workspaceRoot,
-      ]
-        .map((value) => String(value ?? "").toLowerCase())
+      [session.title, session.topicTitle, session.preview, session.path, session.workspaceRoot]
+        .map((value) => String(value ?? '').toLowerCase())
         .some((value) => value.includes(q)),
     );
   }, [pastChats, pastChatQuery]);
 
   // Final menu item count: when the past:chats list is open, count the
   // filtered sessions instead of file entries + the "past:chats" row.
-  const count = menuMode === "at" && showPastChats
-    ? filteredPastChats.length
-    : countBase;
+  const count = menuMode === 'at' && showPastChats ? filteredPastChats.length : countBase;
 
   // Clamp active index when the menu item count changes (e.g. switching
   // between file list and past:chats list, or filtering sessions).
@@ -1275,9 +1368,8 @@ export function Composer({
     setActive((prev) => (prev > maxIdx ? 0 : prev));
   }, [count]);
 
-
   const removeAtToken = (value: string) => {
-    return value.replace(/(?:^|\s)@[^\s]*$/, "").trimEnd();
+    return value.replace(/(?:^|\s)@[^\s]*$/, '').trimEnd();
   };
 
   const pickSession = (session: SessionMeta) => {
@@ -1289,7 +1381,7 @@ export function Composer({
         ...prev,
         {
           path: session.path,
-          title: session.title || session.topicTitle || session.preview || "Untitled",
+          title: session.title || session.topicTitle || session.preview || 'Untitled',
           preview: session.preview,
           turns: session.turns,
           createdAt: session.createdAt,
@@ -1298,16 +1390,13 @@ export function Composer({
       ];
     });
     setText((prev) => removeAtToken(prev));
-    setPastChatQuery("");
+    setPastChatQuery('');
     setShowPastChats(false);
     setActive(0);
     // Return focus to textarea so the user can keep typing immediately.
     requestAnimationFrame(() => {
       taRef.current?.focus();
-      taRef.current?.setSelectionRange(
-        taRef.current.value.length,
-        taRef.current.value.length,
-      );
+      taRef.current?.setSelectionRange(taRef.current.value.length, taRef.current.value.length);
     });
   };
 
@@ -1324,17 +1413,17 @@ export function Composer({
   };
 
   const pickActive = () => {
-    if (menuMode === "slash") {
+    if (menuMode === 'slash') {
       const item = slashMatches[active];
       if (item) pickCommand(item);
       return;
     }
-    if (menuMode === "slasharg" && argRes) {
+    if (menuMode === 'slasharg' && argRes) {
       const item = argRes.items[active];
       if (item) pickArg(item);
       return;
     }
-    if (menuMode === "at") {
+    if (menuMode === 'at') {
       if (showPastChats) {
         const session = filteredPastChats[active];
         if (session) pickSession(session);
@@ -1342,7 +1431,7 @@ export function Composer({
       }
       const item = atMenuItems[active];
       if (!item) return;
-      if (item.kind === "pastChats") {
+      if (item.kind === 'pastChats') {
         void openPastChats();
         return;
       }
@@ -1352,7 +1441,7 @@ export function Composer({
 
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     const composing = isImeKeyEvent(e, composingRef.current, lastCompositionEndAt.current);
-    if (e.key === "Enter" && composing) return;
+    if (e.key === 'Enter' && composing) return;
 
     if (isPasteShortcut(e) && !composing) {
       clearNativeClipboardPasteTimer();
@@ -1364,7 +1453,7 @@ export function Composer({
 
     // Shift+Tab toggles plan mode only. Tool access is deliberately changed via
     // the access menu so keyboard cycling never crosses a permission boundary.
-    if (e.key === "Tab" && e.shiftKey && !composing) {
+    if (e.key === 'Tab' && e.shiftKey && !composing) {
       e.preventDefault();
       onCycleMode();
       return;
@@ -1377,25 +1466,25 @@ export function Composer({
     }
 
     if (menuMode && !composing) {
-      if (e.key === "ArrowDown" && count > 0) {
+      if (e.key === 'ArrowDown' && count > 0) {
         e.preventDefault();
         setActive((i) => (i + 1) % count);
         return;
       }
-      if (e.key === "ArrowUp" && count > 0) {
+      if (e.key === 'ArrowUp' && count > 0) {
         e.preventDefault();
         setActive((i) => (i - 1 + count) % count);
         return;
       }
-      if (e.key === "Enter" || e.key === "Tab") {
+      if (e.key === 'Enter' || e.key === 'Tab') {
         e.preventDefault();
         pickActive();
         return;
       }
-      if (e.key === "Escape") {
+      if (e.key === 'Escape') {
         e.preventDefault();
         if (showPastChats) {
-          setPastChatQuery("");
+          setPastChatQuery('');
           setShowPastChats(false);
           setActive(0);
         } else {
@@ -1406,13 +1495,13 @@ export function Composer({
     }
 
     // Enter sends; Shift+Enter newline. `composing` guards IME confirms.
-    if (e.key === "Enter" && !e.shiftKey && !composing) {
+    if (e.key === 'Enter' && !e.shiftKey && !composing) {
       e.preventDefault();
       submit();
     }
     // Esc interrupts the in-flight turn (matches the Stop button's hint), and
     // restores the text if the server hadn't replied yet.
-    if (e.key === "Escape" && running && !decisionPending) {
+    if (e.key === 'Escape' && running && !decisionPending) {
       e.preventDefault();
       handleCancel();
     }
@@ -1424,28 +1513,42 @@ export function Composer({
   // menu logic. Regular typing keys (letters, Backspace, etc.) pass through
   // so the user can type a search query.
   const onPastChatSearchKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Enter" || e.key === "Tab" || e.key === "Escape") {
+    if (
+      e.key === 'ArrowDown' ||
+      e.key === 'ArrowUp' ||
+      e.key === 'Enter' ||
+      e.key === 'Tab' ||
+      e.key === 'Escape'
+    ) {
       e.preventDefault();
       e.stopPropagation();
-      if (e.key === "ArrowDown" && count > 0) {
+      if (e.key === 'ArrowDown' && count > 0) {
         setActive((i) => (i + 1) % count);
-      } else if (e.key === "ArrowUp" && count > 0) {
+      } else if (e.key === 'ArrowUp' && count > 0) {
         setActive((i) => (i - 1 + count) % count);
-      } else if (e.key === "Enter" || e.key === "Tab") {
+      } else if (e.key === 'Enter' || e.key === 'Tab') {
         pickActive();
-      } else if (e.key === "Escape") {
-        setPastChatQuery("");
+      } else if (e.key === 'Escape') {
+        setPastChatQuery('');
         setShowPastChats(false);
         setActive(0);
       }
     }
   };
 
-  const composerCardStyle = composerHeight === null ? undefined : ({ "--composer-height": `${composerHeight}px` } as CSSProperties);
-  const textareaStyle = composerHeight === null && textareaAutoHeight !== null
-    ? ({ height: `${textareaAutoHeight}px`, overflowY: textareaAutoOverflow ? "auto" : "hidden" } as CSSProperties)
-    : undefined;
-  const composerAutoExpanded = composerHeight === null && textareaAutoHeight !== null && textareaAutoHeight > 40;
+  const composerCardStyle =
+    composerHeight === null
+      ? undefined
+      : ({ '--composer-height': `${composerHeight}px` } as CSSProperties);
+  const textareaStyle =
+    composerHeight === null && textareaAutoHeight !== null
+      ? ({
+          height: `${textareaAutoHeight}px`,
+          overflowY: textareaAutoOverflow ? 'auto' : 'hidden',
+        } as CSSProperties)
+      : undefined;
+  const composerAutoExpanded =
+    composerHeight === null && textareaAutoHeight !== null && textareaAutoHeight > 40;
   const draftGoal = text.trim();
   void onSetMode;
   const chooseApprovalMode = (nextMode: ToolApprovalMode) => {
@@ -1454,7 +1557,7 @@ export function Composer({
   };
   const choosePlanMode = () => {
     closeIntentMenu(() => {
-      onSetCollaborationMode(planModeOn ? "normal" : "plan");
+      onSetCollaborationMode(planModeOn ? 'normal' : 'plan');
       requestAnimationFrame(() => taRef.current?.focus());
     });
   };
@@ -1469,18 +1572,18 @@ export function Composer({
     if (draftGoal) {
       closeIntentMenu(() => {
         onSetGoal(draftGoal);
-        setText("");
+        setText('');
         requestAnimationFrame(() => taRef.current?.focus());
       });
       return;
     }
     closeIntentMenu(() => {
-      onSetCollaborationMode("goal");
+      onSetCollaborationMode('goal');
       requestAnimationFrame(() => taRef.current?.focus());
     });
   };
   const effortLevels = asArray(effort?.levels);
-  const currentEffort = effort?.current || "auto";
+  const currentEffort = effort?.current || 'auto';
   const hasEffort = Boolean(effort?.supported && effortLevels.length > 0);
   const chooseEffortLevel = (level: string) => {
     closeMoreMenu(() => {
@@ -1489,26 +1592,29 @@ export function Composer({
     });
   };
   const runActivity = retry
-    ? t("status.retrying", { attempt: retry.attempt, max: retry.max })
+    ? t('status.retrying', { attempt: retry.attempt, max: retry.max })
     : running && turnStartAt
       ? (() => {
           const elapsedMs = Math.max(0, now - turnStartAt);
           const words = SPINNER_WORDS[locale];
           const word = words[Math.floor(elapsedMs / 3000) % words.length];
-          const tok = turnTokens && turnTokens > 0 ? ` · ↓ ${fmtTokens(turnTokens)} ${t("status.tokens")}` : "";
+          const tok =
+            turnTokens && turnTokens > 0
+              ? ` · ↓ ${fmtTokens(turnTokens)} ${t('status.tokens')}`
+              : '';
           return `${word}… ${fmtElapsed(elapsedMs)}${tok}`;
         })()
       : null;
   const composerMetaClass = [
-    "composer-meta",
-    hasEffort ? "composer-meta--has-effort" : "composer-meta--no-effort",
-    planModeOn || goalModeOn ? "composer-meta--has-intent-chip" : "composer-meta--no-intent-chip",
-  ].join(" ");
+    'composer-meta',
+    hasEffort ? 'composer-meta--has-effort' : 'composer-meta--no-effort',
+    planModeOn || goalModeOn ? 'composer-meta--has-intent-chip' : 'composer-meta--no-intent-chip',
+  ].join(' ');
 
   return (
     <div
-      className={`composer-wrap${decisionPending ? " composer-wrap--decision-pending" : ""}`}
-      style={{ "--wails-drop-target": "drop" } as CSSProperties}
+      className={`composer-wrap${decisionPending ? ' composer-wrap--decision-pending' : ''}`}
+      style={{ '--wails-drop-target': 'drop' } as CSSProperties}
       onDropCapture={onFileDropCapture}
     >
       <AnchoredPopover
@@ -1520,36 +1626,50 @@ export function Composer({
         align="start"
       >
         <div className="composer-access-menu__section">
-          <div className="composer-access-menu__label">{t("composer.intentMenuTitle")}</div>
+          <div className="composer-access-menu__label">{t('composer.intentMenuTitle')}</div>
           <button
             type="button"
-            className={`composer-access-menu__item composer-intent-menu__item${planModeOn ? " composer-access-menu__item--active" : ""}`}
+            className={`composer-access-menu__item composer-intent-menu__item${planModeOn ? ' composer-access-menu__item--active' : ''}`}
             onClick={choosePlanMode}
             disabled={disabled || running}
-            title={planModeOn ? t("composer.exitPlanTitle") : t("composer.enterPlanTitle")}
+            title={planModeOn ? t('composer.exitPlanTitle') : t('composer.enterPlanTitle')}
           >
             <List size={16} />
             <span className="composer-access-menu__copy">
-              <span className="composer-access-menu__title">{t("composer.modePlan")}</span>
-              <span className="composer-access-menu__desc">{t("composer.planModeDesc")}</span>
+              <span className="composer-access-menu__title">{t('composer.modePlan')}</span>
+              <span className="composer-access-menu__desc">{t('composer.planModeDesc')}</span>
             </span>
-            <span className={`composer-intent-switch${planModeOn ? " composer-intent-switch--on" : ""}`} aria-hidden="true">
+            <span
+              className={`composer-intent-switch${planModeOn ? ' composer-intent-switch--on' : ''}`}
+              aria-hidden="true"
+            >
               <span />
             </span>
           </button>
           <button
             type="button"
-            className={`composer-access-menu__item composer-intent-menu__item${goalModeOn ? " composer-access-menu__item--active" : ""}`}
+            className={`composer-access-menu__item composer-intent-menu__item${goalModeOn ? ' composer-access-menu__item--active' : ''}`}
             onClick={chooseGoalMode}
             disabled={disabled || running}
-            title={goalModeOn ? activeGoal || t("composer.goalModeActiveDesc") : t("composer.goalModeDesc")}
+            title={
+              goalModeOn
+                ? activeGoal || t('composer.goalModeActiveDesc')
+                : t('composer.goalModeDesc')
+            }
           >
             <Target size={16} />
             <span className="composer-access-menu__copy">
-              <span className="composer-access-menu__title">{t("composer.modeGoal")}</span>
-              <span className="composer-access-menu__desc">{goalModeOn ? activeGoal || t("composer.goalModeActiveDesc") : t("composer.goalModeDesc")}</span>
+              <span className="composer-access-menu__title">{t('composer.modeGoal')}</span>
+              <span className="composer-access-menu__desc">
+                {goalModeOn
+                  ? activeGoal || t('composer.goalModeActiveDesc')
+                  : t('composer.goalModeDesc')}
+              </span>
             </span>
-            <span className={`composer-intent-switch${goalModeOn ? " composer-intent-switch--on" : ""}`} aria-hidden="true">
+            <span
+              className={`composer-intent-switch${goalModeOn ? ' composer-intent-switch--on' : ''}`}
+              aria-hidden="true"
+            >
               <span />
             </span>
           </button>
@@ -1565,15 +1685,19 @@ export function Composer({
       >
         {hasEffort && (
           <div className="composer-access-menu__section">
-            <div className="composer-access-menu__label">{t("status.effortTitle")}</div>
-            <div className="composer-more-menu__items" role="listbox" aria-label={t("status.effortTitle")}>
+            <div className="composer-access-menu__label">{t('status.effortTitle')}</div>
+            <div
+              className="composer-more-menu__items"
+              role="listbox"
+              aria-label={t('status.effortTitle')}
+            >
               {effortLevels.map((level) => (
                 <button
                   key={level}
                   type="button"
                   role="option"
                   aria-selected={level === currentEffort}
-                  className={`composer-more-menu__item${level === currentEffort ? " composer-more-menu__item--active" : ""}`}
+                  className={`composer-more-menu__item${level === currentEffort ? ' composer-more-menu__item--active' : ''}`}
                   onClick={() => chooseEffortLevel(level)}
                   disabled={running}
                 >
@@ -1586,14 +1710,19 @@ export function Composer({
           </div>
         )}
       </AnchoredPopover>
-      {menuMode === "slash" && (
-        <SlashMenu items={slashMatches} activeIndex={active} onPick={pickCommand} onHover={setActive} />
+      {menuMode === 'slash' && (
+        <SlashMenu
+          items={slashMatches}
+          activeIndex={active}
+          onPick={pickCommand}
+          onHover={setActive}
+        />
       )}
-      {menuMode === "slasharg" && argRes && (
+      {menuMode === 'slasharg' && argRes && (
         <ArgMenu items={argRes.items} activeIndex={active} onPick={pickArg} onHover={setActive} />
       )}
-      {menuMode === "at" && (
-        showPastChats ? (
+      {menuMode === 'at' &&
+        (showPastChats ? (
           <div className="slashmenu" role="listbox">
             {loadingPastChats ? (
               <div className="slashmenu__item slashmenu__item--empty">
@@ -1605,7 +1734,10 @@ export function Composer({
               </div>
             ) : (
               <>
-                <div className="slashmenu__item slashmenu__item--search" onMouseDown={(ev) => ev.preventDefault()}>
+                <div
+                  className="slashmenu__item slashmenu__item--search"
+                  onMouseDown={(ev) => ev.preventDefault()}
+                >
                   <Search size={13} className="filemenu__icon" />
                   <input
                     className="slashmenu__search"
@@ -1629,7 +1761,7 @@ export function Composer({
                     // PR-C2: hover preview uses only the SessionMeta fields we
                     // already have on hand — no extra PreviewSession call, no
                     // backend round-trip, no read of the full transcript.
-                    const turns = typeof session.turns === "number";
+                    const turns = typeof session.turns === 'number';
                     const ts = session.lastActivityAt || session.modTime || session.createdAt;
                     const preview = truncatePreview(session.preview);
                     const pathText = session.workspaceRoot || session.path;
@@ -1650,7 +1782,7 @@ export function Composer({
                     return (
                       <Tooltip key={session.path} block label={tooltipLabel}>
                         <button
-                          className={`slashmenu__item ${i === active ? "slashmenu__item--active" : ""}`}
+                          className={`slashmenu__item ${i === active ? 'slashmenu__item--active' : ''}`}
                           onMouseDown={(ev) => {
                             ev.preventDefault();
                             pickSession(session);
@@ -1660,7 +1792,7 @@ export function Composer({
                           <MessageSquare size={13} className="filemenu__icon" />
                           <span className="slashmenu__name slashmenu__name--file">
                             {pastChatTitle(session)}
-                            {turns ? ` (${session.turns} 轮)` : ""}
+                            {turns ? ` (${session.turns} 轮)` : ''}
                           </span>
                         </button>
                       </Tooltip>
@@ -1673,7 +1805,7 @@ export function Composer({
               className="slashmenu__item slashmenu__item--back"
               onMouseDown={(ev) => {
                 ev.preventDefault();
-                setPastChatQuery("");
+                setPastChatQuery('');
                 setShowPastChats(false);
                 setActive(0);
               }}
@@ -1685,11 +1817,15 @@ export function Composer({
           <VirtualMenu
             items={atMenuItems}
             activeIndex={active}
-            itemKey={(it) => (it.kind === "pastChats" ? "past:chats" : (it.entry.isDir ? "d:" : "f:") + it.entry.name)}
+            itemKey={(it) =>
+              it.kind === 'pastChats'
+                ? 'past:chats'
+                : (it.entry.isDir ? 'd:' : 'f:') + it.entry.name
+            }
             renderItem={(it, i) =>
-              it.kind === "pastChats" ? (
+              it.kind === 'pastChats' ? (
                 <button
-                  className={`slashmenu__item${i === active ? " slashmenu__item--active" : ""}`}
+                  className={`slashmenu__item${i === active ? ' slashmenu__item--active' : ''}`}
                   onMouseDown={(ev) => {
                     ev.preventDefault();
                     void openPastChats();
@@ -1703,7 +1839,7 @@ export function Composer({
                 <button
                   role="option"
                   aria-selected={i === active}
-                  className={`slashmenu__item ${i === active ? "slashmenu__item--active" : ""}`}
+                  className={`slashmenu__item ${i === active ? 'slashmenu__item--active' : ''}`}
                   onMouseDown={(ev) => {
                     ev.preventDefault();
                     pickEntry(it.entry);
@@ -1717,71 +1853,84 @@ export function Composer({
                   )}
                   <span className="slashmenu__name slashmenu__name--file">
                     {it.entry.name}
-                    {it.entry.isDir ? "/" : ""}
+                    {it.entry.isDir ? '/' : ''}
                   </span>
                 </button>
               )
             }
           />
-        )
-      )}
+        ))}
       {runActivity && (
         <div className="composer-toolbar composer-toolbar--status-only">
           <div className="composer-runstatus" role="status" aria-live="polite">
             <span className="composer-runstatus__dot" />
             <span className="composer-runstatus__text">{runActivity}</span>
-            <Tooltip label={t("composer.stop")}>
-              <button className="composer-runstatus__stop" type="button" onClick={handleCancel} disabled={decisionPending}>
+            <Tooltip label={t('composer.stop')}>
+              <button
+                className="composer-runstatus__stop"
+                type="button"
+                onClick={handleCancel}
+                disabled={decisionPending}
+              >
                 <Square size={10} fill="currentColor" />
-                <span>{t("composer.stopShort")}</span>
+                <span>{t('composer.stopShort')}</span>
               </button>
             </Tooltip>
           </div>
         </div>
       )}
       {(attachments.length > 0 || workspaceRefs.length > 0 || sessionRefs.length > 0) && (
-        <div className="composer-context" aria-label={t("composer.contextItems")}>
+        <div className="composer-context" aria-label={t('composer.contextItems')}>
           {sortComposerAttachments(attachments).map((a) => {
-            const imageOnly = Boolean(a.previewUrl) && attachments.every((item) => item.previewUrl) && workspaceRefs.length === 0 && sessionRefs.length === 0;
+            const imageOnly =
+              Boolean(a.previewUrl) &&
+              attachments.every((item) => item.previewUrl) &&
+              workspaceRefs.length === 0 &&
+              sessionRefs.length === 0;
             return (
-            <div
-              className={`composer-context__item${a.previewUrl ? " composer-context__item--image" : " composer-context__item--attachment"}${imageOnly ? " composer-context__item--image-only" : ""}`}
-              key={a.path}
-            >
-              <Tooltip label={a.path}>
-                <span className="composer-context__label">
-                  {a.previewUrl ? (
-                    <span className="composer-context__thumb">
-                      <img src={a.previewUrl} alt="" draggable={false} />
-                    </span>
-                  ) : (
-                    <>
-                      <span className="composer-context__fileicon">
-                        <FileText size={20} />
+              <div
+                className={`composer-context__item${a.previewUrl ? ' composer-context__item--image' : ' composer-context__item--attachment'}${imageOnly ? ' composer-context__item--image-only' : ''}`}
+                key={a.path}
+              >
+                <Tooltip label={a.path}>
+                  <span className="composer-context__label">
+                    {a.previewUrl ? (
+                      <span className="composer-context__thumb">
+                        <img src={a.previewUrl} alt="" draggable={false} />
                       </span>
-                      <span className="composer-context__main">
-                        <span className="composer-context__name">{attachmentName(a)}</span>
-                        <span className="composer-context__meta">{attachmentExt(attachmentName(a)) || t("msg.fileAttachment")}</span>
-                      </span>
-                    </>
-                  )}
-                </span>
-              </Tooltip>
-              <Tooltip label={t("composer.removeImage")} className="composer-context__remove-trigger">
-                <button
-                  className="composer-context__remove"
-                  type="button"
-                  onClick={() => removeAttachment(a.path)}
+                    ) : (
+                      <>
+                        <span className="composer-context__fileicon">
+                          <FileText size={20} />
+                        </span>
+                        <span className="composer-context__main">
+                          <span className="composer-context__name">{attachmentName(a)}</span>
+                          <span className="composer-context__meta">
+                            {attachmentExt(attachmentName(a)) || t('msg.fileAttachment')}
+                          </span>
+                        </span>
+                      </>
+                    )}
+                  </span>
+                </Tooltip>
+                <Tooltip
+                  label={t('composer.removeImage')}
+                  className="composer-context__remove-trigger"
                 >
-                  <X size={14} />
-                </button>
-              </Tooltip>
-            </div>
+                  <button
+                    className="composer-context__remove"
+                    type="button"
+                    onClick={() => removeAttachment(a.path)}
+                  >
+                    <X size={14} />
+                  </button>
+                </Tooltip>
+              </div>
             );
           })}
           {workspaceRefs.map((ref) => (
             <div
-              className={`composer-context__item composer-context__item--workspace${ref.isDir ? " composer-context__item--folder" : " composer-context__item--file"}`}
+              className={`composer-context__item composer-context__item--workspace${ref.isDir ? ' composer-context__item--folder' : ' composer-context__item--file'}`}
               key={workspaceReferenceKey(ref)}
             >
               <Tooltip label={formatWorkspaceReference(ref.path, ref.isDir)}>
@@ -1790,7 +1939,10 @@ export function Composer({
                   <span>{ref.isDir ? `${baseName(ref.path)}/` : baseName(ref.path)}</span>
                 </span>
               </Tooltip>
-              <Tooltip label={t("composer.removeReference")} className="composer-context__remove-trigger">
+              <Tooltip
+                label={t('composer.removeReference')}
+                className="composer-context__remove-trigger"
+              >
                 <button
                   className="composer-context__remove"
                   type="button"
@@ -1802,24 +1954,18 @@ export function Composer({
             </div>
           ))}
           {sessionRefs.map((ref) => (
-            <div
-              className="composer-context__item composer-context__item--session"
-              key={ref.path}
-            >
+            <div className="composer-context__item composer-context__item--session" key={ref.path}>
               <Tooltip label={ref.preview || ref.title}>
                 <span className="composer-context__label">
                   <MessageSquare size={15} />
                   <span>
                     {ref.title}
-                    {typeof ref.turns === "number" ? ` (${ref.turns} 轮)` : ""}
+                    {typeof ref.turns === 'number' ? ` (${ref.turns} 轮)` : ''}
                   </span>
                 </span>
               </Tooltip>
               <Tooltip label="移除引用会话">
-                <button
-                  type="button"
-                  onClick={() => removeSessionRef(ref.path)}
-                >
+                <button type="button" onClick={() => removeSessionRef(ref.path)}>
                   <X size={13} />
                 </button>
               </Tooltip>
@@ -1837,17 +1983,19 @@ export function Composer({
                   <FileText size={15} />
                   <span className="composer__pasted-label">{block.label}</span>
                   <div className="composer__pasted-actions">
-                    <Tooltip label={t(open ? "composer.pastedHidePreview" : "composer.pastedShowPreview")}>
+                    <Tooltip
+                      label={t(open ? 'composer.pastedHidePreview' : 'composer.pastedShowPreview')}
+                    >
                       <button type="button" onClick={() => togglePastedPreview(block.label)}>
                         <Eye size={14} />
                       </button>
                     </Tooltip>
-                    <Tooltip label={t("composer.pastedExpand")}>
+                    <Tooltip label={t('composer.pastedExpand')}>
                       <button type="button" onClick={() => expandPastedBlock(block)}>
-                        {t("composer.pastedExpand")}
+                        {t('composer.pastedExpand')}
                       </button>
                     </Tooltip>
-                    <Tooltip label={t("composer.pastedRemove")}>
+                    <Tooltip label={t('composer.pastedRemove')}>
                       <button type="button" onClick={() => removePastedBlock(block)}>
                         <Trash2 size={14} />
                       </button>
@@ -1861,26 +2009,26 @@ export function Composer({
         </div>
       )}
       <div
-        className={`composer-card${composerHeight !== null ? " composer-card--resized" : ""}${composerAutoExpanded ? " composer-card--autosized" : ""}${composerResizing ? " composer-card--resizing" : ""}`}
+        className={`composer-card${composerHeight !== null ? ' composer-card--resized' : ''}${composerAutoExpanded ? ' composer-card--autosized' : ''}${composerResizing ? ' composer-card--resizing' : ''}`}
         ref={composerCardRef}
         style={composerCardStyle}
       >
         <button
           className="composer-resize-handle"
           type="button"
-          aria-label={t("composer.resize")}
-          title={t("composer.resize")}
+          aria-label={t('composer.resize')}
+          title={t('composer.resize')}
           onPointerDown={onComposerResizeStart}
           onKeyDown={onComposerResizeKeyDown}
           onDoubleClick={resetComposerHeight}
         />
         <div
-          className={`composer${dragOver ? " composer--dragover" : ""}${disabled ? " composer--disabled" : ""}${shellModeActive ? " composer--shell" : ""}`}
+          className={`composer${dragOver ? ' composer--dragover' : ''}${disabled ? ' composer--disabled' : ''}${shellModeActive ? ' composer--shell' : ''}`}
           onDrop={onDrop}
           onDragOver={onDragOver}
           onDragLeave={onDragLeave}
         >
-          <span className="composer__caret">{shellModeActive ? "$" : "›"}</span>
+          <span className="composer__caret">{shellModeActive ? '$' : '›'}</span>
           <textarea
             ref={taRef}
             className="composer__input"
@@ -1903,7 +2051,13 @@ export function Composer({
               lastCompositionEndAt.current = Date.now();
             }}
             style={textareaStyle}
-            placeholder={disabled ? t("common.loading") : goalModeOn && !activeGoal ? t("composer.goalInputPlaceholder") : t("composer.placeholder")}
+            placeholder={
+              disabled
+                ? t('common.loading')
+                : goalModeOn && !activeGoal
+                  ? t('composer.goalInputPlaceholder')
+                  : t('composer.placeholder')
+            }
             rows={1}
             disabled={disabled}
           />
@@ -1913,11 +2067,19 @@ export function Composer({
             </span>
           )}
           {!running && (
-            <Tooltip label={t("composer.send")}>
+            <Tooltip label={t('composer.send')}>
               <button
                 className="composer__btn composer__btn--send"
                 onClick={submit}
-                disabled={submitting || pendingPaste > 0 || ((!text.trim() && attachments.length === 0 && workspaceRefs.length === 0) && !(goalModeOn && !activeGoal)) || disabled}
+                disabled={
+                  submitting ||
+                  pendingPaste > 0 ||
+                  (!text.trim() &&
+                    attachments.length === 0 &&
+                    workspaceRefs.length === 0 &&
+                    !(goalModeOn && !activeGoal)) ||
+                  disabled
+                }
               >
                 <ArrowUp size={16} />
               </button>
@@ -1927,97 +2089,120 @@ export function Composer({
         <div className={composerMetaClass}>
           <div className="composer-meta__params">
             <div className="composer-meta__control composer-meta__control--intent">
-              <Tooltip label={t("composer.intentMenuTitle")} disabled={intentMenuOpen || intentMenuClosing}>
+              <Tooltip
+                label={t('composer.intentMenuTitle')}
+                disabled={intentMenuOpen || intentMenuClosing}
+              >
                 <button
                   ref={intentMenuAnchorRef}
                   type="button"
-                  className={`composer-action-trigger${intentMenuOpen || intentMenuClosing ? " composer-action-trigger--open" : ""}`}
-                  onClick={() => (intentMenuOpen || intentMenuClosing ? closeIntentMenu() : openIntentMenu())}
+                  className={`composer-action-trigger${intentMenuOpen || intentMenuClosing ? ' composer-action-trigger--open' : ''}`}
+                  onClick={() =>
+                    intentMenuOpen || intentMenuClosing ? closeIntentMenu() : openIntentMenu()
+                  }
                   disabled={disabled || running}
                   aria-haspopup="menu"
                   aria-expanded={intentMenuOpen && !intentMenuClosing}
-                  aria-label={t("composer.intentMenuTitle")}
-                  title={intentMenuOpen || intentMenuClosing ? undefined : t("composer.intentMenuTitle")}
+                  aria-label={t('composer.intentMenuTitle')}
+                  title={
+                    intentMenuOpen || intentMenuClosing ? undefined : t('composer.intentMenuTitle')
+                  }
                 >
                   <SlidersHorizontal size={17} />
                 </button>
               </Tooltip>
               {planModeOn && (
-                <Tooltip label={t("composer.exitPlanTitle")}>
+                <Tooltip label={t('composer.exitPlanTitle')}>
                   <button
                     type="button"
                     className="composer-mode-chip composer-mode-chip--plan"
                     onClick={choosePlanMode}
                     disabled={disabled}
-                    title={t("composer.exitPlanTitle")}
-                    aria-label={t("composer.exitPlanTitle")}
+                    title={t('composer.exitPlanTitle')}
+                    aria-label={t('composer.exitPlanTitle')}
                   >
-                    <span className="composer-mode-chip__icon composer-mode-chip__icon--mode" aria-hidden="true">
+                    <span
+                      className="composer-mode-chip__icon composer-mode-chip__icon--mode"
+                      aria-hidden="true"
+                    >
                       <List size={14} />
                     </span>
-                    <span className="composer-mode-chip__icon composer-mode-chip__icon--dismiss" aria-hidden="true">
+                    <span
+                      className="composer-mode-chip__icon composer-mode-chip__icon--dismiss"
+                      aria-hidden="true"
+                    >
                       <X size={11} />
                     </span>
-                    <span className="composer-mode-chip__label">{t("composer.modePlan")}</span>
+                    <span className="composer-mode-chip__label">{t('composer.modePlan')}</span>
                   </button>
                 </Tooltip>
               )}
               {goalModeOn && (
-                <Tooltip label={t("composer.exitGoalTitle")}>
+                <Tooltip label={t('composer.exitGoalTitle')}>
                   <button
                     type="button"
                     className="composer-mode-chip composer-mode-chip--goal"
                     onClick={chooseGoalMode}
                     disabled={disabled}
-                    title={activeGoal || t("composer.exitGoalTitle")}
-                    aria-label={t("composer.exitGoalTitle")}
+                    title={activeGoal || t('composer.exitGoalTitle')}
+                    aria-label={t('composer.exitGoalTitle')}
                   >
-                    <span className="composer-mode-chip__icon composer-mode-chip__icon--mode" aria-hidden="true">
+                    <span
+                      className="composer-mode-chip__icon composer-mode-chip__icon--mode"
+                      aria-hidden="true"
+                    >
                       <Target size={14} />
                     </span>
-                    <span className="composer-mode-chip__icon composer-mode-chip__icon--dismiss" aria-hidden="true">
+                    <span
+                      className="composer-mode-chip__icon composer-mode-chip__icon--dismiss"
+                      aria-hidden="true"
+                    >
                       <X size={11} />
                     </span>
-                    <span className="composer-mode-chip__label">{t("composer.modeGoal")}</span>
+                    <span className="composer-mode-chip__label">{t('composer.modeGoal')}</span>
                   </button>
                 </Tooltip>
               )}
             </div>
             <div className="composer-meta__control composer-meta__control--approval">
-              <div className="composer-modebar composer-modebar--approval" data-mode={toolApprovalMode} title={t("composer.accessMenuTitle")}>
+              <div
+                className="composer-modebar composer-modebar--approval"
+                data-mode={toolApprovalMode}
+                title={t('composer.accessMenuTitle')}
+              >
                 <span className="composer-modebar__thumb" aria-hidden="true" />
                 <button
                   type="button"
-                  className={`composer-modebar__item composer-modebar__item--ask${toolApprovalMode === "ask" ? " composer-modebar__item--active" : ""}`}
-                  onClick={() => chooseApprovalMode("ask")}
+                  className={`composer-modebar__item composer-modebar__item--ask${toolApprovalMode === 'ask' ? ' composer-modebar__item--active' : ''}`}
+                  onClick={() => chooseApprovalMode('ask')}
                   disabled={disabled}
-                  aria-pressed={toolApprovalMode === "ask"}
-                  title={t("composer.accessAskTitle")}
+                  aria-pressed={toolApprovalMode === 'ask'}
+                  title={t('composer.accessAskTitle')}
                 >
                   <Shield size={14} />
-                  <span>{t("composer.modeAsk")}</span>
+                  <span>{t('composer.modeAsk')}</span>
                 </button>
                 <button
                   type="button"
-                  className={`composer-modebar__item composer-modebar__item--auto${toolApprovalMode === "auto" ? " composer-modebar__item--active" : ""}`}
-                  onClick={() => chooseApprovalMode("auto")}
+                  className={`composer-modebar__item composer-modebar__item--auto${toolApprovalMode === 'auto' ? ' composer-modebar__item--active' : ''}`}
+                  onClick={() => chooseApprovalMode('auto')}
                   disabled={disabled}
-                  aria-pressed={toolApprovalMode === "auto"}
-                  title={t("composer.accessAutoTitle")}
+                  aria-pressed={toolApprovalMode === 'auto'}
+                  title={t('composer.accessAutoTitle')}
                 >
                   <ShieldCheck size={14} />
-                  <span>{t("composer.modeNormal")}</span>
+                  <span>{t('composer.modeNormal')}</span>
                 </button>
                 <button
                   type="button"
-                  className={`composer-modebar__item composer-modebar__item--yolo${toolApprovalMode === "yolo" ? " composer-modebar__item--active" : ""}`}
-                  onClick={() => chooseApprovalMode("yolo")}
+                  className={`composer-modebar__item composer-modebar__item--yolo${toolApprovalMode === 'yolo' ? ' composer-modebar__item--active' : ''}`}
+                  onClick={() => chooseApprovalMode('yolo')}
                   disabled={disabled}
-                  aria-pressed={toolApprovalMode === "yolo"}
-                  title={t("composer.accessYoloTitle")}
+                  aria-pressed={toolApprovalMode === 'yolo'}
+                  title={t('composer.accessYoloTitle')}
                 >
                   <ShieldAlert size={14} />
-                  <span>{t("composer.modeYolo")}</span>
+                  <span>{t('composer.modeYolo')}</span>
                 </button>
               </div>
             </div>
@@ -2031,20 +2216,25 @@ export function Composer({
             )}
             {hasEffort && (
               <div className="composer-meta__control composer-meta__control--more">
-                <Tooltip label={t("composer.moreControls")} disabled={moreMenuOpen || moreMenuClosing}>
+                <Tooltip
+                  label={t('composer.moreControls')}
+                  disabled={moreMenuOpen || moreMenuClosing}
+                >
                   <button
                     ref={moreMenuAnchorRef}
                     type="button"
-                    className={`composer-more-trigger${moreMenuOpen || moreMenuClosing ? " composer-more-trigger--open" : ""}`}
-                    onClick={() => (moreMenuOpen || moreMenuClosing ? closeMoreMenu() : openMoreMenu())}
+                    className={`composer-more-trigger${moreMenuOpen || moreMenuClosing ? ' composer-more-trigger--open' : ''}`}
+                    onClick={() =>
+                      moreMenuOpen || moreMenuClosing ? closeMoreMenu() : openMoreMenu()
+                    }
                     disabled={disabled || running}
                     aria-haspopup="menu"
                     aria-expanded={moreMenuOpen && !moreMenuClosing}
-                    aria-label={t("composer.moreControls")}
-                    title={moreMenuOpen || moreMenuClosing ? undefined : t("composer.moreControls")}
+                    aria-label={t('composer.moreControls')}
+                    title={moreMenuOpen || moreMenuClosing ? undefined : t('composer.moreControls')}
                   >
                     <MoreHorizontal size={16} />
-                    <span>{t("topicBar.more")}</span>
+                    <span>{t('topicBar.more')}</span>
                   </button>
                 </Tooltip>
               </div>

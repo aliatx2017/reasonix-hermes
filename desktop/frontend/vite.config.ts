@@ -1,10 +1,10 @@
-import { defineConfig, type Plugin } from "vite";
-import react from "@vitejs/plugin-react";
-import { mkdir, writeFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { mkdir, writeFile } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import react from '@vitejs/plugin-react';
+import { type Plugin, defineConfig } from 'vite';
 
-const devPort = Number(process.env.REASONIX_DESKTOP_VITE_PORT || "5173");
+const devPort = Number(process.env.REASONIX_DESKTOP_VITE_PORT || '5173');
 const configDir = dirname(fileURLToPath(import.meta.url));
 
 // On macOS ≤ 12 (Safari 15 WebKit) a crossorigin module/stylesheet fetched over the
@@ -12,9 +12,9 @@ const configDir = dirname(fileURLToPath(import.meta.url));
 // so the bundle never loads and the window paints blank; newer WebKit tolerates it.
 function stripCrossorigin(): Plugin {
   return {
-    name: "strip-crossorigin",
-    enforce: "post",
-    transformIndexHtml: (html) => html.replace(/\s+crossorigin(?==["']|[\s/>])/g, ""),
+    name: 'strip-crossorigin',
+    enforce: 'post',
+    transformIndexHtml: (html) => html.replace(/\s+crossorigin(?==["']|[\s/>])/g, ''),
   };
 }
 
@@ -23,12 +23,12 @@ function stripCrossorigin(): Plugin {
 // Go's //go:embed all:frontend/dist still works on a fresh checkout.
 function keepDistPlaceholder(): Plugin {
   return {
-    name: "keep-dist-placeholder",
-    apply: "build",
+    name: 'keep-dist-placeholder',
+    apply: 'build',
     closeBundle: async () => {
-      const distDir = resolve(configDir, "dist");
+      const distDir = resolve(configDir, 'dist');
       await mkdir(distDir, { recursive: true });
-      await writeFile(resolve(distDir, ".gitkeep"), "\n");
+      await writeFile(resolve(distDir, '.gitkeep'), '\n');
     },
   };
 }
@@ -37,18 +37,18 @@ function keepDistPlaceholder(): Plugin {
 // the app root over the wails:// scheme, where absolute "/assets/..." URLs 404.
 export default defineConfig({
   plugins: [react(), stripCrossorigin(), keepDistPlaceholder()],
-  base: "./",
+  base: './',
   build: {
-    outDir: "dist",
+    outDir: 'dist',
     emptyOutDir: true,
-    target: "es2021",
+    target: 'es2021',
     // Use terser for smaller output (esbuild is faster to build but produces
     // larger bundles). Disabled for dev builds via the default.
-    minify: "terser",
+    minify: 'terser',
     terserOptions: {
       compress: {
         drop_console: true, // strip console.log in production
-        passes: 2,          // two compression passes for better tree-shaking
+        passes: 2, // two compression passes for better tree-shaking
       },
     },
     rollupOptions: {
@@ -58,10 +58,16 @@ export default defineConfig({
         // app shell. The vendor chunk splits react+react-dom (stable, rarely
         // changes) from the markdown stack (changes more often).
         manualChunks(id: string) {
-          if (id.includes("node_modules/react") || id.includes("node_modules/react-dom")) return "vendor-react";
-          if (id.includes("node_modules/react-markdown") || id.includes("node_modules/remark-") ||
-              id.includes("node_modules/rehype-katex") || id.includes("node_modules/katex")) return "vendor-markdown";
-          if (id.includes("node_modules/highlight.js")) return "vendor-highlight";
+          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom'))
+            return 'vendor-react';
+          if (
+            id.includes('node_modules/react-markdown') ||
+            id.includes('node_modules/remark-') ||
+            id.includes('node_modules/rehype-katex') ||
+            id.includes('node_modules/katex')
+          )
+            return 'vendor-markdown';
+          if (id.includes('node_modules/highlight.js')) return 'vendor-highlight';
         },
       },
     },
@@ -72,7 +78,7 @@ export default defineConfig({
   server: {
     // Bind IPv4 — unset host listens on ::1, and the Wails dev proxy's [::1]
     // dial fails on Windows hosts where IPv6 loopback is filtered.
-    host: "127.0.0.1",
+    host: '127.0.0.1',
     port: devPort,
     strictPort: true,
   },
