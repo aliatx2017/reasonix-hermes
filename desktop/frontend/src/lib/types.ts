@@ -792,6 +792,7 @@ export interface AgentView {
   maxSteps: number;
   plannerMaxSteps: number;
   systemPrompt: string;
+  coldResumePrune: boolean;
 }
 
 export interface BotAllowlistView {
