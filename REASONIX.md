@@ -74,14 +74,14 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 ## Next session — ideas & follow-ups
 
-- [ ] **Upstream sync check** — `git fetch upstream && git log HEAD..upstream/main-v2 --oneline`. Merge if any new commits.
+- [x] **Upstream sync check** — `git fetch upstream && git log HEAD..upstream/main-v2 --oneline`. No new commits since v1.6.0 (6cf4a95). ✅
 - [ ] **Discord bot integration test** — verify bot still starts and responds after gateway changes from upstream merge.
-- [ ] **Write Mode FIM + CodeMirror** — the Markdown editor has a textarea; integrate CodeMirror 6 or Monaco for syntax highlighting and FIM completions via DeepSeek API.
-- [ ] **Write Mode Hindsight injection** — inject relevant memory facts into the Write Mode context.
-- [ ] **Cross-session memory graph D3** — upgrade MemoryFactGraph from clustered badges to a D3/vis.js force-directed graph with vector similarity links.
-- [ ] **Write Mode panel integration** — add WriteMode component to the desktop workspace sidebar as an actual panel (currently a standalone component, not wired into the layout).
-- [ ] **Checkpoint actual diffs** — currently shows pre-edit content; add unified diff against current file state.
-- [ ] **Desktop Hermes accent in tray/title bar** — apply the Hermes gold accent to window chrome on supported platforms.
-- [ ] **CLI TUI `/write` command** — open Write Mode as a separate Bubble Tea TUI session.
+- [x] **Write Mode FIM + CodeMirror** — CodeMirror 6 replaces textarea, FIM completions via DeepSeek API. ✅
+- [x] **Write Mode Hindsight injection** — Memory facts sidebar, filtered by file relevance. ✅
+- [x] **Write Mode panel integration** — Wired into right dock as "Write" tab. ✅
+- [x] **Cross-session memory graph D3** — D3 force-directed graph with Badges/Graph toggle. ✅
+- [x] **Checkpoint actual diffs** — Diff vs current file state via Go diff.Build + DiffView. ✅
+- [x] **Desktop Hermes accent in tray/title bar** — Window title "Reasonix-Hermes", gold-tinted background, CSS accent underline. ✅
+- [x] **CLI TUI `/write` command** — Opens .md files in $EDITOR, detached. ✅
 - [ ] **Sandbox Windows support** — investigate Windows Job Objects or Hyper-V containers as sandbox backend.
-- [ ] **CLI terminal theme detection** — auto-detect terminal background and switch theme (currently no-op on Windows).
+- [x] **CLI terminal theme detection** — Windows OSC 11 + GetConsoleScreenBufferInfo fallback. ✅

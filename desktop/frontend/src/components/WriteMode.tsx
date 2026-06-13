@@ -1,6 +1,22 @@
-import { useState, useEffect, useCallback } from "react";
-import { FileText, Save, Plus, RefreshCw, Eye, Edit3, X } from "lucide-react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { FileText, Save, Plus, RefreshCw, Eye, Edit3, X, Wand2, Brain } from "lucide-react";
 import { app } from "../lib/bridge";
+import type { MemoryFactView } from "../lib/types";
+
+const TYPE_COLORS: Record<string, string> = {
+  user: "#8b7cff",
+  project: "#d4a853",
+  feedback: "#38d6a8",
+  reference: "#4d8df6",
+  local: "#ff6a3d",
+};
+
+function typeColor(kind: string): string {
+  for (const [k, v] of Object.entries(TYPE_COLORS)) {
+    if (kind.startsWith(k)) return v;
+  }
+  return "var(--color-text-muted)";
+}
 
 interface MarkdownFileEntry {
   name: string;
@@ -13,32 +29,136 @@ interface MarkdownFileEntry {
 function renderMarkdown(md: string): string {
   if (!md) return "";
   let html = md
-    // Escape HTML
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-    // Headers
     .replace(/^### (.+)$/gm, "<h3>$1</h3>")
     .replace(/^## (.+)$/gm, "<h2>$1</h2>")
     .replace(/^# (.+)$/gm, "<h1>$1</h1>")
-    // Bold and italic
     .replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>")
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
     .replace(/\*(.+?)\*/g, "<em>$1</em>")
-    // Inline code
     .replace(/`([^`]+)`/g, "<code>$1</code>")
-    // Links
     .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
-    // Unordered lists
     .replace(/^- (.+)$/gm, "<li>$1</li>")
-    // Paragraphs
     .replace(/\n\n/g, "</p><p>")
     .replace(/\n/g, "<br>");
   html = "<p>" + html + "</p>";
-  // Wrap consecutive <li> items in <ul>
   html = html.replace(/((?:<li>.*?<\/li><br>?)+)/g, (match) => {
     const items = match.replace(/<br>/g, "");
     return "<ul>" + items + "</ul>";
   });
   return html;
+}
+
+// --- CodeMirror editor wrapper ---
+
+import { EditorView, keymap, placeholder as cmPlaceholder } from "@codemirror/view";
+import { EditorState, type Extension } from "@codemirror/state";
+import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
+import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
+import { autocompletion, type CompletionContext, type CompletionResult } from "@codemirror/autocomplete";
+import { syntaxHighlighting, defaultHighlightStyle } from "@codemirror/language";
+
+function fimCompletionSource(context: CompletionContext, relPath: string, _getContent: () => string): Promise<CompletionResult | null> | null {
+  // Only trigger on explicit keybind (Ctrl+Space), not auto.
+  if (!context.explicit) return null;
+  const pos = context.pos;
+  // Only trigger if there's at least some prefix context.
+  if (pos < 10) return null;
+
+  return app.FIMComplete(relPath, pos).then((result) => {
+    if (!result?.text) return null;
+    const text = result.text;
+    return {
+      from: pos,
+      options: [{
+        label: text.length > 60 ? text.slice(0, 60) + "…" : text,
+        detail: "FIM",
+        apply: text,
+      }],
+    };
+  }).catch(() => null);
+}
+
+interface CodeMirrorEditorProps {
+  initialValue: string;
+  relPath: string;
+  onChange: (value: string) => void;
+  onSave: () => void;
+}
+
+function CodeMirrorEditor({ initialValue, relPath, onChange, onSave }: CodeMirrorEditorProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const viewRef = useRef<EditorView | null>(null);
+  const contentRef = useRef(initialValue);
+
+  // Keep a ref to the latest relPath for the completion source.
+  const relPathRef = useRef(relPath);
+  relPathRef.current = relPath;
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    const updateListener = EditorView.updateListener.of((update) => {
+      if (update.docChanged) {
+        const newValue = update.state.doc.toString();
+        contentRef.current = newValue;
+        onChange(newValue);
+      }
+    });
+
+    const extensions: Extension[] = [
+      markdown({ base: markdownLanguage }),
+      syntaxHighlighting(defaultHighlightStyle),
+      history(),
+      keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
+      cmPlaceholder("Start writing…"),
+      updateListener,
+      autocompletion({
+        override: [(ctx) => fimCompletionSource(ctx, relPathRef.current, () => contentRef.current)],
+      }),
+      EditorView.lineWrapping,
+      EditorView.theme({
+        "&": { height: "100%", fontSize: "13px" },
+        ".cm-scroller": { overflow: "auto", fontFamily: "var(--mono, monospace)", lineHeight: "1.6" },
+        ".cm-content": { padding: "16px", caretColor: "var(--fg)" },
+        ".cm-cursor": { borderLeftColor: "var(--fg)" },
+        ".cm-activeLine": { background: "var(--bg-soft)" },
+        ".cm-selectionBackground": { background: "var(--sidebar-active)" },
+        ".cm-gutters": { display: "none" },
+      }),
+      // Ctrl+S save
+      keymap.of([{
+        key: "Mod-s",
+        run: () => { onSave(); return true; },
+        preventDefault: true,
+      }]),
+    ];
+
+    const state = EditorState.create({
+      doc: initialValue,
+      extensions,
+    });
+
+    const view = new EditorView({ state, parent: containerRef.current });
+    viewRef.current = view;
+
+    return () => { view.destroy(); viewRef.current = null; };
+  }, []); // mount once; content syncs via initialValue handled by doc
+
+  // Sync initialValue into the editor when a new file is opened.
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    const current = view.state.doc.toString();
+    if (current !== initialValue) {
+      view.dispatch({
+        changes: { from: 0, to: current.length, insert: initialValue },
+      });
+      contentRef.current = initialValue;
+    }
+  }, [initialValue]);
+
+  return <div ref={containerRef} style={{ height: "100%", overflow: "hidden" }} />;
 }
 
 export function WriteMode() {
@@ -50,6 +170,9 @@ export function WriteMode() {
   const [preview, setPreview] = useState(false);
   const [newFileName, setNewFileName] = useState("");
   const [showNewFile, setShowNewFile] = useState(false);
+  const [fimBusy, setFimBusy] = useState(false);
+  const [memoryOpen, setMemoryOpen] = useState(false);
+  const [memoryFacts, setMemoryFacts] = useState<MemoryFactView[]>([]);
 
   const loadFiles = useCallback(async () => {
     try {
@@ -94,22 +217,55 @@ export function WriteMode() {
 
   useEffect(() => { loadFiles(); }, [loadFiles]);
 
-  // Keyboard shortcut: Cmd/Ctrl+S
-  useEffect(() => {
-    const handle = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "s") {
-        e.preventDefault();
-        if (dirty && selectedFile) saveFile();
-      }
-    };
-    window.addEventListener("keydown", handle);
-    return () => window.removeEventListener("keydown", handle);
-  }, [dirty, selectedFile, saveFile]);
-
-  const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setContent(e.target.value);
+  const handleContentChange = useCallback((value: string) => {
+    setContent(value);
     setDirty(true);
-  };
+  }, []);
+
+  // Load memory facts filtered by relevance to the current file.
+  useEffect(() => {
+    if (!selectedFile) { setMemoryFacts([]); return; }
+    let cancelled = false;
+    app.MemoryFacts().then((all) => {
+      if (cancelled || !all) return;
+      // Score facts by keyword overlap with file name + content snippet.
+      const fileWords = new Set(
+        (selectedFile.replace(/[^a-zA-Z0-9]/g, " ").toLowerCase() + " " +
+         content.slice(0, 500).replace(/[^a-zA-Z0-9]/g, " ").toLowerCase())
+          .split(/\s+/).filter((w) => w.length > 2)
+      );
+      const scored = all.map((f) => {
+        const factWords = (f.title + " " + f.description).toLowerCase().split(/\s+/);
+        const score = factWords.filter((w) => fileWords.has(w)).length;
+        return { fact: f, score };
+      });
+      scored.sort((a, b) => b.score - a.score);
+      // Take top 10 with any overlap, or top 5 if none match.
+      const threshold = scored.find((s) => s.score > 0) ? 1 : 0;
+      const filtered = scored.filter((s) => s.score >= threshold).slice(0, 10);
+      setMemoryFacts(filtered.map((s) => s.fact));
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [selectedFile, content.slice(0, 500)]);
+
+  const handleFIM = useCallback(async () => {
+    if (!selectedFile || fimBusy) return;
+    setFimBusy(true);
+    try {
+      // FIM is triggered via CodeMirror autocompletion (Ctrl+Space).
+      // This button invokes it programmatically — find the editor view.
+      const view = document.querySelector(".cm-editor") as HTMLElement | null;
+      if (view) {
+        // Dispatch Ctrl+Space to the CodeMirror editor.
+        const cmContent = view.querySelector(".cm-content");
+        if (cmContent) {
+          cmContent.dispatchEvent(new KeyboardEvent("keydown", { key: " ", ctrlKey: true, bubbles: true }));
+        }
+      }
+    } finally {
+      setTimeout(() => setFimBusy(false), 500);
+    }
+  }, [selectedFile, fimBusy]);
 
   return (
     <div style={{ display: "flex", height: "100%", minHeight: 0 }}>
@@ -189,6 +345,19 @@ export function WriteMode() {
               {dirty && <span style={{ fontSize: 10, color: "var(--color-warn)" }}>• unsaved</span>}
             </div>
             <div style={{ display: "flex", gap: 4 }}>
+              <button onClick={handleFIM} disabled={fimBusy} title="FIM completion (Ctrl+Space)" style={{
+                ...iconBtnStyle, opacity: fimBusy ? 0.5 : 1,
+              }}>
+                <Wand2 size={12} />
+                <span style={{ fontSize: 10 }}>FIM</span>
+              </button>
+              <button onClick={() => setMemoryOpen(!memoryOpen)} title="Memory facts" style={{
+                ...iconBtnStyle, fontWeight: memoryOpen ? 700 : 400,
+                color: memoryOpen ? "var(--accent)" : "var(--fg)",
+              }}>
+                <Brain size={12} />
+                <span style={{ fontSize: 10 }}>Memory</span>
+              </button>
               <button onClick={() => setPreview(!preview)} style={{
                 ...iconBtnStyle, fontWeight: preview ? 700 : 400,
                 color: preview ? "var(--accent)" : "var(--fg)",
@@ -215,28 +384,70 @@ export function WriteMode() {
 
         {/* Content area */}
         {selectedFile && (
-          <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
-            {preview ? (
-              <div
-                className="write-mode-preview"
-                dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }}
-                style={{
-                  padding: "16px 24px", overflow: "auto", height: "100%",
-                  fontSize: 14, lineHeight: 1.7, color: "var(--fg)",
-                }}
-              />
-            ) : (
-              <textarea
-                value={content}
-                onChange={handleContentChange}
-                style={{
-                  width: "100%", height: "100%", border: "none", resize: "none",
-                  padding: "16px", fontSize: 13, lineHeight: 1.6,
-                  fontFamily: "var(--mono, monospace)", color: "var(--fg)",
-                  background: "var(--bg)", outline: "none",
-                }}
-                spellCheck={false}
-              />
+          <div style={{ flex: 1, minHeight: 0, overflow: "hidden", display: "flex" }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              {preview ? (
+                <div
+                  className="write-mode-preview"
+                  dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }}
+                  style={{
+                    padding: "16px 24px", overflow: "auto", height: "100%",
+                    fontSize: 14, lineHeight: 1.7, color: "var(--fg)",
+                  }}
+                />
+              ) : (
+                <CodeMirrorEditor
+                  initialValue={content}
+                  relPath={selectedFile}
+                  onChange={handleContentChange}
+                  onSave={saveFile}
+                />
+              )}
+            </div>
+
+            {/* Memory facts sidebar */}
+            {memoryOpen && (
+              <div style={{
+                width: 220, borderLeft: "1px solid var(--color-border)",
+                background: "var(--bg-soft)", display: "flex", flexDirection: "column",
+                overflow: "hidden",
+              }}>
+                <div style={{
+                  padding: "8px 10px", borderBottom: "1px solid var(--color-border)",
+                  fontSize: 11, fontWeight: 600, color: "var(--fg)",
+                  display: "flex", alignItems: "center", gap: 4,
+                }}>
+                  <Brain size={11} style={{ color: "#d4a853" }} />
+                  Memory
+                </div>
+                <div style={{ flex: 1, overflow: "auto", padding: "6px 8px" }}>
+                  {memoryFacts.length === 0 ? (
+                    <div style={{ fontSize: 11, color: "var(--color-text-muted)", fontStyle: "italic", padding: "4px 0" }}>
+                      No relevant facts.
+                    </div>
+                  ) : (
+                    memoryFacts.map((f, i) => (
+                      <div
+                        key={i}
+                        title={f.description}
+                        style={{
+                          padding: "3px 6px", marginBottom: 4, borderRadius: 3, fontSize: 10,
+                          border: `1px solid ${typeColor(f.type)}40`,
+                          background: `${typeColor(f.type)}10`,
+                          color: "var(--fg)", lineHeight: 1.3,
+                        }}
+                      >
+                        <div style={{ fontWeight: 600, color: typeColor(f.type) }}>{f.title}</div>
+                        {f.description && (
+                          <div style={{ color: "var(--color-text-muted)", marginTop: 1 }}>
+                            {f.description.length > 80 ? f.description.slice(0, 80) + "…" : f.description}
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
             )}
           </div>
         )}

@@ -40,7 +40,7 @@ export function TokenBreakdownChart() {
     return () => clearInterval(id);
   }, []);
 
-  if (points.length === 0) {
+  if (!points || points.length === 0) {
     return (
       <div style={{ fontSize: 13, color: "var(--color-text-muted)", fontStyle: "italic", padding: "8px 0" }}>
         No token data yet. Run a few turns to see the breakdown.

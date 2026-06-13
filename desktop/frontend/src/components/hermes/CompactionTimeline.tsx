@@ -32,7 +32,7 @@ export function CompactionTimeline() {
     return () => clearInterval(id);
   }, []);
 
-  if (events.length === 0) {
+  if (!events || events.length === 0) {
     return (
       <div style={{ fontSize: 13, color: "var(--color-text-muted)", fontStyle: "italic", padding: "8px 0" }}>
         No compactions yet. Compaction runs automatically when the prompt nears the context window,

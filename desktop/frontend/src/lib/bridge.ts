@@ -16,6 +16,7 @@ import type {
   BotConnectionDiagnostic,
   BotInstallPollResult,
   BotInstallStartResult,
+  DiscordConnectResult,
   BotLiveStatusView,
   BotRuntimeStatusView,
   BotSettingsView,
@@ -65,8 +66,10 @@ import type {
   TurnUsagePoint,
   CompactionEvent,
   CheckpointFileSnap,
+  CheckpointFileDiff,
   MarkdownFileEntry,
   MarkdownContent,
+  FIMResult,
   MemoryFactView,
   MemoryDashboardView,
   WorkspaceView,
@@ -227,10 +230,12 @@ export interface AppBindings {
   TurnUsageHistory(): Promise<TurnUsagePoint[]>;
   CompactionHistory(): Promise<CompactionEvent[]>;
   CheckpointFileList(turn: number): Promise<CheckpointFileSnap[]>;
+  CheckpointFileDiff(turn: number, relPath: string): Promise<CheckpointFileDiff | null>;
   ListMarkdownFiles(): Promise<MarkdownFileEntry[]>;
   ReadMarkdownFile(relPath: string): Promise<MarkdownContent | null>;
   SaveMarkdownFile(relPath: string, content: string): Promise<void>;
   CreateMarkdownFile(relPath: string, content: string): Promise<string>;
+  FIMComplete(relPath: string, cursorPos: number): Promise<FIMResult | null>;
   MemoryFacts(): Promise<MemoryFactView[]>;
   CheckpointTurnList(): Promise<number[]>;
   CheckpointFiles(turn: number): Promise<CheckpointFileView | null>;
@@ -262,6 +267,7 @@ export interface AppBindings {
   ClearBotSecret(envName: string): Promise<void>;
   StartBotConnectionInstall(provider: string, domain: string): Promise<BotInstallStartResult>;
   PollBotConnectionInstall(installID: string): Promise<BotInstallPollResult>;
+  ConnectDiscordBot(token: string): Promise<DiscordConnectResult>;
   BotRuntimeStatus(): Promise<BotRuntimeStatusView>;
   DiagnoseBotConnection(id: string): Promise<BotConnectionDiagnostic>;
   TestBotConnection(id: string, target?: string): Promise<BotConnectionDiagnostic>;
@@ -2340,10 +2346,12 @@ function makeMockApp(): AppBindings {
         async TurnUsageHistory() { return []; },
         async CompactionHistory() { return []; },
         async CheckpointFileList(_turn: number) { return []; },
+        async CheckpointFileDiff(_turn: number, _relPath: string) { return null; },
         async ListMarkdownFiles() { return []; },
         async ReadMarkdownFile(_relPath: string) { return null; },
         async SaveMarkdownFile(_relPath: string, _content: string) { return; },
         async CreateMarkdownFile(_relPath: string, _content: string) { return ""; },
+        async FIMComplete(_relPath: string, _cursorPos: number) { return null; },
         async MemoryFacts() { return []; },
         async CheckpointTurnList() { return []; },
         async CheckpointFiles(_turn: number) { return null; },
@@ -2391,6 +2399,9 @@ function makeMockApp(): AppBindings {
           };
           settings.bot.connections = [...settings.bot.connections.filter((c) => c.id !== connection.id), connection];
           return { done: true, connection, status: "connected", message: "connected", error: "" };
+        },
+        async ConnectDiscordBot(_token: string) {
+          return { ok: false, message: "not available in browser", connection: {} as any };
         },
         async DiagnoseBotConnection(id: string) {
           const connection = settings.bot.connections.find((c) => c.id === id);

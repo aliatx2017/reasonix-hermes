@@ -113,6 +113,7 @@ export const zh: Record<DictKey, string> = {
   "rightDock.workbench": "工作区面板",
   "rightDock.views": "工作区视图",
   "rightDock.overview": "概览",
+  "rightDock.write": "写作",
 
   // 话题栏
   "topicBar.renameSession": "重命名会话",

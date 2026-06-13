@@ -189,6 +189,7 @@ var Chinese = Messages{
 	CmdAutoPlan:     "配置自动计划模式",
 	CmdHelp:         "查看命令列表",
 	CmdTodo:         "清除任务清单",
+	CmdWrite:        "在编辑器中打开 markdown 文件",
 	CmdQuit:         "退出会话",
 	ArgSkillList:    "列出 skills",
 	ArgSkillShow:    "查看 skill 内容",

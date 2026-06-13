@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"reasonix/internal/bot"
+	"reasonix/internal/bot/discord"
 	"reasonix/internal/bot/feishu"
 	"reasonix/internal/bot/qq"
 	"reasonix/internal/bot/weixin"
@@ -30,6 +31,8 @@ func EnabledPlatforms(cfg *config.Config, channels []string) (map[bot.Platform]b
 				enabled[bot.PlatformFeishu] = PlatformConfigured(cfg, bot.PlatformFeishu)
 			case bot.PlatformWeixin:
 				enabled[bot.PlatformWeixin] = PlatformConfigured(cfg, bot.PlatformWeixin)
+			case bot.PlatformDiscord:
+				enabled[bot.PlatformDiscord] = PlatformConfigured(cfg, bot.PlatformDiscord)
 			default:
 				if strings.EqualFold(ch, "lark") {
 					enabled[bot.PlatformFeishu] = PlatformConfigured(cfg, bot.PlatformFeishu)
@@ -43,6 +46,7 @@ func EnabledPlatforms(cfg *config.Config, channels []string) (map[bot.Platform]b
 	enabled[bot.PlatformQQ] = PlatformConfigured(cfg, bot.PlatformQQ)
 	enabled[bot.PlatformFeishu] = PlatformConfigured(cfg, bot.PlatformFeishu)
 	enabled[bot.PlatformWeixin] = PlatformConfigured(cfg, bot.PlatformWeixin)
+	enabled[bot.PlatformDiscord] = PlatformConfigured(cfg, bot.PlatformDiscord)
 	return enabled, warnings
 }
 
@@ -228,6 +232,12 @@ func AdapterBindings(cfg *config.Config, enabled map[bot.Platform]bool, feishuDo
 			weixinCfg.TokenEnv = firstNonEmptyString(strings.TrimSpace(conn.Credential.TokenEnv), weixinCfg.TokenEnv)
 			bindings = append(bindings, bot.AdapterBinding{ID: id, Domain: strings.TrimSpace(conn.Domain), Platform: platform, Adapter: weixin.New(weixinCfg, logger)})
 			hasConnection[platform] = true
+		case bot.PlatformDiscord:
+			discordCfg := cfg.Bot.Discord
+			discordCfg.Enabled = true
+			discordCfg.TokenEnv = firstNonEmptyString(strings.TrimSpace(conn.Credential.TokenEnv), discordCfg.TokenEnv)
+			bindings = append(bindings, bot.AdapterBinding{ID: id, Domain: "discord", Platform: platform, Adapter: discord.New(discordCfg, logger)})
+			hasConnection[platform] = true
 		}
 	}
 	if enabled[bot.PlatformQQ] && !hasConnection[bot.PlatformQQ] {
@@ -240,6 +250,9 @@ func AdapterBindings(cfg *config.Config, enabled map[bot.Platform]bool, feishuDo
 	}
 	if enabled[bot.PlatformWeixin] && !hasConnection[bot.PlatformWeixin] {
 		bindings = append(bindings, bot.AdapterBinding{ID: string(bot.PlatformWeixin), Domain: "weixin", Platform: bot.PlatformWeixin, Adapter: weixin.New(cfg.Bot.Weixin, logger)})
+	}
+	if enabled[bot.PlatformDiscord] && !hasConnection[bot.PlatformDiscord] {
+		bindings = append(bindings, bot.AdapterBinding{ID: string(bot.PlatformDiscord), Domain: "discord", Platform: bot.PlatformDiscord, Adapter: discord.New(cfg.Bot.Discord, logger)})
 	}
 	return bindings
 }
@@ -383,6 +396,8 @@ func rememberAllowlist(allowlist *config.BotAllowlist, platform bot.Platform, us
 			allowlist.FeishuUsers, changed = appendUniqueString(allowlist.FeishuUsers, userID)
 		case bot.PlatformWeixin:
 			allowlist.WeixinUsers, changed = appendUniqueString(allowlist.WeixinUsers, userID)
+		case bot.PlatformDiscord:
+			allowlist.DiscordUsers, changed = appendUniqueString(allowlist.DiscordUsers, userID)
 		}
 	}
 	if !chatUsesGroupAllowlist(chatType) {
@@ -400,6 +415,8 @@ func rememberAllowlist(allowlist *config.BotAllowlist, platform bot.Platform, us
 		allowlist.FeishuGroups, groupChanged = appendUniqueString(allowlist.FeishuGroups, groupID)
 	case bot.PlatformWeixin:
 		allowlist.WeixinGroups, groupChanged = appendUniqueString(allowlist.WeixinGroups, groupID)
+	case bot.PlatformDiscord:
+		allowlist.DiscordGroups, groupChanged = appendUniqueString(allowlist.DiscordGroups, groupID)
 	}
 	return changed || groupChanged
 }

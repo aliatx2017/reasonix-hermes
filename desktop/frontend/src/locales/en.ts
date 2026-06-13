@@ -112,6 +112,7 @@ export const en = {
   "rightDock.workbench": "Workspace panel",
   "rightDock.views": "Workspace views",
   "rightDock.overview": "Overview",
+  "rightDock.write": "Write",
 
   // topic bar
   "topicBar.renameSession": "Rename session",

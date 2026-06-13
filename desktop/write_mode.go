@@ -1,6 +1,9 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -153,4 +156,104 @@ func (a *App) CreateMarkdownFile(relPath, content string) (string, error) {
 		return "", err
 	}
 	return relPath, nil
+}
+
+// FIMResult is the response from a Fill-in-the-Middle completion request.
+type FIMResult struct {
+	Text string `json:"text"`
+}
+
+// FIMComplete requests a Fill-in-the-Middle completion for the given file content
+// at the cursor position. prefix = content before cursor, suffix = content after.
+func (a *App) FIMComplete(relPath string, cursorPos int) *FIMResult {
+	ctrl := a.ctrlForTab("")
+	if ctrl == nil {
+		return nil
+	}
+	root := ctrl.WorkspaceRoot()
+	if root == "" {
+		return nil
+	}
+	fullPath := filepath.Join(root, relPath)
+	resolved, err := filepath.EvalSymlinks(fullPath)
+	if err != nil {
+		return nil
+	}
+	if !strings.HasPrefix(resolved, root) {
+		return nil
+	}
+	data, err := os.ReadFile(resolved)
+	if err != nil {
+		return nil
+	}
+	content := string(data)
+	if cursorPos < 0 {
+		cursorPos = 0
+	}
+	if cursorPos > len(content) {
+		cursorPos = len(content)
+	}
+	prefix := content[:cursorPos]
+	suffix := content[cursorPos:]
+
+	// Read API config from loaded user config.
+	apiKey := os.Getenv("DEEPSEEK_API_KEY")
+	baseURL := os.Getenv("DEEPSEEK_BASE_URL")
+	model := os.Getenv("DEEPSEEK_FIM_MODEL")
+	if model == "" {
+		model = "deepseek-chat" // FIM-compatible model
+	}
+	if apiKey == "" {
+		return nil
+	}
+	if baseURL == "" {
+		baseURL = "https://api.deepseek.com"
+	}
+
+	completion, err := fimRequest(baseURL, apiKey, model, prefix, suffix)
+	if err != nil {
+		return nil
+	}
+	return &FIMResult{Text: completion}
+}
+
+// fimRequest calls the DeepSeek API FIM completions endpoint.
+func fimRequest(baseURL, apiKey, model, prefix, suffix string) (string, error) {
+	body := map[string]any{
+		"model":  model,
+		"prompt": prefix,
+		"suffix": suffix,
+		"max_tokens": 256,
+		"temperature": 0.0,
+		"stop": []string{"\n\n\n"},
+	}
+	b, err := json.Marshal(body)
+	if err != nil {
+		return "", err
+	}
+	req, err := http.NewRequest("POST", strings.TrimRight(baseURL, "/")+"/v1/completions", bytes.NewReader(b))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	var result struct {
+		Choices []struct {
+			Text string `json:"text"`
+		} `json:"choices"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", err
+	}
+	if len(result.Choices) == 0 {
+		return "", nil
+	}
+	return result.Choices[0].Text, nil
 }

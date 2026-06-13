@@ -1593,6 +1593,11 @@
   }
 }
 
+/* Gold accent on the header drag region when hermes theme is active. */
+:root[data-accent="hermes"] .app-chrome {
+  box-shadow: inset 0 -2px 0 #d4a853;
+}
+
 :root[data-text-size="small"] {
   --font-scale: 0.94;
 }

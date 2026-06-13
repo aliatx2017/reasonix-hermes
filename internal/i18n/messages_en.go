@@ -188,6 +188,7 @@ var English = Messages{
 	CmdAutoPlan:     "configure automatic plan mode",
 	CmdHelp:         "list commands",
 	CmdTodo:         "dismiss the task list",
+	CmdWrite:        "open a markdown file in $EDITOR",
 	CmdQuit:         "exit the session",
 	ArgSkillList:    "list skills",
 	ArgSkillShow:    "show a skill's body",

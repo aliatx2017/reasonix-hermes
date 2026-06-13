@@ -1387,8 +1387,9 @@ function NetworkSection({ s, busy, apply }: SectionProps) {
   );
 }
 
-type BotInstallTarget = "qq" | "feishu" | "lark" | "weixin";
+type BotInstallTarget = "qq" | "feishu" | "lark" | "weixin" | "discord";
 type BotOfficialInstallTarget = Exclude<BotInstallTarget, "qq">;
+
 const BOT_ALLOWLIST_TEXT_KEYS = ["feishuUsers", "weixinUsers", "feishuGroups", "weixinGroups"] as const;
 type BotAllowlistTextKey = typeof BOT_ALLOWLIST_TEXT_KEYS[number];
 type BotInstallState = {
@@ -1398,7 +1399,7 @@ type BotInstallState = {
   timeLeft: number;
   message: string;
 };
-const BOT_INSTALL_TARGETS: BotOfficialInstallTarget[] = ["feishu", "lark", "weixin"];
+const BOT_INSTALL_TARGETS: BotOfficialInstallTarget[] = ["feishu", "lark", "weixin", "discord"];
 const BOT_INSTALL_DEFAULT_TIMEOUT_SECONDS = 300;
 const BOT_INSTALL_MIN_POLL_SECONDS = 3;
 
@@ -1417,6 +1418,9 @@ function BotsSection({ s, busy, apply, initialFocus }: BotsSectionProps) {
   const [testTargets, setTestTargets] = useState<Record<string, string>>({});
   const [connectionSecrets, setConnectionSecrets] = useState<Record<string, string>>({});
   const [expandedConnectionId, setExpandedConnectionId] = useState("");
+  const [discordToken, setDiscordToken] = useState("");
+  const [discordError, setDiscordError] = useState("");
+  const [discordConnecting, setDiscordConnecting] = useState(false);
   const installRef = useRef(install);
   const installPollTimerRef = useRef<number | null>(null);
   const installCountdownTimerRef = useRef<number | null>(null);
@@ -1548,6 +1552,46 @@ function BotsSection({ s, busy, apply, initialFocus }: BotsSectionProps) {
     const attempt = installAttemptRef.current + 1;
     installAttemptRef.current = attempt;
     installRequestInFlightRef.current = true;
+
+    // Discord uses a token-based flow, not QR.
+    if (target === "discord") {
+      if (!discordToken.trim()) {
+        setDiscordError("Enter a bot token.");
+        installRequestInFlightRef.current = false;
+        return;
+      }
+      setDiscordConnecting(true);
+      setDiscordError("");
+      try {
+        const result = await app.ConnectDiscordBot(discordToken.trim());
+        if (installAttemptRef.current !== attempt) return;
+        if (!result.ok) {
+          setDiscordError(result.message || "Connection failed.");
+          setDiscordConnecting(false);
+          installRequestInFlightRef.current = false;
+          return;
+        }
+        setDiscordConnecting(false);
+        setDiscordToken("");
+        setDraft((prev) => ({
+          ...prev,
+          enabled: true,
+          connections: [...prev.connections.filter((c) => c.id !== result.connection.id), result.connection],
+        }));
+        setInstall({ target, result: null, status: "connected", timeLeft: 0, message: result.message || "Connected to Discord" });
+      } catch (err) {
+        if (installAttemptRef.current === attempt) {
+          setDiscordError(err instanceof Error ? err.message : "Connection failed.");
+          setDiscordConnecting(false);
+        }
+      } finally {
+        if (installAttemptRef.current === attempt) {
+          installRequestInFlightRef.current = false;
+        }
+      }
+      return;
+    }
+
     setInstall({ target, result: null, status: "starting", timeLeft: 0, message: t("settings.botInstallStarting") });
     const provider = target === "weixin" ? "weixin" : "feishu";
     const domain = target === "lark" ? "lark" : target === "weixin" ? "weixin" : "feishu";
@@ -1977,6 +2021,46 @@ function BotsSection({ s, busy, apply, initialFocus }: BotsSectionProps) {
             ))}
           </div>
 
+          {installTarget === "discord" && !selectedInstallConnection && (
+            <div style={{ padding: "12px 0", display: "flex", flexDirection: "column", gap: 8 }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: "var(--fg)" }}>
+                Bot Token
+                <input
+                  type="password"
+                  value={discordToken}
+                  onChange={(e) => { setDiscordToken(e.target.value); setDiscordError(""); }}
+                  placeholder="Paste your Discord bot token…"
+                  disabled={discordConnecting}
+                  onKeyDown={(e) => { if (e.key === "Enter" && discordToken.trim()) startInstall("discord"); }}
+                  style={{
+                    display: "block", width: "100%", marginTop: 4,
+                    padding: "6px 10px", fontSize: 13, fontFamily: "var(--mono, monospace)",
+                    background: "var(--bg)", border: "1px solid var(--color-border)",
+                    borderRadius: 4, color: "var(--fg)", outline: "none",
+                  }}
+                />
+              </label>
+              {discordError && (
+                <div style={{ fontSize: 11, color: "var(--color-warn)" }}>{discordError}</div>
+              )}
+              <button
+                type="button"
+                className="btn btn--primary btn--small"
+                disabled={busy || discordConnecting || !discordToken.trim()}
+                onClick={() => startInstall("discord")}
+              >
+                {discordConnecting ? "Connecting…" : "Connect"}
+              </button>
+              <div style={{ fontSize: 11, color: "var(--color-text-muted)" }}>
+                Create a bot at{" "}
+                <a href="https://discord.com/developers/applications" target="_blank" rel="noopener" style={{ color: "var(--accent)" }}>
+                  discord.com/developers/applications
+                </a> → Bot → Reset Token → copy.
+              </div>
+            </div>
+          )}
+
+          {installTarget !== "discord" && (
           <div className="bot-connect-panel bot-connect-panel--phone">
             <div className="bot-connect-panel__qr">
               {selectedInstallConnection ? (
@@ -2035,6 +2119,8 @@ function BotsSection({ s, busy, apply, initialFocus }: BotsSectionProps) {
               </div>
             </div>
           </div>
+          )}
+
         </div>
     </div>
   );
@@ -2045,6 +2131,7 @@ function botTargetLabel(target: BotInstallTarget, t: ReturnType<typeof useT>): s
     case "qq": return "QQ";
     case "lark": return "Lark";
     case "weixin": return t("settings.botWeixin");
+    case "discord": return "Discord";
     default: return t("settings.botFeishu");
   }
 }
@@ -2054,6 +2141,7 @@ function botTargetHint(target: BotInstallTarget, t: ReturnType<typeof useT>): st
     case "qq": return t("settings.botInstallQQHint");
     case "lark": return t("settings.botInstallLarkHint");
     case "weixin": return t("settings.botInstallWeixinHint");
+    case "discord": return "Connect with a bot token from the Discord Developer Portal.";
     default: return t("settings.botInstallFeishuHint");
   }
 }
@@ -2061,6 +2149,7 @@ function botTargetHint(target: BotInstallTarget, t: ReturnType<typeof useT>): st
 function botInstallTargetMatchesConnection(target: BotOfficialInstallTarget, connection: BotConnectionView): boolean {
   if (target === "weixin") return connection.provider === "weixin";
   if (target === "lark") return connection.provider === "feishu" && connection.domain === "lark";
+  if (target === "discord") return connection.provider === "discord";
   return connection.provider === "feishu" && connection.domain !== "lark";
 }
 

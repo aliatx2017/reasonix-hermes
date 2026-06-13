@@ -115,6 +115,13 @@ export function applyTheme(
   currentThemeStyle = nextStyle;
   root.setAttribute('data-theme-style', nextStyle);
 
+  // Hermes accent: gold-tinted chrome for the hermes theme style.
+  if (nextStyle === 'hermes') {
+    root.setAttribute('data-accent', 'hermes');
+  } else {
+    root.removeAttribute('data-accent');
+  }
+
   // Sync the native window theme (title bar, traffic lights) to match.
   if (typeof window !== 'undefined' && window.runtime) {
     if (theme === 'auto') {
@@ -171,11 +178,15 @@ export function clearLegacyThemePreference(): void {
 // a white (or wrong-colour) flash while the webview paints its first frame.
 export function initTheme(): void {
   const theme = getTheme();
-  applyTheme(theme, getThemeStyle(theme), { persist: false });
+  const style = getThemeStyle(theme);
+  applyTheme(theme, style, { persist: false });
 
   if (typeof window !== 'undefined' && window.runtime) {
     const resolved = getResolvedTheme(theme);
-    if (resolved === 'light') {
+    if (style === 'hermes') {
+      // Hermes accent: gold-tinted shell (dark: #1e1c13, light: #faf7ef).
+      WindowSetBackgroundColour(resolved === 'light' ? 250 : 30, resolved === 'light' ? 247 : 28, resolved === 'light' ? 239 : 19, 255);
+    } else if (resolved === 'light') {
       // Light shell: matches graphite --bg (#f4f3ef).
       WindowSetBackgroundColour(244, 243, 239, 255);
     } else {

@@ -56,7 +56,7 @@ export function ConstitutionHealthPanel() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-      {data.principles.length > 0 && (
+      {(data.principles || []).length > 0 && (
         <div>
           <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4, color: "var(--color-text-muted)" }}>Principles</div>
           {data.principles.map((p, i) => (
@@ -68,7 +68,7 @@ export function ConstitutionHealthPanel() {
         </div>
       )}
 
-      {data.constraints.length > 0 && (
+      {(data.constraints || []).length > 0 && (
         <div>
           <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4, color: "var(--color-text-muted)" }}>Hard Constraints</div>
           {data.constraints.map((c, i) => (
@@ -80,10 +80,10 @@ export function ConstitutionHealthPanel() {
         </div>
       )}
 
-      {data.rules.length > 0 && (
+      {(data.rules || []).length > 0 && (
         <div>
-          <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4, color: "var(--color-text-muted)" }}>Rules ({data.rules.length})</div>
-          {data.rules.map((r) => (
+          <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4, color: "var(--color-text-muted)" }}>Rules ({(data.rules || []).length})</div>
+          {(data.rules || []).map((r) => (
             <div
               key={r.id}
               style={{

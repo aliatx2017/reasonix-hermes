@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -3771,6 +3772,9 @@ func (m *chatTUI) runSlashCommand(input string) tea.Cmd {
 		}
 	case "/quit", "/exit":
 		return tea.Quit
+	case "/write":
+		m.echoLocalCommand(input)
+		m.openWriteMode(input)
 	case "/forget":
 		m.forgetMemory(strings.TrimSpace(strings.TrimPrefix(input, cmd)))
 	default:
@@ -3784,6 +3788,82 @@ func (m *chatTUI) runSlashCommand(input string) tea.Cmd {
 		m.notice(fmt.Sprintf("%s: %s", i18n.M.SlashUnknown, cmd))
 	}
 	return nil
+}
+
+// openWriteMode lists markdown files in the workspace and opens the selected
+// file in $EDITOR (or $VISUAL). Falls back to a notice if no editor is available.
+func (m *chatTUI) openWriteMode(input string) {
+	args := strings.TrimSpace(strings.TrimPrefix(input, "/write"))
+	root := m.ctrl.WorkspaceRoot()
+	if root == "" {
+		m.notice("no workspace active — /write requires a workspace directory")
+		return
+	}
+
+	// Find .md files.
+	var mdFiles []string
+	_ = filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if info.IsDir() {
+			base := filepath.Base(path)
+			if strings.HasPrefix(base, ".") && path != root {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if strings.HasSuffix(strings.ToLower(info.Name()), ".md") {
+			rel, _ := filepath.Rel(root, path)
+			mdFiles = append(mdFiles, rel)
+		}
+		return nil
+	})
+
+	if len(mdFiles) == 0 {
+		m.notice("no markdown files found in workspace — create one first")
+		return
+	}
+
+	// If args contains a specific filename, try to match it.
+	target := ""
+	if args != "" {
+		for _, f := range mdFiles {
+			if strings.EqualFold(f, args) || strings.Contains(f, args) {
+				target = filepath.Join(root, f)
+				break
+			}
+		}
+		if target == "" {
+			m.notice(fmt.Sprintf("no markdown file matching %q found", args))
+			return
+		}
+	} else {
+		// Pick the first file.
+		target = filepath.Join(root, mdFiles[0])
+	}
+
+	editor := os.Getenv("EDITOR")
+	if editor == "" {
+		editor = os.Getenv("VISUAL")
+	}
+	if editor == "" {
+		m.notice(fmt.Sprintf("no $EDITOR set — markdown files in workspace:\n  %s", strings.Join(mdFiles, "\n  ")))
+		return
+	}
+
+	// Detach the editor so the TUI doesn't block.
+	cmd := exec.Command(editor, target)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Start(); err != nil {
+		m.notice(fmt.Sprintf("failed to open editor: %v", err))
+		return
+	}
+	m.notice(fmt.Sprintf("opening %s in %s…", filepath.Base(target), editor))
+	// Don't wait — let the editor run independently.
+	go func() { _ = cmd.Wait() }()
 }
 
 func (m *chatTUI) runGoalSubcommand(input string) tea.Cmd {

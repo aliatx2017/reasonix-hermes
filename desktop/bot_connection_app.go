@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -453,6 +454,9 @@ func normalizeBotInstallTarget(provider, domain string) (string, string) {
 	if provider == "weixin" || provider == "wechat" {
 		return "weixin", "weixin"
 	}
+	if provider == "discord" {
+		return "discord", "discord"
+	}
 	if domain != "lark" {
 		domain = "feishu"
 	}
@@ -764,4 +768,78 @@ func weixinInstallStatusMessage(status string) string {
 	default:
 		return "等待扫码。"
 	}
+}
+
+// DiscordConnectResult is the response from ConnectDiscordBot.
+type DiscordConnectResult struct {
+	OK         bool              `json:"ok"`
+	Message    string            `json:"message"`
+	Connection BotConnectionView `json:"connection"`
+}
+
+// ConnectDiscordBot validates a Discord bot token and saves the connection config.
+func (a *App) ConnectDiscordBot(token string) (DiscordConnectResult, error) {
+	token = strings.TrimSpace(token)
+	if token == "" {
+		return DiscordConnectResult{OK: false, Message: "token is empty"}, nil
+	}
+
+	// Validate the token by making a request to Discord's API.
+	req, err := http.NewRequest("GET", "https://discord.com/api/v10/users/@me", nil)
+	if err != nil {
+		return DiscordConnectResult{OK: false, Message: err.Error()}, nil
+	}
+	req.Header.Set("Authorization", "Bot "+token)
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return DiscordConnectResult{OK: false, Message: "could not reach Discord: " + err.Error()}, nil
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+		return DiscordConnectResult{OK: false, Message: fmt.Sprintf("Discord rejected token (HTTP %d): %s", resp.StatusCode, strings.TrimSpace(string(body)))}, nil
+	}
+
+	// Parse the bot user info for a display label.
+	var botUser struct {
+		Username string `json:"username"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&botUser); err != nil {
+		// Token is valid even if we can't parse the user — just use a fallback label.
+		botUser.Username = "Discord Bot"
+	}
+	label := botUser.Username
+	if label == "" {
+		label = "Discord Bot"
+	}
+
+	connID := connectionID("discord", "discord")
+	conn, err := a.upsertBotConnection(config.BotConnectionConfig{
+		ID:         connID,
+		Provider:   "discord",
+		Domain:     "discord",
+		Label:      label,
+		Enabled:    true,
+		Status:     "connected",
+		Credential: config.BotConnectionCredential{TokenEnv: "DISCORD_BOT_TOKEN"},
+	}, func(c *config.Config) {
+		c.Bot.Enabled = true
+		c.Bot.Discord.Enabled = true
+		c.Bot.Discord.TokenEnv = "DISCORD_BOT_TOKEN"
+	})
+	if err != nil {
+		return DiscordConnectResult{OK: false, Message: "failed to save config: " + err.Error()}, nil
+	}
+
+	// Store the token in the environment so the bot runtime can use it.
+	os.Setenv("DISCORD_BOT_TOKEN", token)
+
+	return DiscordConnectResult{
+		OK:         true,
+		Message:    fmt.Sprintf("Connected as @%s", label),
+		Connection: conn,
+	}, nil
 }

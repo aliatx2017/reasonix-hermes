@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"reasonix/internal/control"
+	"reasonix/internal/diff"
 	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -190,11 +192,85 @@ type CheckpointFileSnap struct {
 	Content string `json:"content"`
 }
 
+// CheckpointFileDiff is the diff between a checkpoint file snapshot and the current file.
+type CheckpointFileDiff struct {
+	Path    string `json:"path"`
+	OldText string `json:"oldText"`
+	NewText string `json:"newText"`
+	Diff    string `json:"diff"`
+	Added   int    `json:"added"`
+	Removed int    `json:"removed"`
+	Same    bool   `json:"same"`
+}
+
+// CheckpointFileDiff returns a unified diff between the checkpoint snapshot for a
+// file and its current content on disk. If the file hasn't changed, Same is true
+// and Diff is empty.
+func (a *App) CheckpointFileDiff(turn int, relPath string) *CheckpointFileDiff {
+	ctrl := a.ctrlForTab("")
+	if ctrl == nil {
+		return nil
+	}
+	snaps := ctrl.CheckpointFileSnaps(turn)
+	var oldContent *string
+	for _, s := range snaps {
+		if s.Path == relPath {
+			oldContent = s.Content
+			break
+		}
+	}
+	if oldContent == nil {
+		return nil // file not found in checkpoint
+	}
+
+	// Read current file content.
+	root := ctrl.WorkspaceRoot()
+	if root == "" {
+		return nil
+	}
+	fullPath := filepath.Join(root, relPath)
+	current, err := os.ReadFile(fullPath)
+	if err != nil {
+		// File may have been deleted.
+		d := diff.Build(relPath, *oldContent, "", diff.Delete)
+		return &CheckpointFileDiff{
+			Path:    relPath,
+			OldText: *oldContent,
+			NewText: "",
+			Diff:    d.Diff,
+			Added:   d.Added,
+			Removed: d.Removed,
+			Same:    false,
+		}
+	}
+	currentStr := string(current)
+	if *oldContent == currentStr {
+		return &CheckpointFileDiff{
+			Path:    relPath,
+			OldText: *oldContent,
+			NewText: currentStr,
+			Diff:    "",
+			Same:    true,
+		}
+	}
+
+	d := diff.Build(relPath, *oldContent, currentStr, diff.Modify)
+	return &CheckpointFileDiff{
+		Path:    relPath,
+		OldText: *oldContent,
+		NewText: currentStr,
+		Diff:    d.Diff,
+		Added:   d.Added,
+		Removed: d.Removed,
+		Same:    false,
+	}
+}
+
 // CheckpointFileList returns file snapshots for a specific checkpoint turn.
 func (a *App) CheckpointFileList(turn int) []CheckpointFileSnap {
 	ctrl := a.ctrlForTab("")
 	if ctrl == nil {
-		return nil
+		return []CheckpointFileSnap{}
 	}
 	snaps := ctrl.CheckpointFileSnaps(turn)
 	out := make([]CheckpointFileSnap, len(snaps))
@@ -210,7 +286,7 @@ func (a *App) CheckpointFileList(turn int) []CheckpointFileSnap {
 func (a *App) CompactionHistory() []CompactionEvent {
 	ctrl := a.ctrlForTab("")
 	if ctrl == nil {
-		return nil
+		return []CompactionEvent{}
 	}
 	history := ctrl.CompactionHistory()
 	events := make([]CompactionEvent, len(history))
@@ -237,7 +313,7 @@ type TurnUsagePoint struct {
 func (a *App) TurnUsageHistory() []TurnUsagePoint {
 	ctrl := a.ctrlForTab("")
 	if ctrl == nil {
-		return nil
+		return []TurnUsagePoint{}
 	}
 	history := ctrl.TurnUsageHistory()
 	points := make([]TurnUsagePoint, len(history))

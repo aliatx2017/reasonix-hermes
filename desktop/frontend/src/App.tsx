@@ -46,6 +46,7 @@ import { SettingsPanel, type SettingsInitialFocus } from "./components/SettingsP
 import { UpdateBanner } from "./components/UpdateBanner";
 import { ContextPanel } from "./components/ContextPanel";
 import { WorkspacePanel } from "./components/WorkspacePanel";
+import { WriteMode } from "./components/WriteMode";
 import { Tooltip } from "./components/Tooltip";
 import { StartupSplash, shouldShowStartupSplash } from "./components/StartupSplash";
 import { OnboardingOverlay } from "./components/OnboardingOverlay";
@@ -129,7 +130,7 @@ const RIGHT_DOCK_PREVIEW_MIN_WIDTH = 420;
 const RIGHT_DOCK_MIN_RENDER_WIDTH = 280;
 const RIGHT_DOCK_MAX_WIDTH = 860;
 
-type RightDockMode = "context" | "files" | "changed";
+type RightDockMode = "context" | "files" | "changed" | "write";
 type WorkspaceRevealRequest = { id: number; path: string };
 type WorkspaceFileListRequest = { id: number; paths: string[] };
 type WorkspaceChangeListEntry = { key: string; path: string; meta: string; time: string; detail: string };
@@ -2791,6 +2792,16 @@ export default function App() {
                   <GitBranch size={13} />
                   <span className="workbench-dock__tab-label">{t("workspace.changedTab")}</span>
                 </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={rightDockMode === "write"}
+                  className={`workbench-dock__tab${rightDockMode === "write" ? " workbench-dock__tab--active" : ""}`}
+                  onClick={() => openRightDockMode("write")}
+                >
+                  <SquarePen size={13} />
+                  <span className="workbench-dock__tab-label">{t("rightDock.write")}</span>
+                </button>
               </div>
             </div>
             <div className="workbench-dock__body">
@@ -2809,6 +2820,8 @@ export default function App() {
                   onOpenWorkspaceChangeList={openRightDockChangeList}
                   onOpenWorkspaceChangeFile={openRightDockChangeFile}
                 />
+              ) : rightDockMode === "write" ? (
+                <WriteMode />
               ) : (
                 <WorkspacePanel
                   open={workspacePanelRenderable}

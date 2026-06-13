@@ -623,6 +623,16 @@ export interface CheckpointFileSnap {
   content: string;
 }
 
+export interface CheckpointFileDiff {
+  path: string;
+  oldText: string;
+  newText: string;
+  diff: string;
+  added: number;
+  removed: number;
+  same: boolean;
+}
+
 export interface MarkdownFileEntry {
   name: string;
   path: string;
@@ -634,6 +644,10 @@ export interface MarkdownContent {
   path: string;
   name: string;
   content: string;
+}
+
+export interface FIMResult {
+  text: string;
 }
 
 export interface MemoryFactView {
@@ -891,6 +905,12 @@ export interface BotInstallPollResult {
   status: string;
   message: string;
   error: string;
+}
+
+export interface DiscordConnectResult {
+  ok: boolean;
+  message: string;
+  connection: BotConnectionView;
 }
 
 export interface HookConfigView {

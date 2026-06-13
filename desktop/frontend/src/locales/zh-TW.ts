@@ -57,6 +57,7 @@ export const zhTW: Record<DictKey, string> = {
   "rightDock.workbench": "右側工作台",
   "rightDock.views": "右側工作台視圖",
   "rightDock.overview": "概覽",
+  "rightDock.write": "寫作",
 
   // 話題欄
   "topicBar.renameSession": "重新命名會話",

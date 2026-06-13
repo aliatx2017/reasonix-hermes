@@ -41,13 +41,13 @@ func (a *App) SubagentTreeForTab(tabID string) []SubagentNodeView {
 	a.mu.RUnlock()
 
 	if sessionDir == "" {
-		return nil
+		return []SubagentNodeView{}
 	}
 	sessionID := strings.TrimSuffix(filepath.Base(sessionPath), filepath.Ext(sessionPath))
 
 	artifacts, err := agent.ListSubagentsByParent(sessionDir, sessionID)
 	if err != nil || len(artifacts) == 0 {
-		return nil
+		return []SubagentNodeView{}
 	}
 
 	nodes := make([]SubagentNodeView, 0, len(artifacts))
@@ -124,13 +124,22 @@ func (a *App) ConstitutionHealth() ConstitutionHealthView {
 		})
 	}
 
+	principles := doc.Principles
+	if principles == nil {
+		principles = []string{}
+	}
+	constraints := doc.Constraints
+	if constraints == nil {
+		constraints = []string{}
+	}
+
 	return ConstitutionHealthView{
 		Loaded:      true,
 		Path:        filepath.Join(root, constitution.Dir, constitution.File),
 		Version:     doc.Version,
 		Rules:       rules,
-		Principles:  doc.Principles,
-		Constraints: doc.Constraints,
+		Principles:  principles,
+		Constraints: constraints,
 		Status:      "healthy",
 	}
 }

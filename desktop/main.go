@@ -78,7 +78,7 @@ func main() {
 	}
 
 	err := wails.Run(&options.App{
-		Title:     "Reasonix",
+		Title:     "Reasonix-Hermes",
 		Width:     width,
 		Height:    height,
 		MinWidth:  760,

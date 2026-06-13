@@ -29,7 +29,7 @@ export function SubagentTreePanel() {
     return () => clearInterval(id);
   }, []);
 
-  if (nodes.length === 0) {
+  if (!nodes || nodes.length === 0) {
     return (
       <div style={{ fontSize: 13, color: "var(--color-text-muted)", fontStyle: "italic", padding: "8px 0" }}>
         No sub-agent tasks in this session. Sub-agents spawn when the model uses the <code>task</code> tool or runs subagent skills.

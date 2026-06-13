@@ -45,7 +45,7 @@ func botCommand(args []string, version string) int {
 
 func botStart(args []string, version string) int {
 	fs := flag.NewFlagSet("bot start", flag.ContinueOnError)
-	channels := fs.String("channels", "", "启用的平台，逗号分隔：qq,feishu,lark,weixin")
+	channels := fs.String("channels", "", "enabled platforms (comma-separated): qq,feishu,lark,weixin,discord")
 	dir := fs.String("dir", "", "工作目录")
 	model := fs.String("model", "", "模型名（空则用 default_model）")
 
@@ -106,14 +106,16 @@ func botStart(args []string, version string) int {
 			Enabled:  cfg.Bot.Allowlist.Enabled,
 			AllowAll: cfg.Bot.Allowlist.AllowAll,
 			Users: map[bot.Platform][]string{
-				bot.PlatformQQ:     cfg.Bot.Allowlist.QQUsers,
-				bot.PlatformFeishu: cfg.Bot.Allowlist.FeishuUsers,
-				bot.PlatformWeixin: cfg.Bot.Allowlist.WeixinUsers,
+				bot.PlatformQQ:      cfg.Bot.Allowlist.QQUsers,
+				bot.PlatformFeishu:  cfg.Bot.Allowlist.FeishuUsers,
+				bot.PlatformWeixin:  cfg.Bot.Allowlist.WeixinUsers,
+				bot.PlatformDiscord: cfg.Bot.Allowlist.DiscordUsers,
 			},
 			Groups: map[bot.Platform][]string{
-				bot.PlatformQQ:     cfg.Bot.Allowlist.QQGroups,
-				bot.PlatformFeishu: cfg.Bot.Allowlist.FeishuGroups,
-				bot.PlatformWeixin: cfg.Bot.Allowlist.WeixinGroups,
+				bot.PlatformQQ:      cfg.Bot.Allowlist.QQGroups,
+				bot.PlatformFeishu:  cfg.Bot.Allowlist.FeishuGroups,
+				bot.PlatformWeixin:  cfg.Bot.Allowlist.WeixinGroups,
+				bot.PlatformDiscord: cfg.Bot.Allowlist.DiscordGroups,
 			},
 		},
 		Debounce:  time.Duration(cfg.Bot.DebounceMs) * time.Millisecond,
