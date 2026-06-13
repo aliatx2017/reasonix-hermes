@@ -32,7 +32,7 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 ## Notes
 
-- **Upstream synced**: `v1.6.1` merged (commit d40797b, 2026-07-13). 45 commits total, 5 new upstream commits in latest sync (sandbox nul redirect, cold-resume toggle, GSAP refactor, compact sound controls). Zero conflicts.
+- **Upstream synced**: `v1.6.1` merged (commit eb624ee, 2026-07-13). 47 commits total, 7 new upstream commits this session (sandbox nul, cold-resume, GSAP, compact sound, legacy migration x2). Zero conflicts.
 - **Key v1.6.0 additions**: vision support (image downscaling + detail knob), built-in Time + Context7 MCP servers, configurable shell interpreter (`[tools.shell]`), notification sound system, token economy composer mode, desktop time filter + custom fonts + status bar customization + Windows ARM64, crash capture (Go panics/breadcrumbs/group summaries), lightweight local history + memory retrieval, Traditional Chinese (zh-TW) locale, updater resilience, agent fixes (decline-ask guard, compaction bounds), desktop hooks UI.
 - **Language policy**: All Chinese comments translated to English in `internal/bot/` and `internal/config/` — SPEC §1 compliance restored. Upstream v1.6.0 still has some Chinese comments in IM bot code; these are upstream-authored and left as-is.
 - **Layout**: Executables moved from `pkg/` to `cmd/`: `pkg/mcpbridge/` → `cmd/reasonix-mcpbridge/`, `pkg/memoryserver/` → `cmd/reasonix-memoryserver/`.
@@ -82,6 +82,17 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
   - **CLI TUI**: Pinned ⚚ REASONIX-HERMES header (never scrolls away), turns/msgs/goal/mem moved to bottom status line, `/stats` panel enhanced with Unicode token sparkline (▁▂▃▄▅▆▇█), compaction timeline, memory facts list, goal progress. Banner padding math fixed (no more negative Repeat panics).
   - **VS Code extension fork**: Deleted — not pursuing.
 - **VS Code extension fork**: Removed from plans.
+
+- **Session 2026-07-13 (h2)** (tray icon, Write Mode polish, D3 graph enrichments):
+  - **Gold tray icon**: `tray_icon_gold.go` overlays Hermes gold on appicon.png, `UpdateTrayIcon` Wails binding, live-syncs on theme style change
+  - **Write Mode split-pane**: 3-way Edit/Split/Preview toggle with editor left/preview right
+  - **Write Mode file tabs**: Multi-file open with tab bar, close button, dirty-dot, reopen-to-tab
+  - **Write Mode auto-save**: Debounced 2s save, automatic dirty-state clearing
+  - **D3 memory type filters**: Colored toggle chips filter nodes by type in graph view
+  - **D3 click-to-inspect**: Node click → detail panel with title/description/type
+  - **D3 vector similarity**: TF-IDF cosine similarity, cross-type edges for sim > 0.3 (dashed accent)
+  - **Upstream**: 2 new commits merged (eb624ee) — legacy migration fixes
+  - **7 files changed** (+340/-73). All 6 binaries rebuilt. 2 commits pushed.
 
 ## Next session — ideas & follow-ups
 

@@ -49,7 +49,16 @@ Our fork (`aliatx2017/reasonix-hermes`) adds:
 - `SubagentTreePanel`, `ConstitutionHealthPanel`, `CompactionTimeline`, `TokenBreakdownChart` — null guards added
 - `CheckpointFileList` Go binding restored after accidental truncation during CheckpointFileDiff edits
 
-**Upstream synced**: 5 new commits merged (d40797b) — sandbox nul redirect, cold-resume toggle, GSAP refactor, compact sound controls
+**Upstream synced**: 7 new commits merged (eb624ee) — sandbox nul redirect, cold-resume toggle, GSAP refactor, compact sound controls, legacy migration fixes
+
+**v1.6.1-h2 additions (same session):**
+- **Gold tray icon**: `tray_icon_gold.go` — overlays Hermes gold (#d4a853) at 30% opacity on the system tray icon. `UpdateTrayIcon` Wails binding live-syncs the icon on theme style changes
+- **Write Mode split-pane**: 3-way Edit/Split/Preview toggle. Split shows editor left, markdown preview right
+- **Write Mode file tabs**: Multiple open markdown files with a tab bar, close button, dirty-dot indicator. Reopening a file switches to its existing tab
+- **Write Mode auto-save**: Debounced 2s save after last edit, dirty state clears automatically
+- **D3 memory graph type filters**: Colored toggle chips (user/project/feedback/reference/local) filter nodes in graph view
+- **D3 click-to-inspect**: Click any graph node → detail panel with title, description, type, close button. Selected node gets white stroke highlight
+- **D3 vector similarity links**: TF-IDF cosine similarity between fact descriptions; cross-type edges added for sim > 0.3, rendered as dashed accent lines
 
 ### Hermes v1.5.0-h3 (2026-06-12)
 
