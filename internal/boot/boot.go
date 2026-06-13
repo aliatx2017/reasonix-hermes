@@ -178,7 +178,6 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	if st, ok := outputstyle.Resolve(cfg.Agent.OutputStyle, outputstyle.Dirs()); ok {
 		sysPrompt = outputstyle.Apply(sysPrompt, st)
 	}
-	sysPrompt += "\n\n" + languagePolicy(cfg.Language)
 	if tokenEconomy {
 		sysPrompt += "\n\n" + tokenEconomyPrompt
 	}
@@ -902,7 +901,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 		Sink:                   sink,
 		Policy:                 policy,
 		Label:                  label,
-		SystemPrompt:           sysPrompt,
+		SystemPrompt:           finalizeSystemPrompt(sysPrompt, cfg.Language),
 		SessionDir:             sessionDir,
 		Host:                   pluginHost,
 		Commands:               cmds,
@@ -1440,15 +1439,21 @@ func truncateHead(s string, maxLen int) string {
 	return s[:cut] + "\n\n[... " + strconv.Itoa(len(s)-cut) + " more bytes]"
 }
 
+// finalizeSystemPrompt applies post-assembly adjustments — most importantly the
+// language instruction, placed at the very end so it has maximum weight.
+func finalizeSystemPrompt(sysPrompt, explicitLang string) string {
+	return sysPrompt + "\n\n" + languagePolicy(explicitLang)
+}
+
 // languagePolicy returns the language instruction appended to the system prompt.
 // When an explicit language is configured (not auto/empty), it enforces that
 // language instead of the adaptive follow-the-user policy.
 func languagePolicy(explicitLang string) string {
 	switch strings.ToLower(strings.TrimSpace(explicitLang)) {
 	case "en":
-		return "You must respond in English only — never use any other language. Always keep code, identifiers, file paths, shell commands, and technical terms in their original form."
+		return "CRITICAL: You must respond in English only. Never use Chinese, Japanese, Korean, or any other language — even if the user writes in another language. All responses, reasoning, code comments, and explanations must be in English. This rule overrides any other language-related instructions."
 	case "zh":
-		return config.LanguagePolicy // Chinese users get adaptive behavior
+		return config.LanguagePolicy
 	default:
 		return config.LanguagePolicy
 	}
