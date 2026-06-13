@@ -10,6 +10,14 @@
 > desktop time filter + custom fonts + Windows ARM64, crash capture, Traditional Chinese
 > locale, updater resilience, agent fixes.
 
+> **Desktop Hermes enrichment** (July 13, 2026) — 12 features across 3 tiers:
+> - **Tier 1**: Cache economy gauge, Hindsight memory dashboard, Discord bot monitor, goal progress widget
+> - **Tier 2**: Live data polling (5s), StatusBar compact widgets, skills hub browser (17 skills)
+> - **Tier 3**: Sub-agent task tree, constitution health check, checkpoint file list
+> - **Branding**: Custom TUI banner (⚚ REASONIX-HERMES), window title "Reasonix-Hermes", tray label
+> - **New files**: `desktop/hermes_dashboard.go`, `hermes_tier3.go` (Go), 7 components in `components/hermes/` (React)
+> - **Settings tab**: Hermes tab with 7 sections — dashboard, hotbar, profiles, skills, sub-agents, constitution, about
+
 > Generated from fresh ecosystem research on June 10, 2026. Prioritized by
 > impact × feasibility × differentiation value. Each phase builds on the last.
 

@@ -55,14 +55,26 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 - **Key differentiators**: Discord bot (real agent loop + /goal + /model), MCP bridge (6 tools), Hindsight memory (3 tools, SQLite + TTL/importance + vector search), 17-skill registry, native Go hooks, portable mode.
 - **CodeWhale features** (10/10 done, 2026-07-04): Shell env hooks, parallel sub-agent dispatch (task batch), completion sound (/sound), harness profiles (/profile), constitution system (.reasonix/constitution.json), workshop sidecar (>12KB output synthesis), hotbar (desktop keys 1-7), external sandbox (remote OpenSandbox API), Nix flake, Dockerfile.
 - **Desktop built**: `bin/reasonix-desktop` (33MB, Wails v2.12.0 + React 19 + Vite 8 + TypeScript 6). Fixed vite.config.ts `manualChunks` for Vite 8/Rolldown compatibility. HotbarConfig restored.
+- **Desktop Hermes enrichment** (12 features across 3 tiers, 2026-07-13):
+  - **Tier 1**: Cache economy gauge (hit-rate badge), Hindsight memory dashboard (facts/docs/scopes), Discord bot live monitor (online/offline + sessions), Goal progress widget (bar + status badges)
+  - **Tier 2**: Live data polling (5s refresh), StatusBar compact widgets (cache% + Discord dot), Skills hub browser (17 skills with search+category filter)
+  - **Tier 3**: Sub-agent task tree (with status badges), Constitution health check (rules viewer + JSON template), Checkpoint file list (per-turn file tracking)
+  - **Go backend**: 3 new files (`desktop/hermes_dashboard.go`, `hermes_tier3.go`), 13 view structs, 20+ Wails bindings, 2 new Controller getters
+  - **Frontend**: 7 new components in `components/hermes/`, all null-safe with polling. Settings → Hermes tab has 7 sections total.
+- **CLI TUI Hermes banner**: Custom ╔═╗ double-border header with ⚚ caduceus, "REASONIX-HERMES" branding, compact stats line (model · turns · msgs · tokens · cache% · cost · uptime). `/stats` toggles detailed session statistics panel.
 - **Bug fixes** (2026-07-06): duplicate `price` key in `reasonix.example.toml`, data race in `mockProvider.Stream()` (+`sync.Mutex`), `TestSaveToScopesUserAndProjectFiles` cross-platform fix (`HOME` not `XDG_CONFIG_HOME`).
 
 ## Next session — ideas & follow-ups
 
-- [ ] **Restore Hermes README branding** — upstream merge overwrote `README.md` and `README.zh-CN.md` with upstream v1.6.0 versions. Reapply Hermes custom sections (Discord bot, MCP bridge, Hindsight memory, skills hub, native hooks, portable mode), the comparison table, and the install-from-source section.
-- [ ] **Desktop frontend needs `npm install`** — `desktop/frontend/` was replaced wholesale with upstream v1.6.0. Our CodeWhale desktop features (hotbar, profiles panel, constitution editor, workshop sidecar, sound picker) need reapplication to the new React 19/TypeScript 6 codebase.
-- [ ] **Discord bot integration test** — bot/gateway.go and cli/bot.go were replaced with upstream versions. Verify Discord bot still starts and responds correctly. The `ModelPrefsPath` feature was removed; may need re-adding.
-- [ ] **Update reasonix.example.toml** — add new v1.6.0 config keys: `[builtin_mcp]`, `[tools.shell]`, `[profile.<name>]` blocks, `[notifications].sound`, `remote_sandbox_url`/`remote_sandbox_token`.
-- [ ] **Remote sandbox e2e test** — test external sandbox against a real OpenSandbox instance
-- [ ] **VS Code extension fork** — `whishi47/deepseekcode-reasonix-vscode` → `reasonix-hermes-vscode` (revisit when bandwidth exists)
-- [ ] **Coverage gap** — `Start()`/`onReady()` need live Discord token for integration tests
+- [ ] **Upstream sync check** — `git fetch upstream && git log HEAD..upstream/main-v2 --oneline`. Merge if any new commits.
+- [ ] **Write Mode** — separate Markdown workspace with live preview, FIM completions via DeepSeek API, Hindsight memory context injection. Requires new Go bindings for filesystem operations + CodeMirror/Monaco editor integration. Reference: Kun's Write Mode implementation.
+- [ ] **Cross-session memory graph** — visual network of Hindsight memory connections across sessions using vector similarity. Needs memoryserver API query + D3/vis.js frontend.
+- [ ] **Checkpoint diff preview** — inline code diffs for file changes at each checkpoint. Needs Go binding to access FileSnap content from the unexported checkpoint store.
+- [ ] **Per-turn token breakdown chart** — accumulate per-turn usage events into a ring buffer on App/tab, expose as history array, render as sparkline bar chart.
+- [ ] **Compaction history log** — store CompactionDone events (trigger, messages saved, summary) and expose as a timeline panel.
+- [ ] **Live data wiring for Write Mode + Constitution** — currently the dashboard polls data; need to hook into Wails event stream for push updates.
+- [ ] **Desktop dark/light theme Hermes accent** — add a Hermes-specific accent color option to the theme settings.
+- [ ] **Discord bot integration test** — verify bot still starts and responds after gateway changes from upstream merge.
+- [ ] **Update reasonix.example.toml** — add all new v1.6.0 + Hermes config keys.
+- [ ] **Remote sandbox e2e test** — test external sandbox against a real OpenSandbox instance.
+- [ ] **VS Code extension fork** — `whishi47/deepseekcode-reasonix-vscode` → `reasonix-hermes-vscode`.
