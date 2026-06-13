@@ -16,8 +16,10 @@ import type {
   BotConnectionDiagnostic,
   BotInstallPollResult,
   BotInstallStartResult,
+  BotLiveStatusView,
   BotRuntimeStatusView,
   BotSettingsView,
+  CacheEconomyView,
   CapabilitiesView,
   CheckpointMeta,
   CommandInfo,
@@ -56,6 +58,8 @@ import type {
   WorkspaceChangesView,
   GitCommitView,
   GitCommitDetailView,
+  GoalProgressView,
+  MemoryDashboardView,
   WorkspaceView,
 } from "./types";
 
@@ -202,6 +206,12 @@ export interface AppBindings {
   Remember(scope: string, note: string): Promise<string>;
   Forget(name: string): Promise<void>;
   SaveDoc(path: string, body: string): Promise<string>;
+  CacheEconomy(): Promise<CacheEconomyView>;
+  CacheEconomyForTab(tabID: string): Promise<CacheEconomyView>;
+  MemoryDashboard(): Promise<MemoryDashboardView>;
+  BotLiveStatus(): Promise<BotLiveStatusView>;
+  GoalProgress(): Promise<GoalProgressView>;
+  GoalProgressForTab(tabID: string): Promise<GoalProgressView>;
   Settings(): Promise<SettingsView>;
   HooksSettings(scope: string): Promise<HooksSettingsView>;
   SaveHooksSettings(scope: string, hooks: HookConfigView[]): Promise<void>;
@@ -2284,6 +2294,24 @@ function makeMockApp(): AppBindings {
             connections: runningConnections,
             startedAt: settings.bot.enabled && runningConnections > 0 ? new Date(t0).toISOString() : "",
           };
+        },
+        async CacheEconomy() {
+          return { hitTokens: 0, missTokens: 0, totalTokens: 0, hitRate: 0 };
+        },
+        async CacheEconomyForTab(_tabID: string) {
+          return { hitTokens: 0, missTokens: 0, totalTokens: 0, hitRate: 0 };
+        },
+        async MemoryDashboard() {
+          return { totalFacts: 0, totalDocs: 0, totalScopes: 0 };
+        },
+        async BotLiveStatus() {
+          return { running: false, platform: "discord", activeSessions: 0, status: "disconnected" };
+        },
+        async GoalProgress() {
+          return { active: false, goal: "", status: "", turns: 0, blocks: 0 };
+        },
+        async GoalProgressForTab(_tabID: string) {
+          return { active: false, goal: "", status: "", turns: 0, blocks: 0 };
         },
         async StartBotConnectionInstall(provider: string, domain: string) {
           const normalizedProvider = provider === "weixin" ? "weixin" : "feishu";

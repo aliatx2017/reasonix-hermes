@@ -206,6 +206,9 @@ export function SettingsPanel({
                       s={s}
                       onHotbarChange={() => {}}
                       onProfileSelect={() => {}}
+                      cache={null}
+                      discord={null}
+                      goal={null}
                     />
                   </SettingsPageShell>
                 )}

@@ -1336,6 +1336,20 @@ func (c *Controller) GoalStatus() string {
 	return c.goalStatus
 }
 
+// GoalTurns returns the number of turns spent on the current goal.
+func (c *Controller) GoalTurns() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.goalTurns
+}
+
+// GoalBlocks returns the consecutive block count for the current goal.
+func (c *Controller) GoalBlocks() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.goalBlocks
+}
+
 // Compact runs one compaction pass on the executor's session on demand.
 // instructions is optional `/compact <focus>` guidance steering what to keep.
 func (c *Controller) Compact(ctx context.Context, instructions string) error {

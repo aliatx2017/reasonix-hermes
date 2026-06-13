@@ -595,6 +595,36 @@ export interface ProfileView {
   outputStyle: string;
 }
 
+// Hermes dashboard view types (desktop/hermes_dashboard.go).
+
+export interface CacheEconomyView {
+  hitTokens: number;
+  missTokens: number;
+  totalTokens: number;
+  hitRate: number;
+}
+
+export interface BotLiveStatusView {
+  running: boolean;
+  platform: string;
+  activeSessions: number;
+  status: string;
+}
+
+export interface GoalProgressView {
+  active: boolean;
+  goal: string;
+  status: string;
+  turns: number;
+  blocks: number;
+}
+
+export interface MemoryDashboardView {
+  totalFacts: number;
+  totalDocs: number;
+  totalScopes: number;
+}
+
 // Settings panel payloads (desktop/settings_app.go).
 export interface ProviderView {
   name: string;

@@ -1,10 +1,16 @@
 import { FileText, Keyboard, Sliders, Zap } from "lucide-react";
 import type { SettingsView, HotbarView, ProfileView } from "../../lib/types";
+import { CacheEconomyGauge } from "./CacheEconomyGauge";
+import { DiscordMonitor } from "./DiscordMonitor";
+import { GoalProgressWidget } from "./GoalProgressWidget";
 
 interface HermesSettingsProps {
   s: SettingsView;
   onHotbarChange: (hotbar: HotbarView) => void;
   onProfileSelect: (name: string) => void;
+  cache?: { hitTokens: number; missTokens: number; totalTokens: number; hitRate: number } | null;
+  discord?: { running: boolean; platform: string; activeSessions: number; status: string } | null;
+  goal?: { active: boolean; goal: string; status: string; turns: number; blocks: number } | null;
 }
 
 const HOTBAR_KEYS = [
@@ -28,12 +34,29 @@ const ACTION_LABELS: Record<string, string> = {
   settings: "Settings",
 };
 
-export function HermesSettings({ s, onHotbarChange: _onHotbar, onProfileSelect: _onProfile }: HermesSettingsProps) {
+export function HermesSettings({ s, onHotbarChange: _onHotbar, onProfileSelect: _onProfile, cache, discord, goal }: HermesSettingsProps) {
   const profiles = Object.entries(s.profiles ?? {}) as [string, ProfileView][];
   const activeProfile = s.activeProfile || "";
 
   return (
     <div className="hermes-settings" style={{ padding: "16px 0" }}>
+      {/* ═══════════ LIVE DASHBOARD ═══════════ */}
+      <section className="settings-section">
+        <h3 className="settings-section__title">
+          <Zap size={16} style={{ marginRight: 6 }} />
+          Live Dashboard
+        </h3>
+        <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <CacheEconomyGauge cache={cache ?? null} />
+          <DiscordMonitor status={discord ?? null} />
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <GoalProgressWidget goal={goal ?? null} compact />
+          </div>
+        </div>
+      </section>
+
+      <hr style={{ margin: "24px 0", border: "none", borderTop: "1px solid var(--color-border)" }} />
+
       {/* ═══════════ HOTBAR ═══════════ */}
       <section className="settings-section">
         <h3 className="settings-section__title">
