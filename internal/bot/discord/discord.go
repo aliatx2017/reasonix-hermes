@@ -232,29 +232,57 @@ func (a *Adapter) onReady(s *discordgo.Session, event *discordgo.Ready) {
 
 	// Register slash commands on the configured guild (server). Global commands
 	// would work too but take up to an hour to propagate; guild commands are instant.
-	cmd := &discordgo.ApplicationCommand{
-		Name:        "model",
-		Description: "Show or switch the AI model for this channel",
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "model",
-				Description: "Model to switch to (leave empty to show current)",
-				Required:    false,
-				Choices: []*discordgo.ApplicationCommandOptionChoice{
-					{Name: "DeepSeek Flash (fast)", Value: "flash"},
-					{Name: "DeepSeek Pro (deep)", Value: "pro"},
-					{Name: "MiMo Pro (planner)", Value: "mimo"},
+	commands := []*discordgo.ApplicationCommand{
+		{
+			Name:        "model",
+			Description: "Show or switch the AI model for this channel",
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "model",
+					Description: "Model to switch to (leave empty to show current)",
+					Required:    false,
+					Choices: []*discordgo.ApplicationCommandOptionChoice{
+						{Name: "DeepSeek Flash (fast)", Value: "flash"},
+						{Name: "DeepSeek Pro (deep)", Value: "pro"},
+						{Name: "MiMo Pro (planner)", Value: "mimo"},
+					},
+				},
+			},
+		},
+		{
+			Name:        "approve",
+			Description: "Approve a pending tool action",
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "id",
+					Description: "Approval ID (shown in the approval message)",
+					Required:    true,
+				},
+			},
+		},
+		{
+			Name:        "deny",
+			Description: "Deny a pending tool action",
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "id",
+					Description: "Approval ID (shown in the approval message)",
+					Required:    true,
 				},
 			},
 		},
 	}
-	if a.cfg.ServerID != "" {
-		_, err := s.ApplicationCommandCreate(s.State.User.ID, a.cfg.ServerID, cmd)
-		if err != nil {
-			a.logger.Warn("discord: failed to register /model command on guild", "guild", a.cfg.ServerID, "err", err)
-		} else {
-			a.logger.Info("discord: registered /model command", "guild", a.cfg.ServerID)
+	for _, cmd := range commands {
+		if a.cfg.ServerID != "" {
+			_, err := s.ApplicationCommandCreate(s.State.User.ID, a.cfg.ServerID, cmd)
+			if err != nil {
+				a.logger.Warn("discord: failed to register command on guild", "guild", a.cfg.ServerID, "cmd", cmd.Name, "err", err)
+			} else {
+				a.logger.Info("discord: registered command", "guild", a.cfg.ServerID, "cmd", cmd.Name)
+			}
 		}
 	}
 }
@@ -346,6 +374,48 @@ func (a *Adapter) onInteractionCreate(s *discordgo.Session, i *discordgo.Interac
 		})
 
 		// Push as a synthetic text message into the gateway pipeline
+		select {
+		case a.msgs <- bot.InboundMessage{
+			Platform:  a.Platform(),
+			ChatType:  bot.ChatGuild,
+			ChatID:    i.ChannelID,
+			UserID:    userID,
+			UserName:  userName,
+			Text:      text,
+			MessageID: i.ID,
+		}:
+		default:
+			a.logger.Warn("discord: message channel full, dropping interaction", "id", i.ID)
+		}
+
+	case "approve", "deny":
+		id := ""
+		if len(data.Options) > 0 {
+			id = data.Options[0].StringValue()
+		}
+		text := "/" + data.Name
+		if id != "" {
+			text = "/" + data.Name + " " + id
+		}
+
+		userID := ""
+		userName := ""
+		if i.Member != nil && i.Member.User != nil {
+			userID = i.Member.User.ID
+			userName = i.Member.User.Username
+		} else if i.User != nil {
+			userID = i.User.ID
+			userName = i.User.Username
+		}
+
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "Processing...",
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
+
 		select {
 		case a.msgs <- bot.InboundMessage{
 			Platform:  a.Platform(),
