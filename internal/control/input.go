@@ -128,7 +128,7 @@ func reasoningLanguageBlock(lang string) string {
 	case "zh":
 		return "<reasoning-language>\nVisible reasoning/thinking text preference: use Simplified Chinese when the provider exposes reasoning text. Keep code, identifiers, file paths, shell commands, and untranslated technical terms in their original form. This preference does not override an explicit user request for the final answer language.\n</reasoning-language>"
 	case "en":
-		return "<reasoning-language>\nVisible reasoning/thinking text preference: use English when the provider exposes reasoning text. Keep code, identifiers, file paths, shell commands, and untranslated technical terms in their original form. This preference does not override an explicit user request for the final answer language.\n</reasoning-language>"
+		return "<reasoning-language>\nAll visible reasoning/thinking text must be in English. Never output reasoning in Chinese or any other language. Keep code, identifiers, file paths, shell commands, and technical terms in their original form.\n</reasoning-language>"
 	default:
 		return ""
 	}
