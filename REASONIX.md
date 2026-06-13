@@ -32,7 +32,7 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 ## Notes
 
-- **Upstream synced**: `v1.7.0` merged (commit f6d8cce, 2026-07-14). 55 commits total. **4 new upstream commits pending** on `upstream/main-v2` (ed07684): crash reporting diagnostics, tab prompt replay fix, plan-options-on-tab-switch fix.
+- **Upstream synced**: `v1.7.0` merged (commit ed07684, 2026-07-14). 59 commits total. 4 new commits this session (crash diagnostics, tab prompt replay, plan-options fix, goSafe wrapper). 2 conflicts resolved (app.go startup goroutines, test import).
 - **Key v1.6.0 additions**: vision support (image downscaling + detail knob), built-in Time + Context7 MCP servers, configurable shell interpreter (`[tools.shell]`), notification sound system, token economy composer mode, desktop time filter + custom fonts + status bar customization + Windows ARM64, crash capture (Go panics/breadcrumbs/group summaries), lightweight local history + memory retrieval, Traditional Chinese (zh-TW) locale, updater resilience, agent fixes (decline-ask guard, compaction bounds), desktop hooks UI.
 - **Key v1.7.0 additions** (merged 2026-07-14): reasoning language settings (`agent.reasoning_language`), session ownership and state routing integration, checkpoint boundary corrections (optimistic rewind), enriched+memoized shell PATH for MCP stdio subprocesses, dropped phrase-matched approved-plan continuation, desktop golangci-lint CI, `SaveDocForTab` Wails binding.
 - **Language policy**: All Chinese comments translated to English in `internal/bot/` and `internal/config/` — SPEC §1 compliance restored. Upstream v1.6.0 still has some Chinese comments in IM bot code; these are upstream-authored and left as-is.
@@ -113,7 +113,6 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 ## Next session — ideas & follow-ups
 
-- [ ] **Merge 4 pending upstream commits** (ed07684: crash diagnostics, tab prompt replay, plan-options fix) — merge, resolve conflicts, `go build ./... && go vet ./...`, push.
 - [ ] **Sandbox Windows support** — design doc at `docs/WINDOWS-SANDBOX-DESIGN.md`. Implementation: ~350 lines in `internal/sandbox/appcontainer_windows.go`.
 - [ ] **Approve duplicate fix** — remaining "Approved." + "No pending action" double-fire from session queue replay edge case.
 - [ ] **Bot message dedup** — bot sometimes responds to its own approval messages; add bot-author filter in `onMessageCreate`.
