@@ -29,10 +29,11 @@ import { MCPServersSettingsPage, SkillsSettingsPage } from "./CapabilitiesPanel"
 import { MemorySettingsPage } from "./MemoryPanel";
 import { getGenerativePreset, setGenerativePreset, generativeMusic, type GenerativePreset } from "../lib/generative-music";
 import { SoundSelect } from "./SoundSelect";
+import { HermesSettings } from "./hermes/HermesSettings";
 import { getSuccessPreference, setSuccessPreference, getAttentionPreference, setAttentionPreference, playSuccessChime, playAttentionChime, type SoundWavPref } from "../lib/sound";
 import { ModalCloseButton } from "./ModalCloseButton";
 
-const SETTINGS_TABS: SettingsTab[] = ["general", "models", "bots", "mcp", "skills", "memory", "hooks", "permissions", "sandbox", "network", "appearance", "updates"];
+const SETTINGS_TABS: SettingsTab[] = ["general", "models", "bots", "mcp", "skills", "memory", "hooks", "permissions", "sandbox", "network", "appearance", "updates", "hermes"];
 export type SettingsInitialFocus = { target: "bot-allowlist"; connectionId?: string };
 
 // SettingsPanel is the desktop settings centre — a centred modal with left
@@ -114,7 +115,7 @@ export function SettingsPanel({
   // The settings-reliant pages (general, models, network, permissions,
   // sandbox, appearance, updates) need SettingsView loaded. MCP, Skills, and Memory
   // load their own data and render regardless.
-  const needsSettings = tab === "general" || tab === "models" || tab === "bots" || tab === "network" || tab === "permissions" || tab === "sandbox" || tab === "appearance" || tab === "updates";
+  const needsSettings = tab === "general" || tab === "models" || tab === "bots" || tab === "network" || tab === "permissions" || tab === "sandbox" || tab === "appearance" || tab === "updates" || tab === "hermes";
 
   return (
     <div className="management-modal-backdrop settings-modal-backdrop" data-state={status} onClick={(e) => { if (e.target === e.currentTarget) requestClose(); }}>
@@ -196,6 +197,15 @@ export function SettingsPanel({
                       metrics={s.metrics === true}
                       settingsBusy={busy}
                       applySettings={apply}
+                    />
+                  </SettingsPageShell>
+                )}
+                {tab === "hermes" && s && (
+                  <SettingsPageShell key={tab} s={s} tab={tab} busy={false} apply={apply}>
+                    <HermesSettings
+                      s={s}
+                      onHotbarChange={() => {}}
+                      onProfileSelect={() => {}}
                     />
                   </SettingsPageShell>
                 )}
@@ -348,6 +358,8 @@ function settingsTabLabel(id: SettingsTab, t: ReturnType<typeof useT>): string {
       return t("settings.tab.sandbox");
     case "appearance":
       return t("settings.tab.appearance");
+    case "hermes":
+      return "Hermes";
     case "updates":
       return t("settings.tab.updates");
   }
@@ -381,6 +393,8 @@ function settingsTabMeta(id: SettingsTab, s: SettingsView, t: ReturnType<typeof 
       return t("settings.appearanceMeta");
     case "updates":
       return t("settings.updatesMeta");
+    case "hermes":
+      return "Hotbar · Profiles · Branding";
   }
 }
 

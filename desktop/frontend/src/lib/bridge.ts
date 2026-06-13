@@ -807,6 +807,9 @@ function makeMockApp(): AppBindings {
     providerKinds: ["openai"],
     autoApproveTools: false,
     bypass: false,
+    hotbar: { key1: "palette", key2: "workspace", key3: "new", key4: "history", key5: "dock", key6: "sidebar", key7: "settings" },
+    profiles: {},
+    activeProfile: "",
   };
   const hookEvents = ["PreToolUse", "PostToolUse", "UserPromptSubmit", "Stop", "PostLLMCall", "SessionStart", "SessionEnd", "SubagentStop", "Notification", "PreCompact"];
   const hookSettings: Record<string, HooksSettingsView> = {

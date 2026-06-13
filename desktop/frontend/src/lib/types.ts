@@ -571,7 +571,29 @@ export interface MemoryView {
 }
 
 // SettingsTab is the top-level navigation item in the Settings Centre modal.
-export type SettingsTab = "general" | "models" | "providers" | "bots" | "mcp" | "skills" | "memory" | "hooks" | "permissions" | "sandbox" | "network" | "appearance" | "updates";
+export type SettingsTab = "general" | "models" | "providers" | "bots" | "mcp" | "skills" | "memory" | "hooks" | "permissions" | "sandbox" | "network" | "appearance" | "updates" | "hermes";
+
+// Hermes hotbar — configurable keyboard digit-key shortcuts (1-7).
+export interface HotbarView {
+  key1: string; // default: palette
+  key2: string; // default: workspace
+  key3: string; // default: new
+  key4: string; // default: history
+  key5: string; // default: dock
+  key6: string; // default: sidebar
+  key7: string; // default: settings
+}
+
+// Hermes harness profile — named bundle of session settings.
+export interface ProfileView {
+  name: string;
+  description: string;
+  model: string;
+  effort: string;
+  toolApproveMode: string;
+  autoPlan: string;
+  outputStyle: string;
+}
 
 // Settings panel payloads (desktop/settings_app.go).
 export interface ProviderView {
@@ -810,6 +832,9 @@ export interface SettingsView {
   telemetry: boolean; // anonymous launch ping (install id + version + OS)
   metrics: boolean; // opt-in aggregate agent metrics (anonymous signal/bucket counts)
   expandThinking: boolean; // show reasoning text expanded by default
+  hotbar: HotbarView; // Hermes — configurable keyboard digit-key shortcuts
+  profiles: Record<string, ProfileView>; // Hermes — named harness profiles
+  activeProfile: string; // Hermes — currently active profile name ("" = none)
   configPath: string;
   providerKinds: string[]; // provider implementations the kernel registered (for the kind picker)
   autoApproveTools: boolean;

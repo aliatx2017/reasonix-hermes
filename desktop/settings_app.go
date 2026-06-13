@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"encoding/json"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -169,6 +170,8 @@ type SettingsView struct {
 	Metrics           bool            `json:"metrics"`
 	ExpandThinking    bool            `json:"expandThinking"`
 	Hotbar            HotbarView      `json:"hotbar"`
+	Profiles          json.RawMessage `json:"profiles"`     // Hermes — map[name]ProfileView
+	ActiveProfile     string          `json:"activeProfile"`  // Hermes — currently active profile
 	ConfigPath        string          `json:"configPath"`
 	// ProviderKinds lists the provider implementations the kernel actually
 	// registered (provider.Kinds()), so the editor's "kind" picker offers only
@@ -353,6 +356,8 @@ func (a *App) Settings() SettingsView {
 			Metrics:           false,
 			ExpandThinking:    false,
 			Hotbar:            defaultHotbarView(),
+			Profiles:          json.RawMessage("{}"),
+			ActiveProfile:     "",
 		}
 	}
 	ctrl := a.activeCtrl()
@@ -409,6 +414,8 @@ func (a *App) Settings() SettingsView {
 		Metrics:           cfg.DesktopMetrics(),
 		ExpandThinking:    cfg.Desktop.ExpandThinking,
 		Hotbar:            hotbarView(cfg.Desktop.Hotbar),
+		Profiles:          profilesJSON(cfg.Profiles),
+		ActiveProfile:     cfg.ActiveProfile,
 		ConfigPath:        cfgPath,
 		ProviderKinds:     nonNil(provider.Kinds()),
 		AutoApproveTools:  ctrl != nil && ctrl.AutoApproveTools(),
@@ -455,6 +462,26 @@ func hotbarView(h config.HotbarConfig) HotbarView {
 // defaultHotbarView returns the built-in hotbar defaults (no config).
 func defaultHotbarView() HotbarView {
 	return HotbarView{Key1: "palette", Key2: "workspace", Key3: "new", Key4: "history", Key5: "dock", Key6: "sidebar", Key7: "settings"}
+}
+
+// profilesJSON serializes harness profiles into a JSON map for the frontend.
+func profilesJSON(profiles map[string]config.ProfileConfig) json.RawMessage {
+	if len(profiles) == 0 {
+		return json.RawMessage("{}")
+	}
+	out := make(map[string]map[string]string, len(profiles))
+	for name, p := range profiles {
+		out[name] = map[string]string{
+			"description":     p.Description,
+			"model":           p.Model,
+			"effort":          p.Effort,
+			"toolApproveMode": p.ToolApproveMode,
+			"autoPlan":        p.AutoPlan,
+			"outputStyle":     p.OutputStyle,
+		}
+	}
+	b, _ := json.Marshal(out)
+	return b
 }
 
 func botSettingsView(b config.BotConfig) BotSettingsView {

@@ -54,6 +54,7 @@ import {
   type BotSettingsView,
   type CollaborationMode,
   type ComposerInsertRequest,
+  type HotbarView,
   type Mode,
   type ProjectNode,
   type SessionMeta,
@@ -720,6 +721,45 @@ function TextSizeHotkeys() {
   return null;
 }
 
+interface HotbarHotkeysProps {
+  hotbarRef: React.MutableRefObject<HotbarView>;
+  onPalette: () => void;
+  onWorkspace: () => void;
+  onNewChat: () => void;
+  onHistory: () => void;
+  onDock: () => void;
+  onSidebar: () => void;
+  onSettings: () => void;
+}
+
+function HotbarHotkeys({ hotbarRef, onPalette, onWorkspace, onNewChat, onHistory, onDock, onSidebar, onSettings }: HotbarHotkeysProps) {
+  useEffect(() => {
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return; // don't steal mod-key combos
+      const tag = document.activeElement?.tagName?.toLowerCase();
+      if (tag === "input" || tag === "textarea" || tag === "select") return; // don't steal from form fields
+      const h = hotbarRef.current;
+      const action = e.key === "1" ? h.key1 : e.key === "2" ? h.key2 : e.key === "3" ? h.key3
+        : e.key === "4" ? h.key4 : e.key === "5" ? h.key5 : e.key === "6" ? h.key6
+        : e.key === "7" ? h.key7 : null;
+      if (!action) return;
+      e.preventDefault();
+      switch (action) {
+        case "palette": onPalette(); break;
+        case "workspace": onWorkspace(); break;
+        case "new": onNewChat(); break;
+        case "history": onHistory(); break;
+        case "dock": onDock(); break;
+        case "sidebar": onSidebar(); break;
+        case "settings": onSettings(); break;
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [hotbarRef, onPalette, onWorkspace, onNewChat, onHistory, onDock, onSidebar, onSettings]);
+  return null;
+}
+
 export default function App() {
   const {
     state,
@@ -784,6 +824,8 @@ export default function App() {
   const [sidebarImDetailConnectionId, setSidebarImDetailConnectionId] = useState("");
   const [sidebarImExpanded, setSidebarImExpanded] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(loadSidebarCollapsed);
+  // Hermes hotbar — cached hotbar config for keyboard shortcuts 1-7.
+  const hotbarRef = useRef<HotbarView>({ key1: "palette", key2: "workspace", key3: "new", key4: "history", key5: "dock", key6: "sidebar", key7: "settings" });
   type TimeFilter = "all" | "10" | "20" | "1h" | "3h" | "5h" | "1d";
   const [topicTimeFilter, setTopicTimeFilter] = useState<TimeFilter>(() => {
     try {
@@ -953,7 +995,7 @@ export default function App() {
   }, []);
 
   const applyDesktopPreferences = useCallback(
-    (settings: Pick<SettingsView, "desktopTheme" | "desktopThemeStyle" | "desktopLanguage" | "checkUpdates" | "statusBarStyle" | "statusBarItems">) => {
+    (settings: Pick<SettingsView, "desktopTheme" | "desktopThemeStyle" | "desktopLanguage" | "checkUpdates" | "statusBarStyle" | "statusBarItems" | "hotbar">) => {
       const nextTheme = normalizeThemePreference(settings.desktopTheme);
       const nextStyle = normalizeThemeStyleForTheme(settings.desktopThemeStyle, nextTheme);
       applyTheme(nextTheme, nextStyle, { persist: false });
@@ -961,6 +1003,7 @@ export default function App() {
       setStartupUpdateChecksEnabled(settings.checkUpdates !== false);
       setStatusBarStyle(settings.statusBarStyle === "text" ? "text" : "icon");
       setStatusBarItems(normalizeStatusBarItems(settings.statusBarItems));
+      if (settings.hotbar) hotbarRef.current = settings.hotbar;
     },
     [setLocalePref],
   );
@@ -2235,6 +2278,16 @@ export default function App() {
     <ShellExpandProvider>
     <ShellHotkeys />
     <TextSizeHotkeys />
+    <HotbarHotkeys
+      hotbarRef={hotbarRef}
+      onPalette={() => setPaletteOpen(true)}
+      onWorkspace={() => setWorkspacePanelMaximized((prev) => !prev)}
+      onNewChat={() => handleNewTab()}
+      onHistory={() => setHistView({ kind: "history", source: "all", sessions: [] })}
+      onDock={() => setWorkspacePanelMaximized((prev) => !prev)}
+      onSidebar={() => setSidebarCollapsed((prev) => !prev)}
+      onSettings={() => setSettingsTarget("general")}
+    />
     <div ref={appRef} className={["app", `app--${desktopPlatform}`, browserPreviewChrome ? "app--browser-preview" : ""].filter(Boolean).join(" ")}>
       <div
         className={[
@@ -2809,7 +2862,10 @@ export default function App() {
             void refreshMeta();
             void reloadSidebarImConnections().catch((e) => console.warn("bot sidebar refresh failed", e));
             void app.Settings()
-              .then(applyDesktopPreferences)
+              .then((s) => {
+                applyDesktopPreferences(s);
+                if (s?.hotbar) hotbarRef.current = s.hotbar;
+              })
               .catch((e) => console.warn("desktop preferences refresh failed", e));
           }}
         />
