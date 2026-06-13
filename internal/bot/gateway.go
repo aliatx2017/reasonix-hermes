@@ -365,12 +365,15 @@ func chatUsesGroupAllowlist(chatType ChatType) bool {
 func (gw *BotGateway) normalizeApprovalShortcut(key, text string) (string, bool) {
 	command, ok := approvalShortcutCommand(text)
 	if !ok {
+		gw.logger.Info("approval shortcut: no matching command", "text", text)
 		return "", false
 	}
 	approvalID := gw.currentPendingApprovalID(key)
 	if approvalID == "" {
+		gw.logger.Info("approval shortcut: no pending approval ID", "key", key[:8])
 		return "", false
 	}
+	gw.logger.Info("approval shortcut: matched", "command", command, "id", approvalID)
 	return command + " " + approvalID, true
 }
 

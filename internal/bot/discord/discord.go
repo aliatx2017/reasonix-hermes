@@ -232,6 +232,17 @@ func (a *Adapter) onReady(s *discordgo.Session, event *discordgo.Ready) {
 
 	// Register slash commands on the configured guild (server). Global commands
 	// would work too but take up to an hour to propagate; guild commands are instant.
+	// First, delete any stale commands from previous bot versions.
+	existing, err := s.ApplicationCommands(s.State.User.ID, a.cfg.ServerID)
+	if err == nil {
+		for _, cmd := range existing {
+			if cmd.Name == "approve" || cmd.Name == "deny" {
+				_ = s.ApplicationCommandDelete(s.State.User.ID, a.cfg.ServerID, cmd.ID)
+				a.logger.Info("discord: deleted stale command", "cmd", cmd.Name)
+			}
+		}
+	}
+
 	cmd := &discordgo.ApplicationCommand{
 		Name:        "model",
 		Description: "Show or switch the AI model for this channel",
