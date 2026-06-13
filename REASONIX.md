@@ -98,4 +98,4 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 ## Next session — ideas & follow-ups
 
 - [ ] **Discord bot integration test** — verify bot starts and responds via desktop gateway after runtime wiring.
-- [ ] **Sandbox Windows support** — investigate Windows Job Objects or Hyper-V containers.
+- [ ] **Sandbox Windows support** — investigation complete; AppContainer chosen as best approach. See `docs/WINDOWS-SANDBOX-DESIGN.md`. Implementation: ~350 lines in `internal/sandbox/appcontainer_windows.go` (Win32 types + CreateAppContainerProfile + CreateProcess with SECURITY_CAPABILITIES + WriteRoot ACL grants).
