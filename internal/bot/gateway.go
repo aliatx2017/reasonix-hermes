@@ -368,23 +368,50 @@ func (gw *BotGateway) normalizeApprovalShortcut(key, text string) (string, bool)
 		gw.logger.Info("approval shortcut: no matching command", "text", text)
 		return "", false
 	}
-	approvalID := gw.currentPendingApprovalID(key)
-	if approvalID == "" {
-		gw.logger.Info("approval shortcut: no pending approval ID", "key", key[:8])
+	// Check whether the session exists at all. If no controller entry, there's
+	// nothing to retry for — a pending approval can't appear from nowhere.
+	gw.mu.Lock()
+	_, hasSession := gw.controllers[key]
+	gw.mu.Unlock()
+	if !hasSession {
+		gw.logger.Info("approval shortcut: no session", "key", key[:8])
 		return "", false
 	}
-	gw.logger.Info("approval shortcut: matched", "command", command, "id", approvalID)
-	return command + " " + approvalID, true
+	// The approval event may not have arrived at the gateway's event sink yet
+	// (it is emitted by the agent → sink → callback on a different goroutine).
+	// Retry briefly — up to 500ms — before giving up.
+	deadline := time.Now().Add(500 * time.Millisecond)
+	for {
+		approvalID := gw.currentPendingApprovalID(key)
+		if approvalID != "" {
+			gw.logger.Info("approval shortcut: matched", "command", command, "id", approvalID)
+			return command + " " + approvalID, true
+		}
+		if time.Now().After(deadline) {
+			gw.logger.Info("approval shortcut: no pending approval ID after retry", "key", key[:8])
+			return "", false
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
 }
 
 func approvalShortcutCommand(text string) (string, bool) {
 	text = strings.ToLower(strings.TrimSpace(text))
-	// Strip trailing " 1" from "approve 1" so it matches "approve".
-	text = strings.TrimRight(text, " 0123456789")
+	// Standalone numeric shortcuts: "1" = approve, "2" / "0" = deny.
 	switch text {
 	case "1", "y", "yes", "ok", "approve", "allow", "allow once":
 		return "/approve", true
 	case "2", "0", "n", "no", "deny":
+		return "/deny", true
+	}
+	// Strip trailing digits (e.g. "approve 1" → "approve") so the word form
+	// still matches. Only strip when a word precedes the digits — standalone
+	// numbers are handled above.
+	text = strings.TrimSpace(strings.TrimRight(text, " 0123456789"))
+	switch text {
+	case "y", "yes", "ok", "approve", "allow", "allow once":
+		return "/approve", true
+	case "n", "no", "deny":
 		return "/deny", true
 	default:
 		return "", false
@@ -521,23 +548,31 @@ func (gw *BotGateway) handleSlashCommand(ctx context.Context, adapter Adapter, k
 		_ = gw.sendText(ctx, adapter, msg, "New session started.")
 
 	case strings.HasPrefix(msg.Text, "/approve") || strings.HasPrefix(msg.Text, "approve "):
-		// 从消息中解析 approval ID
 		parts := strings.Fields(msg.Text)
 		if len(parts) < 2 {
 			_ = gw.sendText(ctx, adapter, msg, "Usage: /approve <id>")
 			return
 		}
+		approvalID := parts[1]
 		gw.mu.Lock()
 		state, ok := gw.controllers[key]
+		// Verify the approval is still pending — duplicate approve messages
+		// can arrive (user double-click, network retry) and the first one
+		// already resolved it.
+		stillPending := ok && state.pendingApprovals != nil && state.pendingApprovals[approvalID].ID != ""
 		gw.mu.Unlock()
-		if ok && state.ctrl != nil {
-			state.ctrl.Approve(parts[1], true, false, false)
-			gw.forgetPendingApproval(key, parts[1])
-			gw.sessions.ForceRelease(key) // drain queued messages so they don't replay
-			_ = gw.sendText(ctx, adapter, msg, "Approved.")
-		} else {
+		if !ok || state.ctrl == nil {
 			_ = gw.sendText(ctx, adapter, msg, "No pending approval in the current session. Trigger an action first.")
+			return
 		}
+		if !stillPending {
+			_ = gw.sendText(ctx, adapter, msg, "No pending action found. Trigger an action first, then reply with the number, or use /approve, /deny, or /answer with the message ID.")
+			return
+		}
+		state.ctrl.Approve(approvalID, true, false, false)
+		gw.forgetPendingApproval(key, approvalID)
+		gw.sessions.ForceRelease(key) // drain queued messages so they don't replay
+		_ = gw.sendText(ctx, adapter, msg, "Approved.")
 
 	case strings.HasPrefix(msg.Text, "/deny") || strings.HasPrefix(msg.Text, "deny "):
 		parts := strings.Fields(msg.Text)
@@ -545,17 +580,23 @@ func (gw *BotGateway) handleSlashCommand(ctx context.Context, adapter Adapter, k
 			_ = gw.sendText(ctx, adapter, msg, "Usage: /deny <id>")
 			return
 		}
+		approvalID := parts[1]
 		gw.mu.Lock()
 		state, ok := gw.controllers[key]
+		stillPending := ok && state.pendingApprovals != nil && state.pendingApprovals[approvalID].ID != ""
 		gw.mu.Unlock()
-		if ok && state.ctrl != nil {
-			state.ctrl.Approve(parts[1], false, false, false)
-			gw.forgetPendingApproval(key, parts[1])
-			gw.sessions.ForceRelease(key) // drain queued messages so they don't replay
-			_ = gw.sendText(ctx, adapter, msg, "Denied.")
-		} else {
+		if !ok || state.ctrl == nil {
 			_ = gw.sendText(ctx, adapter, msg, "No pending approval in the current session. Trigger an action first.")
+			return
 		}
+		if !stillPending {
+			_ = gw.sendText(ctx, adapter, msg, "No pending action found. Trigger an action first, then reply with the number, or use /approve, /deny, or /answer with the message ID.")
+			return
+		}
+		state.ctrl.Approve(approvalID, false, false, false)
+		gw.forgetPendingApproval(key, approvalID)
+		gw.sessions.ForceRelease(key) // drain queued messages so they don't replay
+		_ = gw.sendText(ctx, adapter, msg, "Denied.")
 
 	case strings.HasPrefix(msg.Text, "/answer"):
 		parts := strings.Fields(msg.Text)

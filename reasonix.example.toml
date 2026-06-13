@@ -149,6 +149,28 @@ price = { cache_hit = 0.5, input = 5, output = 25, currency = "$" } # per 1M tok
 thinking = "adaptive"
 effort = "high"
 
+# MiniMax — OpenAI-compatible provider. The "openai" kind detects minimaxi.com
+# hosts and uses M3's binary thinking knob (adaptive/disabled).
+# [[providers]]
+# name = "minimax"
+# kind = "openai"
+# base_url = "https://api.minimaxi.com/v1"
+# model = "minimax-m3"
+# api_key_env = "MINIMAX_API_KEY"
+# context_window = 1000000
+# effort = "adaptive"   # adaptive | disabled; also supports vision (image) input
+
+# GLM (ZhipuAI / Z.ai) — OpenAI-compatible provider with standard reasoning_effort
+# (low/medium/high). The "openai" kind auto-detects bigmodel.cn hosts.
+# [[providers]]
+# name = "glm"
+# kind = "openai"
+# base_url = "https://open.bigmodel.cn/api/paas/v4"
+# model = "glm-4.5"
+# api_key_env = "GLM_API_KEY"
+# context_window = 128000
+# effort = "high"
+
 [tools]
 enabled = []               # empty = all built-in tools
 bash_timeout_seconds = 120 # foreground safety cap; set 0 for no tool-local cap

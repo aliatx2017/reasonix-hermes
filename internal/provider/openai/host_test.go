@@ -70,3 +70,29 @@ func TestIsMiniMax(t *testing.T) {
 		}
 	}
 }
+
+func TestIsGLM(t *testing.T) {
+	for _, tc := range []struct {
+		baseURL string
+		want    bool
+	}{
+		// Canonical
+		{"https://open.bigmodel.cn", true},
+		{"https://open.bigmodel.cn/api/paas/v4", true},
+		// Regional subdomains
+		{"https://api.bigmodel.cn/v1", true},
+		// Apex rejected
+		{"https://bigmodel.cn/v1", false},
+		// Other vendors must not match
+		{"https://api.deepseek.com", false},
+		{"https://api.openai.com/v1", false},
+		{"https://api.minimaxi.com", false},
+		// Garbage
+		{"", false},
+		{"not-a-url", false},
+	} {
+		if got := IsGLM(tc.baseURL); got != tc.want {
+			t.Errorf("IsGLM(%q) = %v, want %v", tc.baseURL, got, tc.want)
+		}
+	}
+}

@@ -273,8 +273,17 @@ func (a *Adapter) onReady(s *discordgo.Session, event *discordgo.Ready) {
 // onMessageCreate handles incoming Discord messages and translates them
 // to InboundMessage events.
 func (a *Adapter) onMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
-	// Ignore bot's own messages
+	// Ignore bot's own messages. Belt-and-suspenders: check both the author ID
+	// (which requires State.User to be populated) and known bot status-response
+	// patterns. The ID check can miss messages that arrive before the READY event
+	// populates State.User, and double-send of approval responses can happen when
+	// the gateway's handler and the sink's render overlap; the text filter catches
+	// any that slip through.
 	if m.Author.ID == s.State.User.ID {
+		return
+	}
+	if botOwnStatusMessage(m.Content) {
+		a.logger.Debug("discord: filtered bot status message", "content", m.Content[:min(40, len(m.Content))])
 		return
 	}
 
@@ -423,6 +432,32 @@ func stripMention(text, botID string) string {
 		text = strings.TrimPrefix(text, p)
 	}
 	return strings.TrimSpace(text)
+}
+
+// botOwnStatusMessage reports whether the text matches a known bot status
+// response — a belt-and-suspenders filter for the rare case where the bot-author
+// ID check misses a self-message.
+var botStatusMessages = []string{
+	"Approved.",
+	"Denied.",
+	"No pending action found.",
+	"No pending approval in the current session.",
+	"Task stopped.",
+	"New session started.",
+	"Answer submitted.",
+	"Usage: /approve",
+	"Usage: /deny",
+	"Usage: /answer",
+}
+
+func botOwnStatusMessage(text string) bool {
+	text = strings.TrimSpace(text)
+	for _, s := range botStatusMessages {
+		if text == s || strings.HasPrefix(text, s) {
+			return true
+		}
+	}
+	return false
 }
 
 // cardToMarkdown converts an InteractiveCard to a plain markdown string.

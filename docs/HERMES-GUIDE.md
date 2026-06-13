@@ -531,6 +531,8 @@ Copy the relevant block into your `reasonix.toml`:
 | **vLLM (self-hosted)** | `http://localhost:8000/v1` | `deepseek-ai/DeepSeek-V4-Pro` |
 | **SGLang (self-hosted)** | `http://localhost:30000/v1` | `deepseek-ai/DeepSeek-V4-Pro` |
 | **Xiaomi MiMo** | `https://token-plan-cn.xiaomimimo.com/v1` | `mimo-v2.5-pro`, `mimo-v2.5` |
+| **MiniMax** | `https://api.minimaxi.com/v1` | `minimax-m3` (binary thinking knob: adaptive/disabled) |
+| **GLM (ZhipuAI)** | `https://open.bigmodel.cn/api/paas/v4` | `glm-4.5`, `glm-4-plus` (standard reasoning_effort) |
 
 ```toml
 # Example: OpenRouter
@@ -604,7 +606,7 @@ via `[tools].enabled` in config.
 
 | Tool | Description |
 |------|-------------|
-| `bash` | Execute a shell command. Timeout via `[tools].bash_timeout_seconds`. Sandboxed on macOS (Seatbelt) and Linux (bubblewrap). |
+| `bash` | Execute a shell command. Timeout via `[tools].bash_timeout_seconds`. Sandboxed on macOS (Seatbelt), Linux (bubblewrap), and Windows (AppContainer). |
 
 ### 7.4 Meta tools
 
@@ -688,7 +690,10 @@ The sandbox is **enforcement**, separate from permissions:
 - **Bash on Linux** uses bubblewrap (`bwrap`) with the same profile: read-only
   root filesystem, writable workspace + temp + caches, network isolated unless
   `[sandbox.bash] network = true`. Install with `apt install bubblewrap`.
-- **Bash on Windows** runs unconfined currently (sandbox not yet implemented).
+- **Bash on Windows** runs inside an AppContainer (LowBox isolation, available since
+  Windows 8): commands are confined via `CreateProcess` with `SECURITY_CAPABILITIES`
+  — reads freely, writes only to workspace + temp + toolchain caches, network
+  controlled via `internetClient` capability SIDs. No external dependencies needed.
 
 ```toml
 [sandbox]

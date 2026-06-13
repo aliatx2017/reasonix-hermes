@@ -576,6 +576,11 @@ func TestOnReady(t *testing.T) {
 	}
 	a.session = dg
 
+	// onReady accesses s.State.User.ID to list/delete stale commands, then
+	// creates the /model slash command. State.User must be set or the call
+	// to ApplicationCommands panics with nil dereference.
+	dg.State.User = &discordgo.User{ID: "bot1", Username: "TestBot"}
+
 	// onReady accesses event.User.Username and event.Guilds, then calls UpdateGameStatus
 	event := &discordgo.Ready{
 		User:   &discordgo.User{Username: "TestBot"},

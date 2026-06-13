@@ -148,6 +148,20 @@ func (b bash) Execute(ctx context.Context, args json.RawMessage) (string, error)
 		}
 	}
 
+	// Windows AppContainer: use CreateProcess-based sandbox instead of exec.Cmd.
+	// sandbox.Command() returns unwrapped argv on Windows because AppContainer
+	// requires programmatic CreateProcess — it cannot be expressed as argv.
+	if b.sb.Mode == "enforce" && sandbox.IsAppContainer() && !p.RunInBackground {
+		out, err := sandbox.ExecAppContainer(
+			b.sb, sh, p.Command,
+			cmdEnv, b.workDir,
+		)
+		if err != nil {
+			return out, fmt.Errorf("command exited: %w", err)
+		}
+		return out, nil
+	}
+
 	if p.RunInBackground {
 		jm, ok := jobs.FromContext(ctx)
 		if !ok {

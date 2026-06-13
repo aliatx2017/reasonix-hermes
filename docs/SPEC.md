@@ -84,7 +84,7 @@ reasonix/
     ├── provider/            # Provider interface + types + kind→factory registry
     │   ├── anthropic/       # Anthropic Messages API impl
     │   └── openai/          # OpenAI-compatible impl; init() registers "openai"
-    ├── sandbox/             # OS-level sandbox (macOS Seatbelt)
+    ├── sandbox/             # OS-level sandbox (macOS Seatbelt, Linux bubblewrap, Windows AppContainer)
     ├── serve/               # HTTP/WebSocket server mode
     ├── skill/               # skill registry and loader
     ├── sysproxy/            # system proxy detection
@@ -591,11 +591,13 @@ Phase 0 confines the file-writing built-ins (`write_file`, `edit_file`,
 target — resolved to an absolute, symlink-free path so a symlinked dir or `..`
 cannot tunnel out — falls outside every root is refused, and the error is fed
 back to the model. Confinement is on by default (root = cwd), so edits stay in
-the project; reads are unrestricted. `bash` is itself jailed on macOS by default
-(`[sandbox] bash = "enforce"`, Seatbelt): each command runs under sandbox-exec
-allowed to write only the same roots (+ temp and toolchain caches) and to reach
-the network only when `network = true`. Unsupported platforms fall back to
-running unconfined. The escape-prompt and Linux support are Phase 1's remainder (§9).
+the project; reads are unrestricted. `bash` is itself jailed by default
+(`[sandbox] bash = "enforce"`): on macOS via `sandbox-exec` (Seatbelt SBPL
+profile), on Linux via `bwrap` (bubblewrap bind-mounts + network namespace),
+and on Windows via `AppContainer` (LowBox isolation via `CreateProcess` with
+`SECURITY_CAPABILITIES`, available since Win8+). Each backend allows writes
+only to the workspace root + temp + toolchain caches, and network only when
+`network = true`. Unsupported platforms fall back to running unconfined.
 
 ## 6. Error Handling
 
@@ -623,13 +625,14 @@ running unconfined. The escape-prompt and Linux support are Phase 1's remainder 
 
 - Sandbox Phase 1: an OS-level jail for `bash` so commands — not just the
   file-writer built-ins (Phase 0) — are confined to the workspace. **macOS
-  (Seatbelt via `sandbox-exec`) ships, on by default** (see §5). Remaining: (a)
-  the escape-prompt — detect a sandbox-denied failure and offer to re-run the
-  command unconfined via the permission gate (in `reasonix run`, the command just
-  fails and the model adapts), which completes the "allow inside the box, prompt
-  at its edge" model; (b) Linux (bubblewrap / landlock). Shells out to OS tooling
-  so the binary stays dependency-free; Windows is out of scope. With this in
-  place, "always allow" rule persistence becomes optional rather than load-bearing.
+  (Seatbelt via `sandbox-exec`) ships, Linux (bubblewrap) ships, Windows
+  (AppContainer) ships — all three platforms on by default** (see §5).
+  Remaining: the escape-prompt — detect a sandbox-denied failure and offer to
+  re-run the command unconfined via the permission gate (in `reasonix run`, the
+  command just fails and the model adapts), which completes the "allow inside
+  the box, prompt at its edge" model. Shells out to OS tooling so the binary
+  stays dependency-free. With this in place, "always allow" rule persistence
+  becomes optional rather than load-bearing.
 - MCP long tail (deferred deliberately — no consumer / no foundation yet): OAuth
   2.0 + `headersHelper` auth for remote servers; the remaining `.mcp.json` scopes
   (local / user — project scope shipped, see §5); tool-search deferral;

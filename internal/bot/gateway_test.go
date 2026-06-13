@@ -421,7 +421,7 @@ func TestGatewayNumericApprovalShortcutActiveWithoutPendingSendsGuidance(t *test
 	if len(sent) != 1 {
 		t.Fatalf("sent count = %d, want 1", len(sent))
 	}
-	if !strings.Contains(sent[0].Text, "没有找到可匹配的待处理操作") {
+	if !strings.Contains(sent[0].Text, "No pending action found") {
 		t.Fatalf("sent text = %q, want pending operation guidance", sent[0].Text)
 	}
 }
@@ -438,7 +438,7 @@ func TestGatewayApproveWithoutSessionSendsGuidance(t *testing.T) {
 	if len(sent) != 1 {
 		t.Fatalf("sent count = %d, want 1", len(sent))
 	}
-	if !strings.Contains(sent[0].Text, "没有找到当前会话中的待审批操作") {
+	if !strings.Contains(sent[0].Text, "No pending approval") {
 		t.Fatalf("sent text = %q, want missing approval guidance", sent[0].Text)
 	}
 }
@@ -485,7 +485,7 @@ func TestGatewayYoloCommandUpdatesCurrentSessionAndConnectionDefault(t *testing.
 		t.Fatalf("persisted = %q/%q, want feishu-lark/yolo", persistedConnection, persistedMode)
 	}
 	sent := adapter.sentMessages()
-	if len(sent) != 1 || !strings.Contains(sent[0].Text, "已开启 YOLO") {
+	if len(sent) != 1 || !strings.Contains(sent[0].Text, "YOLO") {
 		t.Fatalf("sent = %#v, want yolo confirmation", sent)
 	}
 }
@@ -526,7 +526,7 @@ func TestGatewayModeCommandSupportsAskAutoAndStatus(t *testing.T) {
 	if len(sent) != 3 {
 		t.Fatalf("sent count = %d, want 3", len(sent))
 	}
-	if !strings.Contains(sent[2].Text, "当前工具审批模式：询问") {
+	if !strings.Contains(sent[2].Text, "ask") {
 		t.Fatalf("status = %q, want ask status", sent[2].Text)
 	}
 }

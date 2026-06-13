@@ -60,6 +60,38 @@ Our fork (`aliatx2017/reasonix-hermes`) adds:
 - **D3 click-to-inspect**: Click any graph node → detail panel with title, description, type, close button. Selected node gets white stroke highlight
 - **D3 vector similarity links**: TF-IDF cosine similarity between fact descriptions; cross-type edges added for sim > 0.3, rendered as dashed accent lines
 
+### Hermes v1.6.1-h3 (2026-07-14) — Windows Sandbox + Multi-Provider + Bot Fixes
+
+**Windows AppContainer sandbox** (`internal/sandbox/appcontainer_windows.go`, ~360 lines):
+- OS-level process isolation via CreateProcess with SECURITY_CAPABILITIES — available since Win8+, no external dependencies
+- Profile creation (CreateAppContainerProfile), capability SID derivation (internetClient/internetClientServer), WriteRoot ACL granting (SetNamedSecurityInfo via ACLFromEntries)
+- `ExecAppContainer()` launcher with CreateProcess + pipe I/O for stdout/stderr capture, integrated into bash tool via `sandbox.IsAppContainer()` guard
+- Stubs for non-Windows (`appcontainer_stub.go`), `seatbelt_other.go` build tag narrowed to `!darwin && !windows`
+- Refactored `writeAllowDirs()` from seatbelt_darwin.go → sandbox.go for cross-platform sharing
+- Package doc updated to list all three backends (macOS Seatbelt, Linux bubblewrap, Windows AppContainer)
+
+**Multi-provider expansion:**
+- **GLM (Z.ai/bigmodel.cn)**: `IsGLM()` host detection function + 9-case test in openai provider. Uses standard OpenAI reasoning_effort — no special protocol needed. Example config entry in `reasonix.example.toml`
+- **MiniMax**: Already supported via existing `IsMiniMax()` detection; added example config entry (minimax-m3, binary thinking knob)
+- **Codex**: Works via openai kind with api.openai.com endpoint for standard models; full Responses API implementation deferred
+
+**Bot bug fixes (3):**
+- **Approve race condition** (`gateway.go`): `normalizeApprovalShortcut` retries up to 500ms for approval event to register in gateway state — fixes race where fast "approve"/"y" arrives before agent's ApprovalRequest callback
+- **Duplicate approve guard** (`gateway.go`): `/approve` and `/deny` handlers now verify approval is still pending before sending "Approved."/"Denied." — prevents duplicate responses from double-clicks/retries
+- **Bot message dedup** (`discord.go`): Added `botOwnStatusMessage()` matching known bot responses (Approved., Denied., No pending action, Task stopped, etc.) as belt-and-suspenders filter in `onMessageCreate`
+- **approvalShortcutCommand fix** (`gateway.go`): Standalone digits "1"/"2"/"0" now handled before trailing-digit stripping — was destroyed by TrimRight in prior Hermes fix
+
+**Agent behavioral rules** (`.reasonix/constitution.json`):
+- Added 2 ERROR-severity rules: `never-say-fixed` (banned word "fixed") and `substantiate-every-claim` (no assertion without evidence). Auto-formatted into system prompt via `internal/constitution.Format()`
+
+**Test fixes (6 pre-existing failures):**
+- Discord `TestOnReady` nil pointer — `dg.State.User` wasn't set before calling onReady
+- 5 gateway tests — updated Chinese→English expected strings to match translated gateway messages
+- All 5 bot test packages now pass green (`go test ./internal/bot/...`)
+
+**Competitive landscape verification:**
+- All 14 star counts verified via GitHub API — within 0.3% accuracy. 7+ feature claims across 9 competitors confirmed. No corrections needed.
+
 ### Hermes v1.5.0-h3 (2026-06-12)
 
 **Layout & Docs:**
