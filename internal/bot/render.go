@@ -106,7 +106,7 @@ func (s *renderSink) Emit(e event.Event) {
 		if s.onApproval != nil {
 			s.onApproval(e.Approval)
 		}
-		approvalText := fmt.Sprintf("⚠️ Approval required:\nTool: %s\nAction: %s\n\nID: `%s`\nReply 1 to approve, 2 to deny; or use /approve %s or /deny %s.",
+		approvalText := fmt.Sprintf("⚠️ Approval required:\nTool: %s\nAction: %s\n\nID: `%s`\nUse /approve %s or /deny %s.",
 			e.Approval.Tool, e.Approval.Subject, e.Approval.ID, e.Approval.ID, e.Approval.ID)
 		msg := OutboundMessage{
 			ConnectionID: s.connID,
