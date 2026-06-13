@@ -4,6 +4,12 @@
 > `pkg/memoryserver/` → `cmd/reasonix-memoryserver/`. Historical references in
 > this document use the original paths.
 
+> **v1.6.0 sync:** July 13, 2026 — merged 38 upstream commits (62645d1). 32 merge conflicts
+> resolved. Key additions: vision support, built-in Time + Context7 MCP servers,
+> configurable shell interpreter, notification sound system, token economy mode,
+> desktop time filter + custom fonts + Windows ARM64, crash capture, Traditional Chinese
+> locale, updater resilience, agent fixes.
+
 > Generated from fresh ecosystem research on June 10, 2026. Prioritized by
 > impact × feasibility × differentiation value. Each phase builds on the last.
 
@@ -11,9 +17,9 @@
 
 ## Phase 0: Foundation Sync (P0 — Week 1-2)
 
-### 0.1 Sync with Upstream v1.5.0
+### 0.1 Sync with Upstream v1.6.0
 
-**Status**: ✅ DONE. Fork synced to upstream v1.5.0 (commit e5e8f02, 2026-06-25). Clean merge, zero conflicts.
+**Status**: ✅ DONE. Fork synced to upstream v1.6.0 (commit e5e8f02, 2026-06-25). Clean merge, zero conflicts.
 
 **What we get**:
 - Bot gateway (Feishu/Weixin/QQ) — complements our Discord bot
@@ -57,7 +63,7 @@ bot lives in `bot/` (repo root). No conflict expected on bot code.
 
 ### 0.2 Pull Upstream Features Into Hermes Awareness
 
-After sync, document which v1.5.0 features our custom packages should leverage:
+After sync, document which v1.6.0 features our custom packages should leverage:
 - MCP bridge should expose `read_skill` as a tool
 - Discord bot should support goal mode (`/goal` command)
 - Memory server should integrate with upstream's `memory.Queue` interface
@@ -491,7 +497,7 @@ adding:
 
 | Phase | Item | Impact | Effort | Status |
 |-------|------|--------|--------|--------|
-| **P0** | Sync upstream v1.5.0 | CRITICAL | 2-3 days | ✅ DONE (e5e8f02) |
+| **P0** | Sync upstream v1.6.0 | CRITICAL | 2-3 days | ✅ DONE (e5e8f02) |
 | **P0** | Wire Discord bot → Controller | HIGH | 3-5 days | ✅ DONE |
 | **P0** | Tests for pkg/mcpbridge | MEDIUM | 1-2 days | ✅ DONE (48 tests, 82%) |
 | **P0** | Tests for pkg/memoryserver | MEDIUM | 1-2 days | ✅ DONE (52 tests, 89%) |
@@ -521,7 +527,7 @@ adding:
 
 | Metric | Current | Target |
 |--------|---------|--------|
-| Upstream sync | v1.5.0 (e5e8f02) ✅ | Mergeable in <1 hour |
+| Upstream sync | v1.6.0 (e5e8f02) ✅ | Mergeable in <1 hour |
 | Discord bot | ✅ Full agent loop (discord.Adapter → BotGateway) | Slash commands, approval, sessions |
 | Test coverage (pkg/) | 228 tests (hooks 12, mcpbridge 49, memory 63, discord 57, bot 29+) | >80% line coverage ✅ |
 | MCP bridge tools | ✅ 6 tools (run, doctor, plan, orchestrate, get_skill, get_skills) | External agent orchestration |

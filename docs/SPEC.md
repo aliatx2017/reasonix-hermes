@@ -49,6 +49,7 @@ reasonix/
     │   ├── feishu/          # Feishu adapter
     │   ├── qq/              # QQ adapter
     │   └── weixin/          # WeChat adapter
+    ├── builtinmcp/          # built-in MCP servers (Time, Context7)
     ├── checkpoint/          # file-snapshot undo system
     ├── cli/                 # Bubble Tea TUI, command routing
     ├── codegraph/           # semantic code index
@@ -63,6 +64,7 @@ reasonix/
     ├── fileref/             # file reference resolution
     ├── fileutil/            # file utility functions (+ encoding sub-package)
     ├── frontmatter/         # YAML frontmatter parser
+    ├── history/             # lightweight local history + memory retrieval
     ├── hook/                # PreToolUse/PostToolUse/Stop hook runner
     ├── i18n/                # English/Chinese message catalogs
     ├── inspect/             # codebase inspection utilities

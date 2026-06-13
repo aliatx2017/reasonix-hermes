@@ -91,7 +91,7 @@
 ## 1. What is Reasonix Hermes
 
 **Reasonix Hermes** is an extended fork of [esengine/deepseek-reasonix](https://github.com/esengine/deepseek-reasonix)
-(synced to v1.5.0), the DeepSeek-native AI coding agent. Reasonix itself is a
+(synced to v1.6.0), the DeepSeek-native AI coding agent. Reasonix itself is a
 **config- and plugin-driven** harness — a single static Go binary tuned around
 DeepSeek's automatic prefix cache so token costs stay low across long sessions.
 
@@ -1289,7 +1289,7 @@ cd desktop/frontend && npm install && cd ../..
 cd desktop && wails dev
 ```
 
-**Key desktop features (upstream v1.5.0):**
+**Key desktop features (upstream v1.6.0):**
 - Themeable workspace (4 variants: dark, light, high-contrast, sepia)
 - File tree with drag-and-drop workspace organization
 - Checkpoint cards with hover-rewind
@@ -1317,7 +1317,7 @@ all agent behavior, permissions, and plugin support.
 
 ## 18. Bot Gateway (Multi-Platform)
 
-The upstream v1.5.0 introduced a multi-platform bot gateway supporting:
+The upstream v1.6.0 introduced a multi-platform bot gateway supporting:
 
 | Platform | Adapter | Status |
 |----------|---------|--------|
@@ -1416,7 +1416,7 @@ export DEEPSEEK_API_KEY=sk-...
 ---
 
 <p align="center">
-  <sub>Reasonix Hermes — built on <a href="https://github.com/esengine/deepseek-reasonix">esengine/deepseek-reasonix</a> v1.5.0</sub>
+  <sub>Reasonix Hermes — built on <a href="https://github.com/esengine/deepseek-reasonix">esengine/deepseek-reasonix</a> v1.6.0</sub>
   <br/>
   <sub>MIT — see <a href="../LICENSE">LICENSE</a></sub>
 </p>

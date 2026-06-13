@@ -14,6 +14,11 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 - Cache-first: the system-prompt prefix (base prompt + tools + memory) must stay
   byte-stable across turns so DeepSeek's automatic prefix cache stays warm. Never
   mutate it mid-session — ride the turn tail instead (see `control.Compose`).
+- **Upstream sync every session wrap-up**: at the end of every session, fetch
+  upstream (`git fetch upstream`) and merge the latest `upstream/main-v2` into
+  `main`. Resolve conflicts, rebuild all binaries, run `go build ./... && go vet ./...`,
+  and update REASONIX.md with the new sync point. Never leave a session without
+  checking whether upstream has new commits.
 
 ## Memory
 
@@ -27,8 +32,9 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 ## Notes
 
-- **Upstream synced**: `v1.5.0` merged (commit e5e8f02, 2026-06-25). Clean merge, zero conflicts.
-- **Language policy**: All Chinese comments translated to English in `internal/bot/` and `internal/config/` — SPEC §1 compliance restored.
+- **Upstream synced**: `v1.6.0` merged (commit 62645d1, 2026-07-13). 38 commits, 32 conflicts resolved.
+- **Key v1.6.0 additions**: vision support (image downscaling + detail knob), built-in Time + Context7 MCP servers, configurable shell interpreter (`[tools.shell]`), notification sound system, token economy composer mode, desktop time filter + custom fonts + status bar customization + Windows ARM64, crash capture (Go panics/breadcrumbs/group summaries), lightweight local history + memory retrieval, Traditional Chinese (zh-TW) locale, updater resilience, agent fixes (decline-ask guard, compaction bounds), desktop hooks UI.
+- **Language policy**: All Chinese comments translated to English in `internal/bot/` and `internal/config/` — SPEC §1 compliance restored. Upstream v1.6.0 still has some Chinese comments in IM bot code; these are upstream-authored and left as-is.
 - **Layout**: Executables moved from `pkg/` to `cmd/`: `pkg/mcpbridge/` → `cmd/reasonix-mcpbridge/`, `pkg/memoryserver/` → `cmd/reasonix-memoryserver/`.
 - **Bug fixes applied** (June 12, 2026):
   - P0-1: BotGateway session eviction (idle timeout + background goroutine)
@@ -53,6 +59,10 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 ## Next session — ideas & follow-ups
 
+- [ ] **Restore Hermes README branding** — upstream merge overwrote `README.md` and `README.zh-CN.md` with upstream v1.6.0 versions. Reapply Hermes custom sections (Discord bot, MCP bridge, Hindsight memory, skills hub, native hooks, portable mode), the comparison table, and the install-from-source section.
+- [ ] **Desktop frontend needs `npm install`** — `desktop/frontend/` was replaced wholesale with upstream v1.6.0. Our CodeWhale desktop features (hotbar, profiles panel, constitution editor, workshop sidecar, sound picker) need reapplication to the new React 19/TypeScript 6 codebase.
+- [ ] **Discord bot integration test** — bot/gateway.go and cli/bot.go were replaced with upstream versions. Verify Discord bot still starts and responds correctly. The `ModelPrefsPath` feature was removed; may need re-adding.
+- [ ] **Update reasonix.example.toml** — add new v1.6.0 config keys: `[builtin_mcp]`, `[tools.shell]`, `[profile.<name>]` blocks, `[notifications].sound`, `remote_sandbox_url`/`remote_sandbox_token`.
 - [ ] **Remote sandbox e2e test** — test external sandbox against a real OpenSandbox instance
 - [ ] **VS Code extension fork** — `whishi47/deepseekcode-reasonix-vscode` → `reasonix-hermes-vscode` (revisit when bandwidth exists)
 - [ ] **Coverage gap** — `Start()`/`onReady()` need live Discord token for integration tests

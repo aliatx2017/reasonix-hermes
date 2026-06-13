@@ -9,7 +9,7 @@
 1. [Overview: What is Reasonix?](#1-overview-what-is-reasonix)
 2. [Core Architecture & Cost Model](#2-core-architecture--cost-model)
 3. [Official Integration (DeepSeek Docs)](#3-official-integration-deepseek-docs)
-4. [Desktop Application v1.5.0](#4-desktop-application-v150)
+4. [Desktop Application v1.6.0](#4-desktop-application-v150)
    - 4.1 [Key Desktop Features](#key-desktop-features)
    - 4.2 [Bot Gateway (Feishu / Weixin / QQ)](#bot-gateway-v150)
    - 4.3 [Desktop vs CLI](#desktop-vs-cli)
@@ -39,7 +39,7 @@
 | **Language** | Go (1.0, `main-v2` branch — current); TypeScript (0.x, `v1` branch — legacy/maintenance) |
 | **GitHub Stars** | 20,700+ |
 | **Forks** | 1,200+ |
-| **Releases** | 46 (v1.5.0 — Jun 10, 2026) |
+| **Releases** | 46 (v1.6.0 — Jun 10, 2026) |
 | **Commits** | 777+ |
 | **Default Model** | DeepSeek V4 Flash (via config TOML); also presets for DeepSeek V4 Pro, MiMo-v2.5-pro, MiMo-v2.5 |
 | **Upgrade Model** | DeepSeek V4 Pro or MiMo-v2.5-pro (per-model via `/model` or `/preset max`) |
@@ -76,16 +76,16 @@
 - **`#<note>` quick-add** — Type `#<note>` in chat to quick-add a line to the project's `REASONIX.md`.
 - **`@path` imports** — A line containing `@path/to/another/file.md` injects that file's content into the memory prefix.
 - **Session branching** — `/tree` shows saved conversation branches; `/branch [name]` forks current tip; `/branch <turn> [name]` forks from a checkpointed turn; `/switch <id|name>` loads another branch.
-- **Subagent transcripts** — `/task` spawns sub-agents; continue/resume past transcripts in v1.5.0+.
+- **Subagent transcripts** — `/task` spawns sub-agents; continue/resume past transcripts in v1.6.0+.
 - **MCP/Plugins** — First-class MCP client: stdio, HTTP (Streamable), and SSE transports; `.mcp.json` drop-in from Claude Code works unchanged.
 - **Skills** — Reusable prompt templates in `.reasonix/skills/*.md`; frontmatter supports `runAs: subagent` and `allowed-tools` for isolated execution; `/skill new my-skill` scaffolds one.
-- **`read_skill` tool** — Load inline skills in plan mode without execution (v1.5.0+).
+- **`read_skill` tool** — Load inline skills in plan mode without execution (v1.6.0+).
 - **Slash commands** — 20+ built-ins (`/compact`, `/new`, `/clear`, `/rewind`, `/tree`, `/branch`, `/switch`, `/todo`, `/model`, `/mcp`, `/skills`, `/hooks`, `/memory`, `/output-style`, `/sandbox`, `/language`, `/auto-plan`, `/help`); custom commands in `.reasonix/commands/*.md`.
 - **Chat references (`@`)** — `@path/to/file` injects file contents (or directory listing) as tagged context; `@<server>:<uri>` injects MCP resources. Autocomplete on `/` or `@`.
 - **Web search** — Mojeek, SearXNG, or Metaso backends.
 - **Transcript replay & events** — Every event hits disk; `reasonix replay`, `reasonix events`, `reasonix stats`.
-- **Bot gateway** — Feishu/Weixin/QQ adapters (v1.5.0+).
-- **PDF extraction** — Extract text from PDF attachments (v1.5.0+).
+- **Bot gateway** — Feishu/Weixin/QQ adapters (v1.6.0+).
+- **PDF extraction** — Extract text from PDF attachments (v1.6.0+).
 - **Sandbox** — macOS Seatbelt enforcement for Bash (jailed to workspace + temp + toolchain caches, network opt-in); file-writers confined to `workspace_root` with symlink/`..` traversal prevention; Linux bubblewrap/landlock on roadmap.
 - **Permisssions** — `deny > ask > allow > fallback` per-tool-call gating; tool-approval postures: ask, auto, yolo.
 - **Context compaction** — Low-frequency cache-reset point when approaching `context_window` limit; older middle of session summarized; dropped originals archived as JSONL.
@@ -254,10 +254,10 @@ No Node.js required for v1.0+ (single Go binary). First launch with `reasonix se
 
 ---
 
-## 4. Desktop Application v1.5.0
+## 4. Desktop Application v1.6.0
 
 **Built into the main repo**: [desktop/](https://github.com/esengine/deepseek-reasonix/tree/main-v2/desktop) directory in `esengine/DeepSeek-Reasonix`.  
-**Stack**: Wails + React 19 + TypeScript 6 | **Latest**: v1.5.0 (Jun 10, 2026)
+**Stack**: Wails + React 19 + TypeScript 6 | **Latest**: v1.6.0 (Jun 10, 2026)
 
 The desktop app is a **visual companion to the CLI**, not a Cursor replacement. It provides a GUI wrapper around the same Go controller — the terminal TUI, desktop webview, and HTTP/SSE server all drive the same `control.Controller`, so every feature surfaces identically across frontends.
 
@@ -267,17 +267,17 @@ The desktop app is a **visual companion to the CLI**, not a Cursor replacement. 
 - **Collaboration-mode picker** — Three choices: **normal** (standard chat), **plan** (`/plan`), and **goal** (`/goal`).
 - **Goal mode** (`/goal <objective>`) — Starts an autonomous, session-scoped active goal loop. The controller prepends goal context to user turns (outside the cache-stable system prompt) and keeps issuing continuation turns until the model reports completion, repeats the same blocked state three times, or the safety limit is reached. Blocked-state matching is normalized for casing, whitespace, and punctuation. `/goal clear` removes the active goal.
 - **Tool-approval postures** — **ask** (each writer/bash call prompts), **auto** (writer fallback auto-allowed, explicit ask/deny rules still apply), **yolo** (approval prompts auto-allowed unless denied). These are separate from the collaboration-mode picker.
-- **`read_skill` tool** — Load inline skills in plan mode without execution (v1.5.0+).
+- **`read_skill` tool** — Load inline skills in plan mode without execution (v1.6.0+).
 - **Session workspace isolation** — Desktop sessions are isolated per workspace directory; switching workspaces loads the correct session history.
 - **MCP settings panel** — View connected servers, connection status, retry failures, inspect each server's tools/prompts/resources. Collapses noisy startup errors into a summary.
 - **Reveal-in-file-manager** — Right-click any file in the workspace tree to reveal it in Finder/Explorer.
 - **Image paste** — Paste clipboard images directly into the chat composer.
 - **Model selector dropdown** — Switch models interactively; scroll support and tooltips for truncated names; preserves curated provider models on refresh.
 - **Rewind (hover)** — Each user message in the transcript has a hover rewind control → menu: rewind code / rewind conversation / both / fork-from-here.
-- **Subagent transcript continue/resume** — Continue past subagent transcripts from where they left off (v1.5.0+).
-- **PDF attachment text extraction** — Extract text from PDF attachments dropped into the chat (v1.5.0+).
+- **Subagent transcript continue/resume** — Continue past subagent transcripts from where they left off (v1.6.0+).
+- **PDF attachment text extraction** — Extract text from PDF attachments dropped into the chat (v1.6.0+).
 
-### Bot Gateway (v1.5.0+)
+### Bot Gateway (v1.6.0+)
 
 Reasonix ships a **bot gateway** with adapters for:
 - **Feishu (飞书)** — Chinese enterprise messaging
@@ -290,7 +290,7 @@ The gateway receives messages from these platforms, routes them through the Reas
 
 | Feature | CLI (TUI) | Desktop |
 |---------|-----------|---------|
-| Chat | Full transcript, scrolling (Ctrl+Home/End in v1.5.0) | Visual transcript with hover controls |
+| Chat | Full transcript, scrolling (Ctrl+Home/End in v1.6.0) | Visual transcript with hover controls |
 | Plan mode | `/plan` | Collaboration-mode picker |
 | Goal mode | Not available | `/goal` with blocked-state audit |
 | Checkpoints/Rewind | `Esc-Esc` / `/rewind` picker | Hover rewind on each message |
@@ -826,9 +826,9 @@ headers = { Authorization = "Bearer ${STRIPE_KEY}" }
 
 The reference MCP stdio plugin (`cmd/reasonix-plugin-example`) ships as a runnable example with `echo`, `wordcount`, a `review` prompt, and a `style-guide` resource.
 
-### ACP (Agent Communication Protocol) — ✅ Implemented (v1.5.0+)
+### ACP (Agent Communication Protocol) — ✅ Implemented (v1.6.0+)
 
-**Confirmed in the v1.5.0 changelog** (Jun 10, 2026):
+**Confirmed in the v1.6.0 changelog** (Jun 10, 2026):
 
 ```
 fix(cli): disable codegraph in ACP session config test (#3663)
@@ -1060,5 +1060,5 @@ Reasonix is MIT-licensed and free. Donations stay "a coffee, not a contract" —
 
 ---
 
-> **Document**: Updated Jun 2026 from primary source `esengine/DeepSeek-Reasonix` (main-v2, v1.5.0, Jun 10 2026), community GitHub repos, DeepSeek API docs, npm, aimadetools, reasonix.homes.  
+> **Document**: Updated Jun 2026 from primary source `esengine/DeepSeek-Reasonix` (main-v2, v1.6.0, Jun 10 2026), community GitHub repos, DeepSeek API docs, npm, aimadetools, reasonix.homes.  
 > **Note**: The "Reasonix" name also refers to [reasonixos.com](https://reasonixos.com/about) — an "Integrated Intelligence Company" (AI-powered enterprise decision systems / AI Growth OS for marketing). This document covers only the DeepSeek-native coding agent ecosystem, not the enterprise platform.
