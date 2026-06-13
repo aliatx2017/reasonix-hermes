@@ -1,0 +1,6 @@
+repos:
+  - repo: https://github.com/tamasfe/taplo
+    rev: 0.9.3
+    hooks:
+      - id: taplo
+        args: [check]

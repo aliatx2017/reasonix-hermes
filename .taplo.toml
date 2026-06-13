@@ -1,0 +1,19 @@
+# taplo — TOML toolkit: formatter, linter, and validator
+# https://taplo.tamasfe.dev
+
+include = ["**/*.toml", "**/Cargo.toml"]
+
+exclude = ["**/node_modules/**", "**/dist/**"]
+
+[formatting]
+# Match Go-style formatting: align with gofmt/tab conventions
+indent_string = "  "
+reorder_keys = false
+allowed_blank_lines = 1
+column_width = 120
+
+# Keep inline tables compact
+inline_table_expand = false
+
+# Trailing newline at end of file
+crlf = false

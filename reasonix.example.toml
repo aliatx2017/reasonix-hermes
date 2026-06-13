@@ -2,19 +2,19 @@
 # Resolution order: flag > ./reasonix.toml > ~/.config/reasonix/config.toml > built-in defaults.
 # Secrets come from the environment via api_key_env; never put keys here.
 
-default_model = "deepseek"   # a provider name (→ its default model) or "provider/model"
+default_model = "deepseek" # a provider name (→ its default model) or "provider/model"
 # language      = "zh"   # ui language; empty = auto-detect from $LANG / $REASONIX_LANG
 
 [ui]
-theme = "auto"   # auto|dark|light; controls CLI colors only; REASONIX_THEME can override per run
+theme = "auto" # auto|dark|light; controls CLI colors only; REASONIX_THEME can override per run
 # theme_style = "graphite"   # graphite|ember|aurora|midnight|sandstone|porcelain|linen|glacier
 # shortcut_layout = "desktop"   # classic|desktop; compatibility setting; Shift+Tab toggles Plan, Ctrl+Y toggles YOLO
 
 [notifications]
-enabled = false   # system notifications for CLI chat/run; default off
-turn_done = true   # notify when a turn finishes
-approval_request = true   # notify when a tool approval is waiting
-ask_request = true   # notify when a question is waiting
+enabled = false         # system notifications for CLI chat/run; default off
+turn_done = true        # notify when a turn finishes
+approval_request = true # notify when a tool approval is waiting
+ask_request = true      # notify when a question is waiting
 
 [agent]
 system_prompt = """
@@ -23,14 +23,14 @@ Use the provided tools to read and write files and run shell commands.
 Principles: understand the request before acting; verify with tools instead of
 guessing; keep changes minimal and correct; briefly summarize what you did."""
 # system_prompt_file = "prompts/system.md"   # overrides system_prompt when set
-max_steps         = 0    # executor tool-call rounds; 0 = no limit
-planner_max_steps = 12   # planner read-only tool-call rounds; 0 = no limit
-temperature       = 0.0
-auto_plan         = "off"   # off|on; off keeps plan mode manual
+max_steps = 0          # executor tool-call rounds; 0 = no limit
+planner_max_steps = 12 # planner read-only tool-call rounds; 0 = no limit
+temperature = 0.0
+auto_plan = "off"      # off|on; off keeps plan mode manual
 # auto_plan_classifier = "deepseek-flash"   # optional; only used for borderline tasks
-soft_compact_ratio  = 0.5   # notice only; keeps the cache-first prefix intact
-compact_ratio       = 0.8   # try compacting when prompt reaches this fraction
-compact_force_ratio = 0.9   # force compacting at this high-water mark
+soft_compact_ratio = 0.5  # notice only; keeps the cache-first prefix intact
+compact_ratio = 0.8       # try compacting when prompt reaches this fraction
+compact_force_ratio = 0.9 # force compacting at this high-water mark
 # planner_model = "mimo-pro"   # optional: enable two-model collaboration
 # subagent_model = "deepseek-pro"   # optional default for runAs=subagent skills
 # subagent_models = { review = "deepseek-pro", security_review = "deepseek-pro" }   # per-skill overrides
@@ -41,36 +41,35 @@ compact_force_ratio = 0.9   # force compacting at this high-water mark
 # models. Use `models = [...]` to expose several under a single entry — switching
 # models reuses the same connection; no need to re-declare base_url/api_key.
 [[providers]]
-name        = "deepseek"
-kind        = "openai"
-base_url    = "https://api.deepseek.com"
-models      = ["deepseek-v4-flash", "deepseek-v4-pro"]
-default     = "deepseek-v4-flash"   # optional; defaults to the first of `models`
+name = "deepseek"
+kind = "openai"
+base_url = "https://api.deepseek.com"
+models = ["deepseek-v4-flash", "deepseek-v4-pro"]
+default = "deepseek-v4-flash"                                       # optional; defaults to the first of `models`
 api_key_env = "DEEPSEEK_API_KEY"
 context_window = 1000000
-price       = { cache_hit = 0.02, input = 1, output = 2, currency = "¥" }   # per 1M tokens
+price = { cache_hit = 0.02, input = 1, output = 2, currency = "¥" } # per 1M tokens
 # DeepSeek thinking is always on; effort: high | max. Omit for auto (provider default).
-effort      = "high"
+effort = "high"
 
 # A single-model provider still works (use `model = "..."`) — pick this form when a
 # model needs its own base_url / context_window / price (e.g. the two MiMo SKUs
 # below have different context windows).
-price       = { cache_hit = 0.025, input = 3, output = 6, currency = "¥" }   # per 1M tokens
 
 [[providers]]
-name           = "mimo-pro"
-kind           = "openai"
-base_url       = "https://api.xiaomimimo.com/v1"
-model          = "mimo-v2.5-pro"   # thinking-mode on by default; reasoning_content rendered dim above the answer
-api_key_env    = "MIMO_API_KEY"
+name = "mimo-pro"
+kind = "openai"
+base_url = "https://api.xiaomimimo.com/v1"
+model = "mimo-v2.5-pro"                    # thinking-mode on by default; reasoning_content rendered dim above the answer
+api_key_env = "MIMO_API_KEY"
 context_window = 1000000
 
 [[providers]]
-name           = "mimo-flash"
-kind           = "openai"
-base_url       = "https://api.xiaomimimo.com/v1"
-model          = "mimo-v2-flash"   # thinking-mode off by default; cheaper / faster
-api_key_env    = "MIMO_API_KEY"
+name = "mimo-flash"
+kind = "openai"
+base_url = "https://api.xiaomimimo.com/v1"
+model = "mimo-v2-flash"                    # thinking-mode off by default; cheaper / faster
+api_key_env = "MIMO_API_KEY"
 context_window = 65536
 
 # Custom /effort levels for a provider. When supported_efforts is set, the
@@ -96,20 +95,20 @@ context_window = 65536
 # this provider does not enable extended thinking and does not send temperature —
 # current Claude models reject sampling params (see internal/provider/anthropic).
 [[providers]]
-name           = "claude"
-kind           = "anthropic"
-model          = "claude-opus-4-8"
-api_key_env    = "ANTHROPIC_API_KEY"
+name = "claude"
+kind = "anthropic"
+model = "claude-opus-4-8"
+api_key_env = "ANTHROPIC_API_KEY"
 context_window = 1000000
-price          = { cache_hit = 0.5, input = 5, output = 25, currency = "$" }   # per 1M tokens
+price = { cache_hit = 0.5, input = 5, output = 25, currency = "$" } # per 1M tokens
 # Extended thinking (anthropic kind only; round-trips the signed reasoning block
 # across tool calls). Omit to disable. effort: low | medium | high | xhigh | max.
-thinking       = "adaptive"
-effort         = "high"
+thinking = "adaptive"
+effort = "high"
 
 [tools]
-enabled = []   # empty = all built-in tools
-bash_timeout_seconds = 120   # foreground safety cap; set 0 for no tool-local cap
+enabled = []               # empty = all built-in tools
+bash_timeout_seconds = 120 # foreground safety cap; set 0 for no tool-local cap
 
 # CodeGraph code intelligence (symbol/call-graph search via tree-sitter + SQLite),
 # a built-in MCP server giving the agent codegraph_* search / context / explore /
