@@ -59,6 +59,9 @@ import type {
   GitCommitView,
   GitCommitDetailView,
   GoalProgressView,
+  CheckpointFileView,
+  ConstitutionHealthView,
+  SubagentNodeView,
   MemoryDashboardView,
   WorkspaceView,
 } from "./types";
@@ -212,6 +215,11 @@ export interface AppBindings {
   BotLiveStatus(): Promise<BotLiveStatusView>;
   GoalProgress(): Promise<GoalProgressView>;
   GoalProgressForTab(tabID: string): Promise<GoalProgressView>;
+  SubagentTree(): Promise<SubagentNodeView[]>;
+  SubagentTreeForTab(tabID: string): Promise<SubagentNodeView[]>;
+  ConstitutionHealth(): Promise<ConstitutionHealthView>;
+  CheckpointTurnList(): Promise<number[]>;
+  CheckpointFiles(turn: number): Promise<CheckpointFileView | null>;
   Settings(): Promise<SettingsView>;
   HooksSettings(scope: string): Promise<HooksSettingsView>;
   SaveHooksSettings(scope: string, hooks: HookConfigView[]): Promise<void>;
@@ -2313,6 +2321,11 @@ function makeMockApp(): AppBindings {
         async GoalProgressForTab(_tabID: string) {
           return { active: false, goal: "", status: "", turns: 0, blocks: 0 };
         },
+        async SubagentTree() { return []; },
+        async SubagentTreeForTab(_tabID: string) { return []; },
+        async ConstitutionHealth() { return { loaded: false, path: "", version: 0, rules: [], principles: [], constraints: [], status: "no_config" }; },
+        async CheckpointTurnList() { return []; },
+        async CheckpointFiles(_turn: number) { return null; },
         async StartBotConnectionInstall(provider: string, domain: string) {
           const normalizedProvider = provider === "weixin" ? "weixin" : "feishu";
           const normalizedDomain = normalizedProvider === "weixin" ? "weixin" : domain === "lark" ? "lark" : "feishu";

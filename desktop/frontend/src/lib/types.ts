@@ -625,6 +625,49 @@ export interface MemoryDashboardView {
   totalScopes: number;
 }
 
+// Tier 3 Hermes view types.
+
+export interface SubagentNodeView {
+  ref: string;
+  name: string;
+  kind: string;
+  model: string;
+  effort: string;
+  status: string;
+  parentSession?: string;
+  createdAt: string;
+  children: SubagentNodeView[];
+}
+
+export interface ConstitutionHealthView {
+  loaded: boolean;
+  path: string;
+  version: number;
+  rules: { id: string; description: string; scope: string; severity: string }[];
+  principles: string[];
+  constraints: string[];
+  status: string;
+}
+
+export interface CheckpointFileView {
+  turn: number;
+  prompt: string;
+  files: { path: string; added: boolean; deleted: boolean }[];
+}
+
+export interface TurnTokenView {
+  turn: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheHit: number;
+  cacheMiss: number;
+  cost: number;
+}
+
+export interface RuntimeAnalyticsView {
+  turns: TurnTokenView[];
+}
+
 // Settings panel payloads (desktop/settings_app.go).
 export interface ProviderView {
   name: string;

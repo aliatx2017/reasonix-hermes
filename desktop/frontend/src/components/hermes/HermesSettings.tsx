@@ -1,9 +1,11 @@
-import { BookOpen, FileText, Keyboard, Sliders, Zap } from "lucide-react";
+import { BookOpen, FileText, GitBranch, Keyboard, Shield, Sliders, Zap } from "lucide-react";
 import type { SettingsView, HotbarView, ProfileView } from "../../lib/types";
 import { CacheEconomyGauge } from "./CacheEconomyGauge";
 import { DiscordMonitor } from "./DiscordMonitor";
 import { GoalProgressWidget } from "./GoalProgressWidget";
 import { SkillsHubBrowser } from "./SkillsHubBrowser";
+import { SubagentTreePanel } from "./SubagentTreePanel";
+import { ConstitutionHealthPanel } from "./ConstitutionHealthPanel";
 
 interface HermesSettingsProps {
   s: SettingsView;
@@ -199,6 +201,36 @@ tool_approve_mode = "yolo"`}
           use <code>/install</code> in chat.
         </p>
         <SkillsHubBrowser />
+      </section>
+
+      <hr style={{ margin: "24px 0", border: "none", borderTop: "1px solid var(--color-border)" }} />
+
+      {/* ═══════════ SUB-AGENT TREE ═══════════ */}
+      <section className="settings-section">
+        <h3 className="settings-section__title">
+          <GitBranch size={16} style={{ marginRight: 6 }} />
+          Sub-Agent Tasks
+        </h3>
+        <p className="settings-section__desc">
+          Sub-agent tasks spawned by the model via the <code>task</code> tool or
+          subagent skills. Shows active and completed sub-agents for this session.
+        </p>
+        <SubagentTreePanel />
+      </section>
+
+      <hr style={{ margin: "24px 0", border: "none", borderTop: "1px solid var(--color-border)" }} />
+
+      {/* ═══════════ CONSTITUTION ═══════════ */}
+      <section className="settings-section">
+        <h3 className="settings-section__title">
+          <Shield size={16} style={{ marginRight: 6 }} />
+          Constitution Health
+        </h3>
+        <p className="settings-section__desc">
+          Reads <code>.reasonix/constitution.json</code> from the project root.
+          Shows principles, hard constraints, and code-level rules with severity.
+        </p>
+        <ConstitutionHealthPanel />
       </section>
 
       <hr style={{ margin: "24px 0", border: "none", borderTop: "1px solid var(--color-border)" }} />
