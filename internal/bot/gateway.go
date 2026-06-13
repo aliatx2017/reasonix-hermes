@@ -533,6 +533,7 @@ func (gw *BotGateway) handleSlashCommand(ctx context.Context, adapter Adapter, k
 		if ok && state.ctrl != nil {
 			state.ctrl.Approve(parts[1], true, false, false)
 			gw.forgetPendingApproval(key, parts[1])
+			gw.sessions.ForceRelease(key) // drain queued messages so they don't replay
 			_ = gw.sendText(ctx, adapter, msg, "Approved.")
 		} else {
 			_ = gw.sendText(ctx, adapter, msg, "No pending approval in the current session. Trigger an action first.")
@@ -550,6 +551,7 @@ func (gw *BotGateway) handleSlashCommand(ctx context.Context, adapter Adapter, k
 		if ok && state.ctrl != nil {
 			state.ctrl.Approve(parts[1], false, false, false)
 			gw.forgetPendingApproval(key, parts[1])
+			gw.sessions.ForceRelease(key) // drain queued messages so they don't replay
 			_ = gw.sendText(ctx, adapter, msg, "Denied.")
 		} else {
 			_ = gw.sendText(ctx, adapter, msg, "No pending approval in the current session. Trigger an action first.")
