@@ -898,13 +898,12 @@ export interface SettingsView {
   desktopTheme: string; // "auto" | "dark" | "light"
   desktopThemeStyle: string;
   closeBehavior: string; // "background" | "quit"
-  displayMode: string;   // "standard" | "compact" | "minimal"
+  displayMode: string;   // "standard" | "compact"
   statusBarStyle: string; // "icon" | "text"
   statusBarItems: string[]; // ordered visible status bar item ids
   checkUpdates: boolean; // check for new versions on startup
   telemetry: boolean; // anonymous launch ping (install id + version + OS)
   metrics: boolean; // opt-in aggregate agent metrics (anonymous signal/bucket counts)
-  expandThinking: boolean; // show reasoning text expanded by default
   hotbar: HotbarView; // Hermes — configurable keyboard digit-key shortcuts
   profiles: Record<string, ProfileView>; // Hermes — named harness profiles
   activeProfile: string; // Hermes — currently active profile name ("" = none)
