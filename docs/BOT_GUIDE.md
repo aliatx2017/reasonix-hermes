@@ -6,14 +6,18 @@
 &nbsp;·&nbsp;
 <a href="./GUIDE.md">General guide</a>
 
-> For desktop users. This guide explains how to connect Feishu, Lark, and WeChat
-> bots, how to use Reasonix from IM, and how approvals, Ask questions, YOLO, and
-> bot commands work.
+> For desktop users. This guide explains how to connect Feishu, Lark, WeChat,
+> and Discord bots, how to use Reasonix from IM, and how approvals, Ask
+> questions, YOLO, and bot commands work.
 
 ## Contents
 
 - [What the bot does](#what-the-bot-does)
-- [Connect the three channels](#connect-the-three-channels)
+- [Connect the channels](#connect-the-channels)
+  - [Feishu](#feishu)
+  - [Lark](#lark)
+  - [WeChat](#wechat)
+  - [Discord](#discord)
 - [Usage flow](#usage-flow)
 - [Channel interaction differences](#channel-interaction-differences)
 - [Command quick reference](#command-quick-reference)
@@ -86,6 +90,40 @@ approval modes.
 
 WeChat does not provide interactive card buttons here, so approvals and Ask
 questions are handled through text commands.
+
+### Discord
+
+**Prerequisites:** A Discord bot token from the [Discord Developer Portal](https://discord.com/developers/applications).
+
+Config (in `reasonix.toml`):
+```toml
+[bot]
+enabled             = true
+model               = "deepseek"
+max_steps           = 100
+debounce_ms         = 1500
+tool_approval_mode  = "ask"
+
+[bot.allowlist]
+enabled        = true
+discord_users  = ["YOUR_DISCORD_USER_ID"]
+
+[bot.discord]
+enabled       = true
+token_env     = "DISCORD_BOT_TOKEN"
+server_id     = ""     # your guild ID, or empty for all
+channel_id    = ""     # restrict to one channel, or empty for all
+allow_dms     = true
+```
+
+Start via CLI:
+```bash
+DISCORD_BOT_TOKEN="your-token" ./bin/reasonix bot start --channels discord
+```
+
+**Slash commands:** `/model` — show or switch the model.  
+**Approvals:** Reply `approve N` or `deny N` (plain text, not slash command).  
+**Messages:** @mention the bot or send in a monitored channel.
 
 ## Usage flow
 

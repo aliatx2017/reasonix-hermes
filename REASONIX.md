@@ -95,7 +95,25 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
   - **Upstream**: 2 new commits merged (eb624ee) — legacy migration fixes
   - **7 files changed** (+340/-73). All 6 binaries rebuilt. 2 commits pushed.
 
+- **Session 2026-07-14** (Discord bot e2e test + bug fixes + competitive analysis):
+  - **Discord bot**: Fully operational — connects via gateway, responds to @mentions and DMs, supports `/model` slash command, approval flow works via plain-text `approve N`/`deny N`. Config in `[bot]` + `[bot.discord]` sections of `reasonix.toml`.
+  - **Bug fixes applied** (8 bugs):
+    - P0: 14 hardcoded Chinese strings in `internal/bot/gateway.go` translated to English
+    - P0: 3 hardcoded Chinese strings in `internal/bot/render.go` translated to English
+    - P1: `AllowlistUserCount` missing Discord users — added
+    - P1: `PlatformConfigured` missing Discord case — added
+    - P1: Dispatch loop blocked by synchronous `runTurn` → now runs in goroutine
+    - P1: `approvalShortcutCommand` couldn't parse "approve 1" — now strips trailing digits
+    - P2: Stale `/approve`/`/deny` slash commands deleted from Discord on startup
+    - P2: Session queue drained after approval to prevent stale message replay
+  - **Message splitting**: Bot now sends entire turn response as one Discord message (was flushing every 500ms). Long messages auto-split at paragraph boundaries with continuation.
+  - **Language enforcement**: `language = "en"` in config now injects hard English-only instruction at end of system prompt. Reasoning text also enforced via `reasoning_language = "en"`.
+  - **Competitive landscape**: Bot autonomously researched 15+ competitors and wrote `docs/COMPETITIVE-LANDSCAPE-2026.md` (437 lines, 9 sections).
+  - **Remaining**: Duplicate "Approved." responses still appear occasionally (queue replay edge case). "No pending action found" sometimes fires alongside valid "Approved." (harmless race, not blocking).
+
 ## Next session — ideas & follow-ups
 
-- [ ] **Discord bot integration test** — verify bot starts and responds via desktop gateway after runtime wiring.
-- [ ] **Sandbox Windows support** — investigation complete; AppContainer chosen as best approach. See `docs/WINDOWS-SANDBOX-DESIGN.md`. Implementation: ~350 lines in `internal/sandbox/appcontainer_windows.go` (Win32 types + CreateAppContainerProfile + CreateProcess with SECURITY_CAPABILITIES + WriteRoot ACL grants).
+- [ ] **Sandbox Windows support** — design doc ready at `docs/WINDOWS-SANDBOX-DESIGN.md`. Implementation: ~350 lines in `internal/sandbox/appcontainer_windows.go`.
+- [ ] **Approve duplicate fix** — squash the remaining "Approved." + "No pending action" double-fire from session queue replay.
+- [ ] **Doc cleanup** — `HERMES-GUIDE.md` needs Discord bot section; `BOT_GUIDE.md` needs Discord instructions.
+- [ ] **Multi-provider expansion** — add Codex/MiniMax/GLM providers (roach-code model).

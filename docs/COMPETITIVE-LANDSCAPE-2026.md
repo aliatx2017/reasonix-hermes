@@ -1,7 +1,7 @@
 # Reasonix Hermes — Competitive Landscape Analysis
 
 > **Date:** June 13, 2026
-> **Scope:** Comprehensive analysis of the AI coding agent harness landscape, comparing Reasonix Hermes against upstream DerpSeek-Reasonix, Nous Hermes Agent, OpenClaw, Pi, oh-my-pi, Claude Code, Orca, OpenHands, Plandex, roach-code, and others.
+> **Scope:** Comprehensive analysis of the AI coding agent harness landscape, comparing Reasonix Hermes against upstream DeepSeek-Reasonix, Nous Hermes Agent, OpenClaw, Pi, oh-my-pi, Claude Code, Orca, OpenHands, Plandex, roach-code, and others.
 > **Methodology:** Web research of GitHub repos, documentation sites, and community ecosystem; deep codebase exploration of Reasonix Hermes to catalog every custom component.
 
 ---
@@ -14,7 +14,7 @@ The AI coding agent space has exploded. Here are the major projects (June 2026),
 
 | Project | Stars | Binary Size | Model Focus | Unique Angle |
 |---------|-------|-------------|-------------|--------------|
-| **DerpSeek-Reasonix** (upstream) | 21.8k | ~26MB | DeepSeek (+ OpenAI compat) | Prefix-cache stability, CGO-free, TUI + Desktop + IM bots |
+| **DeepSeek-Reasonix** (upstream) | 21.8k | ~26MB | DeepSeek (+ OpenAI compat) | Prefix-cache stability, CGO-free, TUI + Desktop + IM bots |
 | **Plandex** | 15.5k | ~20MB | Any (via OpenRouter) | 2M token context, cumulative diff sandbox, autonomous debugging |
 | **Reasonix Hermes (us)** | — | ~27MB | DeepSeek (+ OpenAI compat) | MCP bridge server + memory server + Discord bot + Constitution |
 | **roach-code** | 34 | ~27MB | DeepSeek + Codex + MiniMax + GLM | Multi-model Reasonix fork (adds providers, TUI theme) |
@@ -56,7 +56,7 @@ The AI coding agent space has exploded. Here are the major projects (June 2026),
 
 ## 2. Detailed Comparison With Named Competitors
 
-### 2.1 vs. Upstream DerpSeek-Reasonix (esengine, 21.8k ⭐)
+### 2.1 vs. Upstream DeepSeek-Reasonix (esengine, 21.8k ⭐)
 
 **Shared foundation:** Go single binary, prefix-cache stability, config-driven TOML, MCP client, bubbletea TUI, Wails desktop, `control.Controller` architecture, subagents, checkpoints, permission deny/ask/allow, sandbox (bubblewrap/Seatbelt), skills system, i18n (en/zh/zh-TW), slash commands, session persistence, context compaction.
 
@@ -92,7 +92,7 @@ The AI coding agent space has exploded. Here are the major projects (June 2026),
 
 ### 2.2 vs. Hermes Agent (NousResearch, 193k ⭐)
 
-**Important:** Despite the shared "Hermes" name, these are **completely independent projects with zero shared code.** Nous Hermes Agent is a Python research project from Nous Research; Reasonix Hermes is a Go fork of DerpSeek-Reasonix.
+**Important:** Despite the shared "Hermes" name, these are **completely independent projects with zero shared code.** Nous Hermes Agent is a Python research project from Nous Research; Reasonix Hermes is a Go fork of DeepSeek-Reasonix.
 
 | Dimension | Nous Hermes Agent | Reasonix Hermes |
 |---|---|---|
