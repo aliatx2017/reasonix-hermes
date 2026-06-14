@@ -2445,7 +2445,7 @@ function makeMockApp(): AppBindings {
           return { totalFacts: 0, totalDocs: 0, totalScopes: 0 };
         },
         async BotLiveStatus() {
-          return { running: false, platform: "discord", activeSessions: 0, status: "disconnected" };
+          return { running: false, platform: "discord", activeSessions: 0, status: "disconnected", webhookURL: "" };
         },
         async GoalProgress() {
           return { active: false, goal: "", status: "", turns: 0, blocks: 0 };

@@ -52,6 +52,15 @@ func (a *Adapter) Platform() bot.Platform { return bot.PlatformLine }
 // Name returns a human-readable name for logging.
 func (a *Adapter) Name() string { return "line" }
 
+// WebhookURL returns the webhook URL this adapter is listening on.
+// Returns "" before Start() is called.
+func (a *Adapter) WebhookURL() string {
+	if a.listener == nil {
+		return ""
+	}
+	return "http://" + a.listener.Addr().String() + "/webhook"
+}
+
 // Start creates the LINE bot client and begins an HTTP server for webhooks.
 func (a *Adapter) Start(ctx context.Context) error {
 	token := os.Getenv(a.cfg.TokenEnv)

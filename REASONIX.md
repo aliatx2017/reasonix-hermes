@@ -32,7 +32,7 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 ## Notes
 
-- **Upstream synced**: `v1.7.0` (commit 40aedfb, 2026-07-15). 69 commits merged. 7 CLI binaries + desktop built and passing.
+- **Upstream synced**: `v1.7.0` (commit fb0cec2, 2026-07-15). 70 commits merged. 7 CLI binaries + desktop built and passing.
 - **Commit**: `21c7266` — session stats persistence (CLI → desktop).
 - **npm**: `npm i -g reasonix-hermes` — one-line install (sub-packages at `@aliatx2017/reasonix-hermes-*`). Pipeline verified; publish pending 2FA-bypass token.
 - **Key v1.6.0 additions**: vision support (image downscaling + detail knob), built-in Time + Context7 MCP servers, configurable shell interpreter (`[tools.shell]`), notification sound system, token economy composer mode, desktop time filter + custom fonts + status bar customization + Windows ARM64, crash capture (Go panics/breadcrumbs/group summaries), lightweight local history + memory retrieval, Traditional Chinese (zh-TW) locale, updater resilience, agent fixes (decline-ask guard, compaction bounds), desktop hooks UI.
@@ -194,13 +194,14 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 ### Next to build
 - [ ] **npm: publish reasonix-hermes** — set 2FA-bypass granular token, push tag
-- [ ] **Desktop StatusBar: add sqz/aux compact chips** — wire `CompressStatsView` to a compact status-bar chip (like the existing Discord dot), so savings are visible without opening Hermes settings
-- [ ] **i18n for LINE adapter** — the LINE adapter's notice/log strings are hardcoded English; add them to the 3 i18n catalogs (en, zh, zh-TW)
-- [ ] **LINE adapter webhook URL discovery** — expose the auto-assigned port so it can be configured as a LINE webhook (currently logged but not surfaced)
 - [ ] **Upstream the LINE adapter** — open a PR to esengine/deepseek-reasonix with the line/ package if they want it
-- [ ] **MCP tab live data** — the SkillStorePanel MCP tab is static; wire it to real MCP server list via Wails binding
 
 ### Recently completed
+- [x] **StatusBar sqz/aux compact chips** (✅ 2026-07-15) — `CompressGaugeCompact` chip added to StatusBar hermes group alongside Discord + Cache chips. Shows `sqz↓N` (bytes saved) and `aux↓N` (aux tokens) with Zap icon. Push-event driven with 30s polling fallback.
+- [x] **i18n for LINE adapter** (✅ 2026-07-15) — Resolved as designed: bot adapters are explicitly out of scope for i18n (CLI-surface-only per package doc). No code change needed.
+- [x] **LINE adapter webhook URL discovery** (✅ 2026-07-15) — `WebhookURL()` method on LINE adapter, `AdapterWebhookURL(platform)` on gateway, `WebhookURL` field in `BotLiveStatusView` populated from all adapters. Surfaced in DiscordMonitor tooltip + StatusBar compact chip.
+- [x] **MCP tab live data** (✅ 2026-07-15) — `MCPTab` in SkillStorePanel rewritten to fetch live `Capabilities()` data. Shows per-server status dots (green/yellow/warn), transport URL, tool/prompt counts, built-in badges. Auto-refreshes every 15s.
+- [x] **Upstream sync** (✅ 2026-07-15) — fb0cec2 merged (desktop bot connection diagnostic reporting). Clean merge, build + vet pass.
 - [x] **Session stats persistence: CLI → desktop** (✅ 2026-07-14) — Agent aggregate counters (tokens in/out, turns), sidecar `.sessionstats` persistence, Controller pass-throughs, Wails bindings + frontend widget. 10 files changed (+276/-7). Resolves "why doesn't desktop show session stats for the CLI."
 - [x] **LobeHub marketplace API integration** (✅ 2026-07-14) — Full M2M OAuth2 client (stdlib-only HS256 JWT), auto-registration on first use, paginated skill fetch from 360k+ community skills, `SyncFromLobeHub()` registry merge, Wails binding `SyncLobeHubMarketplace()`, desktop "Sync from LobeHub" button with spin animation, CLI `reasonix marketplace sync` command, 4 httptest-based tests, `[marketplace.lobehub]` config section with 8 fields. Verified end-to-end against live API.
 - [x] **LAN skills** (✅ 2026-07-14) — 4 new project skills: `searxng-local` (private web search via LAN SearXNG), `crawl4ai-local` (web crawler with headless browser), `google-maps-scraper` (business listings scraper), `last30days` (41k★ social research skill from mvanhorn). All LAN services verified operational.

@@ -5,6 +5,7 @@ interface BotLiveStatusView {
   platform: string;
   activeSessions: number;
   status: string;
+  webhookURL: string;
 }
 
 interface DiscordMonitorProps {
@@ -15,11 +16,14 @@ export function DiscordMonitor({ status }: DiscordMonitorProps) {
   if (!status) return null;
 
   const color = status.running ? "var(--color-green)" : "var(--color-text-muted)";
+  const title = status.webhookURL
+    ? `Discord Bot: ${status.status} · ${status.activeSessions} active sessions · Webhook: ${status.webhookURL}`
+    : `Discord Bot: ${status.status} · ${status.activeSessions} active sessions`;
 
   return (
     <div
       className="hermes-discord-monitor"
-      title={`Discord Bot: ${status.status} · ${status.activeSessions} active sessions`}
+      title={title}
       style={{
         display: "inline-flex",
         alignItems: "center",

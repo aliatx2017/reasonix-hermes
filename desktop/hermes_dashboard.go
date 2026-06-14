@@ -152,16 +152,38 @@ type BotLiveStatusView struct {
 	Platform       string `json:"platform"`
 	ActiveSessions int    `json:"activeSessions"`
 	Status         string `json:"status"`
+	WebhookURL     string `json:"webhookURL"`
 }
 
 // BotLiveStatus returns live bot runtime status.
 func (a *App) BotLiveStatus() BotLiveStatusView {
 	s := a.BotRuntimeStatus()
+	webhookURL := ""
+	if a.botRuntime != nil {
+		a.botRuntime.mu.Lock()
+		gw := a.botRuntime.gw
+		a.botRuntime.mu.Unlock()
+		if gw != nil {
+			// Collect webhook URLs from all adapters that expose them.
+			var urls []string
+			for _, platform := range []bot.Platform{
+				bot.PlatformLine,
+				bot.PlatformDiscord,
+				bot.PlatformTelegram,
+			} {
+				if u := gw.AdapterWebhookURL(platform); u != "" {
+					urls = append(urls, u)
+				}
+			}
+			webhookURL = strings.Join(urls, ", ")
+		}
+	}
 	return BotLiveStatusView{
 		Running:        s.Running,
 		Platform:       "discord",
 		ActiveSessions: s.Connections,
 		Status:         s.Status,
+		WebhookURL:     webhookURL,
 	}
 }
 

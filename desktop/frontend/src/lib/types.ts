@@ -690,6 +690,7 @@ export interface BotLiveStatusView {
   platform: string;
   activeSessions: number;
   status: string;
+  webhookURL: string;
 }
 
 export interface GoalProgressView {

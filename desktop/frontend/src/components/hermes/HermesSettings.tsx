@@ -21,7 +21,7 @@ interface HermesSettingsProps {
   onHotbarChange: (hotbar: HotbarView) => void;
   onProfileSelect: (name: string) => void;
   cache?: { hitTokens: number; missTokens: number; totalTokens: number; hitRate: number } | null;
-  discord?: { running: boolean; platform: string; activeSessions: number; status: string } | null;
+  discord?: { running: boolean; platform: string; activeSessions: number; status: string; webhookURL: string } | null;
   goal?: { active: boolean; goal: string; status: string; turns: number; blocks: number } | null;
   cost?: CostSummaryView | null;
   tokens?: SessionTokensView | null;

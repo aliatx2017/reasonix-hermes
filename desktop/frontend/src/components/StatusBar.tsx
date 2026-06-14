@@ -5,7 +5,7 @@ import { useI18n, type Translator } from "../lib/i18n";
 import { app } from "../lib/bridge";
 import { formatMoney } from "../lib/money";
 import { normalizeStatusBarItems, type StatusBarItemId } from "../lib/statusBarItems";
-import { type BalanceInfo, type BotLiveStatusView, type CacheEconomyView, type CollaborationMode, type ContextInfo, type JobView, type ToolApprovalMode, type WireUsage } from "../lib/types";
+import { type BalanceInfo, type BotLiveStatusView, type CacheEconomyView, type CollaborationMode, type CompressStatsView, type ContextInfo, type JobView, type ToolApprovalMode, type WireUsage } from "../lib/types";
 
 type StatusBarLabelStyle = "icon" | "text";
 
@@ -289,6 +289,7 @@ export function StatusBar({
       <div className="statusbar__group statusbar__group--hermes" style={{ display: "flex", gap: 6, alignItems: "center" }}>
         <DiscordMonitorCompact />
         <CacheGaugeCompact />
+        <CompressGaugeCompact />
       </div>
     </div>
   );
@@ -316,7 +317,7 @@ function DiscordMonitorCompact() {
   }, []);
   if (!status || !status.running) return null;
   return (
-    <span title={`Discord: ${status.status} · ${status.activeSessions} sessions`} style={{ display: "inline-flex", alignItems: "center", gap: 2, fontSize: 11, color: "var(--color-text-muted)" }}>
+    <span title={`Discord: ${status.status} · ${status.activeSessions} sessions${status.webhookURL ? " · Webhook: " + status.webhookURL : ""}`} style={{ display: "inline-flex", alignItems: "center", gap: 2, fontSize: 11, color: "var(--color-text-muted)" }}>
       <MessageCircle size={11} />
       <Circle size={5} fill="var(--color-green)" color="var(--color-green)" />
       {status.activeSessions > 0 && status.activeSessions}
@@ -349,6 +350,42 @@ function CacheGaugeCompact() {
     <span title={`Cache: ${cache.hitRate.toFixed(1)}% (${cache.hitTokens} hit / ${cache.totalTokens} total)`} style={{ display: "inline-flex", alignItems: "center", gap: 2, fontSize: 11, color }}>
       <Cpu size={11} />
       {cache.hitRate.toFixed(0)}%
+    </span>
+  );
+}
+
+function CompressGaugeCompact() {
+  const [cs, setCS] = useState<CompressStatsView | null>(null);
+  useEffect(() => {
+    // Prefer push events; fall back to polling.
+    try {
+      const w = window as any;
+      if (w.runtime?.EventsOn) {
+        const unsub = w.runtime.EventsOn("hermes:dashboard", (payload: any) => {
+          if (payload?.compress) setCS(payload.compress);
+        });
+        app.CompressStats().then(setCS).catch(() => {});
+        return () => { try { unsub(); } catch { /* ignore */ } };
+      }
+    } catch { /* fall through */ }
+    const poll = () => { app.CompressStats().then(setCS).catch(() => {}); };
+    poll();
+    const id = setInterval(poll, 30000);
+    return () => clearInterval(id);
+  }, []);
+  if (!cs || (cs.bytesSaved === 0 && cs.auxTokens === 0)) return null;
+
+  const fmtBytes = (n: number): string => {
+    if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + "M";
+    if (n >= 1_000) return (n / 1_000).toFixed(1) + "K";
+    return n.toString();
+  };
+
+  return (
+    <span title={`Compressor: ${fmtBytes(cs.bytesSaved)} saved · ${cs.cacheHits} cache hits · ${cs.linesCollapsed} lines collapsed · ${cs.jsonFieldsStripped} JSON fields · ${cs.auxTokens} aux tokens`} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--color-text-muted)" }}>
+      <Zap size={11} />
+      {cs.bytesSaved > 0 && <span>sqz&nbsp;↓{fmtBytes(cs.bytesSaved)}</span>}
+      {cs.auxTokens > 0 && <span>aux&nbsp;↓{cs.auxTokens.toLocaleString()}</span>}
     </span>
   );
 }

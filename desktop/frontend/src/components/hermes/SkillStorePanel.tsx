@@ -86,36 +86,105 @@ function LobeHubTab() {
   );
 }
 
-/** MCP — installed MCP servers overview. */
+/** MCP — live installed MCP servers overview. */
 function MCPTab() {
+  const [servers, setServers] = useState<Array<{
+    name: string; transport: string; status: string; builtIn?: boolean;
+    tools: number; prompts: number; resources: number; error?: string;
+    url?: string; command?: string;
+  }> | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetch = () => {
+      app.Capabilities().then((cap) => {
+        if (cancelled) return;
+        setServers(cap.servers ?? []);
+        setLoading(false);
+      }).catch(() => {
+        if (cancelled) return;
+        setLoading(false);
+      });
+    };
+    fetch();
+    const id = setInterval(fetch, 15000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, []);
+
+  const statusColor = (s: string): string => {
+    switch (s) {
+      case "connected": return "var(--color-green)";
+      case "failed": return "var(--color-warn)";
+      case "initializing": return "var(--color-yellow)";
+      default: return "var(--color-text-muted)";
+    }
+  };
+
   return (
     <div style={{ padding: "12px 0" }}>
       <p style={{ fontSize: 12, color: "var(--color-text-muted)", margin: "0 0 12px" }}>
         MCP servers extend Reasonix with external tools, data sources, and integrations.
         Manage installed servers in <strong>Settings → MCP</strong>.
       </p>
-      <div
-        style={{
-          padding: 16, borderRadius: 8,
-          background: "var(--color-surface-raised)",
-          border: "1px solid var(--color-border)",
-        }}
-      >
-        <h4 style={{ margin: "0 0 8px", fontSize: 13, fontWeight: 600 }}>
-          <Server size={14} style={{ marginRight: 4, verticalAlign: "middle" }} />
-          Built-in MCP Servers
-        </h4>
-        <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: "var(--color-text-muted)", lineHeight: 1.8 }}>
-          <li><strong>codegraph</strong> — code intelligence: search, context, trace</li>
-          <li><strong>time</strong> — current time and timezone utilities</li>
-          <li><strong>context7</strong> — up-to-date documentation lookup</li>
-          <li><strong>memory</strong> — persistent cross-session memory (Hindsight)</li>
-        </ul>
-        <p style={{ margin: "12px 0 0", fontSize: 11, color: "var(--color-text-muted)" }}>
-          Connect additional servers via <code>Settings → MCP → Add Server</code> or
-          <code> reasonix install-source install --kind mcp ...</code>
-        </p>
-      </div>
+      {loading ? (
+        <div style={{ padding: 16, textAlign: "center", color: "var(--color-text-muted)", fontSize: 12 }}>Loading…</div>
+      ) : servers && servers.length > 0 ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {servers.map((srv) => (
+            <div
+              key={srv.name}
+              style={{
+                padding: "10px 12px", borderRadius: 8,
+                background: "var(--color-surface-raised)",
+                border: "1px solid var(--color-border)",
+                display: "flex", alignItems: "center", gap: 10,
+              }}
+            >
+              <span
+                style={{
+                  width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
+                  background: statusColor(srv.status),
+                }}
+                title={srv.status + (srv.error ? ": " + srv.error : "")}
+              />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
+                  {srv.name}
+                  {srv.builtIn && (
+                    <span style={{ fontSize: 9, padding: "0 4px", borderRadius: 3, background: "var(--color-accent)", color: "#fff" }}>built-in</span>
+                  )}
+                </div>
+                <div style={{ fontSize: 10, color: "var(--color-text-muted)", marginTop: 2 }}>
+                  {srv.transport}
+                  {srv.url && ` · ${srv.url.replace(/\/$/, "")}`}
+                  {srv.command && ` · ${srv.command}`}
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                {srv.tools > 0 && (
+                  <span style={{ fontSize: 10, color: "var(--color-text-muted)", background: "var(--color-surface)", padding: "1px 5px", borderRadius: 4 }}>
+                    {srv.tools} tools
+                  </span>
+                )}
+                {srv.prompts > 0 && (
+                  <span style={{ fontSize: 10, color: "var(--color-text-muted)", background: "var(--color-surface)", padding: "1px 5px", borderRadius: 4 }}>
+                    {srv.prompts} prompts
+                  </span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div style={{ padding: 16, textAlign: "center", color: "var(--color-text-muted)", fontSize: 12 }}>
+          No MCP servers installed. Add one in <strong>Settings → MCP</strong>.
+        </div>
+      )}
+      <p style={{ margin: "12px 0 0", fontSize: 11, color: "var(--color-text-muted)" }}>
+        Connect additional servers via <code>Settings → MCP → Add Server</code> or{" "}
+        <code>reasonix install-source install --kind mcp ...</code>
+      </p>
     </div>
   );
 }

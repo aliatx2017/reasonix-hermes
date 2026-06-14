@@ -218,6 +218,20 @@ func (gw *BotGateway) StartErrors() []error {
 	return out
 }
 
+// AdapterWebhookURL returns the webhook URL for the given platform's adapter,
+// if the adapter exposes one (e.g. LINE). Returns "" for adapters that don't.
+func (gw *BotGateway) AdapterWebhookURL(platform Platform) string {
+	for _, binding := range gw.adapters {
+		if binding.Platform == platform {
+			if wh, ok := binding.Adapter.(interface{ WebhookURL() string }); ok {
+				return wh.WebhookURL()
+			}
+			return ""
+		}
+	}
+	return ""
+}
+
 // Stop 停止所有适配器并关闭所有 session。
 func (gw *BotGateway) Stop() {
 	gw.mu.Lock()
