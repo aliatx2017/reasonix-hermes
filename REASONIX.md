@@ -185,14 +185,13 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 ### Next to build
 - [ ] **npm: publish reasonix-hermes** — set 2FA-bypass granular token, push tag
-- [ ] **Plugin marketplace** — community plugin registry (discovery, ratings, one-click install)
+- [ ] **Plugin marketplace → polish** — install button wiring, ratings, registry auto-sync from agentskills.io community
 
 ### Recently completed
+- [x] **CLI banner + version + savings stats** (✅ 2026-07-14) — Dynamic version from ldflags (v1.7.0 default, no more hardcoded v1.6.0). Diamond Wing ◆ logo replaces caduceus ⚚. Status bar enriched: `aux↓N` (aux provider token savings) + `sqz↓N` (compressor byte savings). Compressor atomic stats wired.
+- [x] **Skill marketplace** (✅ 2026-07-14) — Community registry (12 skills, agentskills.io-compatible), `internal/marketplace/` Go package, CLI `reasonix marketplace` command, desktop MarketplacePanel.
 - [x] **Ollama Cloud provider + auxiliary model routing** (✅ 2026-07-14) — new `ollamacloud` provider kind, 42 models via OpenAI-compatible API at ollama.com/v1. Auxiliary model config: `[agent.auxiliary]` with compression/vision/web_extract overrides. Compaction summarizer + vision requests auto-route to aux providers (cheaper/faster). Tested live: deepseek-v4-flash for compression, gemini-3-flash-preview for vision.
 - [x] **Web UI (serve mode)** (✅ pre-existing, enhanced) — 1160-line SPA at `reasonix serve`, SSE streaming, model switching, approvals. Now works with Ollama Cloud + aux models.
 - [x] **Desktop collab panel** (✅ 2026-07-14) — Go bindings (CollabDashboard, startCollabHub with steer forwarding), React CollabPanel component (live badge, watcher count, session list), integrated into useHermesLiveData push + polling.
 - [x] **Multi-model council UI** (✅ 2026-07-14) — Controller mesh integration (SetMesh/Council/MeshStatus), boot.go mesh creation from [mesh] config, CLI `/council` slash command (status + task dispatch), desktop CouncilPanel widget (peer list + status).
 - [x] **E2E test harness** (✅ 2026-07-14) — New `internal/e2e/` package: Harness struct, SessionInputs, SessionTools, TurnCount, Analyze, AssertTools, AssertTurns, ListSessions, RunAll. 7 tests passing.
-- [x] Animated logo + wordmark lockup (✅ 2026-07-14)
-- [x] README overhaul — Hermes-first, no upstream install links (✅ 2026-07-14)
-- [x] npm i -g reasonix-hermes packaging (✅ 2026-07-14, publish pending token)

@@ -157,6 +157,11 @@ skills-hub/            17-skill community registry + static catalog site
   - **E2E test harness**: New `internal/e2e/` — Harness, SessionInputs, SessionTools, Analyze, AssertTools/Turns, RunAll. 7 tests.
   - **Skill marketplace**: Community registry (12 skills, agentskills.io-compatible SKILL.md format), `internal/marketplace/` Go package, CLI `reasonix marketplace` command, desktop MarketplacePanel with tag filters + install buttons.
   - **Total**: 30+ files changed, 3 new Go packages, 4 new React components, 80+ tests. All binaries rebuilt. Upstream synced to ed07684.
+- **2026-07-14 session (h6)** (banner + version + savings stats):
+  - **Dynamic version**: `BuildVersion` from ldflags, defaults to v1.7.0. No more hardcoded v1.6.0 in CLI banner.
+  - **Diamond Wing logo**: `◆` replaces `⚚` caduceus in pinned header + session banner, gold accent preserved.
+  - **Savings stats in status bar**: `aux↓N` (tokens saved via auxiliary providers) + `sqz↓N` (bytes saved by compressor). Atomic counters in compressor, exposed through agent → controller → TUI.
+  - **Total**: 6 files changed, +91/-12 lines. Committed f0ba51b.
 
 ## roach-code Multi-Provider Research
 
