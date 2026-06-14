@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reasonix/internal/bot"
 	"reasonix/internal/control"
 	"reasonix/internal/diff"
 	"reasonix/internal/marketplace"

@@ -1469,7 +1469,9 @@ The upstream v1.6.0 introduced a multi-platform bot gateway supporting:
 |----------|---------|--------|
 | Discord | `internal/bot/discord/` | Hermes addition ✅ |
 | Feishu (飞书) | `internal/bot/feishu/` | Upstream |
+| LINE | `internal/bot/line/` | Hermes addition ✅ |
 | QQ | `internal/bot/qq/` | Upstream |
+| Telegram | `internal/bot/telegram/` | Hermes addition ✅ |
 | WeChat (微信) | `internal/bot/weixin/` | Upstream |
 
 All adapters share the same `BotGateway` → `control.Controller` architecture.
