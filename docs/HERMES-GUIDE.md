@@ -1282,6 +1282,103 @@ The manifest (`reasonix-hermes.json`) enables installation via upstream's
 `install_source` tool. The skills hub website deploys to GitHub Pages via
 `.github/workflows/pages.yml`.
 
+### 16.5 Token-Saving Compression (v1.7.0+)
+
+Reasonix Hermes includes a built-in **tool output compressor** that reduces token
+consumption by 25-92% on tool results before they enter the model's context. It
+combines three techniques from the 2026 token-saving landscape:
+
+**SHA-256 content cache (sqz-style):** Repeated tool output (e.g. reading the same
+file twice) is replaced with a compact reference like
+`[content unchanged since turn 3 (sha256:abc123…)]` instead of re-injecting the
+full content.
+
+**Repeated-line collapsing:** Bash output with dozens of identical lines (build
+logs, test runs) is collapsed to one instance + a `[×49 above]` marker.
+
+**JSON minification:** JSON tool results have null fields and empty lines stripped,
+reducing token overhead on API responses.
+
+**Safe mode:** Output containing ≥2 error markers (panic, stack trace, FAIL, diff,
+goroutine) is preserved verbatim — compression of debugging output would destroy
+the model's ability to diagnose and fix problems.
+
+```toml
+# Enabled by default. Disable if you prefer verbatim tool output.
+[agent]
+compress_tool_output = false
+```
+
+**External token-saving MCP plugins** (optional):
+
+```toml
+# sqz — Rust CLI, 25-92% reduction, SHA-256 cache + dedup
+[[plugins]]
+name    = "sqz"
+command = "sqz"
+args    = ["mcp"]
+
+# context-mode — TypeScript sandbox, up to 98% reduction (Microsoft/Google/Meta)
+[[plugins]]
+name    = "context-mode"
+command = "context-mode"
+args    = ["mcp"]
+```
+
+### 16.6 Scheduled Tasks (v1.7.0+)
+
+Automated cron-driven agent tasks. The scheduler runs in the background and
+fires prompts at configured times.
+
+```toml
+[schedule]
+[[schedule.tasks]]
+name    = "daily-review"
+cron    = "0 2 * * *"           # every day at 2am
+prompt  = "Review all changes in the last 24 hours. Report any issues."
+model   = "deepseek-flash"
+enabled = true
+```
+
+Results are logged and visible on the desktop Hermes dashboard.
+
+### 16.7 Session Publishing (v1.7.0+)
+
+Export sessions as self-contained HTML with syntax-highlighted code blocks,
+light/dark mode, and inline CSS. No external dependencies.
+
+- **CLI:** `/publish` slash command in TUI — writes to `sessions/published/`
+- **API:** `internal/publish/` package — `ToHTML()` and `ToJSON()` for programmatic use
+
+### 16.8 Hash-Anchored Edits (v1.7.0+)
+
+The `edit_file` tool accepts an optional `content_hash` (SHA-256 of file content
+from a prior `read_file`). If the file changed between the read and the edit
+(e.g. another process modified it), the edit is rejected:
+
+```
+file main.go changed since content_hash was computed — re-read the file and try again
+```
+
+This prevents stale-context edits from corrupting files.
+
+### 16.9 Provider Cost Tracking (v1.7.0+)
+
+Per-session cost accumulation via `provider.Pricing` (per 1M token rates). Cost
+is displayed in:
+- Desktop Hermes dashboard (live via `HermesDashboardEvent`)
+- CLI `/stats` panel (`/cost` alias)
+- CLI status line (session cost badge)
+
+### 16.10 CLI: `reasonix models`
+
+Lists all configured providers with model, kind, pricing, and connectivity status:
+
+```bash
+reasonix models           # list providers
+reasonix models refresh   # test connectivity
+```
+
 ---
 
 ## 17. Desktop App

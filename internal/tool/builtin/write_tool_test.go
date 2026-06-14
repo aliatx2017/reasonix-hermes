@@ -2,7 +2,9 @@ package builtin
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -144,6 +146,66 @@ func TestEditFileInvalidArgs(t *testing.T) {
 	_, err := editFile{}.Execute(context.Background(), json.RawMessage(`{invalid`))
 	if err == nil {
 		t.Fatal("expected error for invalid JSON")
+	}
+}
+
+func TestEditFileContentHashMatch(t *testing.T) {
+	dir := t.TempDir()
+	f := filepath.Join(dir, "a.txt")
+	content := "hello world"
+	os.WriteFile(f, []byte(content), 0o644)
+
+	hash := fmt.Sprintf("%x", sha256.Sum256([]byte(content)))
+
+	_, err := editFile{}.Execute(context.Background(), argsJSON(t, map[string]any{
+		"path":         f,
+		"old_string":   "hello",
+		"new_string":   "hi",
+		"content_hash": hash,
+	}))
+	if err != nil {
+		t.Fatalf("edit with matching hash should succeed: %v", err)
+	}
+	got, _ := os.ReadFile(f)
+	if string(got) != "hi world" {
+		t.Errorf("got %q, want %q", string(got), "hi world")
+	}
+}
+
+func TestEditFileContentHashMismatch(t *testing.T) {
+	dir := t.TempDir()
+	f := filepath.Join(dir, "a.txt")
+	os.WriteFile(f, []byte("hello world"), 0o644)
+
+	// Hash of DIFFERENT content — simulates file changed since read.
+	_, err := editFile{}.Execute(context.Background(), argsJSON(t, map[string]any{
+		"path":         f,
+		"old_string":   "hello",
+		"new_string":   "hi",
+		"content_hash": fmt.Sprintf("%x", sha256.Sum256([]byte("different content"))),
+	}))
+	if err == nil {
+		t.Fatal("expected error for hash mismatch")
+	}
+	if !strings.Contains(err.Error(), "changed since content_hash") {
+		t.Errorf("error should mention hash mismatch: %v", err)
+	}
+}
+
+func TestEditFileContentHashEmpty(t *testing.T) {
+	dir := t.TempDir()
+	f := filepath.Join(dir, "a.txt")
+	os.WriteFile(f, []byte("hello world"), 0o644)
+
+	// Empty hash = no verification (backward compatible)
+	_, err := editFile{}.Execute(context.Background(), argsJSON(t, map[string]any{
+		"path":         f,
+		"old_string":   "hello",
+		"new_string":   "hi",
+		"content_hash": "",
+	}))
+	if err != nil {
+		t.Fatalf("edit with empty hash should succeed: %v", err)
 	}
 }
 

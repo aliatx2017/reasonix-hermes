@@ -2,6 +2,7 @@ package builtin
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -26,16 +27,17 @@ func (editFile) Description() string {
 }
 
 func (editFile) Schema() json.RawMessage {
-	return json.RawMessage(`{"type":"object","properties":{"path":{"type":"string","description":"File path"},"old_string":{"type":"string","description":"Exact text to replace (must be unique in the file)"},"new_string":{"type":"string","description":"Replacement text (may be empty to delete)"}},"required":["path","old_string","new_string"]}`)
+	return json.RawMessage(`{"type":"object","properties":{"path":{"type":"string","description":"File path"},"old_string":{"type":"string","description":"Exact text to replace (must be unique in the file)"},"new_string":{"type":"string","description":"Replacement text (may be empty to delete)"},"content_hash":{"type":"string","description":"Optional SHA-256 hash of the file content from read_file output. If provided, the edit is rejected if the file content has changed since the hash was computed — preventing stale-context edits."}},"required":["path","old_string","new_string"]}`)
 }
 
 func (editFile) ReadOnly() bool { return false }
 
 func (e editFile) Execute(ctx context.Context, args json.RawMessage) (string, error) {
 	var p struct {
-		Path      string `json:"path"`
-		OldString string `json:"old_string"`
-		NewString string `json:"new_string"`
+		Path        string `json:"path"`
+		OldString   string `json:"old_string"`
+		NewString   string `json:"new_string"`
+		ContentHash string `json:"content_hash"`
 	}
 	if err := json.Unmarshal(args, &p); err != nil {
 		return "", fmt.Errorf("invalid args: %w", err)
@@ -54,6 +56,17 @@ func (e editFile) Execute(ctx context.Context, args json.RawMessage) (string, er
 	content, enc, err := readFileEncoded(p.Path)
 	if err != nil {
 		return "", fmt.Errorf("read %s: %w", p.Path, err)
+	}
+
+	// Hash-anchored edit: if the caller provided a content_hash (from a prior
+	// read_file call), verify the file hasn't changed since. This catches the
+	// race where another process — or another agent — modified the file between
+	// the read and the edit, which would make the old_string match unreliable.
+	if p.ContentHash != "" {
+		actual := fmt.Sprintf("%x", sha256.Sum256([]byte(content)))
+		if actual != p.ContentHash {
+			return "", fmt.Errorf("file %s changed since content_hash was computed (read=%s, current=%s) — re-read the file and try again", p.Path, p.ContentHash[:12], actual[:12])
+		}
 	}
 
 	old, newStr := matchLineEndings(content, p.OldString, p.NewString)

@@ -331,6 +331,23 @@ network = true
 #   vision_detail = "auto"  # image detail hint: low|high; empty = auto
 #   no_proxy = true         # reach this base_url directly, never via the proxy
 
+# ── Token-saving MCP plugins ──────────────────────────────────────────────
+# sqz: Rust CLI that compresses LLM context by 25-92% via SHA-256 content cache
+# and repeated-line dedup. Safe mode preserves errors and stack traces.
+# Install: cargo install sqz-cli && sqz init
+# [[plugins]]
+# name    = "sqz"
+# command = "sqz"
+# args    = ["mcp"]
+
+# context-mode: TypeScript tool-output sandboxing — up to 98% token reduction.
+# Used by Microsoft, Google, Meta. Hacker News #1 (570+ points).
+# Install: npm install -g context-mode
+# [[plugins]]
+# name    = "context-mode"
+# command = "context-mode"
+# args    = ["mcp"]
+
 # Bot gateway: multi-channel IM bot for QQ, Feishu, WeChat, and Discord.
 # Start with `reasonix bot start --channels qq,feishu,weixin`.
 # All secrets are read from environment variables; never put keys here.
@@ -381,3 +398,22 @@ network = true
 # channel_id = ""
 # allow_dms = true
 # webhook_url_env = "DISCORD_WEBHOOK_URL"
+
+# ── Scheduled Tasks ─────────────────────────────────────────────────────────
+# Cron-driven automated agent tasks. The scheduler runs in the background while
+# the agent is active and fires each task at its scheduled time. Results are
+# stored and visible on the desktop Hermes dashboard.
+
+# [schedule]
+# [[schedule.tasks]]
+# name    = "daily-review"
+# cron    = "0 2 * * *"           # every day at 2am
+# prompt  = "Review all changes in the last 24 hours. Report any issues."
+# model   = "deepseek-flash"      # optional; empty = use default_model
+# enabled = true
+#
+# [[schedule.tasks]]
+# name    = "weekly-summary"
+# cron    = "0 9 * * 1"           # Monday 9am
+# prompt  = "Summarize this week's work. What was accomplished? What's pending?"
+# model   = "deepseek-pro"

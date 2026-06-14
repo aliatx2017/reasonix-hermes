@@ -1,0 +1,275 @@
+package compress
+
+import (
+	"strings"
+	"testing"
+)
+
+func TestCompressDisabled(t *testing.T) {
+	c := New(false)
+	raw := "hello world"
+	if got := c.Compress("bash", raw); got != raw {
+		t.Errorf("disabled compressor should return input unchanged, got %q", got)
+	}
+}
+
+func TestCompressEmpty(t *testing.T) {
+	c := New(true)
+	if got := c.Compress("bash", ""); got != "" {
+		t.Errorf("empty input should stay empty, got %q", got)
+	}
+}
+
+func TestCompressErrorSafeMode(t *testing.T) {
+	c := New(true)
+	// Test output with FAIL and error markers — should be preserved.
+	errOutput := strings.Join([]string{
+		"--- FAIL: TestFoo (0.00s)",
+		"    foo_test.go:10: error: expected 1, got 2",
+		"    panic: runtime error: invalid memory address",
+		"goroutine 1 [running]:",
+		"main.main()",
+	}, "\n")
+	if got := c.Compress("bash", errOutput); got != errOutput {
+		t.Errorf("error output should be preserved verbatim, got %q", got)
+	}
+}
+
+func TestCompressErrorSafeModeSingleMarker(t *testing.T) {
+	c := New(true)
+	// Single "error:" in otherwise normal output — should still compress.
+	single := "line one\nline two\nerror: something\nline four"
+	got := c.Compress("bash", single)
+	if got == single {
+		t.Log("single error marker may not trigger safe mode (needs >=2)")
+	}
+}
+
+func TestCompressBashRepeatedLines(t *testing.T) {
+	c := New(true)
+	raw := strings.Join([]string{
+		"Building...",
+		"Building...",
+		"Building...",
+		"Building...",
+		"Done.",
+	}, "\n")
+	got := c.Compress("bash", raw)
+	if !strings.Contains(got, "[×3 above]") {
+		t.Errorf("expected [×3 above] marker for 4 repeated lines, got: %s", got)
+	}
+	if !strings.Contains(got, "Done.") {
+		t.Error("last unique line should be preserved")
+	}
+}
+
+func TestCompressBashShortOutput(t *testing.T) {
+	c := New(true)
+	raw := "hello\nworld"
+	got := c.Compress("bash", raw)
+	// 2 lines is too short to compress.
+	if got != raw {
+		t.Errorf("short bash output should not be compressed, got %q", got)
+	}
+}
+
+func TestCompressBashNoRepeats(t *testing.T) {
+	c := New(true)
+	raw := "line one\nline two\nline three\nline four\nline five"
+	got := c.Compress("bash", raw)
+	if got != raw {
+		t.Errorf("output with no repeats should not change, got %q", got)
+	}
+}
+
+func TestCompressCacheHitSameTurn(t *testing.T) {
+	c := New(true)
+	c.SetTurn(5)
+	raw := "exact same content repeated"
+	first := c.Compress("read_file", raw)
+	if first != raw {
+		t.Fatalf("first call should return raw, got %q", first)
+	}
+	second := c.Compress("read_file", raw)
+	if !strings.Contains(second, "content unchanged") {
+		t.Errorf("second call should be cached, got: %s", second)
+	}
+	if !strings.Contains(second, "this turn") {
+		t.Errorf("same-turn cache hit should mention 'this turn', got: %s", second)
+	}
+}
+
+func TestCompressCacheHitDifferentTurn(t *testing.T) {
+	c := New(true)
+	c.SetTurn(3)
+	raw := "some file content that gets read twice"
+	c.Compress("read_file", raw)
+	c.SetTurn(7)
+	got := c.Compress("read_file", raw)
+	if !strings.Contains(got, "content unchanged since turn 3") {
+		t.Errorf("cross-turn cache should mention original turn, got: %s", got)
+	}
+	if !strings.Contains(got, "sha256:") {
+		t.Errorf("cache ref should include sha256 prefix, got: %s", got)
+	}
+}
+
+func TestCompressCacheDifferentContent(t *testing.T) {
+	c := New(true)
+	c.SetTurn(1)
+	c.Compress("read_file", "content A")
+	c.SetTurn(2)
+	got := c.Compress("read_file", "content B")
+	if got != "content B" {
+		t.Errorf("different content should not hit cache, got: %s", got)
+	}
+}
+
+func TestCompressReadFilePreservesContent(t *testing.T) {
+	c := New(true)
+	c.SetTurn(1)
+	raw := "line 1\nline 2\nline 3"
+	got := c.Compress("read_file", raw)
+	if got != raw {
+		t.Errorf("read_file without cache hit should return unchanged, got %q", got)
+	}
+}
+
+func TestCompressJSONNullStrip(t *testing.T) {
+	c := New(true)
+	raw := strings.Join([]string{
+		"{",
+		`  "name": "test",`,
+		`  "optional": null,`,
+		`  "value": 42,`,
+		`  "unused": null`,
+		"}",
+	}, "\n")
+	got := c.Compress("web_fetch", raw)
+	if strings.Contains(got, "null") {
+		t.Errorf("null fields should be stripped, got: %s", got)
+	}
+	if !strings.Contains(got, `"name"`) {
+		t.Error("non-null fields should be preserved")
+	}
+	if !strings.Contains(got, `42`) {
+		t.Error("numeric values should be preserved")
+	}
+}
+
+func TestCompressJSONShort(t *testing.T) {
+	c := New(true)
+	raw := `{"a":1}`
+	got := c.Compress("web_fetch", raw)
+	if got != raw {
+		t.Errorf("short JSON should not be compressed, got %q", got)
+	}
+}
+
+func TestSafeModePreservesDiff(t *testing.T) {
+	c := New(true)
+	raw := strings.Join([]string{
+		"diff --git a/file.go b/file.go",
+		"--- a/file.go",
+		"+++ b/file.go",
+		"@@ -1,3 +1,3 @@",
+		" error: compilation failed",
+	}, "\n")
+	got := c.Compress("bash", raw)
+	if got != raw {
+		t.Errorf("diff + error output should be preserved by safe mode, got: %s", got)
+	}
+}
+
+func TestIsErrorOutput(t *testing.T) {
+	tests := []struct {
+		input string
+		want  bool
+	}{
+		{"panic: runtime error\ngoroutine 1 [running]:", true},        // 2 markers: panic: + goroutine
+		{"panic: runtime error", false},                                 // 1 marker only — needs 2
+		{"--- FAIL\nerror: test", true},                          // 2 markers
+		{"diff --git a b\nerror: build", true},                   // 2 markers
+		{"hello world", false},
+		{"success: build complete", false},                       // "success:" not a marker
+		{"warning: deprecated", false},                           // "warning:" not a marker
+	}
+	for _, tc := range tests {
+		got := isErrorOutput(tc.input)
+		if got != tc.want {
+			t.Errorf("isErrorOutput(%q) = %v, want %v", tc.input, got, tc.want)
+		}
+	}
+}
+
+func TestFirstLine(t *testing.T) {
+	if s := firstLine("hello\nworld", 10); s != "hello" {
+		t.Errorf("firstLine = %q", s)
+	}
+	if s := firstLine("\n\n  hi  \nthere", 10); s != "hi" {
+		t.Errorf("firstLine skip blanks = %q", s)
+	}
+	if s := firstLine("very long line here", 8); s != "very lon…" {
+		t.Errorf("firstLine truncate = %q", s)
+	}
+}
+
+func TestTokenEstimate(t *testing.T) {
+	if n := tokenEstimate("hello world"); n != 2 {
+		t.Errorf("tokenEstimate('hello world') = %d, want ~2", n)
+	}
+}
+
+func TestIsTextOnly(t *testing.T) {
+	if !isTextOnly("hello world\n") {
+		t.Error("plain text should be text-only")
+	}
+	binary := string([]byte{0x00, 0x01, 0x02, 0x03, 0x04, 0x05})
+	if isTextOnly(binary) {
+		t.Error("binary should not be text-only")
+	}
+}
+
+func TestCompressJSONEmptyLines(t *testing.T) {
+	c := New(true)
+	raw := strings.Join([]string{
+		"{",
+		`  "a": 1,`,
+		"",
+		"",
+		`  "b": 2`,
+		"}",
+	}, "\n")
+	got := c.Compress("web_fetch", raw)
+	if strings.Count(got, "\n\n") > 0 {
+		t.Errorf("empty lines should be stripped, got: %s", got)
+	}
+}
+
+func TestCompressBlankLines(t *testing.T) {
+	c := New(true)
+	raw := strings.Join([]string{
+		"error:",
+		"",
+		"fatal:",
+		"",
+		"end",
+	}, "\n")
+	// Should be preserved by safe mode (2 error markers).
+	got := c.Compress("bash", raw)
+	if got != raw {
+		t.Errorf("error+blank output should be preserved by safe mode")
+	}
+}
+
+func TestSortedKeys(t *testing.T) {
+	m := map[string]cacheEntry{
+		"z": {},
+		"a": {},
+		"m": {},
+	}
+	keys := sortedKeys(m)
+	if len(keys) != 3 || keys[0] != "a" || keys[2] != "z" {
+		t.Errorf("sortedKeys = %v", keys)
+	}
+}

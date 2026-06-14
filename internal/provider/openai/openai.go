@@ -69,6 +69,7 @@ func New(cfg provider.Config) (provider.Provider, error) {
 	}
 	deepseek := protocol == "deepseek" || (protocol == "" && IsDeepSeek(cfg.BaseURL))
 	minimax := protocol == "" && IsMiniMax(cfg.BaseURL)
+	glm := protocol == "" && IsGLM(cfg.BaseURL)
 	switch {
 	case protocol == "none":
 		effort = ""
@@ -117,6 +118,7 @@ func New(cfg provider.Config) (provider.Provider, error) {
 		model:        cfg.Model,
 		deepseek:     deepseek,
 		minimax:      minimax,
+		glm:          glm,
 		vision:       vision,
 		visionDetail: visionDetail,
 		effort:       effort,
@@ -144,6 +146,7 @@ type client struct {
 	http         *http.Client
 	deepseek     bool
 	minimax      bool          // true for api.minimaxi.com — emits MiniMax-M3's thinking knob instead of reasoning_effort
+	glm          bool          // true for open.bigmodel.cn — Z.ai GLM; uses standard OpenAI reasoning_effort
 	vision       bool          // model accepts image input — embed attached images as image_url parts
 	visionDetail string        // image_url detail hint (low|high); "" = auto/omit
 	effort       string        // reasoning_effort for OpenAI; thinking.type for MiniMax; "" = auto/provider default

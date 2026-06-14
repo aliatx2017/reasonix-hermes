@@ -48,6 +48,7 @@ import (
 	"reasonix/internal/plugin"
 	"reasonix/internal/provider"
 	"reasonix/internal/sandbox"
+	"reasonix/internal/scheduler"
 	"reasonix/internal/skill"
 	"reasonix/internal/tool"
 )
@@ -76,6 +77,7 @@ type Controller struct {
 	hooks             *hook.Runner // session hook runner; nil-safe (no hooks configured)
 	mem               *memory.Set
 	cleanup           func()
+	schedule          *scheduler.Scheduler // cron task scheduler (nil = disabled)
 	autoPlan          string
 	reasoningLanguage string
 	// disableColdResumePrune skips stale-tool-result elision on cold resume.
@@ -274,6 +276,11 @@ type Options struct {
 	// persist to disk (e.g. "Bash(go test:*)"). The callback is wired into the
 	// permission Gate on EnableInteractiveApproval.
 	OnRemember func(rule string) RememberResult
+	// Schedule, when non-nil, starts the cron scheduler goroutine on New().
+	Schedule *scheduler.Scheduler
+	// ScheduleConfig, when non-empty, builds a scheduler in New() that sends tasks
+	// back through the controller. The scheduler is started as a background goroutine.
+	ScheduleConfig *scheduler.Config
 }
 
 // New builds a Controller. A nil Sink is replaced with event.Discard.
@@ -314,6 +321,7 @@ func New(opts Options) *Controller {
 		shell:                  opts.Shell,
 		classifier:             classifier,
 		onRemember:             opts.OnRemember,
+		schedule:               opts.Schedule,
 		balanceURL:             opts.BalanceURL,
 		balanceKey:             opts.BalanceKey,
 		balanceClient:          opts.BalanceClient,
@@ -336,6 +344,21 @@ func New(opts Options) *Controller {
 			}
 		})
 		c.executor.SetMemoryQueue(c)
+	}
+	// Start cron scheduler if configured.
+	if c.schedule != nil {
+		go c.schedule.Start(context.Background())
+	}
+	// Build scheduler from config if provided (no pre-built one).
+	if c.schedule == nil && opts.ScheduleConfig != nil {
+		ctrl := c // capture for closure
+		c.schedule = scheduler.New(*opts.ScheduleConfig, scheduler.SenderFunc(func(ctx context.Context, text string) error {
+			ctrl.Send(text)
+			return nil
+		}), slog.Default())
+		if c.schedule != nil {
+			go c.schedule.Start(context.Background())
+		}
 	}
 	return c
 }
@@ -463,6 +486,12 @@ func (c *Controller) runGuarded(body func(ctx context.Context) error) {
 // path so frontends do not block on classifier I/O.
 func (c *Controller) Send(input string) {
 	c.SendWithRaw(input, input)
+}
+
+// SendCtx implements scheduler.Sender — delegates to Send for scheduled tasks.
+func (c *Controller) SendCtx(_ context.Context, text string) error {
+	c.Send(text)
+	return nil
 }
 
 // SendWithRaw starts a turn with separate model input and raw prompt text. The
@@ -2117,6 +2146,38 @@ func (c *Controller) SessionCache() (hit, miss int) {
 		return 0, 0
 	}
 	return c.executor.SessionCache()
+}
+
+// SessionCost returns the estimated total spend this session.
+func (c *Controller) SessionCost() float64 {
+	if c.executor == nil {
+		return 0
+	}
+	return c.executor.SessionCost()
+}
+
+// ActivePricing returns the pricing data for the active model, or nil.
+func (c *Controller) ActivePricing() *provider.Pricing {
+	if c.executor == nil {
+		return nil
+	}
+	return c.executor.Pricing()
+}
+
+// ScheduleStatus returns the next scheduled task run times.
+func (c *Controller) ScheduleStatus() map[string]time.Time {
+	if c.schedule == nil {
+		return nil
+	}
+	return c.schedule.AllNextRuns()
+}
+
+// ScheduleResults returns the last N scheduled task results.
+func (c *Controller) ScheduleResults(limit int) []scheduler.Result {
+	if c.schedule == nil {
+		return nil
+	}
+	return c.schedule.Results(limit)
 }
 
 // TurnUsageHistory returns a snapshot of the last N per-turn Usage samples for

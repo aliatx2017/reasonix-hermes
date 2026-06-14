@@ -40,6 +40,7 @@ import (
 	"reasonix/internal/plugin"
 	"reasonix/internal/provider"
 	"reasonix/internal/sandbox"
+	"reasonix/internal/scheduler"
 	"reasonix/internal/skill"
 	"reasonix/internal/tool"
 	"reasonix/internal/tool/builtin"
@@ -847,6 +848,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 		ArchiveDir:        config.ArchiveDir(),
 		WorkshopThreshold: workshopThreshold,
 		Workshop:          workshopSynthesizer(jm, execProv, reg, entry, cfg.Agent),
+		CompressToolOutput: compressEnabled(cfg.Agent.CompressToolOutput),
 	}, sink)
 
 	var runner agent.Runner = executor
@@ -926,6 +928,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 		OnRemember: func(rule string) control.RememberResult {
 			return rememberPermissionRule(root, rule)
 		},
+		ScheduleConfig: buildScheduleConfig(cfg),
 	}
 	if classifier != nil {
 		ctrlOpts.Classifier = classifier
@@ -1394,6 +1397,29 @@ const WorkshopSynthesisText = "Synthesize this large tool output into a concise 
 // workshopSynthesizer returns a callback that, when a tool result exceeds the
 // threshold, spawns a background sub-agent to synthesize it and returns a note
 // pointing to the synthesis ref, plus a truncated version of the raw output.
+// buildScheduleConfig converts the TOML schedule block to a scheduler.Config.
+func buildScheduleConfig(cfg *config.Config) *scheduler.Config {
+	tasks := make([]scheduler.Task, len(cfg.Schedule.Tasks))
+	for i, t := range cfg.Schedule.Tasks {
+		tasks[i] = scheduler.Task{
+			Name:    t.Name,
+			Cron:    t.Cron,
+			Prompt:  t.Prompt,
+			Model:   t.Model,
+			Enabled: t.Enabled,
+		}
+	}
+	return &scheduler.Config{Tasks: tasks}
+}
+
+// compressEnabled resolves the CompressToolOutput config: nil = default true.
+func compressEnabled(override *bool) bool {
+	if override == nil {
+		return true
+	}
+	return *override
+}
+
 func workshopSynthesizer(jm *jobs.Manager, prov provider.Provider, reg *tool.Registry, entry *config.ProviderEntry, agentCfg config.AgentConfig) func(ctx context.Context, toolName string, rawResult string) string {
 	if jm == nil || prov == nil {
 		return nil

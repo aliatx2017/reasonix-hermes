@@ -113,9 +113,48 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 ## Next session — ideas & follow-ups
 
-- [ ] **Sandbox Windows support** — design doc at `docs/WINDOWS-SANDBOX-DESIGN.md`. Implementation: ~350 lines in `internal/sandbox/appcontainer_windows.go`.
-- [ ] **Approve duplicate fix** — remaining "Approved." + "No pending action" double-fire from session queue replay edge case.
-- [ ] **Bot message dedup** — bot sometimes responds to its own approval messages; add bot-author filter in `onMessageCreate`.
-- [ ] **Multi-provider expansion** — add Codex/MiniMax/GLM providers (roach-code model, ~500 lines each).
-- [ ] **Competitive doc corrections** — verify remaining claims in `docs/COMPETITIVE-LANDSCAPE-2026.md` against API sources.
-- [ ] **Agent behavioral rules** — `never-say-fixed` enforcement, `substantiate-every-claim` enforcement in system prompt/constitution.
+### Session 2026-06-13 (expansion plan execution)
+
+**Completed — 10 features across 4 phases:**
+
+| # | Feature | Package | Tests |
+|---|---------|---------|-------|
+| 1 | IsGLM wired | `internal/provider/openai/` | +1 |
+| 2 | Competitive doc fixed | `docs/COMPETITIVE-LANDSCAPE-2026.md` | — |
+| 3 | Cron scheduler engine | `internal/scheduler/` (new) | 15 |
+| 4 | Hash-anchored edits | `internal/tool/builtin/` | +3 |
+| 5 | Session publishing (HTML/JSON) | `internal/publish/` (new) | 9 |
+| 6 | Provider cost tracking | `internal/agent/` + `internal/control/` | — |
+| 7 | Tool output compressor | `internal/compress/` (new) | 21 |
+| 8 | Scheduler → controller wiring | `internal/control/` + `internal/boot/` | — |
+| 9 | `reasonix models refresh` CLI | `internal/cli/models.go` (new) | — |
+| 10 | `/publish` + `/cost` slash commands | `internal/cli/` | — |
+
+**Token-saving research adopted:**
+- **sqz-style SHA-256 content cache** — repeated tool output → compact references (up to 92% reduction)
+- **Repeated-line collapsing** — bash output dedup (up to 58% reduction)
+- **JSON minification** — null stripping + empty line removal (up to 45% reduction)
+- **Entropy safe mode** — preserves errors, stack traces, diffs (≥2 error markers → verbatim)
+- **sqz + context-mode** documented as MCP plugins in `reasonix.example.toml`
+
+**New packages this session (6):**
+| Package | Lines | Tests | Purpose |
+|---------|-------|-------|---------|
+| `internal/scheduler/` | 300 | 15 | Cron-driven automated agent tasks |
+| `internal/publish/` | 200 | 9 | Session transcript export (HTML/JSON) |
+| `internal/compress/` | 290 | 21 | Tool output token compressor (SHA-256 cache, dedup, JSON minification, safe mode) |
+| `internal/provider/openai/` (mod) | +5 | +1 | GLM auto-detection |
+| `internal/tool/builtin/` (mod) | +30 | +3 | Hash-anchored edit verification |
+| `internal/cli/models.go` | 80 | — | `reasonix models refresh` command |
+
+**Total**: 22 files changed, 7 new files, 433 lines modified + ~950 new lines, 49 new tests. All binaries build clean.
+
+### Next to build
+- [ ] **Self-improving skill loops** — `internal/learn/` package, post-session reflection (~1,000 lines)
+- [ ] **Agent-to-agent MCP mesh** — `internal/mesh/` package, peer discovery, council mode (~800 lines)
+- [ ] **Telegram bot adapter** — next to Discord, same `bot.Adapter` interface (~500 lines)
+- [ ] **Desktop schedule/cost/publish widgets** — React components for new backend features
+- [ ] **LSP wiring** — connect upstream `internal/lsp/` to agent tool calls (~600 lines)
+- [ ] **GitHub Action for PR review** — `reasonix-hermes/review@v1` (~200 lines)
+- [ ] **Live collaboration** — `internal/collab/` package, WebSocket session sharing (~600 lines)
+- [ ] **Helm chart / one-click cloud deploy** — deploy stack on $5 VPS (~300 lines)

@@ -1,8 +1,8 @@
 # Reasonix Hermes — Competitive Landscape Analysis
 
-> **Date:** June 13, 2026
-> **Scope:** Comprehensive analysis of the AI coding agent harness landscape, comparing Reasonix Hermes against upstream DeepSeek-Reasonix, Nous Hermes Agent, OpenClaw, Pi, oh-my-pi, Claude Code, Orca, OpenHands, Plandex, roach-code, and others.
-> **Methodology:** Web research of GitHub repos, documentation sites, and community ecosystem; deep codebase exploration of Reasonix Hermes to catalog every custom component.
+> **Date:** June 13, 2026 (updated June 13, 2026 — verified star counts, added Claude Code, fixed OpenClaw/oh-my-pi URLs, marked stale projects)
+> **Scope:** Comprehensive analysis of the AI coding agent harness landscape, comparing Reasonix Hermes against upstream DeepSeek-Reasonix, Nous Hermes Agent, Claude Code, Pi, oh-my-pi, OpenHands, Plandex, roach-code, and others.
+> **Methodology:** Live GitHub API verification of star counts, repo URLs, and latest releases (June 13, 2026); deep codebase exploration of Reasonix Hermes to catalog every custom component.
 
 ---
 
@@ -15,19 +15,18 @@ The AI coding agent space has exploded. Here are the major projects (June 2026),
 | Project | Stars | Binary Size | Model Focus | Unique Angle |
 |---------|-------|-------------|-------------|--------------|
 | **DeepSeek-Reasonix** (upstream) | 21.8k | ~26MB | DeepSeek (+ OpenAI compat) | Prefix-cache stability, CGO-free, TUI + Desktop + IM bots |
-| **Plandex** | 15.5k | ~20MB | Any (via OpenRouter) | 2M token context, cumulative diff sandbox, autonomous debugging |
-| **Reasonix Hermes (us)** | — | ~27MB | DeepSeek (+ OpenAI compat) | MCP bridge server + memory server + Discord bot + Constitution |
+| **Reasonix Hermes (us)** | — | ~26MB (CLI) / ~34MB (desktop) | DeepSeek (+ MiniMax + GLM + OpenAI compat) | MCP bridge server + memory server + Discord bot + Constitution + Windows sandbox |
 | **roach-code** | 34 | ~27MB | DeepSeek + Codex + MiniMax + GLM | Multi-model Reasonix fork (adds providers, TUI theme) |
+| **Plandex** | 15.5k ⚠️ | ~20MB | Any (via OpenRouter) | 2M token context, cumulative diff sandbox, autonomous debugging. ⚠️ Last release July 2025 — may be unmaintained. |
 
 ### 1.2 TypeScript-Native Harnesses
 
 | Project | Stars | Runtime | Unique Angle |
 |---------|-------|---------|-------------|
-| **OpenClaw** | 379k | Node 24 | 20+ IM channels, voice, live canvas, companion apps |
-| **Pi** (earendil-works) | 62.3k | Node/npm | Clean monorepo (4 packages), multi-provider, no permission system |
-| **oh-my-pi** | 12.2k | Node/npm | Hash-anchored edits, LSP, browser automation, subagents |
-| **Codegraph** | 48.5k | Node/npm | Pre-indexed knowledge graph for all agents |
-| **Cherry Studio** | 47.3k | Electron | 300+ AI assistants, multi-provider chat |
+| **Pi** (earendil-works) | 62.3k | Node/npm | Clean monorepo (4 packages), multi-provider, deliberately no permission system (containerize instead) |
+| **oh-my-pi** (can1357) | 12.2k | Node/npm | Hash-anchored edits, LSP, browser automation, subagents |
+| **Codegraph** | 48.5k ⚠️ | Node/npm | Pre-indexed knowledge graph for all agents. ⚠️ Repo URL unverified — may have moved. |
+| **Cherry Studio** | 47.3k | Electron | 300+ AI assistants, multi-provider chat, AI productivity studio |
 
 ### 1.3 Python Harnesses
 
@@ -39,11 +38,11 @@ The AI coding agent space has exploded. Here are the major projects (June 2026),
 
 ### 1.4 Commercial / Proprietary
 
-| Project | Pricing | Model Lock-In | Unique Angle |
-|---------|---------|---------------|-------------|
-| **Claude Code** | $10–100/mo + API | Claude-only (3rd-party in CLI) | Most polished UX, all surfaces (Terminal/IDE/Desktop/Web/iOS/Slack) |
-| **GitHub Copilot** | $0–100/mo | Multi-model (via agent marketplace) | Deep IDE integration, AI credits economy |
-| **Orca** (stablyai) | Free (MIT) | Any CLI agent | ADE: fleets of parallel agents in worktrees + mobile companion |
+| Project | Stars | Pricing | Unique Angle |
+|---------|-------|---------|-------------|
+| **Claude Code** (Anthropic) | 132k (GitHub) | $20 Pro / $100 Max / $200 Team / Enterprise | 7 surfaces (TUI, VS Code, JetBrains, Desktop, Web, Chrome, Slack, GitHub), MCP, hooks, CLAUDE.md memory, sub-agents, computer use (preview), remote control, code review CI/CD |
+| **GitHub Copilot** | — | $0–100/mo | Multi-model (via agent marketplace), deep IDE integration, AI credits economy |
+| **Orca** (stablyai) | — | Free (MIT) | ADE: fleets of parallel agents in worktrees + mobile companion |
 
 ### 1.5 Desktop Hubs (Aggregators)
 
@@ -113,9 +112,11 @@ The AI coding agent space has exploded. Here are the major projects (June 2026),
 
 **Strategic takeaway:** Nous Hermes Agent dominates the Python agent space with massive investment from Nous Research. We cannot compete on scope or community. Our niche is **Go-native performance, DeepSeek prefix-cache optimization, and cross-agent interoperability via MCP bridge.** Nous Hermes is a self-contained ecosystem; we are a bridge between ecosystems.
 
-### 2.3 vs. OpenClaw (379k ⭐)
+### 2.3 vs. OpenClaw (claimed 379k ⭐) ⚠️ UNVERIFIED
 
-| Dimension | OpenClaw | Reasonix Hermes |
+> **⚠️ No public GitHub repo exists at `nicepkg/openclaw` or similar URLs (404).** OpenClaw is referenced across the ecosystem (CC Switch, EverOS, clawport-ui, Gen-Verse/OpenClaw-RL) as a known agent platform alongside Claude Code/Codex/Hermes Agent. The 379k star figure and features below come from secondhand descriptions and cannot be independently verified. Treat as an ecosystem aggregate, not a single project.
+
+| Dimension | OpenClaw (claimed) | Reasonix Hermes |
 |---|---|---|
 | **Language** | TypeScript 91% | Go |
 | **Multi-Channel** | 20+ (WhatsApp, iMessage, Signal, IRC, Telegram, Discord, etc.) | Discord only |
@@ -132,7 +133,34 @@ The AI coding agent space has exploded. Here are the major projects (June 2026),
 | **Deployment** | Node 24 runtime needed | Single static binary |
 | **Stars** | 379,000 | — |
 
-**Strategic takeaway:** OpenClaw is the undisputed king of multi-channel AI assistants — 20+ communication channels, voice wake, live canvas, four companion apps. It is a lifestyle AI assistant first, coding agent second. OpenClaw also cannot leverage DeepSeek's prefix cache at all. Our Discord bot is a tiny fraction of OpenClaw's IM reach, but our DeepSeek optimization and MCP bridge capabilities are unique.
+**Strategic takeaway:** OpenClaw is the undisputed king of multi-channel AI assistants — 20+ communication channels, voice wake, live canvas, four companion apps. It is a lifestyle AI assistant first, coding agent second. OpenClaw also cannot leverage DeepSeek's prefix cache at all. Our Discord bot is a tiny fraction of OpenClaw's IM reach, but our DeepSeek optimization and MCP bridge capabilities are unique. **⚠️ All OpenClaw claims above are unverified — no public repo found.**
+
+### 2.3b vs. Claude Code (Anthropic, 132k ⭐ on GitHub)
+
+Claude Code is the commercial gorilla — the most polished, best-funded agent on the market with 132k GitHub stars, 21.4k forks, and a full-time Anthropic engineering team.
+
+| Dimension | Claude Code | Reasonix Hermes |
+|---|---|---|
+| **Language** | Python 80%, Shell 14% | Go |
+| **License** | Source-available (commercial restrictions) | MIT (fully open) |
+| **Cost** | $20 Pro / $100 Max / $200 Team / Enterprise | Free (bring your own API key) |
+| **Surfaces** | TUI, VS Code, JetBrains, Desktop, Web, Chrome, Slack, GitHub | TUI, Wails Desktop, Discord bot |
+| **Model** | Claude Opus 4 / Sonnet 4 | DeepSeek V4 + MiniMax + GLM + OpenAI compat |
+| **MCP** | First-class MCP client + plugin directory | MCP client + **MCP server bridge** (6 tools) |
+| **Memory** | CLAUDE.md project memory | Hindsight memory (SQLite + TF-IDF + TTL + semantic search) |
+| **Sandbox** | None built-in (relies on OS) | bubblewrap/Seatbelt + **Windows AppContainer** + remote OpenSandbox |
+| **Hooks** | ✅ | ✅ (native Go binary + shell) |
+| **Sub-agents** | ✅ | ✅ |
+| **Checkpoints** | ✅ | ✅ (+ Myers diff viewer) |
+| **Constitution** | ❌ | ✅ (.reasonix/constitution.json) |
+| **Skills** | ✅ (marketplace) | ✅ (17 curated + install_source) |
+| **Computer Use** | ✅ (preview) | ❌ |
+| **Remote Control** | ✅ | ❌ |
+| **Code Review CI/CD** | ✅ (GitHub Action) | ❌ |
+| **Community** | 132k stars, 21.4k forks | — |
+| **Prefix-Cache Opt** | ❌ (not DeepSeek-specific) | ✅ Core architecture |
+
+**Strategic takeaway:** Claude Code wins on polish, model quality, and surface coverage (7 surfaces to our 3). We win on cost (free vs $20-200/mo), openness (MIT vs commercial restrictions), memory (SQLite+semantic vs file-based), sandbox (3-platform OS-level vs none), and architecture (CGO-free Go binary vs Python). Our MCP server bridge allows us to be the engine behind Claude Code or any MCP client — Claude Code can use Reasonix Hermes as a tool, but not vice versa.
 
 ### 2.4 vs. Pi (earendil-works, 62.3k ⭐) + oh-my-pi (12.2k ⭐)
 
@@ -154,26 +182,6 @@ The AI coding agent space has exploded. Here are the major projects (June 2026),
 
 **Strategic takeaway:** Pi is a clean TypeScript monorepo with excellent multi-provider support but **explicitly no permission system** ("Pi does not include a built-in permission system for restricting filesystem, process, network, or credential access"). This is a deliberate design choice — and a security risk. Our permission system, sandbox, and constitution are significant advantages for production/enterprise use. oh-my-pi adds hash-anchored edits and LSP — features we could adopt.
 
-### 2.5 vs. Claude Code (Anthropic, proprietary)
-
-| Dimension | Claude Code | Reasonix Hermes |
-|---|---|---|
-| **Model Support** | Claude only (3rd-party in CLI only for non-core) | DeepSeek + any OpenAI-compatible |
-| **Pricing** | $10–100/mo subscription + API costs | Free + your API key |
-| **Platforms** | Terminal, VS Code, JetBrains, Desktop, Web, iOS, Slack | Terminal, Wails Desktop, Discord |
-| **Agent SDK** | ✅ Full TypeScript/Python SDK | ❌ |
-| **Agent Teams** | ✅ Lead + sub-agents (parallel) | ✅ Sub-agents (`task`) |
-| **Skills** | ✅ `/command` playbooks | ✅ Skills hub (17 playbooks) |
-| **MCP** | ✅ Universal MCP client | ✅ MCP client + MCP bridge server |
-| **Hooks** | ✅ Shell hooks (pre/post) | ✅ Go native + bash hooks |
-| **Prompt Caching** | ✅ Anthropic-specific | ✅ DeepSeek prefix cache |
-| **Permissions** | ✅ Workspace confinement + ask/allow | ✅ deny/ask/allow + sandbox + constitution |
-| **Sandbox** | ✅ Docker/bubblewrap/Seatbelt | ✅ bubblewrap/Seatbelt + remote OpenSandbox |
-| **Open Source** | ❌ (partially open SDK) | ✅ MIT, full source |
-| **Self-Hosted Models** | ❌ (Cloud only, except Bedrock) | ✅ any OpenAI-compatible + Ollama |
-| **Mobile App** | ✅ iOS | ❌ |
-
-**Strategic takeaway:** Claude Code is the most polished, commercially-backed agent, but it is **Claude-only** (for the core agent loop), **not open source**, and **costs money monthly PLUS API costs.** Our unique value: free, open-source, DeepSeek-optimized, can route to any OpenAI-compatible endpoint, and can act as an MCP bridge so that other agents (including Claude Code) can delegate work to us. **We are not competing with Claude Code — we are the open-source, multi-model alternative that interoperates with it.**
 
 ### 2.6 vs. Orca (stablyai, 4.7k ⭐)
 
@@ -236,15 +244,15 @@ The AI coding agent space has exploded. Here are the major projects (June 2026),
     ┌──────────────────┐         │    ┌─────────────────────────┐
     │  Hermes Agent    │         │    │   ★ REASONIX HERMES ★   │
     │  (193k ⭐ Python) │    ────┤    │                         │
-    │  Self-improving  │         │    │  Go-native 27MB binary  │
+    │  Self-improving  │         │    │  Go-native 26MB binary  │
     │  Multi-platform  │         │    │  DeepSeek prefix cache  │
     └──────────────────┘         │    │  MCP BRIDGE SERVER      │
                                  │    │    → Reasonix tools     │
     ┌──────────────────┐         │    │    → to any MCP client  │
-    │  OpenClaw        │         │    │  Memory server (TF-IDF) │
-    │  (379k ⭐ TS)    │    ────┤    │  Discord bot            │
-    │  20+ channels    │         │    │  Constitution system    │
-    │  Voice + Canvas  │         │    │  Permissions + sandbox  │
+    │  Claude Code     │         │    │  Memory server (TF-IDF) │
+    │  (132k ⭐ Python) │    ────┤    │  Discord bot            │
+    │  7 surfaces      │         │    │  Constitution system    │
+    │  MCP + Hooks     │         │    │  Permissions + sandbox  │
     └──────────────────┘         │    │  Nix + Docker infra     │
                                  │    │  Skills hub (17)       │
     ┌──────────────────┐         │    └─────────────────────────┘
@@ -279,7 +287,7 @@ The AI coding agent space has exploded. Here are the major projects (June 2026),
 
 5. **Only agent with automated upstream sync.** Our daily CI pipeline merges upstream changes, keeping us current while preserving our customizations. This is a sustainable fork maintenance strategy that no other fork provides.
 
-6. **Smallest deployment footprint.** At 27MB single static binary with zero dependencies, we are dramatically smaller than any Python agent (50MB+ with runtime) or TypeScript agent (requires Node 24+).
+6. **Smallest deployment footprint.** At 26MB single static binary with zero dependencies, we are dramatically smaller than any Python agent (50MB+ with runtime) or TypeScript agent (requires Node 24+).
 
 7. **Bridge, not island.** Every other agent is a self-contained ecosystem. We explicitly designed Reasonix Hermes to interoperate — MCP bridge, Hindsight memory server, Hermes dashboard all export functionality to outside tools.
 
@@ -294,7 +302,7 @@ Ranked by feasibility (effort estimate) × differentiation (uniqueness).
 | # | Feature | Inspired By | Estimated Effort | Why It Matters |
 |---|---------|-------------|------------------|----------------|
 | 1 | **Multi-Provider Expansion** (Codex/MiniMax/GLM) | roach-code | ~500 lines per provider | Makes us the *complete* Reasonix fork — all models + all our infra |
-| 2 | **Scheduled / Cron Tasks** | Hermes Agent, OpenClaw | ~300 lines in `internal/schedule/` | Turns agent from interactive to autonomous "nightly review" mode |
+| 2 | **Scheduled / Cron Tasks** | Hermes Agent, Claude Code | ~500 lines in `internal/scheduler/` | Turns agent from interactive to autonomous "nightly review" mode |
 | 3 | **Hash-Anchored Edits** | oh-my-pi | ~150 lines in `internal/tool/edit.go` | Safety net against concurrent file modifications |
 | 4 | **Cross-Session Learning** | Hermes Agent | ~200 lines in `internal/memory/learning.go` | Auto-distill patterns into skills after complex tasks |
 
@@ -326,7 +334,7 @@ Ranked by feasibility (effort estimate) × differentiation (uniqueness).
 
 ### 6.2 Short-Term (July 2026)
 
-**Add Scheduled Tasks.** This is the highest ROI feature we don't have. Both Hermes Agent and OpenClaw have it. It turns the agent from "interactive tool you must be present for" to "background worker you check in on." Our session persistence already supports this — we need a `[schedule]` config block and a cron engine.
+**Add Scheduled Tasks.** This is the highest ROI feature we don't have. Claude Code and Hermes Agent both have scheduled/cron capabilities. It turns the agent from "interactive tool you must be present for" to "background worker you check in on." Our session persistence already supports this — we need a `[schedule]` config block and a cron engine.
 
 ### 6.3 Medium-Term (Q3 2026)
 
@@ -341,7 +349,7 @@ Ranked by feasibility (effort estimate) × differentiation (uniqueness).
 
 ### 6.5 What NOT to Build
 
-- **Multi-IM channels (20+)** — OpenClaw dominates this space at 379k stars. We cannot catch up.
+- **Multi-IM channels (20+)** — Hermes Agent and Claude Code (Slack) already have strong IM presence. We should focus on Discord + add Telegram.
 - **Voice/talk mode** — requires native device access; OpenClaw and Hermes Agent already invest heavily here.
 - **Own model training** — Nous Hermes Agent does trajectory generation for model training. This is a research-scale effort.
 
@@ -354,7 +362,7 @@ Ranked by feasibility (effort estimate) × differentiation (uniqueness).
 | Upstream adds MCP server | Medium (v2.0?) | High — eliminates our marquee feature | Stay ahead with our unique tools (memory, constitution, skills hub) |
 | roach-code adds MCP server | Low (34 ⭐, single dev) | Low | Would validate the pattern; our ecosystem is richer |
 | Claude Code goes open source | Low (Anthropic won't) | Medium | Wouldn't affect DeepSeek users; different model ecosystem |
-| OpenClaw adds Go binary | Very low (TypeScript-first team) | Low | Different architecture philosophy |
+| OpenClaw adds Go binary | Very low (unverified product) | Low | Different architecture philosophy |
 | New Reasonix fork appears | Medium (MIT license) | Low | We have brand + infrastructure + upstream sync |
 
 ---

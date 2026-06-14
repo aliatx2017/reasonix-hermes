@@ -11,6 +11,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"reasonix/internal/compress"
 	"reasonix/internal/diff"
 	"reasonix/internal/event"
 	"reasonix/internal/evidence"
@@ -170,6 +171,7 @@ type Agent struct {
 	executorHandoffGuard bool
 	temperature          float64
 	pricing              *provider.Pricing
+	compress             *compress.Compressor // tool output token compressor (nil = disabled)
 
 	// sink receives the turn's typed event stream (reasoning/text deltas, tool
 	// dispatch/results, usage, notices). The agent no longer formats output
@@ -190,6 +192,10 @@ type Agent struct {
 	// loop accumulates them while the status line reads them.
 	sessCacheHit  atomic.Int64
 	sessCacheMiss atomic.Int64
+	// sessCost accumulates estimated spend across every API call this session,
+	// stored as cost*1e8 in an int64 for lock-free atomic access. Read with
+	// SessionCost().
+	sessCost atomic.Int64
 
 	// turnUsageHistory is a ring buffer of the last N per-turn Usage samples,
 	// keyed by turn number. The run loop appends while frontends read for charts.
@@ -383,6 +389,17 @@ func (a *Agent) SessionCache() (hit, miss int) {
 	return int(a.sessCacheHit.Load()), int(a.sessCacheMiss.Load())
 }
 
+// SessionCost returns the estimated total spend this session. Returns 0 when
+// no pricing data is configured.
+func (a *Agent) SessionCost() float64 {
+	return float64(a.sessCost.Load()) / 1e8
+}
+
+// Pricing returns the configured pricing data for this agent, or nil.
+func (a *Agent) Pricing() *provider.Pricing {
+	return a.pricing
+}
+
 const maxTurnUsageHistory = 64
 
 // TurnUsageHistory returns a snapshot of the last N per-turn Usage samples,
@@ -550,6 +567,11 @@ type Options struct {
 	// (possibly reduced) text that replaces it in the model's context. May be nil.
 	Workshop func(ctx context.Context, toolName string, rawResult string) (replacement string)
 
+	// CompressToolOutput enables token-saving compression on tool results before
+	// they enter the model's context. Uses SHA-256 content caching, repeated-line
+	// collapsing, and JSON minification with safe-mode error preservation.
+	CompressToolOutput bool
+
 	// ProjectChecks are host-observable structured checks extracted during boot.
 	ProjectChecks []instruction.VerifyCheck
 }
@@ -600,6 +622,7 @@ func New(prov provider.Provider, tools *tool.Registry, session *Session, opts Op
 		jobs:              opts.Jobs,
 		workshopThreshold: opts.WorkshopThreshold,
 		workshop:          opts.Workshop,
+		compress:          compress.New(opts.CompressToolOutput),
 		evidence:          evidence.NewLedger(),
 		projectChecks:     append([]instruction.VerifyCheck(nil), opts.ProjectChecks...),
 		contextWindow:     opts.ContextWindow,
@@ -636,6 +659,7 @@ func (a *Agent) Run(ctx context.Context, input string) error {
 	streamRecoveries := 0
 	executorHandoff := a.executorHandoffGuard && strings.Contains(input, executorHandoffMarker)
 	for step := 0; a.maxSteps <= 0 || step < a.maxSteps; step++ {
+		a.compress.SetTurn(step + 1)
 		// Consume a queued steer and persist it to the session so it
 		// survives tab switches and history replay. The model sees it as
 		// guidance (with a prefix), not a new task. One cache miss per
@@ -1115,6 +1139,9 @@ func (a *Agent) stream(ctx context.Context, turn int) (string, string, string, [
 			a.lastUsage.Store(chunk.Usage)
 			a.sessCacheHit.Add(int64(chunk.Usage.CacheHitTokens))
 			a.sessCacheMiss.Add(int64(chunk.Usage.CacheMissTokens))
+			if a.pricing != nil {
+				a.sessCost.Add(int64(a.pricing.Cost(chunk.Usage) * 1e8))
+			}
 			a.appendTurnUsage(chunk.Usage)
 		case provider.ChunkError:
 			if provider.IsStreamInterrupted(chunk.Err) {
@@ -1510,6 +1537,12 @@ func (a *Agent) executeOne(ctx context.Context, call provider.ToolCall) toolOutc
 		if replacement := a.workshop(ctx, call.Name, result); replacement != "" {
 			result = replacement
 		}
+	}
+
+	// Tool output compression: apply token-saving compression (SHA-256 content
+	// cache, line dedup, JSON minification) unless this is an error result.
+	if a.compress != nil && err == nil {
+		result = a.compress.Compress(call.Name, result)
 	}
 
 	body, truncMsg := truncateToolOutput(result)

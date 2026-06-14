@@ -60,6 +60,7 @@ type Config struct {
 	Statusline    StatuslineConfig    `toml:"statusline"`
 	LSP           LSPConfig           `toml:"lsp"`
 	Bot           BotConfig           `toml:"bot"`
+	Schedule      ScheduleConfig      `toml:"schedule"`
 }
 
 // UIConfig controls CLI presentation-only settings. Desktop appearance is kept in
@@ -485,6 +486,21 @@ type BotConfig struct {
 	Connections      []BotConnectionConfig `toml:"connections"`
 }
 
+// ScheduleConfig is the [schedule] block for cron-driven automated agent tasks.
+// When tasks are present and enabled, the scheduler starts on agent launch.
+type ScheduleConfig struct {
+	Tasks []ScheduleTaskConfig `toml:"tasks"`
+}
+
+// ScheduleTaskConfig is one entry in [[schedule.tasks]].
+type ScheduleTaskConfig struct {
+	Name    string `toml:"name"`
+	Cron    string `toml:"cron"`
+	Prompt  string `toml:"prompt"`
+	Model   string `toml:"model"`   // optional; empty = use default_model
+	Enabled *bool  `toml:"enabled"` // nil or true = enabled
+}
+
 // BotAllowlist 控制哪些用户可以使用 bot。
 type BotAllowlist struct {
 	Enabled      bool     `toml:"enabled"`
@@ -847,6 +863,9 @@ type AgentConfig struct {
 	// ColdResumePrune elides stale tool results when a session reopens past the
 	// provider cache window. nil = default enabled.
 	ColdResumePrune *bool `toml:"cold_resume_prune"`
+	// CompressToolOutput enables token-saving compression on tool results via
+	// SHA-256 content caching, line dedup, and JSON minification (default true).
+	CompressToolOutput *bool `toml:"compress_tool_output"`
 }
 
 // ProviderEntry declares a model provider instance. ContextWindow is the model's

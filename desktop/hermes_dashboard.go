@@ -26,6 +26,37 @@ func (a *App) CacheEconomy() CacheEconomyView {
 	return a.CacheEconomyForTab("")
 }
 
+// --- Cost Summary ---
+
+// CostSummaryView carries session-level cost information.
+type CostSummaryView struct {
+	SessionCost float64 `json:"sessionCost"`
+	Currency    string  `json:"currency"`
+}
+
+// CostSummary returns cumulative cost for the active tab.
+func (a *App) CostSummary() CostSummaryView {
+	return a.CostSummaryForTab("")
+}
+
+// CostSummaryForTab returns cumulative cost for a specific tab.
+func (a *App) CostSummaryForTab(tabID string) CostSummaryView {
+	ctrl := a.ctrlForTab(tabID)
+	if ctrl == nil {
+		return CostSummaryView{}
+	}
+	cost := ctrl.SessionCost()
+	curr := "¥"
+	// Try to get currency from the active provider config.
+	if p := ctrl.ActivePricing(); p != nil {
+		curr = p.Symbol()
+	}
+	return CostSummaryView{
+		SessionCost: cost,
+		Currency:    curr,
+	}
+}
+
 // CacheEconomyForTab returns cache stats for a specific tab.
 func (a *App) CacheEconomyForTab(tabID string) CacheEconomyView {
 	ctrl := a.ctrlForTab(tabID)
@@ -141,6 +172,7 @@ func (a *App) ctrlForTab(tabID string) *control.Controller {
 // HermesDashboardEvent is the push payload sent to the frontend every few seconds.
 type HermesDashboardEvent struct {
 	Cache        CacheEconomyView        `json:"cache"`
+	Cost         CostSummaryView         `json:"cost"`
 	Memory       MemoryDashboardView     `json:"memory"`
 	Bot          BotLiveStatusView       `json:"bot"`
 	Goal         GoalProgressView        `json:"goal"`
@@ -343,6 +375,7 @@ func (a *App) startHermesEventLoop(ctx context.Context) {
 			case <-ticker.C:
 				ev := HermesDashboardEvent{
 					Cache:         a.CacheEconomy(),
+					Cost:          a.CostSummary(),
 					Memory:        a.MemoryDashboard(),
 					Bot:           a.BotLiveStatus(),
 					Goal:          a.GoalProgress(),

@@ -440,6 +440,25 @@ func TestNewMiniMaxSetsFlag(t *testing.T) {
 	}
 }
 
+// TestNewGLMSetsFlag is a smoke test for base-URL detection: the factory
+// must set the `glm` flag when the base URL points at open.bigmodel.cn
+// so auto-detection works.
+func TestNewGLMSetsFlag(t *testing.T) {
+	for _, baseURL := range []string{
+		"https://open.bigmodel.cn/api/paas/v4",
+		"https://open.bigmodel.cn",
+	} {
+		p, err := New(provider.Config{Name: "glm", BaseURL: baseURL, Model: "glm-4", APIKey: "k"})
+		if err != nil {
+			t.Fatalf("New(%q): %v", baseURL, err)
+		}
+		c := p.(*client)
+		if !c.glm {
+			t.Errorf("glm flag not set for baseURL=%q", baseURL)
+		}
+	}
+}
+
 func withEffort(c provider.Config, effort string) provider.Config {
 	extra := c.Extra
 	if extra == nil {

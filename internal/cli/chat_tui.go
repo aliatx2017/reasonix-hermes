@@ -3780,6 +3780,13 @@ func (m *chatTUI) runSlashCommand(input string) tea.Cmd {
 		m.openWriteMode(input)
 	case "/forget":
 		m.forgetMemory(strings.TrimSpace(strings.TrimPrefix(input, cmd)))
+	case "/publish":
+		m.echoLocalCommand(input)
+		m.publishSession()
+	case "/cost":
+		m.echoLocalCommand(input)
+		m.showStats = true
+		m.notice("cost panel shown — /stats to hide")
 	default:
 		// A custom command wins over a skill of the same name; both resolve to a turn.
 		if sent, ok := m.ctrl.CustomCommand(input); ok {
