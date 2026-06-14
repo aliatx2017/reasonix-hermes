@@ -47,6 +47,8 @@ node_modules/
 /.reasonix/*
 !/.reasonix/commands/
 !/.reasonix/commands/review.md
+!/.reasonix/skills/
+!/.reasonix/constitution.json
 
 # CodeGraph per-project index (rebuilt locally; never committed)
 .codegraph/

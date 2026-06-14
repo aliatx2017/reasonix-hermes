@@ -37,6 +37,9 @@ type Adapter struct {
 
 // New creates a Slack adapter from config.
 func New(cfg config.SlackBotConfig, logger *slog.Logger) bot.Adapter {
+	if logger == nil {
+		logger = slog.Default()
+	}
 	return &Adapter{
 		cfg:    cfg,
 		logger: logger.With("component", "slack_adapter"),

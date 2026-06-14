@@ -36,6 +36,19 @@ reasonix/
 ├── cmd/reasonix-plugin-example/  # reference MCP stdio plugin (a runnable example)
 └── internal/
     ├── cli/                 # subcommand routing, flags, assembly, exit codes
+    ├── control/             # transport-agnostic session driver (one Controller behind every frontend)
+    │   ├── controller.go             # Controller struct, Options, New, Send, Compose, session lifecycle (2,670 lines)
+    │   ├── controller_approval.go    # gateApprover, approval helpers, requestApproval, notice/beep/profile
+    │   ├── controller_checkpoints.go # RewindScope, Rewind, Fork, Branch, Summarize, ckptDir
+    │   ├── controller_memory.go      # QuickAdd, SaveDoc, SaveMemory, ForgetMemory, QueueMemory, Memory
+    │   ├── controller_mesh.go        # SetMesh, Council, MeshStatus
+    │   ├── auto_plan.go              # auto-plan selection logic
+    │   ├── attachments.go            # image/file attachment handling
+    │   ├── branches.go               # Fork/Branch session operations (moved to controller_checkpoints.go)
+    │   ├── errmsg.go                 # error classification and message formatting
+    │   ├── input.go                  # input preprocessing and slash-command dispatch
+    │   ├── refs.go                   # @-reference resolution
+    │   └── slash.go                  # built-in slash command handling
     ├── config/              # TOML loading (flag > project > user > defaults)
     ├── provider/            # Provider interface + types + kind→factory registry
     │   └── openai/          # OpenAI-compatible impl; init() registers "openai"

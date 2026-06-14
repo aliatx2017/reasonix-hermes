@@ -100,6 +100,18 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 			fmt.Fprintf(&b, "provider_access = %s   # desktop settings: providers shown on Settings > Model > Access\n", renderStringArray(c.Desktop.ProviderAccess))
 		}
 		fmt.Fprintf(&b, "expand_thinking = %v   # desktop: show reasoning text expanded by default; false = collapsed\n", c.Desktop.ExpandThinking)
+
+		// Hotbar — only emit if non-empty (a fully-default hotbar saves nothing).
+		if c.Desktop.Hotbar != (HotbarConfig{}) {
+			b.WriteString("\n[desktop.hotbar]\n")
+			renderHotbarKey(&b, "1", c.Desktop.Hotbar.Key1, "palette")
+			renderHotbarKey(&b, "2", c.Desktop.Hotbar.Key2, "workspace")
+			renderHotbarKey(&b, "3", c.Desktop.Hotbar.Key3, "new")
+			renderHotbarKey(&b, "4", c.Desktop.Hotbar.Key4, "history")
+			renderHotbarKey(&b, "5", c.Desktop.Hotbar.Key5, "dock")
+			renderHotbarKey(&b, "6", c.Desktop.Hotbar.Key6, "sidebar")
+			renderHotbarKey(&b, "7", c.Desktop.Hotbar.Key7, "settings")
+		}
 		b.WriteString("\n")
 
 		b.WriteString("[notifications]\n")
@@ -221,6 +233,10 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 		b.WriteString("# output_style = \"explanatory\"   # explanatory | learning | concise | custom; empty = default\n")
 	}
 	b.WriteString("\n")
+
+	if len(c.Profiles) > 0 && (scope == RenderScopeFull || scope == RenderScopeUser) {
+		renderProfiles(&b, c.Profiles)
+	}
 
 	if shouldRenderProviders(c, defaults, scope) {
 		for _, p := range c.Providers {
@@ -721,4 +737,47 @@ func formatFloat(f float64) string {
 		s += ".0"
 	}
 	return s
+}
+
+// renderHotbarKey emits a single hotbar key line, commented out when it matches
+// the built-in default (to keep the config clean).
+func renderHotbarKey(b *strings.Builder, key, value, def string) {
+	if value == "" || value == def {
+		fmt.Fprintf(b, "# %s = %q     # default: %s\n", key, def, def)
+	} else {
+		fmt.Fprintf(b, "%s = %q\n", key, value)
+	}
+}
+
+// renderProfiles emits [profiles.<name>] blocks for each configured harness profile.
+func renderProfiles(b *strings.Builder, profiles map[string]ProfileConfig) {
+	// Sort for deterministic output.
+	names := make([]string, 0, len(profiles))
+	for n := range profiles {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		p := profiles[name]
+		b.WriteString("\n")
+		fmt.Fprintf(b, "[profiles.%s]\n", name)
+		if p.Description != "" {
+			fmt.Fprintf(b, "description = %q\n", p.Description)
+		}
+		if p.Model != "" {
+			fmt.Fprintf(b, "model = %q\n", p.Model)
+		}
+		if p.Effort != "" {
+			fmt.Fprintf(b, "effort = %q\n", p.Effort)
+		}
+		if p.ToolApproveMode != "" {
+			fmt.Fprintf(b, "tool_approve_mode = %q\n", p.ToolApproveMode)
+		}
+		if p.AutoPlan != "" {
+			fmt.Fprintf(b, "auto_plan = %q\n", p.AutoPlan)
+		}
+		if p.OutputStyle != "" {
+			fmt.Fprintf(b, "output_style = %q\n", p.OutputStyle)
+		}
+	}
 }

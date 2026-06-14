@@ -32,7 +32,7 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 ## Notes
 
-- **Upstream synced**: `v1.7.0` (commit fb0cec2, 2026-07-15). 70 commits merged. 7 CLI binaries + desktop built and passing (36MB arm64).
+- **Upstream synced**: `v1.7.0` (commit 21d77d2, 2026-07-15). ~80 commits merged. 7 CLI binaries + desktop built (30MB arm64).
 - **Commit**: `21c7266` — session stats persistence (CLI → desktop).
 - **npm**: `npm i -g reasonix-hermes` — one-line install (sub-packages at `@aliatx2017/reasonix-hermes-*`). Pipeline verified; publish pending 2FA-bypass token.
 - **Key v1.6.0 additions**: vision support (image downscaling + detail knob), built-in Time + Context7 MCP servers, configurable shell interpreter (`[tools.shell]`), notification sound system, token economy composer mode, desktop time filter + custom fonts + status bar customization + Windows ARM64, crash capture (Go panics/breadcrumbs/group summaries), lightweight local history + memory retrieval, Traditional Chinese (zh-TW) locale, updater resilience, agent fixes (decline-ask guard, compaction bounds), desktop hooks UI.
@@ -116,6 +116,39 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
   - **Language enforcement**: `language = "en"` in config now injects hard English-only instruction at end of system prompt. Reasoning text also enforced via `reasoning_language = "en"`.
   - **Competitive landscape**: Bot autonomously researched 15+ competitors and wrote `docs/COMPETITIVE-LANDSCAPE-2026.md` (437 lines, 9 sections).
   - **Remaining**: Duplicate "Approved." responses still appear occasionally (queue replay edge case). "No pending action found" sometimes fires alongside valid "Approved." (harmless race, not blocking).
+
+### Session 2026-07-15 (h8) — Controller decomposition + bug fixes + skill adoption
+
+- **Controller decomposition**: `controller.go` reduced from 3,744 to 2,670 lines (29% reduction). Extracted 4 sub-files: `controller_memory.go` (memory CRUD), `controller_mesh.go` (mesh/council), `controller_approval.go` (gateApprover, approval helpers, requestApproval, notice/beep/profile), `controller_checkpoints.go` (RewindScope, Rewind, Fork, Branch, Summarize). SPEC.md §2 updated.
+
+- **Editor shell hardening**: Replaced `exec.Command("sh","-lc",...)` with `exec.Command(editor, path)` in `mcp_manager_actions.go` (2 call sites). Removed dead `shellQuote` helper.
+
+- **Bug fixes (5)**:
+  - Hotbar "unbound(default)": `hotbarView()` in `desktop/settings_app.go` now falls back to built-in defaults via existing `orDefault` helper
+  - `DesktopLayoutStyle` missing from `SettingsView`: added field + populated from `cfg.DesktopLayoutStyle()` in both default + loaded paths
+  - Render drops profiles/hotbar: `internal/config/render.go` now renders `[desktop.hotbar]` subsection and `[profiles.<name>]` blocks — previously silently dropped on any `Config.Save()`
+  - `netclient.DefaultClient()` mock incompatibility: uses `http.DefaultTransport` directly instead of cloning via type assertion — fixes QQ bot test
+  - Mimo backfill gaps: `ensureMimoAPIProvider` + `ensureMimoTokenPlanProvider` now backfill models, clear mixed-model prices, skip custom-base-URL providers — fixes 5 config tests
+
+- **Slack adapter tests**: New `internal/bot/slack/slack_test.go` with 23 tests covering all 7 `bot.Adapter` methods + nil-logger guard in `slack.New`.
+
+- **Skill adoption (14 from ~/.hermes/skills)**: All adapted for Reasonix-Hermes context:
+  - Architecture: `cache-first-architecture` (4-pillar design), `cost-aware-llm-pipeline` (model routing, aux offloading), `anti-patterns` (agent behavior rules)
+  - Verification: `ready-means-tested` (evidence gate), `pre-action-gate` (pre-write checklist)
+  - MCP & Go: `go-mcp-server` (build Go MCP servers), `native-mcp` (MCP client patterns)
+  - Analysis: `github-repo-eval` (deep-dive assessment), `intent-gap-analysis` (intent vs. implementation), `godmode` (LLM red-teaming)
+  - Workflow: `simplify-code` (parallel 3-agent cleanup), `spike` (throwaway experiments), `shell-quoting-ssh` (quoting patterns), `upstream-repo-audit` (sync workflow)
+
+- **Build**: All binaries compile. `go build ./...` + `go vet ./...` pass. All 66 test packages pass. Desktop `SettingsView.DesktopLayoutStyle` vet error resolved.
+- **Files**: 22 files changed (13 modified, 9 new). ~1,500 additions across Go + TypeScript + skills.
+- **Upstream**: Checked — no new commits (still at 21d77d2). Already synced.
+
+### Next to build
+- [ ] **npm: publish reasonix-hermes** — set 2FA-bypass granular token, push tag
+- [ ] **Upstream the LINE adapter** — open a PR to esengine/deepseek-reasonix with the line/ package
+- [ ] **Desktop app distribution** — .dmg / .exe / .AppImage packaging, auto-update mechanism
+- [ ] **Agent session comparison/diffing** — compare two agent runs for eval-driven development
+
 
 ## Next session — ideas & follow-ups
 

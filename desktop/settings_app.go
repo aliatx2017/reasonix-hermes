@@ -161,11 +161,12 @@ type SettingsView struct {
 	Network           NetworkView     `json:"network"`
 	Agent             AgentView       `json:"agent"`
 	Bot               BotSettingsView `json:"bot"`
-	DesktopLanguage   string          `json:"desktopLanguage"`
-	DesktopTheme      string          `json:"desktopTheme"`
-	DesktopThemeStyle string          `json:"desktopThemeStyle"`
-	CloseBehavior     string          `json:"closeBehavior"`
-	DisplayMode       string          `json:"displayMode"`
+	DesktopLanguage    string          `json:"desktopLanguage"`
+	DesktopTheme       string          `json:"desktopTheme"`
+	DesktopThemeStyle  string          `json:"desktopThemeStyle"`
+	DesktopLayoutStyle string          `json:"desktopLayoutStyle"`
+	CloseBehavior      string          `json:"closeBehavior"`
+	DisplayMode        string          `json:"displayMode"`
 	StatusBarStyle    string          `json:"statusBarStyle"`
 	StatusBarItems    []string        `json:"statusBarItems"`
 	CheckUpdates      bool            `json:"checkUpdates"`
@@ -350,6 +351,7 @@ func (a *App) Settings() SettingsView {
 			AutoPlan:          "off",
 			DesktopTheme:      "light",
 			DesktopThemeStyle: "graphite",
+			DesktopLayoutStyle: "classic",
 			CloseBehavior:     "background",
 			DisplayMode:       "standard",
 			StatusBarStyle:    "text",
@@ -408,6 +410,7 @@ func (a *App) Settings() SettingsView {
 		DesktopLanguage:   cfg.DesktopLanguage(),
 		DesktopTheme:      cfg.DesktopTheme(),
 		DesktopThemeStyle: cfg.DesktopThemeStyle(),
+		DesktopLayoutStyle: cfg.DesktopLayoutStyle(),
 		CloseBehavior:     cfg.DesktopCloseBehavior(),
 		DisplayMode:       cfg.DesktopDisplayMode(),
 		StatusBarStyle:    cfg.DesktopStatusBarStyle(),
@@ -439,7 +442,8 @@ var validHotbarActions = map[string]bool{
 	"history": true, "dock": true, "sidebar": true, "settings": true,
 }
 
-// hotbarView converts a HotbarConfig to a HotbarView for the frontend.
+// hotbarView converts a HotbarConfig to a HotbarView for the frontend,
+// falling back to built-in defaults for any unset key.
 func hotbarView(h config.HotbarConfig) HotbarView {
 	// Warn about unknown action names so users are aware of typos instead of
 	// silently falling back to defaults.
@@ -452,13 +456,13 @@ func hotbarView(h config.HotbarConfig) HotbarView {
 		}
 	}
 	return HotbarView{
-		Key1: h.Key1,
-		Key2: h.Key2,
-		Key3: h.Key3,
-		Key4: h.Key4,
-		Key5: h.Key5,
-		Key6: h.Key6,
-		Key7: h.Key7,
+		Key1: orDefault(h.Key1, "palette"),
+		Key2: orDefault(h.Key2, "workspace"),
+		Key3: orDefault(h.Key3, "new"),
+		Key4: orDefault(h.Key4, "history"),
+		Key5: orDefault(h.Key5, "dock"),
+		Key6: orDefault(h.Key6, "sidebar"),
+		Key7: orDefault(h.Key7, "settings"),
 	}
 }
 

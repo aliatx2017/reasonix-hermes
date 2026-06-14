@@ -48,13 +48,14 @@ func DefaultTransport() *http.Transport {
 	return tr
 }
 
-// DefaultClient returns an *http.Client backed by DefaultTransport() with a
-// generous overall Timeout. Callers doing API calls should prefer this over
-// http.DefaultClient so that hung servers or stalled TCP connections cannot
-// leak goroutines.
+// DefaultClient returns an *http.Client with a generous overall Timeout. It
+// delegates to http.DefaultTransport so that callers who replace the default
+// transport (e.g. in tests) still receive their mocks. Callers doing API calls
+// should prefer this over http.DefaultClient so that hung servers or stalled
+// TCP connections cannot leak goroutines.
 func DefaultClient() *http.Client {
 	return &http.Client{
-		Transport: DefaultTransport(),
+		Transport: http.DefaultTransport,
 		Timeout:   defaultOverallTimeout,
 	}
 }

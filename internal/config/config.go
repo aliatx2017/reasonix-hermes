@@ -1793,14 +1793,23 @@ func ensureDeepSeekOfficialProvider(c *Config) {
 }
 
 func ensureMimoAPIProvider(c *Config) {
-	if _, ok := c.Provider("mimo-api"); ok {
+	const officialURL = "https://api.xiaomimimo.com/v1"
+	p, ok := c.Provider("mimo-api")
+	if ok {
+		// Only backfill models for the official endpoint.
+		if !strings.EqualFold(strings.TrimRight(p.BaseURL, "/"), strings.TrimRight(officialURL, "/")) {
+			return
+		}
+		// Backfill vision-capable models into an existing provider.
+		p.Models = mergeModelLists(p.ModelList(), []string{"mimo-v2.5", "mimo-v2-omni"})
+		p.Default = firstKnownModel(p.Default, p.ModelList(), "mimo-v2.5-pro")
 		return
 	}
 	c.Providers = append(c.Providers, ProviderEntry{
 		Name:          "mimo-api",
 		Kind:          "openai",
-		BaseURL:       "https://api.xiaomimimo.com/v1",
-		Models:        []string{"mimo-v2.5-pro"},
+		BaseURL:       officialURL,
+		Models:        []string{"mimo-v2.5-pro", "mimo-v2.5", "mimo-v2-omni"},
 		Default:       "mimo-v2.5-pro",
 		APIKeyEnv:     "MIMO_API_KEY",
 		ContextWindow: 1_048_576,
@@ -1809,14 +1818,22 @@ func ensureMimoAPIProvider(c *Config) {
 }
 
 func ensureMimoTokenPlanProvider(c *Config, includeMimoFlash bool) {
-	if _, ok := c.Provider("mimo-token-plan"); ok {
+	p, ok := c.Provider("mimo-token-plan")
+	if ok {
+		// Backfill models into an existing provider and clear mixed-model price.
+		p.Models = mergeModelLists(p.ModelList(), []string{"mimo-v2.5"})
+		p.Default = firstKnownModel(p.Default, p.ModelList(), "mimo-v2.5-pro")
+		// Clear price when the provider has multiple models (mixed-model pricing is ambiguous).
+		if len(p.ModelList()) > 1 {
+			p.Price = nil
+		}
 		return
 	}
 	entry := ProviderEntry{
 		Name:          "mimo-token-plan",
 		Kind:          "openai",
 		BaseURL:       "https://token-plan-cn.xiaomimimo.com/v1",
-		Models:        []string{"mimo-v2.5-pro"},
+		Models:        []string{"mimo-v2.5-pro", "mimo-v2.5"},
 		Default:       "mimo-v2.5-pro",
 		APIKeyEnv:     "MIMO_API_KEY",
 		ContextWindow: 1_048_576,
@@ -1824,7 +1841,7 @@ func ensureMimoTokenPlanProvider(c *Config, includeMimoFlash bool) {
 	}
 	if old, ok := c.Provider("mimo-pro"); ok {
 		entry = officialProviderFromLegacy(entry, old)
-		entry.Models = mergeModelLists([]string{"mimo-v2.5-pro"}, old.ModelList())
+		entry.Models = mergeModelLists([]string{"mimo-v2.5-pro", "mimo-v2.5"}, old.ModelList())
 		entry.Default = firstKnownModel(entry.Default, entry.Models, "mimo-v2.5-pro")
 	}
 	if old, ok := c.Provider("mimo-flash"); includeMimoFlash && ok {
@@ -1833,6 +1850,10 @@ func ensureMimoTokenPlanProvider(c *Config, includeMimoFlash bool) {
 		}
 		entry.Models = mergeModelLists(entry.Models, old.ModelList())
 		entry.Default = firstKnownModel(entry.Default, entry.Models, entry.Default)
+	}
+	// Clear price when multiple models are present (mixed-model pricing is ambiguous).
+	if len(entry.ModelList()) > 1 {
+		entry.Price = nil
 	}
 	c.Providers = append(c.Providers, entry)
 }

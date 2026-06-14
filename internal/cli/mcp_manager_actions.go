@@ -396,13 +396,13 @@ func mcpEditConfigLaunchCommand(path string, lookPath func(string) (string, erro
 	}
 	if editor := strings.TrimSpace(os.Getenv("VISUAL")); editor != "" {
 		return mcpEditConfigLaunch{
-			cmd:    exec.Command("sh", "-lc", shellQuote(editor)+" "+shellQuote(path)),
+			cmd:    exec.Command(editor, path),
 			editor: mcpEditorDisplayName(editor),
 		}, nil
 	}
 	if editor := strings.TrimSpace(os.Getenv("EDITOR")); editor != "" {
 		return mcpEditConfigLaunch{
-			cmd:    exec.Command("sh", "-lc", shellQuote(editor)+" "+shellQuote(path)),
+			cmd:    exec.Command(editor, path),
 			editor: mcpEditorDisplayName(editor),
 		}, nil
 	}
@@ -486,10 +486,6 @@ func mcpConnected(ctrl *control.Controller, name string) bool {
 		}
 	}
 	return false
-}
-
-func shellQuote(s string) string {
-	return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
 }
 
 func mcpBoolPtr(v bool) *bool { return &v }

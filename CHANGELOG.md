@@ -60,6 +60,36 @@ Our fork (`aliatx2017/reasonix-hermes`) adds:
 - **D3 click-to-inspect**: Click any graph node → detail panel with title, description, type, close button. Selected node gets white stroke highlight
 - **D3 vector similarity links**: TF-IDF cosine similarity between fact descriptions; cross-type edges added for sim > 0.3, rendered as dashed accent lines
 
+### Hermes v1.7.0-h1 (2026-07-15) — Controller Decomposition + Skill Adoption + Bug Fixes
+
+**Controller decomposition:**
+- `internal/control/controller.go` reduced from 3,744 to 2,670 lines (29% reduction)
+- Extracted 4 focused sub-files: `controller_memory.go` (128 lines), `controller_mesh.go` (44 lines), `controller_approval.go` (585 lines), `controller_checkpoints.go` (365 lines)
+- SPEC.md §2 Layout updated with control/ package sub-file documentation
+
+**Security hardening:**
+- Editor shell injection: replaced `exec.Command("sh","-lc",...)` with `exec.Command(editor, path)` in `internal/cli/mcp_manager_actions.go` (2 call sites). Removed dead `shellQuote` helper.
+
+**Bug fixes (5):**
+- Hotbar "unbound(default)": `hotbarView()` in `desktop/settings_app.go` now falls back to built-in defaults
+- DesktopLayoutStyle missing from `SettingsView` struct — added field and population
+- Render drops profiles/hotbar: `internal/config/render.go` now renders `[desktop.hotbar]` and `[profiles.<name>]` blocks
+- netclient mock incompatibility: `DefaultClient()` now uses `http.DefaultTransport` directly
+- Mimo backfill gaps: providers now backfill models, clear mixed-model prices, skip custom URLs
+
+**Slack adapter tests:**
+- New `internal/bot/slack/slack_test.go` with 23 tests covering all 7 `bot.Adapter` methods + nil-logger fix in `slack.go`
+
+**Skill adoption (14 from ~/.hermes/skills):**
+- Architecture: `cache-first-architecture`, `cost-aware-llm-pipeline`, `anti-patterns`
+- Verification: `ready-means-tested`, `pre-action-gate`
+- MCP & Go: `go-mcp-server`, `native-mcp`
+- Analysis: `github-repo-eval`, `intent-gap-analysis`, `godmode`
+- Workflow: `simplify-code`, `spike`, `shell-quoting-ssh`, `upstream-repo-audit`
+
+**Verification:** `go build ./...` + `go vet ./...` pass. All 66 test packages pass (`go test ./internal/...`).
+
+
 ### Hermes v1.6.1-h3 (2026-07-14) — Windows Sandbox + Multi-Provider + Bot Fixes
 
 **Windows AppContainer sandbox** (`internal/sandbox/appcontainer_windows.go`, ~360 lines):
