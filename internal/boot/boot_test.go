@@ -1361,15 +1361,21 @@ model = "x"
 api_key_env = "REASONIX_TEST_KEY_UNSET"
 `)
 
-	ctrl, err := Build(context.Background(), Options{})
+	ctrl, err := Build(context.Background(), Options{WorkspaceRoot: dir})
 	if err != nil {
 		t.Fatalf("Build: %v", err)
 	}
 	defer ctrl.Close()
 
 	sys := systemMessage(ctrl.History())
+	tail := sys
+	if len(tail) > 300 {
+		tail = "…" + tail[len(tail)-300:]
+	}
+	// The language policy should be appended to the system prompt by Build.
 	if !strings.Contains(sys, config.LanguagePolicy) {
-		t.Fatalf("language policy missing from system prompt:\n%s", sys)
+		t.Fatalf("language policy missing from system prompt (len=%d, contains en-policy=%v, tail=%q)",
+			len(sys), strings.Contains(sys, "CRITICAL: You must respond in English only"), tail)
 	}
 }
 

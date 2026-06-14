@@ -832,7 +832,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 		})
 	}
 
-	execSess := agent.NewSession(sysPrompt)
+	execSess := agent.NewSession(finalizeSystemPrompt(sysPrompt, cfg.Language))
 	executor := agent.New(execProv, reg, execSess, agent.Options{
 		MaxSteps:          maxSteps,
 		Temperature:       cfg.Agent.Temperature,
