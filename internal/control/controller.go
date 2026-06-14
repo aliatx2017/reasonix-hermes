@@ -2188,11 +2188,11 @@ func (c *Controller) Schedule() *scheduler.Scheduler {
 // SessionMessages returns a snapshot of the session message history for export.
 func (c *Controller) SessionMessages() []provider.Message {
 	if c.executor == nil {
-		return nil
+		return []provider.Message{}
 	}
 	sess := c.executor.Session()
 	if sess == nil {
-		return nil
+		return []provider.Message{}
 	}
 	return sess.Snapshot()
 }
