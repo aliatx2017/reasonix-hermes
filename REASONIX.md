@@ -32,7 +32,8 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 ## Notes
 
-- **Upstream synced**: `v1.7.0` (commit ed07684, 2026-07-14). 59 commits merged. 6 binaries built and passing.
+- **Upstream synced**: `v1.7.0` (commit ed07684, 2026-07-14). 59 commits merged. 9 binaries built and passing.
+- **Commit**: `5a33ed8` — 47 files changed, +3,843/-70, 24 new files.
 - **Key v1.6.0 additions**: vision support (image downscaling + detail knob), built-in Time + Context7 MCP servers, configurable shell interpreter (`[tools.shell]`), notification sound system, token economy composer mode, desktop time filter + custom fonts + status bar customization + Windows ARM64, crash capture (Go panics/breadcrumbs/group summaries), lightweight local history + memory retrieval, Traditional Chinese (zh-TW) locale, updater resilience, agent fixes (decline-ask guard, compaction bounds), desktop hooks UI.
 - **Key v1.7.0 additions** (merged 2026-07-14): reasoning language settings (`agent.reasoning_language`), session ownership and state routing integration, checkpoint boundary corrections (optimistic rewind), enriched+memoized shell PATH for MCP stdio subprocesses, dropped phrase-matched approved-plan continuation, desktop golangci-lint CI, `SaveDocForTab` Wails binding.
 - **Language policy**: All Chinese comments translated to English in `internal/bot/` and `internal/config/` — SPEC §1 compliance restored. Upstream v1.6.0 still has some Chinese comments in IM bot code; these are upstream-authored and left as-is.
@@ -174,9 +175,12 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 - **Total**: 15 new files, ~12 files modified, 2 new packages, 3 new React components, 8 new tests, 1 new skill. All builds clean.
 
 ### Next to build
-- [ ] **Web UI (serve mode)** — browser-based frontend via `internal/serve/`
-- [ ] **E2E test harness** — replay-based regression testing for agent behaviour
-- [ ] **Plugin marketplace** — community plugin registry (discovery, ratings, auto-install)
+- [ ] **Web UI (serve mode)** — browser-based frontend via `internal/serve/`, live session viewer + chat
+- [ ] **E2E test harness** — replay-based regression testing for agent behaviour across saved sessions
+- [ ] **Plugin marketplace** — community plugin registry (discovery, ratings, one-click install)
+- [ ] **Desktop collab panel** — React component showing live watchers + steer console (builds on `internal/collab/`)
+- [ ] **Multi-model council** — majority voting, weighted consensus, chain-of-thought synthesis (builds on `internal/mesh/`)
+- [ ] **Performance: 1M+ token session stress test** — verify cache stability, compaction correctness, memory usage
 
 ### Recently completed (all 8 from original "Next" list)
 - [x] Desktop schedule/cost/publish widgets (✅ 2026-07-14)
