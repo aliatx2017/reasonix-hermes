@@ -21,7 +21,7 @@ if (!tag) {
   console.error("usage: node npm/build-hermes.mjs <tag>   (e.g. v1.7.0)");
   process.exit(1);
 }
-const version = tag.replace(/^(npm-)?v/, "");
+const version = tag.replace(/^(hermes-)?npm-v/, "");
 const publish = process.argv.includes("--publish");
 
 rmSync(STAGE, { recursive: true, force: true });
