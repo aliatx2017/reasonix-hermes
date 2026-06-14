@@ -61,6 +61,8 @@ import type {
   WorkspaceChangesView,
   GitCommitView,
   GitCommitDetailView,
+  HotbarView,
+  ProfileView,
   WorkspaceView,
 } from "./types";
 
@@ -265,6 +267,8 @@ export interface AppBindings {
   SetColdResumePrune(enabled: boolean): Promise<void>;
   SetReasoningLanguage(lang: string): Promise<void>;
   SetTrayLocale(locale: "en" | "zh" | "zh-TW"): Promise<void>;
+  SetDesktopSettingsHotbar(h: HotbarView): Promise<void>;
+  SetDesktopSettingsProfiles(profiles: Record<string, ProfileView>): Promise<void>;
   // SetBypass is the legacy Wails name for YOLO/full-access tool auto-approval
   // (ask questions and plan approvals still wait; deny rules still apply).
   // Runtime-only.
@@ -2562,6 +2566,8 @@ function makeMockApp(): AppBindings {
       settings.agent = { ...settings.agent, reasoningLanguage: normalized };
     },
     async SetTrayLocale(_locale: "en" | "zh" | "zh-TW") {},
+    async SetDesktopSettingsHotbar(_h: HotbarView) {},
+    async SetDesktopSettingsProfiles(_profiles: Record<string, ProfileView>) {},
     async SetAutoApproveTools(on: boolean) {
       await this.SetToolApprovalMode(on ? "yolo" : "ask");
     },

@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/BurntSushi/toml"
 
@@ -56,8 +57,9 @@ type Config struct {
 	Plugins       []PluginEntry       `toml:"plugins"`
 	Skills        SkillsConfig        `toml:"skills"`
 	Codegraph     CodegraphConfig     `toml:"codegraph"`
-	BuiltInMCP    BuiltInMCPConfig    `toml:"builtin_mcp"`
-	Statusline    StatuslineConfig    `toml:"statusline"`
+	BuiltInMCP    BuiltInMCPConfig        `toml:"builtin_mcp"`
+	BuiltInMCPUpdates BuiltInMCPUpdatesConfig `toml:"builtin_mcp_updates"`
+	Statusline    StatuslineConfig        `toml:"statusline"`
 	LSP           LSPConfig           `toml:"lsp"`
 	Bot           BotConfig           `toml:"bot"`
 	Schedule      ScheduleConfig      `toml:"schedule"`
@@ -94,6 +96,7 @@ type DesktopConfig struct {
 	Metrics        *bool    `toml:"metrics"`          // opt-in aggregate agent metrics (anonymous signal/bucket counts; no content); nil = disabled
 	ProviderAccess []string `toml:"provider_access"`  // desktop-only list of provider entries shown in Settings > Model > Access
 	ExpandThinking bool         `toml:"expand_thinking"`  // true = show reasoning text expanded by default; false = collapsed
+	LayoutStyle    string       `toml:"layout_style"`     // classic|workbench; desktop layout style
 	Hotbar         HotbarConfig `toml:"hotbar"`          // keyboard digit keys 1-7 → action mapping
 }
 
@@ -667,6 +670,10 @@ type BotConnectionCredential struct {
 type BotConnectionSessionMapping struct {
 	RemoteID      string `toml:"remote_id"`
 	SessionID     string `toml:"session_id"`
+	SessionSource string `toml:"session_source"`
+	ChatType      string `toml:"chat_type"`
+	UserID        string `toml:"user_id"`
+	ThreadID      string `toml:"thread_id"`
 	Scope         string `toml:"scope"`
 	WorkspaceRoot string `toml:"workspace_root"`
 	UpdatedAt     string `toml:"updated_at"`
@@ -2286,4 +2293,66 @@ func (c *Config) providerNames() string {
 		names[i] = p.Name
 	}
 	return strings.Join(names, ", ")
+}
+
+func normalizeDesktopLayoutStyle(style string) string {
+	switch strings.ToLower(strings.TrimSpace(style)) {
+	case "workbench", "workspace":
+		return "workbench"
+	default:
+		return "classic"
+	}
+}
+
+func (c *Config) DesktopLayoutStyle() string {
+	if strings.EqualFold(strings.TrimSpace(c.Desktop.ThemeStyle), "workbench") && strings.TrimSpace(c.Desktop.LayoutStyle) == "" {
+		return "workbench"
+	}
+	return normalizeDesktopLayoutStyle(c.Desktop.LayoutStyle)
+}
+
+const (
+	BuiltInMCPUpdateModeOff             = "off"
+	BuiltInMCPUpdateModeNotify          = "notify"
+	BuiltInMCPUpdateModeDownload        = "download"
+	BuiltInMCPUpdateModeAutoNextSession = "auto_next_session"
+	defaultBuiltInMCPUpdateInterval     = 24 * time.Hour
+)
+
+type BuiltInMCPUpdatesConfig struct {
+	Mode          string `toml:"mode"`
+	CheckInterval string `toml:"check_interval"`
+}
+
+func (c BuiltInMCPUpdatesConfig) ResolvedMode() string {
+	switch strings.ToLower(strings.TrimSpace(c.Mode)) {
+	case BuiltInMCPUpdateModeOff:
+		return BuiltInMCPUpdateModeOff
+	case BuiltInMCPUpdateModeDownload:
+		return BuiltInMCPUpdateModeDownload
+	case BuiltInMCPUpdateModeAutoNextSession:
+		return BuiltInMCPUpdateModeAutoNextSession
+	default:
+		return BuiltInMCPUpdateModeNotify
+	}
+}
+
+func (c BuiltInMCPUpdatesConfig) CheckIntervalDuration() time.Duration {
+	raw := strings.TrimSpace(c.CheckInterval)
+	if raw == "" {
+		return defaultBuiltInMCPUpdateInterval
+	}
+	d, err := time.ParseDuration(raw)
+	if err != nil || d <= 0 {
+		return defaultBuiltInMCPUpdateInterval
+	}
+	return d
+}
+
+func (c BuiltInMCPUpdatesConfig) ResolvedCheckInterval() string {
+	return c.CheckIntervalDuration().String()
+}
+
+func isOpenAIProviderKind(e *ProviderEntry) bool {
+	return e != nil && strings.EqualFold(strings.TrimSpace(e.Kind), "openai")
 }

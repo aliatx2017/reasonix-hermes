@@ -297,41 +297,6 @@ func (c *Config) SetDesktopMetrics(enabled bool) error {
 	return nil
 }
 
-// SetDesktopHotbar validates and sets the desktop hotbar key bindings. Each
-// key (1-7) maps to a recognised action name or "" to keep the default.
-func (c *Config) SetDesktopHotbar(h HotbarConfig) error {
-	valid := map[string]bool{
-		"": true, "palette": true, "workspace": true, "new": true,
-		"history": true, "dock": true, "sidebar": true, "settings": true,
-	}
-	for _, kv := range []struct{ key, val string }{
-		{"1", h.Key1}, {"2", h.Key2}, {"3", h.Key3},
-		{"4", h.Key4}, {"5", h.Key5}, {"6", h.Key6}, {"7", h.Key7},
-	} {
-		if !valid[kv.val] {
-			return fmt.Errorf("set hotbar: key %q has invalid action %q (valid: palette, workspace, new, history, dock, sidebar, settings, or \"\")", kv.key, kv.val)
-		}
-	}
-	c.Desktop.Hotbar = h
-	return nil
-}
-
-// SetProfiles replaces the entire profiles map. Names must be valid TOML
-// keys (alphanumeric plus dashes and underscores). An empty map clears all
-// profiles.
-func (c *Config) SetProfiles(profiles map[string]ProfileConfig) error {
-	for name := range profiles {
-		if !IsValidSkillName(name) {
-			return fmt.Errorf("set profiles: invalid profile name %q (use letters, digits, dashes, underscores, dots)", name)
-		}
-	}
-	if profiles == nil {
-		profiles = map[string]ProfileConfig{}
-	}
-	c.Profiles = profiles
-	return nil
-}
-
 // SetUICloseBehavior is kept for callers compiled against the old edit API.
 func (c *Config) SetUICloseBehavior(mode string) error {
 	return c.SetDesktopCloseBehavior(mode)
@@ -342,6 +307,38 @@ func (c *Config) SetUICloseBehavior(mode string) error {
 // provider-visible request data.
 func (c *Config) SetExpandThinking(on bool) error {
 	c.Desktop.ExpandThinking = on
+	return nil
+}
+
+// SetDesktopHotbar validates and sets the desktop hotbar key bindings.
+func (c *Config) SetDesktopHotbar(h HotbarConfig) error {
+	valid := map[string]bool{
+		"": true, "palette": true, "workspace": true, "new": true,
+		"history": true, "dock": true, "sidebar": true, "settings": true,
+	}
+	for _, kv := range []struct{ key, val string }{
+		{"1", h.Key1}, {"2", h.Key2}, {"3", h.Key3},
+		{"4", h.Key4}, {"5", h.Key5}, {"6", h.Key6}, {"7", h.Key7},
+	} {
+		if !valid[kv.val] {
+			return fmt.Errorf("set hotbar: key %q has invalid action %q", kv.key, kv.val)
+		}
+	}
+	c.Desktop.Hotbar = h
+	return nil
+}
+
+// SetProfiles replaces the entire profiles map.
+func (c *Config) SetProfiles(profiles map[string]ProfileConfig) error {
+	for name := range profiles {
+		if !IsValidSkillName(name) {
+			return fmt.Errorf("set profiles: invalid profile name %q", name)
+		}
+	}
+	if profiles == nil {
+		profiles = map[string]ProfileConfig{}
+	}
+	c.Profiles = profiles
 	return nil
 }
 

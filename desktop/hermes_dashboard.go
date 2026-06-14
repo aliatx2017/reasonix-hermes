@@ -683,21 +683,7 @@ type CollabView struct {
 
 // CollabDashboard returns collab status for the active tab.
 func (a *App) CollabDashboard() CollabView {
-	hub := a.getCollabHub()
-	if hub == nil {
-		return CollabView{}
-	}
-	ctrl := a.ctrlForTab("")
-	sessionID := ""
-	if ctrl != nil {
-		sessionID = ctrl.SessionDir()
-	}
-	return CollabView{
-		Enabled:    true,
-		ListenAddr: ":9091",
-		Watchers:   hub.SessionWatchers(sessionID),
-		Sessions:   hub.ActiveSessions(),
-	}
+	return CollabView{}
 }
 
 // --- Council Dashboard ---
