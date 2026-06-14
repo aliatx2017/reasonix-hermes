@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -821,7 +822,24 @@ func (a *Agent) Run(ctx context.Context, input string) error {
 	// Only reached when a positive maxSteps guard is configured. The work so far
 	// is already in the session, so the user can just send another message to pick
 	// up where it left off.
-	return fmt.Errorf("paused after %d tool-call rounds (%s) — the work so far is saved; send another message to continue, or set %s higher or to 0 for no limit", a.maxSteps, a.maxStepsKey, a.maxStepsKey)
+	return &MaxStepsPause{Steps: a.maxSteps, Key: a.maxStepsKey}
+}
+
+// MaxStepsPause is a resumable pause — the session is intact and the caller may
+// safely resume with another Run call. It is not a hard failure.
+type MaxStepsPause struct {
+	Steps int
+	Key   string
+}
+
+func (e *MaxStepsPause) Error() string {
+	return fmt.Sprintf("paused after %d tool-call rounds (%s) — the work so far is saved; send another message to continue, or set %s higher or to 0 for no limit", e.Steps, e.Key, e.Key)
+}
+
+// IsMaxStepsPause reports whether err is (or wraps) a MaxStepsPause.
+func IsMaxStepsPause(err error) bool {
+	var mp *MaxStepsPause
+	return errors.As(err, &mp)
 }
 
 func (a *Agent) finalReadinessFailure() string {

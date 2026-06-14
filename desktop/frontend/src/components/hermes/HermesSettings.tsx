@@ -1,4 +1,4 @@
-import { BarChart3, BookOpen, Calendar, Download, FileText, GitBranch, History, Keyboard, Network, Shield, Sliders, Zap } from "lucide-react";
+import { BarChart3, BookOpen, Calendar, Download, FileText, GitBranch, History, Keyboard, Network, Shield, Sliders, ShoppingBag, Zap } from "lucide-react";
 import type { SettingsView, HotbarView, ProfileView, CostSummaryView, ScheduleDashboardView, CollabView, CouncilDashboardView } from "../../lib/types";
 import { CacheEconomyGauge } from "./CacheEconomyGauge";
 import { CollabPanel } from "./CollabPanel";
@@ -9,6 +9,7 @@ import { GoalProgressWidget } from "./GoalProgressWidget";
 import { PublishWidget } from "./PublishWidget";
 import { ScheduleWidget } from "./ScheduleWidget";
 import { SkillsHubBrowser } from "./SkillsHubBrowser";
+import { MarketplacePanel } from "./MarketplacePanel";
 import { SubagentTreePanel } from "./SubagentTreePanel";
 import { ConstitutionHealthPanel } from "./ConstitutionHealthPanel";
 import { TokenBreakdownChart } from "./TokenBreakdownChart";
@@ -304,6 +305,25 @@ tool_approve_mode = "yolo"`}
           use <code>/install</code> in chat.
         </p>
         <SkillsHubBrowser />
+      </section>
+
+      <hr style={{ margin: "24px 0", border: "none", borderTop: "1px solid var(--color-border)" }} />
+
+      {/* ═══════════ SKILL MARKETPLACE ═══════════ */}
+      <section className="settings-section">
+        <h3 className="settings-section__title">
+          <ShoppingBag size={16} style={{ marginRight: 6 }} />
+          Skill Marketplace
+        </h3>
+        <p className="settings-section__desc">
+          Community skill registry — install skills with one click. Compatible with
+          the{" "}
+          <a href="https://agentskills.io" target="_blank" rel="noreferrer">
+            agentskills.io
+          </a>{" "}
+          SKILL.md format.
+        </p>
+        <MarketplacePanel />
       </section>
 
       <hr style={{ margin: "24px 0", border: "none", borderTop: "1px solid var(--color-border)" }} />

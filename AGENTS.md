@@ -156,6 +156,8 @@ skills-hub/            17-skill community registry + static catalog site
   - **Multi-model council UI**: Controller mesh integration (SetMesh/Council/MeshStatus), boot.go mesh creation, CLI `/council` command, desktop CouncilPanel.
   - **E2E test harness**: New `internal/e2e/` — Harness, SessionInputs, SessionTools, Analyze, AssertTools/Turns, RunAll. 7 tests.
   - **Skill marketplace**: Community registry (12 skills, agentskills.io-compatible SKILL.md format), `internal/marketplace/` Go package, CLI `reasonix marketplace` command, desktop MarketplacePanel with tag filters + install buttons.
+  - **LobeHub marketplace API integration**: Full M2M OAuth2 client at `internal/marketplace/lobehub_client.go` (stdlib-only HS256 JWT), auto-registration, paginated sync from 360k+ community skills at `market.lobehub.com`, desktop "Sync from LobeHub" button, CLI `reasonix marketplace sync`, `[marketplace.lobehub]` config section. Zero new dependencies.
+  - **LAN skills**: 4 project skills (`searxng-local`, `crawl4ai-local`, `google-maps-scraper`, `last30days`) for local network services at 192.168.1.214.
   - **Total**: 30+ files changed, 3 new Go packages, 4 new React components, 80+ tests. All binaries rebuilt. Upstream synced to ed07684.
 - **2026-07-14 session (h6)** (banner + version + savings stats):
   - **Dynamic version**: `BuildVersion` from ldflags, defaults to v1.7.0. No more hardcoded v1.6.0 in CLI banner.

@@ -19,6 +19,7 @@ func marketplaceCommand(args []string) int {
 		fmt.Println("  reasonix marketplace tags              — list all tags")
 		fmt.Println("  reasonix marketplace tag <tag>         — filter by tag")
 		fmt.Println("  reasonix marketplace install <name>    — show install instructions")
+		fmt.Println("  reasonix marketplace sync              — sync skills from LobeHub marketplace")
 		fmt.Println()
 		fmt.Println("  Skills are installed via: reasonix install-source install --source <url>")
 		return 0
@@ -79,6 +80,24 @@ func marketplaceCommand(args []string) int {
 		fmt.Println()
 		fmt.Printf("To install, run:\n")
 		fmt.Printf("  reasonix install-source install --source %s\n", e.URL)
+	case "sync":
+		client := marketplace.NewLobeHubClient("", "")
+		host, _ := os.Hostname()
+		cid, csec, err := client.Register("reasonix-hermes", "cli", "reasonix-cli-"+host)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "lobehub register: %v\n", err)
+			return 1
+		}
+		fmt.Printf("Registered client: %s\n", cid)
+		fmt.Printf("Syncing from LobeHub marketplace...\n")
+		fetched, added, err := reg.SyncFromLobeHub(client, "", "installCount", "")
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "lobehub sync: %v\n", err)
+			return 1
+		}
+		fmt.Printf("Fetched %d skills, added %d new to registry (total: %d)\n", fetched, added, reg.Len())
+		fmt.Printf("Credentials saved in memory (client_id=%s). Set in reasonix.toml [marketplace.lobehub] to persist.\n", cid)
+		fmt.Printf("  client_secret = %s\n", csec)
 	default:
 		fmt.Fprintf(os.Stderr, "unknown marketplace command: %s\n", args[0])
 		return 2

@@ -10,6 +10,7 @@ package marketplace
 import (
 	_ "embed"
 	"encoding/json"
+	"fmt"
 	"sort"
 	"strings"
 )
@@ -120,6 +121,45 @@ func (r *Registry) ByTag(tag string) []Entry {
 // Len returns the number of entries in the registry.
 func (r *Registry) Len() int {
 	return len(r.entries)
+}
+
+// MergeFromLobeHub merges LobeHub marketplace skills into the registry.
+// Duplicates (matched by name, case-insensitive) are skipped; new entries
+// are appended. Returns the count of newly added skills.
+func (r *Registry) MergeFromLobeHub(skills []LobeHubSkillItem) int {
+	// Build a set of existing names for O(1) dedup.
+	seen := make(map[string]bool, len(r.entries))
+	for _, e := range r.entries {
+		seen[strings.ToLower(e.Name)] = true
+	}
+
+	added := 0
+	for _, s := range skills {
+		entry := s.ToEntry()
+		if entry.Name == "" {
+			continue
+		}
+		if seen[strings.ToLower(entry.Name)] {
+			continue
+		}
+		seen[strings.ToLower(entry.Name)] = true
+		r.entries = append(r.entries, entry)
+		added++
+	}
+	return added
+}
+
+// SyncFromLobeHub fetches skills from the LobeHub marketplace and merges
+// them into the registry. It uses the provided client (which should already
+// be registered). query, sort, and category may be empty to fetch all.
+// Returns the total number of skills fetched and the count of newly added entries.
+func (r *Registry) SyncFromLobeHub(client *LobeHubClient, query, sort, category string) (fetched int, added int, err error) {
+	skills, err := client.FetchAllSkills(100, query, sort, "desc", category)
+	if err != nil {
+		return 0, 0, fmt.Errorf("lobehub sync: %w", err)
+	}
+	added = r.MergeFromLobeHub(skills)
+	return len(skills), added, nil
 }
 
 func matchEntry(e Entry, query string) bool {

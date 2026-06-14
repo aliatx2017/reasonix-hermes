@@ -185,9 +185,19 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 ### Next to build
 - [ ] **npm: publish reasonix-hermes** — set 2FA-bypass granular token, push tag
-- [ ] **Plugin marketplace → polish** — install button wiring, ratings, registry auto-sync from agentskills.io community
+
+### Next to build
+- [ ] **npm: publish reasonix-hermes** — set 2FA-bypass granular token, push tag
+- [ ] **4-tab skill store UI** — merge SkillsHubBrowser + MarketplacePanel into unified tabbed panel (LobeHub/Market/MCP/Custom)
+- [ ] **Online skill sync** — persist synced skills to config, diff on re-sync, show "N new since last sync"
+- [ ] **LINE chat adapter** — port LobeHub's LINE adapter pattern to `internal/bot/line/`
+- [ ] **Agent task CRUD UI** — Create/Edit task modal for scheduler
 
 ### Recently completed
+- [x] **Plugin marketplace → polish** — install button wiring, ratings, registry auto-sync from agentskills.io community (✅ 2026-07-14)
+- [x] **LobeHub marketplace API integration** (✅ 2026-07-14) — Full M2M OAuth2 client (stdlib-only HS256 JWT), auto-registration on first use, paginated skill fetch from 360k+ community skills, `SyncFromLobeHub()` registry merge, Wails binding `SyncLobeHubMarketplace()`, desktop "Sync from LobeHub" button with spin animation, CLI `reasonix marketplace sync` command, 4 httptest-based tests, `[marketplace.lobehub]` config section with 8 fields. Verified end-to-end against live API.
+- [x] **LAN skills** (✅ 2026-07-14) — 4 new project skills: `searxng-local` (private web search via LAN SearXNG), `crawl4ai-local` (web crawler with headless browser), `google-maps-scraper` (business listings scraper), `last30days` (41k★ social research skill from mvanhorn). All LAN services verified operational.
+- [x] **Competitive landscape survey** (✅ 2026-07-14) — Researched 15+ open-source AI agent platforms: LobeHub (78k★), OpenHands (77k★), Cline (63k★), n8n (192k★), Dify (145k★), AutoGPT (185k★), CrewAI (53k★), Aider (46k★), Cognee (18k★), Microsoft AutoGen (59k★), Roo-Code/ZooCode, Langflow (150k★), Firecrawl (132k★). Identified stealable patterns: 4-tab skill store, virtualized grids, custom modes, agent SDK library pattern.
 - [x] **CLI banner + version + savings stats** (✅ 2026-07-14) — Dynamic version from ldflags (v1.7.0 default, no more hardcoded v1.6.0). Diamond Wing ◆ logo replaces caduceus ⚚. Status bar enriched: `aux↓N` (aux provider token savings) + `sqz↓N` (compressor byte savings). Compressor atomic stats wired.
 - [x] **Skill marketplace** (✅ 2026-07-14) — Community registry (12 skills, agentskills.io-compatible), `internal/marketplace/` Go package, CLI `reasonix marketplace` command, desktop MarketplacePanel.
 - [x] **Ollama Cloud provider + auxiliary model routing** (✅ 2026-07-14) — new `ollamacloud` provider kind, 42 models via OpenAI-compatible API at ollama.com/v1. Auxiliary model config: `[agent.auxiliary]` with compression/vision/web_extract overrides. Compaction summarizer + vision requests auto-route to aux providers (cheaper/faster). Tested live: deepseek-v4-flash for compression, gemini-3-flash-preview for vision.

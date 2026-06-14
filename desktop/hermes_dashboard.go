@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reasonix/internal/control"
 	"reasonix/internal/diff"
+	"reasonix/internal/marketplace"
 	"reasonix/internal/provider"
 	"reasonix/internal/publish"
 	"strings"
@@ -615,4 +617,58 @@ func (a *App) CouncilDashboard() CouncilDashboardView {
 		Peers:   peers,
 		Status:  ctrl.MeshStatus(),
 	}
+}
+
+// --- Marketplace ---
+
+// MarketplaceEntryView is one community skill in the marketplace.
+type MarketplaceEntryView struct {
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	Author      string   `json:"author"`
+	Tags        []string `json:"tags"`
+	Rating      float64  `json:"rating"`
+	URL         string   `json:"url"`
+}
+
+// MarketplaceRegistry returns the full community skill registry.
+func (a *App) MarketplaceRegistry() []MarketplaceEntryView {
+	reg := marketplace.DefaultRegistry()
+	entries := reg.List()
+	out := make([]MarketplaceEntryView, 0, len(entries))
+	for _, e := range entries {
+		out = append(out, MarketplaceEntryView{
+			Name:        e.Name,
+			Description: e.Description,
+			Author:      e.Author,
+			Tags:        e.Tags,
+			Rating:      e.Rating,
+			URL:         e.URL,
+		})
+	}
+	return out
+}
+
+// SyncLobeHubMarketplace fetches skills from the LobeHub marketplace API
+// and merges them into the embedded skill registry. If clientID/clientSecret
+// are empty, a new client is auto-registered.
+// Returns the total number of skills fetched and the count of newly added entries.
+func (a *App) SyncLobeHubMarketplace(clientID, clientSecret string) (fetched int, added int, err error) {
+	client := marketplace.NewLobeHubClient(clientID, clientSecret)
+
+	// Auto-register if no credentials provided.
+	if clientID == "" || clientSecret == "" {
+		host, _ := os.Hostname()
+		deviceID := fmt.Sprintf("reasonix-desktop-%s", host)
+		cid, csec, regErr := client.Register("reasonix-hermes", "desktop", deviceID)
+		if regErr != nil {
+			return 0, 0, fmt.Errorf("lobehub register: %w", regErr)
+		}
+		clientID = cid
+		clientSecret = csec
+	}
+
+	reg := marketplace.DefaultRegistry()
+	fetched, added, err = reg.SyncFromLobeHub(client, "", "installCount", "")
+	return fetched, added, err
 }

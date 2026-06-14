@@ -77,6 +77,7 @@ import type {
   ScheduleDashboardView,
   CollabView,
   CouncilDashboardView,
+  MarketplaceEntryView,
   WorkspaceView,
 } from "./types";
 
@@ -242,6 +243,8 @@ export interface AppBindings {
   ScheduleDashboard(): Promise<ScheduleDashboardView>;
   CollabDashboard(): Promise<CollabView>;
   CouncilDashboard(): Promise<CouncilDashboardView>;
+  MarketplaceRegistry(): Promise<MarketplaceEntryView[]>;
+  SyncLobeHubMarketplace(clientID: string, clientSecret: string): Promise<{fetched: number, added: number}>;
   PublishSessionHTML(): Promise<string>;
   PublishSessionJSON(): Promise<string>;
   SubagentTree(): Promise<SubagentNodeView[]>;
@@ -2446,6 +2449,17 @@ function makeMockApp(): AppBindings {
         },
         async CouncilDashboard() {
           return { enabled: false, peers: [], status: "disabled" };
+        },
+        async MarketplaceRegistry() {
+          return [
+            { name: "golang-patterns", description: "Idiomatic Go patterns, best practices, and conventions.", author: "reasonix-hermes", tags: ["go", "patterns", "best-practices"], rating: 4.8, url: "https://raw.githubusercontent.com/aliatx2017/reasonix-hermes/main/skills-hub/skills/golang-patterns" },
+            { name: "code-review", description: "Universal code review checklist.", author: "reasonix-hermes", tags: ["review", "quality", "universal"], rating: 4.7, url: "https://raw.githubusercontent.com/aliatx2017/reasonix-hermes/main/skills-hub/skills/code-review" },
+            { name: "api-design", description: "REST API design patterns.", author: "reasonix-hermes", tags: ["api", "rest", "design"], rating: 4.6, url: "https://raw.githubusercontent.com/aliatx2017/reasonix-hermes/main/skills-hub/skills/api-design" },
+            { name: "evidence-first-reasoning", description: "Evidence-first diagnostic reasoning.", author: "reasonix-hermes", tags: ["debugging", "reasoning", "diagnosis"], rating: 4.5, url: "https://raw.githubusercontent.com/aliatx2017/reasonix-hermes/main/skills-hub/skills/evidence-first-reasoning" },
+          ];
+        },
+        async SyncLobeHubMarketplace(_clientID: string, _clientSecret: string) {
+          return { fetched: 0, added: 0 };
         },
         async PublishSessionHTML() {
           return "<html><body>Mock session</body></html>";

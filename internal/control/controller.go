@@ -598,7 +598,7 @@ func (c *Controller) runTurnWithRawDisplay(ctx context.Context, input, raw, disp
 		}
 		defer func() { c.hooks.Stop(ctx, lastAssistantText(c.History()), turn) }()
 	}
-	if err := c.runner.Run(ctx, input); err != nil {
+	if err := c.runWithAutoResume(ctx, input); err != nil {
 		return err
 	}
 	c.mu.Lock()
@@ -634,13 +634,30 @@ func (c *Controller) runTurnWithRawDisplay(ctx context.Context, input, raw, disp
 		c.approvedPlanAutoApproveTools = false
 		c.mu.Unlock()
 	}()
-	if err := c.runner.Run(ctx, planApprovedMessage); err != nil {
+	if err := c.runWithAutoResume(ctx, planApprovedMessage); err != nil {
 		return err
 	}
 	if todoArgs != "" && !c.hasTodoUpdateSince(execStart) {
 		c.completePlanTodos(todoArgs)
 	}
 	return nil
+}
+
+// runWithAutoResume calls runner.Run and transparently resumes when a MaxStepsPause
+// is hit, so the guard never surfaces as an error to interactive users. The human
+// can always cancel; the cap is only meaningful for headless/bot sessions.
+func (c *Controller) runWithAutoResume(ctx context.Context, input string) error {
+	for {
+		err := c.runner.Run(ctx, input)
+		if err == nil {
+			return nil
+		}
+		if !agent.IsMaxStepsPause(err) {
+			return err
+		}
+		// Auto-resume: the model's work is saved in the session, so just run again.
+		input = "continue"
+	}
 }
 
 func (c *Controller) continueGoal(ctx context.Context) error {

@@ -4272,6 +4272,9 @@ a[href] {
   color: var(--accent);
   animation: spin 0.9s linear infinite;
 }
+.spin {
+  animation: spin 0.9s linear infinite;
+}
 @keyframes spin {
   to {
     transform: rotate(360deg);

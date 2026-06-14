@@ -1044,3 +1044,12 @@ export interface CouncilDashboardView {
   peers: CouncilPeerView[];
   status: string;
 }
+
+export interface MarketplaceEntryView {
+  name: string;
+  description: string;
+  author: string;
+  tags: string[];
+  rating: number;
+  url: string;
+}

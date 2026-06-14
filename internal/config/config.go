@@ -64,6 +64,7 @@ type Config struct {
 	Learn         LearnConfig         `toml:"learn"`
 	Mesh          MeshConfig          `toml:"mesh"`
 	Collab        CollabConfig        `toml:"collab"`
+	Marketplace   MarketplaceConfig   `toml:"marketplace"`
 }
 
 // UIConfig controls CLI presentation-only settings. Desktop appearance is kept in
@@ -532,6 +533,24 @@ type MeshPeerConfig struct {
 type CollabConfig struct {
 	Enabled    bool   `toml:"enabled"`
 	ListenAddr string `toml:"listen_addr"` // WebSocket listen address, e.g. ":9091"
+}
+
+// MarketplaceConfig is the [marketplace] section for community skill registries.
+type MarketplaceConfig struct {
+	LobeHub LobeHubMarketplaceConfig `toml:"lobehub"`
+}
+
+// LobeHubMarketplaceConfig is the [marketplace.lobehub] section.
+type LobeHubMarketplaceConfig struct {
+	Enabled        bool   `toml:"enabled"`         // when true, auto-register and sync on startup
+	ClientID       string `toml:"client_id"`       // persistent client ID (auto-registers if empty)
+	ClientSecret   string `toml:"client_secret"`   // persistent client secret
+	ClientName     string `toml:"client_name"`     // registration name, default "reasonix-hermes"
+	ClientType     string `toml:"client_type"`     // registration type, default "cli"
+	SyncOnStartup  bool   `toml:"sync_on_startup"` // run full sync on agent startup
+	Query          string `toml:"query"`           // optional search filter for synced skills
+	Sort           string `toml:"sort"`            // sort field, default "installCount"
+	Category       string `toml:"category"`        // optional category filter
 }
 
 // BotAllowlist 控制哪些用户可以使用 bot。
