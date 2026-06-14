@@ -518,6 +518,7 @@ type BotConfig struct {
 	QQ               QQBotConfig           `toml:"qq"`
 	Feishu           FeishuBotConfig       `toml:"feishu"`
 	Weixin           WeixinBotConfig       `toml:"weixin"`
+	Line             LineBotConfig         `toml:"line"`
 	Connections      []BotConnectionConfig `toml:"connections"`
 }
 
@@ -559,6 +560,14 @@ type WeixinBotConfig struct {
 	AccountID string `toml:"account_id"`
 	TokenEnv  string `toml:"token_env"` // 环境变量名，如 WEIXIN_BOT_TOKEN
 	APIBase   string `toml:"api_base"`  // iLink API base URL
+}
+
+// LineBotConfig configures a LINE bot.
+type LineBotConfig struct {
+	Enabled   bool   `toml:"enabled"`
+	TokenEnv  string `toml:"token_env"`  // env var name, e.g. LINE_CHANNEL_TOKEN
+	SecretEnv string `toml:"secret_env"` // env var name, e.g. LINE_CHANNEL_SECRET
+	AllowDMs  bool   `toml:"allow_dms"`  // respond to DMs (default true)
 }
 
 // BotConnectionConfig is the desktop-friendly connection record for IM bot
