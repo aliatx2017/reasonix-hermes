@@ -49,6 +49,11 @@ telemetry = true # anonymous launch ping (install id + version + OS); never cont
 # 6 = "sidebar"     # default: sidebar
 # 7 = "settings"    # default: settings
 
+[desktop]
+layout_style = "classic"   # classic|workbench; desktop layout style
+# theme = "light"   # desktop only: auto|dark|light
+# theme_style = "graphite"   # graphite|aurora|slate|carbon|nocturne|amber and legacy aliases
+
 [notifications]
 enabled = false         # system notifications for CLI chat/run; default off
 turn_done = true        # notify when a turn finishes

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"time"
+	"unicode"
 
 	"reasonix/internal/control"
 	"reasonix/internal/event"
@@ -26,11 +28,22 @@ type renderSink struct {
 	onAsk      func(event.Ask)
 
 	// 渲染缓冲
-	buf        strings.Builder
-	thinking   strings.Builder
-	inThinking bool
-	toolNames  map[string]string // tool ID -> name
+	buf           strings.Builder
+	thinking      strings.Builder
+	inThinking    bool
+	toolNames     map[string]string // tool ID -> name
+	lastFlush     time.Time
+	lastProgress  time.Time
+	progressCount int
 }
+
+const (
+	renderSoftFlushAfter      = 1200 * time.Millisecond
+	renderMaxChunkRunes       = 1800
+	renderHardChunkRunes      = 3500
+	renderProgressMinInterval = 2 * time.Second
+	renderMaxProgressMessages = 3
+)
 
 func newRenderSink(ctx context.Context, adapter Adapter, connID, domain, chatID string, chatType ChatType, userID string, replyTo string, logger *slog.Logger, onApproval func(event.Approval), onAsk func(event.Ask)) *renderSink {
 	return &renderSink{
@@ -46,6 +59,7 @@ func newRenderSink(ctx context.Context, adapter Adapter, connID, domain, chatID 
 		onApproval: onApproval,
 		onAsk:      onAsk,
 		toolNames:  make(map[string]string),
+		lastFlush:  time.Now(),
 	}
 }
 
@@ -56,6 +70,8 @@ func (s *renderSink) Emit(e event.Event) {
 		s.thinking.Reset()
 		s.inThinking = false
 		s.toolNames = make(map[string]string)
+		s.progressCount = 0
+		s.lastProgress = time.Time{}
 
 	case event.Reasoning:
 		if !s.inThinking {
@@ -73,40 +89,29 @@ func (s *renderSink) Emit(e event.Event) {
 		// full message received, do nothing extra
 
 	case event.ToolDispatch:
-		s.toolNames[e.Tool.ID] = e.Tool.Name
-		txt := fmt.Sprintf("\n🔧 Running tool: %s", e.Tool.Name)
-		if e.Tool.ReadOnly {
-			txt += " (read-only)"
-		}
-		s.buf.WriteString(txt)
+		name := renderToolName(e.Tool)
+		s.toolNames[e.Tool.ID] = name
+		s.sendProgress(fmt.Sprintf("正在执行: %s", name), false)
 
 	case event.ToolResult:
 		name := s.toolNames[e.Tool.ID]
 		if name == "" {
-			name = e.Tool.ID
+			name = renderToolName(e.Tool)
 		}
 		if e.Tool.Err != "" {
-			fmt.Fprintf(&s.buf, "\n❌ %s error: %s", name, e.Tool.Err)
-		} else {
-			// 截断输出
-			output := e.Tool.Output
-			if len(output) > 500 {
-				output = output[:500] + "\n... (truncated)"
-			}
-			fmt.Fprintf(&s.buf, "\n✅ %s done", name)
-			if output != "" {
-				fmt.Fprintf(&s.buf, "\n```\n%s\n```", output)
-			}
+			s.sendProgress(fmt.Sprintf("%s 执行失败，稍后会在结果中说明。", name), true)
 		}
 
 	case event.ToolProgress:
+		// Keep streaming tool output out of IM channels; the session transcript
+		// still records the complete controller turn for desktop review.
 
 	case event.ApprovalRequest:
 		// 发送审批请求
 		if s.onApproval != nil {
 			s.onApproval(e.Approval)
 		}
-		approvalText := fmt.Sprintf("⚠️ Approval required:\nTool: %s\nAction: %s\n\nID: `%s`\nReply with: approve %s  or  deny %s",
+		approvalText := fmt.Sprintf("⚠️ 需要批准操作:\n工具: %s\n操作: %s\n\nID: `%s`\n回复 1 批准，回复 2 拒绝；也可用 /approve %s 或 /deny %s。",
 			e.Approval.Tool, e.Approval.Subject, e.Approval.ID, e.Approval.ID, e.Approval.ID)
 		msg := OutboundMessage{
 			ConnectionID: s.connID,
@@ -153,7 +158,7 @@ func (s *renderSink) Emit(e event.Event) {
 					Domain:       s.domain,
 					ChatID:       s.chatID,
 					ChatType:     s.chatType,
-					Text:         fmt.Sprintf("❌ Execution error: %v", e.Err),
+					Text:         fmt.Sprintf("❌ 执行出错: %v", e.Err),
 					ReplyToMsgID: s.replyTo,
 				})
 			}
@@ -177,15 +182,36 @@ func (s *renderSink) Emit(e event.Event) {
 			Domain:       s.domain,
 			ChatID:       s.chatID,
 			ChatType:     s.chatType,
-			Text: "🔄 Compacting context...",
+			Text:         "🔄 正在压缩上下文...",
 			ReplyToMsgID: s.replyTo,
 		})
 	}
 }
 
 func (s *renderSink) flush() {
-	text := strings.TrimSpace(s.buf.String())
+	for strings.TrimSpace(s.buf.String()) != "" {
+		idx := renderFlushIndex(s.buf.String(), renderSoftFlushAfter)
+		if idx <= 0 {
+			idx = byteIndexForRuneLimit(s.buf.String(), renderMaxChunkRunes)
+		}
+		if idx <= 0 || idx > len(s.buf.String()) {
+			idx = len(s.buf.String())
+		}
+		s.flushPrefix(idx)
+	}
+}
+
+func (s *renderSink) flushPrefix(idx int) {
+	raw := s.buf.String()
+	if idx <= 0 || idx > len(raw) {
+		idx = len(raw)
+	}
+	text := strings.TrimSpace(raw[:idx])
 	if text == "" {
+		remaining := raw[idx:]
+		s.buf.Reset()
+		s.buf.WriteString(remaining)
+		s.lastFlush = time.Now()
 		return
 	}
 	_ = s.send(OutboundMessage{
@@ -196,7 +222,128 @@ func (s *renderSink) flush() {
 		Text:         text,
 		ReplyToMsgID: s.replyTo,
 	})
+	remaining := raw[idx:]
 	s.buf.Reset()
+	s.buf.WriteString(remaining)
+	s.lastFlush = time.Now()
+}
+
+func (s *renderSink) sendProgress(text string, force bool) {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return
+	}
+	now := time.Now()
+	if s.progressCount >= renderMaxProgressMessages {
+		return
+	}
+	if !force && !s.lastProgress.IsZero() && now.Sub(s.lastProgress) < renderProgressMinInterval {
+		return
+	}
+	_ = s.send(OutboundMessage{
+		ConnectionID: s.connID,
+		Domain:       s.domain,
+		ChatID:       s.chatID,
+		ChatType:     s.chatType,
+		Text:         text,
+		ReplyToMsgID: s.replyTo,
+	})
+	s.progressCount++
+	s.lastProgress = now
+}
+
+func renderToolName(t event.Tool) string {
+	if name := strings.TrimSpace(t.Name); name != "" {
+		return name
+	}
+	if id := strings.TrimSpace(t.ID); id != "" {
+		return id
+	}
+	return "tool"
+}
+
+func renderFlushIndex(text string, elapsed time.Duration) int {
+	if strings.TrimSpace(text) == "" {
+		return 0
+	}
+	runes := []rune(text)
+	if len(runes) >= renderHardChunkRunes {
+		if idx := lastSemanticBoundary(text, renderHardChunkRunes); idx > 0 {
+			return idx
+		}
+		return byteIndexForRuneLimit(text, renderMaxChunkRunes)
+	}
+	if len(runes) >= renderMaxChunkRunes {
+		if idx := lastSemanticBoundary(text, renderMaxChunkRunes); idx > 0 {
+			return idx
+		}
+	}
+	if elapsed < renderSoftFlushAfter {
+		return 0
+	}
+	return lastSemanticBoundary(text, len(runes))
+}
+
+func lastSemanticBoundary(text string, maxRunes int) int {
+	if maxRunes <= 0 {
+		return 0
+	}
+	count := 0
+	lastBoundary := 0
+	lastNonSpaceBoundary := 0
+	inFence := false
+	for idx, r := range text {
+		if strings.HasPrefix(text[idx:], "```") {
+			inFence = !inFence
+		}
+		count++
+		if count > maxRunes {
+			break
+		}
+		next := idx + len(string(r))
+		if r == '\n' && !inFence {
+			lastNonSpaceBoundary = next
+			lastBoundary = next
+			continue
+		}
+		if unicode.IsSpace(r) {
+			if lastNonSpaceBoundary > 0 {
+				lastBoundary = next
+			}
+			continue
+		}
+		if inFence {
+			continue
+		}
+		if isSemanticBoundaryRune(r) {
+			lastNonSpaceBoundary = next
+			lastBoundary = next
+		}
+	}
+	return lastBoundary
+}
+
+func isSemanticBoundaryRune(r rune) bool {
+	switch r {
+	case '.', '!', '?', ';', '。', '！', '？', '；', '…':
+		return true
+	default:
+		return false
+	}
+}
+
+func byteIndexForRuneLimit(text string, maxRunes int) int {
+	if maxRunes <= 0 {
+		return 0
+	}
+	count := 0
+	for idx, r := range text {
+		count++
+		if count >= maxRunes {
+			return idx + len(string(r))
+		}
+	}
+	return len(text)
 }
 
 func (s *renderSink) send(msg OutboundMessage) error {
@@ -207,21 +354,21 @@ func (s *renderSink) send(msg OutboundMessage) error {
 func approvalKeyboard(id string) *InlineKeyboard {
 	return &InlineKeyboard{Rows: []InlineKeyboardRow{{
 		Buttons: []InlineKeyboardButton{
-			{ID: "allow_once", Label: "Allow once", Style: 1, CallbackID: "/approve " + id},
-			{ID: "deny", Label: "Deny", Style: 2, CallbackID: "/deny " + id},
+			{ID: "allow_once", Label: "允许一次", Style: 1, CallbackID: "/approve " + id},
+			{ID: "deny", Label: "拒绝", Style: 2, CallbackID: "/deny " + id},
 		},
 	}}}
 }
 
 func approvalCard(a event.Approval, chatType ChatType, userID string) *InteractiveCard {
 	return &InteractiveCard{
-		Header: "Approval required",
+		Header: "需要批准操作",
 		Elements: []InteractiveCardElement{
-			{Tag: "markdown", Content: fmt.Sprintf("**Tool**: %s\n\n**Action**: %s\n\nID: `%s`", a.Tool, a.Subject, a.ID)},
+			{Tag: "markdown", Content: fmt.Sprintf("**工具**: %s\n\n**操作**: %s\n\nID: `%s`", a.Tool, a.Subject, a.ID)},
 			{Tag: "action", Extra: map[string]any{
 				"actions": []map[string]any{
-					{"tag": "button", "text": map[string]string{"tag": "plain_text", "content": "Allow once"}, "type": "primary", "value": cardActionValue("/approve "+a.ID, chatType, userID)},
-					{"tag": "button", "text": map[string]string{"tag": "plain_text", "content": "Deny"}, "type": "danger", "value": cardActionValue("/deny "+a.ID, chatType, userID)},
+					{"tag": "button", "text": map[string]string{"tag": "plain_text", "content": "允许一次"}, "type": "primary", "value": cardActionValue("/approve "+a.ID, chatType, userID)},
+					{"tag": "button", "text": map[string]string{"tag": "plain_text", "content": "拒绝"}, "type": "danger", "value": cardActionValue("/deny "+a.ID, chatType, userID)},
 				},
 			}},
 		},
@@ -241,7 +388,7 @@ func cardActionValue(command string, chatType ChatType, userID string) map[strin
 
 func renderAskText(ask event.Ask) string {
 	var qb strings.Builder
-	qb.WriteString("❓ Please answer the following questions:\n")
+	qb.WriteString("❓ 请回答以下问题:\n")
 	for i, q := range ask.Questions {
 		fmt.Fprintf(&qb, "\n**%d. %s**\n", i+1, q.Prompt)
 		for j, opt := range q.Options {
@@ -252,21 +399,21 @@ func renderAskText(ask event.Ask) string {
 			qb.WriteString("\n")
 		}
 		if q.Multi {
-			qb.WriteString("  (multi-select)\n")
+			qb.WriteString("  (可多选)\n")
 		}
 	}
 	fmt.Fprintf(&qb, "\nID: `%s`", ask.ID)
 	if askSupportsNumericShortcut(ask) {
-		fmt.Fprintf(&qb, "\nReply with the option number, or use /answer %s <option number or text>.", ask.ID)
+		fmt.Fprintf(&qb, "\n直接回复选项编号即可回答；也可用 /answer %s <选项编号或文本>。", ask.ID)
 	} else {
-		fmt.Fprintf(&qb, "\nUse /answer %s <option number or text> to respond; multi-question: q1=1;q2=2.", ask.ID)
+		fmt.Fprintf(&qb, "\n用 /answer %s <选项编号或文本> 回答；多题可用 q1=1;q2=2。", ask.ID)
 	}
 	return qb.String()
 }
 
 func askCard(ask event.Ask, fallback string, chatType ChatType, userID string) *InteractiveCard {
 	card := &InteractiveCard{
-		Header: "Questions",
+		Header: "需要回答问题",
 		Elements: []InteractiveCardElement{
 			{Tag: "markdown", Content: fallback},
 		},
@@ -279,7 +426,7 @@ func askCard(ask event.Ask, fallback string, chatType ChatType, userID string) *
 	for i, opt := range question.Options {
 		label := strings.TrimSpace(opt.Label)
 		if label == "" {
-			label = fmt.Sprintf("Option %d", i+1)
+			label = fmt.Sprintf("选项 %d", i+1)
 		}
 		actions = append(actions, map[string]any{
 			"tag":   "button",

@@ -120,8 +120,9 @@ func botStart(args []string, version string) int {
 				bot.PlatformTelegram: cfg.Bot.Allowlist.TelegramGroups,
 			},
 		},
-		Debounce:  time.Duration(cfg.Bot.DebounceMs) * time.Millisecond,
-		OnInbound: rememberInboundRemote,
+		Debounce:       time.Duration(cfg.Bot.DebounceMs) * time.Millisecond,
+		OnInbound:      rememberInboundRemote,
+		OnSessionReady: botruntime.NewSessionRemembererWithWorkspace(logger, workspaceRoot),
 	}
 
 	feishuDomains := botruntime.RequestedFeishuDomains(requestedChannels)

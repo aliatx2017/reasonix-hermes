@@ -17,17 +17,15 @@ import type {
   BotConnectionDiagnostic,
   BotInstallPollResult,
   BotInstallStartResult,
-  DiscordConnectResult,
-  BotLiveStatusView,
   BotRuntimeStatusView,
   BotSettingsView,
-  CacheEconomyView,
+  BuiltInMCPUpdateResult,
+  BuiltInMCPUpdateStatus,
   CapabilitiesView,
   CheckpointMeta,
   CommandInfo,
   ContextInfo,
   ContextPanelInfo,
-  CostSummaryView,
   DirEntry,
   DroppedItem,
   EffortInfo,
@@ -63,27 +61,6 @@ import type {
   WorkspaceChangesView,
   GitCommitView,
   GitCommitDetailView,
-  GoalProgressView,
-  HotbarView,
-  ProfileView,
-  CheckpointFileView,
-  ConstitutionHealthView,
-  SubagentNodeView,
-  TurnUsagePoint,
-  CompactionEvent,
-  CheckpointFileSnap,
-  CheckpointFileDiff,
-  MarkdownFileEntry,
-  MarkdownContent,
-  FIMResult,
-  MemoryFactView,
-  MemoryDashboardView,
-  ScheduleDashboardView,
-  SessionTokensView,
-  CompressStatsView,
-  CollabView,
-  CouncilDashboardView,
-  MarketplaceEntryView,
   WorkspaceView,
 } from "./types";
 
@@ -188,6 +165,8 @@ export interface AppBindings {
   UpdateMCPServer(name: string, input: MCPServerInput): Promise<void>;
   RemoveMCPServer(name: string): Promise<void>;
   ReconnectMCPServer(name: string): Promise<void>;
+  UpdateBuiltInMCPServer(name: string): Promise<BuiltInMCPUpdateResult>;
+  BuiltInMCPUpdateStatuses(): Promise<BuiltInMCPUpdateStatus[]>;
   ClearMCPServerAuthentication(name: string): Promise<void>;
   PickSkillFolder(): Promise<string>;
   AddSkillPath(path: string): Promise<void>;
@@ -238,46 +217,7 @@ export interface AppBindings {
   Forget(name: string): Promise<void>;
   ForgetForTab(tabID: string, name: string): Promise<void>;
   SaveDoc(path: string, body: string): Promise<string>;
-  SaveDoc(path: string, body: string): Promise<string>;
   SaveDocForTab(tabID: string, path: string, body: string): Promise<string>;
-  CacheEconomy(): Promise<CacheEconomyView>;
-  CacheEconomyForTab(tabID: string): Promise<CacheEconomyView>;
-  MemoryDashboard(): Promise<MemoryDashboardView>;
-  BotLiveStatus(): Promise<BotLiveStatusView>;
-  GoalProgress(): Promise<GoalProgressView>;
-  GoalProgressForTab(tabID: string): Promise<GoalProgressView>;
-  CostSummary(): Promise<CostSummaryView>;
-  CostSummaryForTab(tabID: string): Promise<CostSummaryView>;
-  SessionTokens(): Promise<SessionTokensView>;
-  SessionTokensForTab(tabID: string): Promise<SessionTokensView>;
-  CompressStats(): Promise<CompressStatsView>;
-  CompressStatsForTab(tabID: string): Promise<CompressStatsView>;
-  ScheduleDashboard(): Promise<ScheduleDashboardView>;
-  AddScheduledTask(name: string, cron: string, prompt: string, model: string, enabled: boolean): Promise<boolean>;
-  RemoveScheduledTask(name: string): Promise<boolean>;
-  CollabDashboard(): Promise<CollabView>;
-  CouncilDashboard(): Promise<CouncilDashboardView>;
-  MarketplaceRegistry(): Promise<MarketplaceEntryView[]>;
-  SyncLobeHubMarketplace(clientID: string, clientSecret: string): Promise<{fetched: number, added: number}>;
-  LastLobeHubSync(): Promise<{lastSync: string, fetched: number, added: number}>;
-  PublishSessionHTML(): Promise<string>;
-  PublishSessionJSON(): Promise<string>;
-  ExportSession(format: string): Promise<string>;
-  SubagentTree(): Promise<SubagentNodeView[]>;
-  SubagentTreeForTab(tabID: string): Promise<SubagentNodeView[]>;
-  ConstitutionHealth(): Promise<ConstitutionHealthView>;
-  TurnUsageHistory(): Promise<TurnUsagePoint[]>;
-  CompactionHistory(): Promise<CompactionEvent[]>;
-  CheckpointFileList(turn: number): Promise<CheckpointFileSnap[]>;
-  CheckpointFileDiff(turn: number, relPath: string): Promise<CheckpointFileDiff | null>;
-  ListMarkdownFiles(): Promise<MarkdownFileEntry[]>;
-  ReadMarkdownFile(relPath: string): Promise<MarkdownContent | null>;
-  SaveMarkdownFile(relPath: string, content: string): Promise<void>;
-  CreateMarkdownFile(relPath: string, content: string): Promise<string>;
-  FIMComplete(relPath: string, cursorPos: number): Promise<FIMResult | null>;
-  MemoryFacts(): Promise<MemoryFactView[]>;
-  CheckpointTurnList(): Promise<number[]>;
-  CheckpointFiles(turn: number): Promise<CheckpointFileView | null>;
   Settings(): Promise<SettingsView>;
   HooksSettings(scope: string): Promise<HooksSettingsView>;
   SaveHooksSettings(scope: string, hooks: HookConfigView[]): Promise<void>;
@@ -306,7 +246,6 @@ export interface AppBindings {
   ClearBotSecret(envName: string): Promise<void>;
   StartBotConnectionInstall(provider: string, domain: string): Promise<BotInstallStartResult>;
   PollBotConnectionInstall(installID: string): Promise<BotInstallPollResult>;
-  ConnectDiscordBot(token: string): Promise<DiscordConnectResult>;
   BotRuntimeStatus(): Promise<BotRuntimeStatusView>;
   DiagnoseBotConnection(id: string): Promise<BotConnectionDiagnostic>;
   TestBotConnection(id: string, target?: string): Promise<BotConnectionDiagnostic>;
@@ -316,9 +255,7 @@ export interface AppBindings {
   SetStatusBarItems(items: string[]): Promise<void>;
   SetDesktopLanguage(lang: string): Promise<void>;
   SetDesktopAppearance(theme: string, style: string): Promise<void>;
-  SetDesktopSettingsHotbar(h: HotbarView): Promise<void>;
-  SetDesktopSettingsProfiles(profiles: Record<string, ProfileView>): Promise<void>;
-  UpdateTrayIcon(): Promise<void>;
+  SetDesktopLayoutStyle(style: string): Promise<void>;
   SetDesktopCheckUpdates(enabled: boolean): Promise<void>;
   SetDesktopTelemetry(enabled: boolean): Promise<void>;
   SetDesktopMetrics(enabled: boolean): Promise<void>;
@@ -344,6 +281,7 @@ export interface AppBindings {
   ListTabs(): Promise<TabMeta[]>;
   OpenProjectTab(workspaceRoot: string, topicID: string): Promise<TabMeta>;
   OpenGlobalTab(topicID: string): Promise<TabMeta>;
+  OpenTopicSession(scope: string, workspaceRoot: string, topicID: string, sessionPath: string): Promise<TabMeta>;
   EnsureBlankTab(scope: string, workspaceRoot: string): Promise<TabMeta>;
   SetActiveTab(tabID: string): Promise<void>;
   ReorderTabs(tabIDs: string[]): Promise<void>;
@@ -351,11 +289,13 @@ export interface AppBindings {
   ListProjectTree(): Promise<ProjectNode[]>;
   RenameProject(workspaceRoot: string, title: string): Promise<void>;
   SetProjectColor(workspaceRoot: string, color: string): Promise<void>;
+  SetProjectPinned(workspaceRoot: string, pinned: boolean): Promise<void>;
   ReorderProjects(workspaceRoots: string[]): Promise<void>;
   CreateTopic(scope: string, workspaceRoot: string, title: string): Promise<TopicMeta>;
   RenameTopic(topicID: string, title: string): Promise<void>;
   DeleteTopic(topicID: string): Promise<void>;
   TrashTopic(topicID: string): Promise<void>;
+  SetTopicPinned(topicID: string, pinned: boolean): Promise<void>;
   ContextPanel(tabID: string): Promise<ContextPanelInfo>;
   // New native-feel bindings (added with the desktop native-feel plan).
   ConfirmAction(req: NativeConfirmRequest): Promise<boolean>;
@@ -428,6 +368,13 @@ export function onUpdaterProgress(cb: (p: UpdateProgress) => void): () => void {
   };
 }
 
+export function onBuiltInMCPUpdate(cb: (status: BuiltInMCPUpdateStatus) => void): () => void {
+  if (realApp() && typeof window !== "undefined" && window.runtime) {
+    return window.runtime.EventsOn("builtin-mcp:update", (status) => cb(status as BuiltInMCPUpdateStatus));
+  }
+  return () => {};
+}
+
 // onFilesDropped subscribes to native OS file drops landing on the composer (the
 // --wails-drop-target element); the callback gets the dropped files' absolute
 // paths. No-op in the browser dev mock, where the runtime is absent.
@@ -493,7 +440,7 @@ function bridgeBreadcrumb(method: string): string {
   if (/^(SaveProvider|AddOfficialProviderAccess|RemoveProviderAccess|DeleteProvider|SetProviderKey|ClearProviderKey|FetchProviderModels|ConnectKey)/.test(method))
     return `provider ${method}`;
   if (/^(CheckUpdate|ApplyUpdate|OpenDownloadPage)/.test(method)) return `update ${method}`;
-  if (/^(AddMCPServer|UpdateMCPServer|RemoveMCPServer|ReconnectMCPServer|ClearMCPServerAuthentication|SetMCPServer)/.test(method))
+  if (/^(AddMCPServer|UpdateMCPServer|RemoveMCPServer|ReconnectMCPServer|UpdateBuiltInMCPServer|BuiltInMCPUpdateStatuses|ClearMCPServerAuthentication|SetMCPServer)/.test(method))
     return `mcp ${method}`;
   if (/^(AddSkillPath|RemoveSkillPath|RefreshSkills|SetSkillEnabled|AcceptSkillSuggestion)/.test(method))
     return `skill ${method}`;
@@ -619,6 +566,8 @@ function makeMockApp(): AppBindings {
       configured: true,
       autoStart: false,
       tier: "background",
+      command: "codegraph",
+      args: ["serve", "--mcp"],
       tools: 0,
       prompts: 0,
       resources: 0,
@@ -683,6 +632,15 @@ function makeMockApp(): AppBindings {
       ],
     },
     { name: "figma", transport: "http", status: "failed", configured: true, autoStart: true, tier: "background", url: "https://mcp.figma.com/mcp", authStatus: "required", authUrl: "https://mcp.figma.com/mcp", tools: 0, prompts: 0, resources: 0, error: "connect: 401 unauthorized" },
+  ];
+  let builtInMCPUpdates: BuiltInMCPUpdateStatus[] = [
+    {
+      name: "codegraph",
+      mode: "notify",
+      current: "v0.9.7",
+      latest: "v0.10.0",
+      phase: "available",
+    },
   ];
   const capSkills: SkillView[] = [
     { name: "explore", description: "Investigate the codebase in an isolated subagent", scope: "builtin", runAs: "subagent", enabled: true },
@@ -798,12 +756,12 @@ function makeMockApp(): AppBindings {
     autoPlan: "off",
     providers: [
       { name: "deepseek", builtIn: true, added: false, kind: "openai", baseUrl: "https://api.deepseek.com", modelsUrl: "", models: ["deepseek-v4-flash"], default: "deepseek-v4-flash", apiKeyEnv: "DEEPSEEK_API_KEY", keySet: true, balanceUrl: "https://api.deepseek.com/user/balance", contextWindow: 1_000_000, reasoningProtocol: "", supportedEfforts: [], defaultEffort: "" },
-      { name: "mimo-token-plan", builtIn: true, added: false, kind: "openai", baseUrl: "https://token-plan-cn.xiaomimimo.com/v1", modelsUrl: "", models: ["mimo-v2.5-pro"], default: "mimo-v2.5-pro", apiKeyEnv: "MIMO_API_KEY", keySet: false, balanceUrl: "", contextWindow: 1_048_576, reasoningProtocol: "", supportedEfforts: [], defaultEffort: "" },
+      { name: "mimo-token-plan", builtIn: true, added: false, kind: "openai", baseUrl: "https://token-plan-cn.xiaomimimo.com/v1", modelsUrl: "", models: ["mimo-v2.5-pro", "mimo-v2.5"], default: "mimo-v2.5-pro", apiKeyEnv: "MIMO_API_KEY", keySet: false, balanceUrl: "", contextWindow: 1_048_576, reasoningProtocol: "", supportedEfforts: [], defaultEffort: "" },
     ],
     officialProviders: [
       { name: "deepseek", builtIn: true, added: false, kind: "openai", baseUrl: "https://api.deepseek.com", modelsUrl: "", models: ["deepseek-v4-flash", "deepseek-v4-pro"], default: "deepseek-v4-flash", apiKeyEnv: "DEEPSEEK_API_KEY", keySet: true, balanceUrl: "https://api.deepseek.com/user/balance", contextWindow: 1_000_000, reasoningProtocol: "", supportedEfforts: [], defaultEffort: "" },
-      { name: "mimo-api", builtIn: true, added: false, kind: "openai", baseUrl: "https://api.xiaomimimo.com/v1", modelsUrl: "", models: ["mimo-v2.5-pro"], default: "mimo-v2.5-pro", apiKeyEnv: "MIMO_API_KEY", keySet: false, balanceUrl: "", contextWindow: 1_048_576, reasoningProtocol: "", supportedEfforts: [], defaultEffort: "" },
-      { name: "mimo-token-plan", builtIn: true, added: false, kind: "openai", baseUrl: "https://token-plan-cn.xiaomimimo.com/v1", modelsUrl: "", models: ["mimo-v2.5-pro"], default: "mimo-v2.5-pro", apiKeyEnv: "MIMO_API_KEY", keySet: false, balanceUrl: "", contextWindow: 1_048_576, reasoningProtocol: "", supportedEfforts: [], defaultEffort: "" },
+      { name: "mimo-api", builtIn: true, added: false, kind: "openai", baseUrl: "https://api.xiaomimimo.com/v1", modelsUrl: "", models: ["mimo-v2.5-pro", "mimo-v2.5", "mimo-v2-omni"], default: "mimo-v2.5-pro", apiKeyEnv: "MIMO_API_KEY", keySet: false, balanceUrl: "", contextWindow: 1_048_576, reasoningProtocol: "", supportedEfforts: [], defaultEffort: "" },
+      { name: "mimo-token-plan", builtIn: true, added: false, kind: "openai", baseUrl: "https://token-plan-cn.xiaomimimo.com/v1", modelsUrl: "", models: ["mimo-v2.5-pro", "mimo-v2.5"], default: "mimo-v2.5-pro", apiKeyEnv: "MIMO_API_KEY", keySet: false, balanceUrl: "", contextWindow: 1_048_576, reasoningProtocol: "", supportedEfforts: [], defaultEffort: "" },
     ],
     permissions: { mode: "ask", allow: ["ls", "read_file"], ask: [], deny: ["Bash(rm:*)"] },
     sandbox: { bash: "enforce", network: true, workspaceRoot: "", allowWrite: [], shell: "auto" },
@@ -871,6 +829,10 @@ function makeMockApp(): AppBindings {
             {
               remoteId: "ou_mock_user_001",
               sessionId: "topic:topic_product",
+              sessionSource: "",
+              chatType: "",
+              userId: "",
+              threadId: "",
               scope: "global",
               workspaceRoot: "",
               updatedAt: new Date(Date.now() - 4 * 60_000).toISOString(),
@@ -901,6 +863,10 @@ function makeMockApp(): AppBindings {
             {
               remoteId: "wxid_mock_user_001",
               sessionId: "topic:topic_ai",
+              sessionSource: "",
+              chatType: "",
+              userId: "",
+              threadId: "",
               scope: "global",
               workspaceRoot: "",
               updatedAt: new Date(Date.now() - 12 * 60_000).toISOString(),
@@ -913,6 +879,7 @@ function makeMockApp(): AppBindings {
       ],
     },
     desktopLanguage: "",
+    desktopLayoutStyle: "classic",
     desktopTheme: "light",
     desktopThemeStyle: "graphite",
     closeBehavior: "background",
@@ -926,9 +893,6 @@ function makeMockApp(): AppBindings {
     providerKinds: ["openai"],
     autoApproveTools: false,
     bypass: false,
-    hotbar: { key1: "palette", key2: "workspace", key3: "new", key4: "history", key5: "dock", key6: "sidebar", key7: "settings" },
-    profiles: {},
-    activeProfile: "",
   };
   const hookEvents = ["PreToolUse", "PostToolUse", "UserPromptSubmit", "Stop", "PostLLMCall", "SessionStart", "SessionEnd", "SubagentStop", "Notification", "PreCompact"];
   const hookSettings: Record<string, HooksSettingsView> = {
@@ -1012,9 +976,15 @@ function makeMockApp(): AppBindings {
     }
     return node;
   };
+  const mockProjectTreeForDisplay = () => {
+    const pinnedProjects = mockProjectTree.filter((node) => node.kind === "project" && node.pinned);
+    if (pinnedProjects.length === 0) return mockProjectTree;
+    const rest = mockProjectTree.filter((node) => !(node.kind === "project" && node.pinned));
+    return [...pinnedProjects, ...rest];
+  };
   const cloneProjectTree = () => {
     if (mockProjectTree.length === 0) ensureMockGlobalFolder();
-    return JSON.parse(JSON.stringify(mockProjectTree)) as ProjectNode[];
+    return JSON.parse(JSON.stringify(mockProjectTreeForDisplay())) as ProjectNode[];
   };
   const projectChildren = (node: ProjectNode): ProjectNode[] => Array.isArray(node.children) ? node.children : [];
   const findMockTopic = (topicId: string): ProjectNode | null => {
@@ -1023,6 +993,26 @@ function makeMockApp(): AppBindings {
       if (found) return found;
     }
     return null;
+  };
+  const setMockTopicPinned = (topicId: string, pinned: boolean) => {
+    for (const parent of mockProjectTree) {
+      const children = projectChildren(parent);
+      const index = children.findIndex((child) => child.topicId === topicId);
+      if (index < 0) continue;
+      const topic = { ...children[index], pinned: pinned || undefined };
+      if (!pinned) {
+        parent.children = children.map((child, i) => (i === index ? topic : child));
+        return;
+      }
+      const remaining = children.filter((_, i) => i !== index);
+      parent.children = [topic, ...remaining];
+      return;
+    }
+  };
+  const setMockProjectPinned = (workspaceRoot: string, pinned: boolean) => {
+    const index = mockProjectTree.findIndex((node) => node.kind === "project" && node.root === workspaceRoot);
+    if (index < 0) return;
+    mockProjectTree[index] = { ...mockProjectTree[index], pinned: pinned || undefined };
   };
   const deleteMockTopic = (topicId: string) => {
     for (const parent of mockProjectTree) {
@@ -1034,6 +1024,10 @@ function makeMockApp(): AppBindings {
   const mockTopicIsRunning = (topicId: string) => {
     const status = mockTopicStatus(topicId);
     return status === "streaming" || status === "thinking" || status === "waiting_confirmation";
+  };
+  const mockTopicIsBlank = (topicId: string) => {
+    const topic = findMockTopic(topicId);
+    return Boolean(topic && topic.label === t("mock.newSession") && !topic.turns && !topic.lastActivityAt && !topic.status);
   };
   const mockTopicRunsInScenario = (topicId: string) => runningMock && mockTopicIsRunning(topicId);
   const mockTopicHistory = (topicId: string): HistoryMessage[] => {
@@ -1933,6 +1927,28 @@ function makeMockApp(): AppBindings {
         s.name === name ? { ...s, status: "connected", tools: s.tools || 4 } : s,
       );
     },
+    async UpdateBuiltInMCPServer(name: string) {
+      if (name !== "codegraph") throw new Error(`${name} is not an updatable built-in MCP server`);
+      capServers = capServers.map((s) =>
+        s.name === name
+          ? { ...s, status: s.autoStart ? "connected" : s.status, tools: s.autoStart ? s.tools || 4 : s.tools, error: undefined }
+          : s,
+      );
+      builtInMCPUpdates = [
+        {
+          name,
+          mode: "manual",
+          current: "v0.10.0",
+          latest: "v0.10.0",
+          phase: "activated",
+          path: "/tmp/reasonix/codegraph/mock/codegraph",
+        },
+      ];
+      return { name, version: "v0.10.0", path: "/tmp/reasonix/codegraph/mock/codegraph" };
+    },
+    async BuiltInMCPUpdateStatuses() {
+      return builtInMCPUpdates.map((s) => ({ ...s }));
+    },
     async ClearMCPServerAuthentication(name: string) {
       capServers = capServers.map((s) =>
         s.name === name
@@ -2350,8 +2366,8 @@ function makeMockApp(): AppBindings {
     async AddOfficialProviderAccess(kind: string, key: string) {
       const templates: Record<string, ProviderView> = {
         deepseek: { name: "deepseek", builtIn: true, added: true, kind: "openai", baseUrl: "https://api.deepseek.com", modelsUrl: "", models: ["deepseek-v4-flash", "deepseek-v4-pro"], default: "deepseek-v4-flash", apiKeyEnv: "DEEPSEEK_API_KEY", keySet: !!key.trim(), balanceUrl: "https://api.deepseek.com/user/balance", contextWindow: 1_000_000, reasoningProtocol: "", supportedEfforts: [], defaultEffort: "" },
-        "mimo-api": { name: "mimo-api", builtIn: true, added: true, kind: "openai", baseUrl: "https://api.xiaomimimo.com/v1", modelsUrl: "", models: ["mimo-v2.5-pro"], default: "mimo-v2.5-pro", apiKeyEnv: "MIMO_API_KEY", keySet: !!key.trim(), balanceUrl: "", contextWindow: 1_048_576, reasoningProtocol: "", supportedEfforts: [], defaultEffort: "" },
-        "mimo-token-plan": { name: "mimo-token-plan", builtIn: true, added: true, kind: "openai", baseUrl: "https://token-plan-cn.xiaomimimo.com/v1", modelsUrl: "", models: ["mimo-v2.5-pro"], default: "mimo-v2.5-pro", apiKeyEnv: "MIMO_API_KEY", keySet: !!key.trim(), balanceUrl: "", contextWindow: 1_048_576, reasoningProtocol: "", supportedEfforts: [], defaultEffort: "" },
+        "mimo-api": { name: "mimo-api", builtIn: true, added: true, kind: "openai", baseUrl: "https://api.xiaomimimo.com/v1", modelsUrl: "", models: ["mimo-v2.5-pro", "mimo-v2.5", "mimo-v2-omni"], default: "mimo-v2.5-pro", apiKeyEnv: "MIMO_API_KEY", keySet: !!key.trim(), balanceUrl: "", contextWindow: 1_048_576, reasoningProtocol: "", supportedEfforts: [], defaultEffort: "" },
+        "mimo-token-plan": { name: "mimo-token-plan", builtIn: true, added: true, kind: "openai", baseUrl: "https://token-plan-cn.xiaomimimo.com/v1", modelsUrl: "", models: ["mimo-v2.5-pro", "mimo-v2.5"], default: "mimo-v2.5-pro", apiKeyEnv: "MIMO_API_KEY", keySet: !!key.trim(), balanceUrl: "", contextWindow: 1_048_576, reasoningProtocol: "", supportedEfforts: [], defaultEffort: "" },
       };
       const next = templates[kind] ?? templates.deepseek;
       const i = settings.providers.findIndex((x) => x.name === next.name);
@@ -2439,104 +2455,6 @@ function makeMockApp(): AppBindings {
             startedAt: settings.bot.enabled && runningConnections > 0 ? new Date(t0).toISOString() : "",
           };
         },
-        async CacheEconomy() {
-          return { hitTokens: 0, missTokens: 0, totalTokens: 0, hitRate: 0 };
-        },
-        async CacheEconomyForTab(_tabID: string) {
-          return { hitTokens: 0, missTokens: 0, totalTokens: 0, hitRate: 0 };
-        },
-        async MemoryDashboard() {
-          return { totalFacts: 0, totalDocs: 0, totalScopes: 0 };
-        },
-        async BotLiveStatus() {
-          return { running: false, platform: "discord", activeSessions: 0, status: "disconnected", webhookURL: "" };
-        },
-        async GoalProgress() {
-          return { active: false, goal: "", status: "", turns: 0, blocks: 0 };
-        },
-        async GoalProgressForTab(_tabID: string) {
-          return { active: false, goal: "", status: "", turns: 0, blocks: 0 };
-        },
-        async CostSummary() {
-          return { sessionCost: 0.012, currency: "¥" };
-        },
-        async CostSummaryForTab(_tabID: string) {
-          return { sessionCost: 0.012, currency: "¥" };
-        },
-        async SessionTokens() {
-          return { tokensIn: 22134, tokensOut: 12345, turns: 12 };
-        },
-        async SessionTokensForTab(_tabID: string) {
-          return { tokensIn: 22134, tokensOut: 12345, turns: 12 };
-        },
-        async CompressStats() {
-          return { bytesSaved: 0, cacheHits: 0, linesCollapsed: 0, jsonFieldsStripped: 0, auxTokens: 0 };
-        },
-        async CompressStatsForTab(_tabID: string) {
-          return { bytesSaved: 0, cacheHits: 0, linesCollapsed: 0, jsonFieldsStripped: 0, auxTokens: 0 };
-        },
-        async ScheduleDashboard() {
-          return {
-            active: true,
-            tasks: [
-              { name: "daily-review", cron: "0 2 * * *", prompt: "Review all changes", enabled: true, nextRun: "2026-07-15T02:00:00Z" },
-              { name: "weekly-summary", cron: "0 9 * * 1", prompt: "Summarize work", enabled: true, nextRun: "2026-07-20T09:00:00Z" },
-            ],
-            recentRuns: [
-              { taskName: "daily-review", runAt: "2026-07-14T02:00:00Z", duration: "3.2s", success: true, summary: "All changes reviewed. No issues found.", error: "" },
-            ],
-          };
-        },
-        async AddScheduledTask(_name: string, _cron: string, _prompt: string, _model: string, _enabled: boolean) {
-          return true;
-        },
-        async RemoveScheduledTask(_name: string) {
-          return true;
-        },
-        async CollabDashboard() {
-          return { enabled: false, listenAddr: "", watchers: 0, sessions: [] };
-        },
-        async CouncilDashboard() {
-          return { enabled: false, peers: [], status: "disabled" };
-        },
-        async MarketplaceRegistry() {
-          return [
-            { name: "golang-patterns", description: "Idiomatic Go patterns, best practices, and conventions.", author: "reasonix-hermes", tags: ["go", "patterns", "best-practices"], rating: 4.8, url: "https://raw.githubusercontent.com/aliatx2017/reasonix-hermes/main/skills-hub/skills/golang-patterns" },
-            { name: "code-review", description: "Universal code review checklist.", author: "reasonix-hermes", tags: ["review", "quality", "universal"], rating: 4.7, url: "https://raw.githubusercontent.com/aliatx2017/reasonix-hermes/main/skills-hub/skills/code-review" },
-            { name: "api-design", description: "REST API design patterns.", author: "reasonix-hermes", tags: ["api", "rest", "design"], rating: 4.6, url: "https://raw.githubusercontent.com/aliatx2017/reasonix-hermes/main/skills-hub/skills/api-design" },
-            { name: "evidence-first-reasoning", description: "Evidence-first diagnostic reasoning.", author: "reasonix-hermes", tags: ["debugging", "reasoning", "diagnosis"], rating: 4.5, url: "https://raw.githubusercontent.com/aliatx2017/reasonix-hermes/main/skills-hub/skills/evidence-first-reasoning" },
-          ];
-        },
-        async SyncLobeHubMarketplace(_clientID: string, _clientSecret: string) {
-          return { fetched: 0, added: 0 };
-        },
-        async LastLobeHubSync() {
-          return { lastSync: "", fetched: 0, added: 0 };
-        },
-        async PublishSessionHTML() {
-          return "<html><body>Mock session</body></html>";
-        },
-        async PublishSessionJSON() {
-          return '{"title":"Mock","model":"deepseek-flash","date":"2026-07-14T00:00:00Z","messages":[]}';
-        },
-        async ExportSession(_format: string) {
-          return "<html><body>Mock session</body></html>";
-        },
-        async SubagentTree() { return []; },
-        async SubagentTreeForTab(_tabID: string) { return []; },
-        async ConstitutionHealth() { return { loaded: false, path: "", version: 0, rules: [], principles: [], constraints: [], status: "no_config" }; },
-        async TurnUsageHistory() { return []; },
-        async CompactionHistory() { return []; },
-        async CheckpointFileList(_turn: number) { return []; },
-        async CheckpointFileDiff(_turn: number, _relPath: string) { return null; },
-        async ListMarkdownFiles() { return []; },
-        async ReadMarkdownFile(_relPath: string) { return null; },
-        async SaveMarkdownFile(_relPath: string, _content: string) { return; },
-        async CreateMarkdownFile(_relPath: string, _content: string) { return ""; },
-        async FIMComplete(_relPath: string, _cursorPos: number) { return null; },
-        async MemoryFacts() { return []; },
-        async CheckpointTurnList() { return []; },
-        async CheckpointFiles(_turn: number) { return null; },
         async StartBotConnectionInstall(provider: string, domain: string) {
           const normalizedProvider = provider === "weixin" ? "weixin" : "feishu";
           const normalizedDomain = normalizedProvider === "weixin" ? "weixin" : domain === "lark" ? "lark" : "feishu";
@@ -2582,9 +2500,6 @@ function makeMockApp(): AppBindings {
           settings.bot.connections = [...settings.bot.connections.filter((c) => c.id !== connection.id), connection];
           return { done: true, connection, status: "connected", message: "connected", error: "" };
         },
-        async ConnectDiscordBot(_token: string) {
-          return { ok: false, message: "not available in browser", connection: {} as any };
-        },
         async DiagnoseBotConnection(id: string) {
           const connection = settings.bot.connections.find((c) => c.id === id);
           const occurredAt = new Date().toISOString();
@@ -2616,9 +2531,9 @@ function makeMockApp(): AppBindings {
           settings.desktopTheme = theme === "auto" || theme === "light" ? theme : "dark";
           settings.desktopThemeStyle = style;
         },
-        async SetDesktopSettingsHotbar(_h: HotbarView) {},
-        async SetDesktopSettingsProfiles(_profiles: Record<string, ProfileView>) {},
-        async UpdateTrayIcon() { /* no-op in browser */ },
+        async SetDesktopLayoutStyle(style: string) {
+          settings.desktopLayoutStyle = style === "workbench" ? "workbench" : "classic";
+        },
         async SetDesktopCheckUpdates(enabled: boolean) {
           settings.checkUpdates = enabled;
         },
@@ -2720,6 +2635,7 @@ function makeMockApp(): AppBindings {
         workspaceName: workspaceRoot.split("/").filter(Boolean).pop() ?? workspaceRoot,
         topicId: _topicID,
         topicTitle: topicLabel(_topicID, t("mock.newSession")),
+        sessionPath: `/mock/sessions/${_topicID}.jsonl`,
         projectColor: mockProjectTree.find((node) => node.root === workspaceRoot)?.projectColor,
         label: "deepseek-v4-flash",
         ready: true,
@@ -2747,6 +2663,7 @@ function makeMockApp(): AppBindings {
         workspaceName: "Global",
         topicId: _topicID,
         topicTitle: topicLabel(_topicID, "Global"),
+        sessionPath: `/mock/sessions/${_topicID}.jsonl`,
         label: "deepseek-v4-flash",
         ready: true,
         running: false,
@@ -2760,13 +2677,22 @@ function makeMockApp(): AppBindings {
       mockTabs = [...mockTabs.map((item) => ({ ...item, active: false })), tab];
       return { ...tab };
     },
+    async OpenTopicSession(scope: string, workspaceRoot: string, topicID: string, sessionPath: string) {
+      const tab = scope === "project"
+        ? await this.OpenProjectTab(workspaceRoot, topicID)
+        : await this.OpenGlobalTab(topicID);
+      const active = { ...tab, sessionPath };
+      mockTabs = mockTabs.map((item) => (item.id === tab.id ? active : item));
+      return { ...active };
+    },
     async EnsureBlankTab(scope: string, workspaceRoot: string) {
       const targetScope = scope === "project" && workspaceRoot ? "project" : "global";
       const targetRoot = targetScope === "project" ? workspaceRoot : "";
       const existing = mockTabs.find((tab) =>
         tab.scope === targetScope &&
         (targetScope === "global" || tab.workspaceRoot === targetRoot) &&
-        !tab.running
+        !tab.running &&
+        mockTopicIsBlank(tab.topicId)
       );
       if (existing) {
         setMockActiveTab(existing.id);
@@ -2812,8 +2738,11 @@ function makeMockApp(): AppBindings {
       mockTabs = mockTabs.map((tab) =>
         (workspaceRoot ? tab.workspaceRoot === workspaceRoot : tab.scope === "global")
           ? { ...tab, projectColor: node.projectColor }
-          : tab,
+        : tab,
       );
+    },
+    async SetProjectPinned(workspaceRoot: string, pinned: boolean) {
+      setMockProjectPinned(workspaceRoot, pinned);
     },
     async ReorderProjects(workspaceRoots: string[]) {
       const projects = mockProjectTree.filter((node) => node.kind === "project");
@@ -2879,6 +2808,9 @@ function makeMockApp(): AppBindings {
     },
     async TrashTopic(topicID: string) {
       deleteMockTopic(topicID);
+    },
+    async SetTopicPinned(topicID: string, pinned: boolean) {
+      setMockTopicPinned(topicID, pinned);
     },
     async SaveWindowState(_state) {
       // no-op in browser dev — no real window geometry to persist

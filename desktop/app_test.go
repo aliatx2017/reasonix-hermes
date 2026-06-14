@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -15,6 +17,7 @@ import (
 	"time"
 
 	"reasonix/internal/agent"
+	"reasonix/internal/codegraph"
 	"reasonix/internal/config"
 	"reasonix/internal/control"
 	"reasonix/internal/event"
@@ -300,6 +303,7 @@ func TestSettingsUsesUserDesktopPreferencesNotProjectConfig(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(project, "reasonix.toml"), []byte(`
 [desktop]
 language = "zh"
+layout_style = "workbench"
 theme = "light"
 theme_style = "glacier"
 close_behavior = "quit"
@@ -312,6 +316,9 @@ status_bar_items = ["cost", "balance"]
 	userCfg := config.LoadForEdit(config.UserConfigPath())
 	if err := userCfg.SetDesktopLanguage("en"); err != nil {
 		t.Fatalf("set desktop language: %v", err)
+	}
+	if err := userCfg.SetDesktopLayoutStyle("classic"); err != nil {
+		t.Fatalf("set desktop layout style: %v", err)
 	}
 	if err := userCfg.SetDesktopAppearance("dark", "graphite"); err != nil {
 		t.Fatalf("set desktop appearance: %v", err)
@@ -336,8 +343,8 @@ status_bar_items = ["cost", "balance"]
 	}
 
 	got := NewApp().Settings()
-	if got.DesktopLanguage != "en" || got.DesktopTheme != "dark" || got.DesktopThemeStyle != "graphite" || got.CloseBehavior != "background" || got.StatusBarStyle != "text" {
-		t.Fatalf("desktop settings = lang:%q theme:%q style:%q close:%q status:%q, want user-level desktop prefs", got.DesktopLanguage, got.DesktopTheme, got.DesktopThemeStyle, got.CloseBehavior, got.StatusBarStyle)
+	if got.DesktopLanguage != "en" || got.DesktopLayoutStyle != "classic" || got.DesktopTheme != "dark" || got.DesktopThemeStyle != "graphite" || got.CloseBehavior != "background" || got.StatusBarStyle != "text" {
+		t.Fatalf("desktop settings = lang:%q layout:%q theme:%q style:%q close:%q status:%q, want user-level desktop prefs", got.DesktopLanguage, got.DesktopLayoutStyle, got.DesktopTheme, got.DesktopThemeStyle, got.CloseBehavior, got.StatusBarStyle)
 	}
 	if want := []string{"model", "balance", "cache"}; !reflect.DeepEqual(got.StatusBarItems, want) {
 		t.Fatalf("desktop status bar items = %v, want user-level %v", got.StatusBarItems, want)
@@ -353,6 +360,7 @@ default_model = "legacy-provider/legacy-model"
 
 [desktop]
 language = "zh"
+layout_style = "workbench"
 theme = "light"
 theme_style = "glacier"
 close_behavior = "quit"
@@ -373,7 +381,7 @@ status_bar_items = ["model", "cache", "balance"]
 	if got.ConfigPath != config.UserConfigPath() {
 		t.Fatalf("Settings configPath = %q, want user config %q", got.ConfigPath, config.UserConfigPath())
 	}
-	if got.DefaultModel != "legacy-provider/legacy-model" || got.DesktopLanguage != "zh" || got.DesktopTheme != "light" || got.DesktopThemeStyle != "glacier" || got.CloseBehavior != "quit" || got.StatusBarStyle != "text" {
+	if got.DefaultModel != "legacy-provider/legacy-model" || got.DesktopLanguage != "zh" || got.DesktopLayoutStyle != "workbench" || got.DesktopTheme != "light" || got.DesktopThemeStyle != "glacier" || got.CloseBehavior != "quit" || got.StatusBarStyle != "text" {
 		t.Fatalf("Settings did not seed from legacy project config: %+v", got)
 	}
 	if want := []string{"model", "cache", "balance"}; !reflect.DeepEqual(got.StatusBarItems, want) {
@@ -386,8 +394,8 @@ status_bar_items = ["model", "cache", "balance"]
 		t.Fatalf("SetDesktopLanguage: %v", err)
 	}
 	userCfg := config.LoadForEdit(config.UserConfigPath())
-	if userCfg.DesktopLanguage() != "en" || userCfg.DesktopTheme() != "light" || userCfg.DesktopThemeStyle() != "glacier" || userCfg.DesktopCloseBehavior() != "quit" || userCfg.DesktopStatusBarStyle() != "text" {
-		t.Fatalf("saved user config did not preserve seeded desktop prefs: lang:%q theme:%q style:%q close:%q status:%q", userCfg.DesktopLanguage(), userCfg.DesktopTheme(), userCfg.DesktopThemeStyle(), userCfg.DesktopCloseBehavior(), userCfg.DesktopStatusBarStyle())
+	if userCfg.DesktopLanguage() != "en" || userCfg.DesktopLayoutStyle() != "workbench" || userCfg.DesktopTheme() != "light" || userCfg.DesktopThemeStyle() != "glacier" || userCfg.DesktopCloseBehavior() != "quit" || userCfg.DesktopStatusBarStyle() != "text" {
+		t.Fatalf("saved user config did not preserve seeded desktop prefs: lang:%q layout:%q theme:%q style:%q close:%q status:%q", userCfg.DesktopLanguage(), userCfg.DesktopLayoutStyle(), userCfg.DesktopTheme(), userCfg.DesktopThemeStyle(), userCfg.DesktopCloseBehavior(), userCfg.DesktopStatusBarStyle())
 	}
 	if want := []string{"model", "cache", "balance"}; !reflect.DeepEqual(userCfg.DesktopStatusBarItems(), want) {
 		t.Fatalf("saved user config did not preserve seeded status bar items: got %v want %v", userCfg.DesktopStatusBarItems(), want)
@@ -736,6 +744,7 @@ func TestModelsForTabOnlyListsProviderAccessWhenConfigured(t *testing.T) {
 		"deepseek/deepseek-v4-flash",
 		"deepseek/deepseek-v4-pro",
 		"mimo-token-plan/mimo-v2.5-pro",
+		"mimo-token-plan/mimo-v2.5",
 	} {
 		if !refs[want] {
 			t.Fatalf("Models() refs = %+v, missing %s", models, want)
@@ -749,8 +758,8 @@ func TestModelsForTabOnlyListsProviderAccessWhenConfigured(t *testing.T) {
 			t.Fatalf("Models() refs = %+v, should not include hidden provider %s", models, hidden)
 		}
 	}
-	if len(models) != 3 {
-		t.Fatalf("Models() len = %d, want 3: %+v", len(models), models)
+	if len(models) != 4 {
+		t.Fatalf("Models() len = %d, want 4: %+v", len(models), models)
 	}
 }
 
@@ -767,11 +776,17 @@ func TestModelsForTabListsMimoAPIPaidAccess(t *testing.T) {
 
 	models := NewApp().Models()
 	refs := modelRefsFromView(models)
-	if !refs["mimo-api/mimo-v2.5-pro"] {
-		t.Fatalf("Models() refs = %+v, missing mimo-api/mimo-v2.5-pro", models)
+	for _, want := range []string{
+		"mimo-api/mimo-v2.5-pro",
+		"mimo-api/mimo-v2.5",
+		"mimo-api/mimo-v2-omni",
+	} {
+		if !refs[want] {
+			t.Fatalf("Models() refs = %+v, missing %s", models, want)
+		}
 	}
-	if len(models) != 1 {
-		t.Fatalf("Models() len = %d, want 1: %+v", len(models), models)
+	if len(models) != 3 {
+		t.Fatalf("Models() len = %d, want 3: %+v", len(models), models)
 	}
 }
 
@@ -944,12 +959,53 @@ func TestDeleteProviderRejectsRunningAffectedTab(t *testing.T) {
 	ctrl.Close()
 }
 
+func TestDeleteProviderRejectsAffectedBackgroundJobs(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	t.Setenv("REASONIX_TEST_KEY", "sk-test")
+
+	cfg := config.Default()
+	cfg.DefaultModel = "prov-a/model-a1"
+	cfg.Providers = []config.ProviderEntry{
+		{Name: "prov-a", Kind: "openai", BaseURL: "https://a.example.com", Model: "model-a1", APIKeyEnv: "REASONIX_TEST_KEY"},
+		{Name: "prov-b", Kind: "openai", BaseURL: "https://b.example.com", Model: "model-b1", APIKeyEnv: "REASONIX_TEST_KEY"},
+	}
+	if err := cfg.SaveTo(config.UserConfigPath()); err != nil {
+		t.Fatalf("save config: %v", err)
+	}
+
+	dir := config.SessionDir()
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("mkdir session dir: %v", err)
+	}
+	path := filepath.Join(dir, "provider-job.jsonl")
+	jm := jobs.NewManager(event.Discard)
+	ctrl := control.New(control.Options{SessionDir: dir, SessionPath: path, Label: "test", Jobs: jm})
+	defer ctrl.Close()
+	app := NewApp()
+	app.setTestCtrl(ctrl, "prov-a/model-a1")
+	jm.StartForSession(agent.BranchID(path), "bash", "provider job", func(ctx context.Context, _ io.Writer) (string, error) {
+		<-ctx.Done()
+		return "", ctx.Err()
+	})
+
+	err := app.DeleteProvider("prov-a")
+	if err == nil || !strings.Contains(err.Error(), "active work") {
+		t.Fatalf("DeleteProvider with background job error = %v, want active-work guard", err)
+	}
+	if _, ok := config.LoadForEdit(config.UserConfigPath()).Provider("prov-a"); !ok {
+		t.Fatal("provider should remain after rejected deletion")
+	}
+}
+
 func TestMigrateDesktopPreferencesDoesNotOverwriteExistingConfig(t *testing.T) {
 	isolateDesktopUserDirs(t)
 
 	userCfg := config.LoadForEdit(config.UserConfigPath())
 	if err := userCfg.SetDesktopLanguage("en"); err != nil {
 		t.Fatalf("set desktop language: %v", err)
+	}
+	if err := userCfg.SetDesktopLayoutStyle("workbench"); err != nil {
+		t.Fatalf("set desktop layout style: %v", err)
 	}
 	if err := userCfg.SetDesktopAppearance("dark", "graphite"); err != nil {
 		t.Fatalf("set desktop appearance: %v", err)
@@ -963,8 +1019,8 @@ func TestMigrateDesktopPreferencesDoesNotOverwriteExistingConfig(t *testing.T) {
 	}
 
 	got := config.LoadForEdit(config.UserConfigPath())
-	if got.DesktopLanguage() != "en" || got.DesktopTheme() != "dark" || got.DesktopThemeStyle() != "graphite" {
-		t.Fatalf("desktop prefs after migration = lang:%q theme:%q style:%q, want existing config preserved", got.DesktopLanguage(), got.DesktopTheme(), got.DesktopThemeStyle())
+	if got.DesktopLanguage() != "en" || got.DesktopLayoutStyle() != "workbench" || got.DesktopTheme() != "dark" || got.DesktopThemeStyle() != "graphite" {
+		t.Fatalf("desktop prefs after migration = lang:%q layout:%q theme:%q style:%q, want existing config preserved", got.DesktopLanguage(), got.DesktopLayoutStyle(), got.DesktopTheme(), got.DesktopThemeStyle())
 	}
 }
 
@@ -1102,6 +1158,111 @@ func TestSetTokenModeRejectsRunningTurn(t *testing.T) {
 
 	close(runner.release)
 	waitNotRunning(t, app.activeCtrl())
+}
+
+func TestSetTokenModeRejectsBackgroundJobs(t *testing.T) {
+	isolateDesktopUserDirs(t)
+
+	dir := config.SessionDir()
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("mkdir session dir: %v", err)
+	}
+	path := filepath.Join(dir, "jobs.jsonl")
+	jm := jobs.NewManager(event.Discard)
+	ctrl := control.New(control.Options{SessionDir: dir, SessionPath: path, Label: "test", Jobs: jm})
+	defer ctrl.Close()
+	app := NewApp()
+	app.setTestCtrl(ctrl, "")
+
+	release := make(chan struct{})
+	jm.StartForSession(agent.BranchID(path), "bash", "long job", func(ctx context.Context, _ io.Writer) (string, error) {
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
+		case <-release:
+			return "", nil
+		}
+	})
+	defer close(release)
+
+	err := app.SetTokenMode("economy")
+	if err == nil || !strings.Contains(err.Error(), "stop background jobs") {
+		t.Fatalf("SetTokenMode with background job error = %v, want background-job guard", err)
+	}
+}
+
+func TestSettingsRebuildRejectsBackgroundJobs(t *testing.T) {
+	isolateDesktopUserDirs(t)
+
+	dir := config.SessionDir()
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("mkdir session dir: %v", err)
+	}
+	path := filepath.Join(dir, "settings-job.jsonl")
+	jm := jobs.NewManager(event.Discard)
+	ctrl := control.New(control.Options{SessionDir: dir, SessionPath: path, Label: "test", Jobs: jm})
+	defer ctrl.Close()
+	app := NewApp()
+	app.ctx = context.Background()
+	app.setTestCtrl(ctrl, "deepseek-flash/deepseek-v4-flash")
+
+	jm.StartForSession(agent.BranchID(path), "bash", "settings job", func(ctx context.Context, _ io.Writer) (string, error) {
+		<-ctx.Done()
+		return "", ctx.Err()
+	})
+
+	err := app.SetSandbox("enforce", true, "", nil, "")
+	if err == nil || !strings.Contains(err.Error(), "stop background jobs") {
+		t.Fatalf("SetSandbox with background job error = %v, want background-job guard", err)
+	}
+}
+
+func TestClearSessionCancelsRunningRuntimeAndKeepsTopic(t *testing.T) {
+	isolateDesktopUserDirs(t)
+
+	dir := config.SessionDir()
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("mkdir session dir: %v", err)
+	}
+	path := filepath.Join(dir, "clear-running.jsonl")
+	if err := os.WriteFile(path, []byte(`{"role":"user","content":"old"}`+"\n"), 0o644); err != nil {
+		t.Fatalf("write session: %v", err)
+	}
+	runner := &blockingRunner{started: make(chan struct{}), release: make(chan struct{})}
+	oldCtrl := control.New(control.Options{Runner: runner, SessionDir: dir, SessionPath: path, Label: "test"})
+	app := NewApp()
+	app.projectTreeChangedHook = func() {}
+	app.setTestCtrl(oldCtrl, "deepseek-flash/deepseek-v4-flash")
+	app.tabs["test"].TopicID = "topic_clear"
+	app.tabs["test"].TopicTitle = "Clear topic"
+	defer func() {
+		if c := app.activeCtrl(); c != nil {
+			c.Close()
+		}
+	}()
+
+	oldCtrl.Submit("work")
+	<-runner.started
+	if err := app.ClearSession(); err != nil {
+		t.Fatalf("ClearSession: %v", err)
+	}
+	waitNotRunning(t, oldCtrl)
+	tab := app.activeTab()
+	if tab == nil || tab.Ctrl == nil {
+		t.Fatalf("active tab/controller missing after clear")
+	}
+	if tab.Ctrl == oldCtrl {
+		t.Fatalf("clear should replace the active controller after cancelling old work")
+	}
+	if tab.TopicID != "topic_clear" || tab.TopicTitle != "Clear topic" {
+		t.Fatalf("clear changed topic identity: %+v", tab)
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatalf("old cleared session artifacts should be removed, stat err = %v", err)
+	}
+	if got := tab.currentSessionPath(); got == "" || got == path {
+		t.Fatalf("new session path = %q, want fresh path", got)
+	}
 }
 
 func TestSearchFileRefsFindsNestedBasename(t *testing.T) {
@@ -1251,7 +1412,7 @@ func TestFileRefsUseActiveTabWorkspaceRoot(t *testing.T) {
 	}
 }
 
-func TestDeleteSessionRejectsActiveRelativePath(t *testing.T) {
+func TestDeleteSessionCancelsActiveRuntime(t *testing.T) {
 	isolateDesktopUserDirs(t)
 
 	dir := config.SessionDir()
@@ -1264,22 +1425,80 @@ func TestDeleteSessionRejectsActiveRelativePath(t *testing.T) {
 	}
 
 	app := NewApp()
-	app.setTestCtrl(control.New(control.Options{SessionDir: dir, SessionPath: path, Label: "test"}), "")
-	defer func() {
-		if c := app.activeCtrl(); c != nil {
-			c.Close()
-		}
-	}()
-
-	if err := app.DeleteSession(filepath.Base(path)); err != errActiveSession {
-		t.Fatalf("DeleteSession(active basename) error = %v, want errActiveSession", err)
+	activeCtrl := control.New(control.Options{SessionDir: dir, SessionPath: path, Label: "test"})
+	keepPath := filepath.Join(dir, "keep.jsonl")
+	if err := os.WriteFile(keepPath, []byte(`{"role":"user","content":"keep"}`+"\n"), 0o644); err != nil {
+		t.Fatalf("write keep session: %v", err)
 	}
-	if _, err := os.Stat(path); err != nil {
-		t.Fatalf("active session should remain: %v", err)
+	keepCtrl := control.New(control.Options{SessionDir: dir, SessionPath: keepPath, Label: "keep"})
+	defer keepCtrl.Close()
+	app.setTestCtrl(activeCtrl, "")
+	app.tabs["keep"] = &WorkspaceTab{ID: "keep", Scope: "global", Ctrl: keepCtrl, Ready: true}
+	app.tabOrder = []string{"test", "keep"}
+
+	if err := app.DeleteSession(filepath.Base(path)); err != nil {
+		t.Fatalf("DeleteSession(active basename): %v", err)
+	}
+	if _, ok := app.tabs["test"]; ok {
+		t.Fatalf("deleted active session runtime should be removed")
+	}
+	if got := app.activeTabID; got != "keep" {
+		t.Fatalf("active tab after delete = %q, want keep", got)
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatalf("active session should be moved out of active history, stat err = %v", err)
+	}
+	trashPath := filepath.Join(dir, sessionTrashDir, "active.jsonl", "active.jsonl")
+	if _, err := os.Stat(trashPath); err != nil {
+		t.Fatalf("active session should be moved to trash: %v", err)
 	}
 }
 
-func TestDeleteSessionRejectsInactiveOpenTab(t *testing.T) {
+func TestDeleteSessionTrashConflictKeepsRuntime(t *testing.T) {
+	isolateDesktopUserDirs(t)
+
+	dir := config.SessionDir()
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("mkdir session dir: %v", err)
+	}
+	path := filepath.Join(dir, "active-conflict.jsonl")
+	if err := os.WriteFile(path, []byte(`{"role":"user","content":"hello"}`+"\n"), 0o644); err != nil {
+		t.Fatalf("write session: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(dir, sessionTrashDir, filepath.Base(path)), 0o755); err != nil {
+		t.Fatalf("create trash conflict: %v", err)
+	}
+
+	runner := &blockingRunner{started: make(chan struct{}), release: make(chan struct{})}
+	ctrl := control.New(control.Options{Runner: runner, SessionDir: dir, SessionPath: path, Label: "test"})
+	app := NewApp()
+	app.setTestCtrl(ctrl, "")
+	defer ctrl.Close()
+	ctrl.Submit("work")
+	<-runner.started
+
+	err := app.DeleteSession(filepath.Base(path))
+	if err == nil || !strings.Contains(err.Error(), "already exists in trash") {
+		t.Fatalf("DeleteSession conflict error = %v, want trash conflict", err)
+	}
+	if app.activeCtrl() != ctrl {
+		t.Fatalf("active runtime should remain bound after preflight failure")
+	}
+	if !ctrl.Running() {
+		t.Fatalf("running turn should not be cancelled on preflight failure")
+	}
+	if _, ok := app.tabs["test"]; !ok {
+		t.Fatalf("tab should remain after preflight failure")
+	}
+	if _, err := os.Stat(path); err != nil {
+		t.Fatalf("active session file should remain: %v", err)
+	}
+
+	close(runner.release)
+	waitNotRunning(t, ctrl)
+}
+
+func TestDeleteSessionCancelsInactiveOpenRuntime(t *testing.T) {
 	isolateDesktopUserDirs(t)
 
 	dir := config.SessionDir()
@@ -1309,11 +1528,18 @@ func TestDeleteSessionRejectsInactiveOpenTab(t *testing.T) {
 		activeTabID: "active",
 	}
 
-	if err := app.DeleteSession(filepath.Base(inactivePath)); err != errActiveSession {
-		t.Fatalf("DeleteSession(inactive open basename) error = %v, want errActiveSession", err)
+	if err := app.DeleteSession(filepath.Base(inactivePath)); err != nil {
+		t.Fatalf("DeleteSession(inactive open basename): %v", err)
 	}
-	if _, err := os.Stat(inactivePath); err != nil {
-		t.Fatalf("inactive open session should remain: %v", err)
+	if _, ok := app.tabs["inactive"]; ok {
+		t.Fatalf("deleted inactive session runtime should be removed")
+	}
+	if _, err := os.Stat(inactivePath); !os.IsNotExist(err) {
+		t.Fatalf("inactive open session should be moved out of active history, stat err = %v", err)
+	}
+	trashPath := filepath.Join(dir, sessionTrashDir, "inactive.jsonl", "inactive.jsonl")
+	if _, err := os.Stat(trashPath); err != nil {
+		t.Fatalf("inactive open session should be moved to trash: %v", err)
 	}
 
 	sessions := app.ListSessions()
@@ -1326,16 +1552,13 @@ func TestDeleteSessionRejectsInactiveOpenTab(t *testing.T) {
 	if !current[filepath.Base(activePath)] {
 		t.Fatalf("ListSessions should mark active session current, got %#v", current)
 	}
-	if current[filepath.Base(inactivePath)] {
-		t.Fatalf("ListSessions should not mark inactive open session current, got %#v", current)
-	}
 	if current[filepath.Base(otherPath)] {
 		t.Fatalf("ListSessions marked unopened session current, got %#v", current)
 	}
-	if !open[filepath.Base(activePath)] || !open[filepath.Base(inactivePath)] {
+	if !open[filepath.Base(activePath)] {
 		t.Fatalf("ListSessions should mark active and inactive open sessions open, got %#v", open)
 	}
-	if open[filepath.Base(otherPath)] {
+	if open[filepath.Base(inactivePath)] || open[filepath.Base(otherPath)] {
 		t.Fatalf("ListSessions marked unopened session open, got %#v", open)
 	}
 }
@@ -1686,6 +1909,9 @@ func TestCapabilitiesShowsDefaultCodegraphDisabled(t *testing.T) {
 			}
 			if s.Tier != "background" {
 				t.Fatalf("codegraph tier = %q, want background; server = %+v", s.Tier, s)
+			}
+			if s.Command != "codegraph" || !reflect.DeepEqual(s.Args, []string{"serve", "--mcp"}) {
+				t.Fatalf("codegraph command = %q %+v, want codegraph serve --mcp", s.Command, s.Args)
 			}
 			return
 		}
@@ -2408,6 +2634,226 @@ tier = "lazy"
 		}
 	}
 	t.Fatalf("codegraph missing from Capabilities: %+v", view.Servers)
+}
+
+func TestUpdateBuiltInMCPServerUpdatesCodegraphRuntime(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	dir := robustTempDir(t)
+	t.Chdir(dir)
+	if err := os.WriteFile(filepath.Join(dir, "reasonix.toml"), []byte(`
+[codegraph]
+enabled = false
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	orig := updateBuiltInCodegraph
+	defer func() { updateBuiltInCodegraph = orig }()
+	called := false
+	updateBuiltInCodegraph = func(ctx context.Context, client *http.Client, log func(string)) (codegraph.UpdateResult, error) {
+		called = true
+		if ctx == nil {
+			t.Fatal("context is nil")
+		}
+		if client == nil {
+			t.Fatal("http client is nil")
+		}
+		return codegraph.UpdateResult{Version: "v9.9.9", Path: filepath.Join(dir, "cache", "codegraph")}, nil
+	}
+
+	app := NewApp()
+	app.setTestCtrl(control.New(control.Options{Host: plugin.NewHost()}), "")
+	defer app.activeCtrl().Close()
+
+	got, err := app.UpdateBuiltInMCPServer("codegraph")
+	if err != nil {
+		t.Fatalf("UpdateBuiltInMCPServer(codegraph): %v", err)
+	}
+	if !called {
+		t.Fatal("updater was not called")
+	}
+	if got.Name != "codegraph" || got.Version != "v9.9.9" || got.Path == "" {
+		t.Fatalf("UpdateBuiltInMCPServer result = %+v", got)
+	}
+}
+
+func TestUpdateBuiltInMCPServerRejectsOtherServers(t *testing.T) {
+	isolateDesktopUserDirs(t)
+
+	app := NewApp()
+	app.setTestCtrl(control.New(control.Options{Host: plugin.NewHost()}), "")
+	defer app.activeCtrl().Close()
+
+	if _, err := app.UpdateBuiltInMCPServer("time"); err == nil {
+		t.Fatal("UpdateBuiltInMCPServer(time) succeeded; want error")
+	}
+}
+
+func TestBuiltInMCPBackgroundNotifyDoesNotDownload(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	t.Setenv("REASONIX_CACHE_DIR", robustTempDir(t))
+
+	origCheck := checkCodegraphLatest
+	origDownload := downloadLatestCodegraph
+	origUpdate := updateBuiltInCodegraph
+	defer func() {
+		checkCodegraphLatest = origCheck
+		downloadLatestCodegraph = origDownload
+		updateBuiltInCodegraph = origUpdate
+	}()
+
+	checkCodegraphLatest = func(ctx context.Context, client *http.Client) (string, error) {
+		return "v99.99.99", nil
+	}
+	downloadLatestCodegraph = func(ctx context.Context, client *http.Client, log func(string)) (codegraph.UpdateResult, error) {
+		t.Fatal("notify mode should not download")
+		return codegraph.UpdateResult{}, nil
+	}
+	updateBuiltInCodegraph = func(ctx context.Context, client *http.Client, log func(string)) (codegraph.UpdateResult, error) {
+		t.Fatal("notify mode should not activate")
+		return codegraph.UpdateResult{}, nil
+	}
+
+	cfg := config.Default()
+	cfg.BuiltInMCPUpdates.Mode = config.BuiltInMCPUpdateModeNotify
+	statuses, err := NewApp().runBuiltInMCPUpdateCheck(cfg)
+	if err != nil {
+		t.Fatalf("runBuiltInMCPUpdateCheck: %v", err)
+	}
+	if len(statuses) != 1 || statuses[0].Phase != "available" || statuses[0].Latest != "v99.99.99" {
+		t.Fatalf("statuses = %+v, want available latest v99.99.99", statuses)
+	}
+}
+
+func TestBuiltInMCPUpdateStatusesReturnArray(t *testing.T) {
+	app := NewApp()
+	empty := app.BuiltInMCPUpdateStatuses()
+	if empty == nil {
+		t.Fatal("empty BuiltInMCPUpdateStatuses returned nil; Wails should encode []")
+	}
+	app.recordBuiltInMCPUpdateStatus(BuiltInMCPUpdateStatus{
+		Name:    "codegraph",
+		Mode:    "notify",
+		Current: "v0.9.7",
+		Latest:  "v9.9.9",
+		Phase:   "available",
+	})
+	statuses := app.BuiltInMCPUpdateStatuses()
+	if len(statuses) != 1 || statuses[0].Name != "codegraph" || statuses[0].Phase != "available" {
+		t.Fatalf("BuiltInMCPUpdateStatuses = %+v, want codegraph available", statuses)
+	}
+}
+
+func TestBuiltInMCPBackgroundDownloadDoesNotActivate(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	t.Setenv("REASONIX_CACHE_DIR", robustTempDir(t))
+
+	origCheck := checkCodegraphLatest
+	origDownload := downloadLatestCodegraph
+	origUpdate := updateBuiltInCodegraph
+	defer func() {
+		checkCodegraphLatest = origCheck
+		downloadLatestCodegraph = origDownload
+		updateBuiltInCodegraph = origUpdate
+	}()
+
+	checkCodegraphLatest = func(ctx context.Context, client *http.Client) (string, error) {
+		if _, ok := ctx.Deadline(); !ok {
+			t.Fatal("manifest check context has no deadline")
+		}
+		return "v99.99.99", nil
+	}
+	downloaded := false
+	downloadLatestCodegraph = func(ctx context.Context, client *http.Client, log func(string)) (codegraph.UpdateResult, error) {
+		downloaded = true
+		if deadline, ok := ctx.Deadline(); ok && time.Until(deadline) <= httpTimeout+time.Second {
+			t.Fatalf("download context inherited manifest timeout; deadline=%v", deadline)
+		}
+		return codegraph.UpdateResult{Version: "v99.99.99", Path: filepath.Join(t.TempDir(), "codegraph")}, nil
+	}
+	updateBuiltInCodegraph = func(ctx context.Context, client *http.Client, log func(string)) (codegraph.UpdateResult, error) {
+		t.Fatal("download mode should not activate")
+		return codegraph.UpdateResult{}, nil
+	}
+
+	cfg := config.Default()
+	cfg.BuiltInMCPUpdates.Mode = config.BuiltInMCPUpdateModeDownload
+	statuses, err := NewApp().runBuiltInMCPUpdateCheck(cfg)
+	if err != nil {
+		t.Fatalf("runBuiltInMCPUpdateCheck: %v", err)
+	}
+	if !downloaded {
+		t.Fatal("download mode did not call downloader")
+	}
+	if len(statuses) != 1 || statuses[0].Phase != "downloaded" || statuses[0].Path == "" {
+		t.Fatalf("statuses = %+v, want downloaded with path", statuses)
+	}
+}
+
+func TestBuiltInMCPBackgroundAutoNextSessionActivates(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	t.Setenv("REASONIX_CACHE_DIR", robustTempDir(t))
+
+	origCheck := checkCodegraphLatest
+	origDownload := downloadLatestCodegraph
+	origUpdate := updateBuiltInCodegraph
+	defer func() {
+		checkCodegraphLatest = origCheck
+		downloadLatestCodegraph = origDownload
+		updateBuiltInCodegraph = origUpdate
+	}()
+
+	checkCodegraphLatest = func(ctx context.Context, client *http.Client) (string, error) {
+		if _, ok := ctx.Deadline(); !ok {
+			t.Fatal("manifest check context has no deadline")
+		}
+		return "v99.99.99", nil
+	}
+	downloadLatestCodegraph = func(ctx context.Context, client *http.Client, log func(string)) (codegraph.UpdateResult, error) {
+		t.Fatal("auto_next_session mode should activate through the updater")
+		return codegraph.UpdateResult{}, nil
+	}
+	activated := false
+	updateBuiltInCodegraph = func(ctx context.Context, client *http.Client, log func(string)) (codegraph.UpdateResult, error) {
+		activated = true
+		if deadline, ok := ctx.Deadline(); ok && time.Until(deadline) <= httpTimeout+time.Second {
+			t.Fatalf("activation context inherited manifest timeout; deadline=%v", deadline)
+		}
+		return codegraph.UpdateResult{Version: "v99.99.99", Path: filepath.Join(t.TempDir(), "codegraph")}, nil
+	}
+
+	cfg := config.Default()
+	cfg.BuiltInMCPUpdates.Mode = config.BuiltInMCPUpdateModeAutoNextSession
+	statuses, err := NewApp().runBuiltInMCPUpdateCheck(cfg)
+	if err != nil {
+		t.Fatalf("runBuiltInMCPUpdateCheck: %v", err)
+	}
+	if !activated {
+		t.Fatal("auto_next_session mode did not activate")
+	}
+	if len(statuses) != 1 || statuses[0].Phase != "activated" || statuses[0].Path == "" {
+		t.Fatalf("statuses = %+v, want activated with path", statuses)
+	}
+}
+
+func TestBuiltInMCPUpdateIntervalStamp(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	origNow := builtInMCPUpdateNow
+	defer func() { builtInMCPUpdateNow = origNow }()
+
+	now := time.Date(2026, 6, 14, 12, 0, 0, 0, time.UTC)
+	builtInMCPUpdateNow = func() time.Time { return now }
+	if !shouldRunBuiltInMCPUpdateCheck(time.Hour) {
+		t.Fatal("first update check should run without a stamp")
+	}
+	markBuiltInMCPUpdateChecked()
+	if shouldRunBuiltInMCPUpdateCheck(time.Hour) {
+		t.Fatal("update check should be suppressed inside interval")
+	}
+	builtInMCPUpdateNow = func() time.Time { return now.Add(2 * time.Hour) }
+	if !shouldRunBuiltInMCPUpdateCheck(time.Hour) {
+		t.Fatal("update check should run after interval")
+	}
 }
 
 func TestCapabilitiesMigratesFailedMCPConfiguredTierAfterRestart(t *testing.T) {
