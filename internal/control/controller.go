@@ -36,6 +36,7 @@ import (
 	"reasonix/internal/checkpoint"
 	"reasonix/internal/codegraph"
 	"reasonix/internal/command"
+	"reasonix/internal/compress"
 	"reasonix/internal/config"
 	"reasonix/internal/diff"
 	"reasonix/internal/event"
@@ -2156,6 +2157,22 @@ func (c *Controller) SessionCost() float64 {
 		return 0
 	}
 	return c.executor.SessionCost()
+}
+
+// AuxTokens returns tokens routed to auxiliary providers (compression/vision).
+func (c *Controller) AuxTokens() int {
+	if c.executor == nil {
+		return 0
+	}
+	return c.executor.AuxTokens()
+}
+
+// CompressStats returns compression statistics (cache hits, lines collapsed, bytes saved).
+func (c *Controller) CompressStats() compress.Stats {
+	if c.executor == nil {
+		return compress.Stats{}
+	}
+	return c.executor.CompressStats()
 }
 
 // ActivePricing returns the pricing data for the active model, or nil.

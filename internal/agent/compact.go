@@ -511,6 +511,7 @@ func (a *Agent) summarize(ctx context.Context, region []provider.Message, instru
 	prov := a.prov
 	if a.compressionProv != nil {
 		prov = a.compressionProv
+		a.auxTokens.Add(int64(len(renderTranscript(region)) / 4)) // rough token count
 	}
 	ch, err := prov.Stream(ctx, provider.Request{
 		Messages: []provider.Message{

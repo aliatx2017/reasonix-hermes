@@ -4123,7 +4123,7 @@ func replaySectionsFor(history []provider.Message, width int, renderer *mdRender
 
 // renderPinnedBanner draws a compact one-line Hermes header that stays pinned
 // above the transcript — branding always visible, unlike the full banner which
-// scrolls away.
+// scrolls away. Uses the Diamond Wing ◆ logo with gold accent.
 func (m chatTUI) renderPinnedBanner() string {
 	if !m.started {
 		return ""
@@ -4132,14 +4132,18 @@ func (m chatTUI) renderPinnedBanner() string {
 	if w < 50 {
 		return ""
 	}
-	left := " ⚚ REASONIX-HERMES"
-	right := fmt.Sprintf("%s · v1.6.0", m.label)
+	ver := BuildVersion
+	if ver == "dev" {
+		ver = "v1.7.0"
+	}
+	left := accent("◆") + " " + bold("REASONIX-HERMES")
+	right := fmt.Sprintf("%s · %s", m.label, ver)
 	gap := w - lipgloss.Width(left) - lipgloss.Width(right) - 2
 	if gap < 2 {
 		gap = 2
 	}
 	return accent("╔" + strings.Repeat("═", w-2) + "╗") + "\n" +
-		accent("║") + bold(left) + strings.Repeat(" ", gap) + dim(right) + accent("║")
+		accent("║") + left + strings.Repeat(" ", gap) + dim(right) + accent("║")
 }
 
 // renderHermesBanner draws the session-start header with stats.
@@ -4199,6 +4203,16 @@ func (m *chatTUI) renderStatsLine() string {
 		parts = append(parts, dim("cache")+" "+fmt.Sprintf("%.0f%%", rate))
 	}
 
+	// Aux savings — tokens routed to cheaper auxiliary providers
+	if aux := m.ctrl.AuxTokens(); aux > 0 {
+		parts = append(parts, dim("aux")+" "+formatTokenCount(aux))
+	}
+
+	// Compressor savings
+	if cs := m.ctrl.CompressStats(); cs.BytesSaved > 0 {
+		parts = append(parts, dim("sqz")+" "+formatBytes(cs.BytesSaved))
+	}
+
 	// Cost
 	if m.sessionCost > 0 && m.sessionCostSymbol != "" {
 		parts = append(parts, dim("cost")+" "+m.sessionCostSymbol+fmt.Sprintf("%.4f", m.sessionCost))
@@ -4213,6 +4227,18 @@ func (m *chatTUI) renderStatsLine() string {
 
 // formatTokenCount formats a token count with SI suffixes (K, M).
 func formatTokenCount(n int) string {
+	switch {
+	case n >= 1_000_000:
+		return fmt.Sprintf("%.1fM", float64(n)/1_000_000)
+	case n >= 1_000:
+		return fmt.Sprintf("%.1fK", float64(n)/1_000)
+	default:
+		return strconv.Itoa(n)
+	}
+}
+
+// formatBytes formats a byte count with SI suffixes.
+func formatBytes(n int) string {
 	switch {
 	case n >= 1_000_000:
 		return fmt.Sprintf("%.1fM", float64(n)/1_000_000)

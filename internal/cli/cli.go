@@ -38,8 +38,12 @@ import (
 	"golang.org/x/term"
 )
 
+// BuildVersion is set by Run from the main.version ldflag; used by the TUI banner.
+var BuildVersion = "dev"
+
 // Run is the CLI entry point; it returns a process exit code.
 func Run(args []string, version string) int {
+	BuildVersion = version
 	// Pick the UI language up front so even pre-config paths (the first-run
 	// welcome banner) come through localized. Env-only first; if a config
 	// exists and pins a language, that wins.

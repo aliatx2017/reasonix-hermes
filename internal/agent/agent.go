@@ -203,6 +203,11 @@ type Agent struct {
 	// SessionCost().
 	sessCost atomic.Int64
 
+	// auxTokens counts tokens processed by auxiliary providers (compression,
+	// vision, web_extract) instead of the main provider. The delta between aux
+	// and what the main model would have cost is a proxy for savings.
+	auxTokens atomic.Int64
+
 	// turnUsageHistory is a ring buffer of the last N per-turn Usage samples,
 	// keyed by turn number. The run loop appends while frontends read for charts.
 	turnUsageHistory   []provider.Usage
@@ -399,6 +404,20 @@ func (a *Agent) SessionCache() (hit, miss int) {
 // no pricing data is configured.
 func (a *Agent) SessionCost() float64 {
 	return float64(a.sessCost.Load()) / 1e8
+}
+
+// AuxTokens returns the cumulative token count processed by auxiliary providers
+// (compression summarizer, vision, web_extract) instead of the main model.
+func (a *Agent) AuxTokens() int {
+	return int(a.auxTokens.Load())
+}
+
+// CompressStats returns cumulative compression statistics.
+func (a *Agent) CompressStats() compress.Stats {
+	if a.compress == nil {
+		return compress.Stats{}
+	}
+	return a.compress.Stats()
 }
 
 // Pricing returns the configured pricing data for this agent, or nil.

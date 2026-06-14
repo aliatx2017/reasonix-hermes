@@ -25,6 +25,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"unicode"
 )
 
@@ -36,6 +37,12 @@ type Compressor struct {
 	cache   map[string]cacheEntry // SHA-256 hex → first occurrence
 	turn    int                    // current turn number (updated by caller)
 	enabled bool
+
+	// Atomic stats counters.
+	cacheHits         atomic.Int64
+	linesCollapsed    atomic.Int64
+	jsonFieldsStripped atomic.Int64
+	bytesSaved        atomic.Int64
 }
 
 type cacheEntry struct {
@@ -45,10 +52,10 @@ type cacheEntry struct {
 
 // Stats carries cumulative compression statistics for the dashboard.
 type Stats struct {
-	CacheHits        int `json:"cacheHits"`
-	LinesCollapsed   int `json:"linesCollapsed"`
+	CacheHits         int `json:"cacheHits"`
+	LinesCollapsed    int `json:"linesCollapsed"`
 	JSONFieldsStripped int `json:"jsonFieldsStripped"`
-	BytesSaved       int `json:"bytesSaved"`
+	BytesSaved        int `json:"bytesSaved"`
 }
 
 // New creates a compressor. Pass enabled=false to make Compress a no-op
@@ -68,11 +75,12 @@ func (c *Compressor) SetTurn(turn int) {
 
 // Stats returns a snapshot of compression statistics.
 func (c *Compressor) Stats() Stats {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	// Stats are accumulated in fields; for now return zero values.
-	// Full stats tracking can be added with atomic counters.
-	return Stats{}
+	return Stats{
+		CacheHits:         int(c.cacheHits.Load()),
+		LinesCollapsed:    int(c.linesCollapsed.Load()),
+		JSONFieldsStripped: int(c.jsonFieldsStripped.Load()),
+		BytesSaved:        int(c.bytesSaved.Load()),
+	}
 }
 
 // Compress reduces tool output. It returns the compressed text and whether
@@ -99,6 +107,8 @@ func (c *Compressor) Compress(toolName, raw string) string {
 	entry, cached := c.cache[hash]
 	c.mu.RUnlock()
 	if cached {
+		c.cacheHits.Add(1)
+		c.bytesSaved.Add(int64(len(raw)))
 		if entry.turn == c.turn {
 			return fmt.Sprintf("[content unchanged — same as earlier this turn (sha256:%s…)]", hash[:12])
 		}
@@ -224,6 +234,8 @@ func (c *Compressor) compressBash(raw string) string {
 	if len(result) >= len(raw) {
 		return raw
 	}
+	c.linesCollapsed.Add(int64(collapsedTotal))
+	c.bytesSaved.Add(int64(len(raw) - len(result)))
 	return result
 }
 
