@@ -50,6 +50,8 @@ import type {
   HooksSettingsView,
   HotbarView,
   JobView,
+  LearnedPatternView,
+  LearnedTrajectoryView,
   LobeHubSyncMeta,
   MarkdownContent,
   MarkdownFileEntry,
@@ -369,6 +371,7 @@ export interface AppBindings {
   SyncLobeHubMarketplace(provider: string, model: string): Promise<number>;
   TurnUsageHistory(): Promise<TurnUsagePoint[]>;
   TurnTimeline(): Promise<TurnTimelinePoint[]>;
+  LearnedPatterns(): Promise<[LearnedPatternView[], LearnedTrajectoryView[]]>;
   UpdateTrayIcon(): Promise<void>;
 }
 
@@ -2772,6 +2775,13 @@ function makeMockApp(): AppBindings {
         { turn: 1, promptTokens: 1200, completionTokens: 800, cacheHitTokens: 1000, cacheMissTokens: 200, totalTokens: 2000, toolCalls: ["bash", "read"] },
         { turn: 2, promptTokens: 1800, completionTokens: 600, cacheHitTokens: 800, cacheMissTokens: 1000, totalTokens: 2400, toolCalls: ["write"] },
       ];
+    },
+    async LearnedPatterns(): Promise<[LearnedPatternView[], LearnedTrajectoryView[]]> {
+      return [[
+        { name: "edit-then-test", trigger: "after editing Go files", action: "run go build ./...", confidence: 4, draft: "[edit-then-test]\ndescription = …" },
+      ], [
+        { label: "Refactor loop", turns: [3, 7, 12], count: 3 },
+      ]];
     },
     async UpdateTrayIcon(): Promise<void> {},
     async Version() {

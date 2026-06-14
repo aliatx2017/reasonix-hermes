@@ -11,6 +11,8 @@ import { ScheduleWidget } from "./ScheduleWidget";
 import { SkillStorePanel } from "./SkillStorePanel";
 import { AnalyticsPanel } from "./AnalyticsPanel";
 import { EvalPanel } from "./EvalPanel";
+import { LearnedPatternsPanel } from "./LearnedPatternsPanel";
+import { OrchestratePanel } from "./OrchestratePanel";
 import { SubagentTreePanel } from "./SubagentTreePanel";
 import { ConstitutionHealthPanel } from "./ConstitutionHealthPanel";
 import { TokenBreakdownChart } from "./TokenBreakdownChart";
@@ -355,6 +357,16 @@ tool_approve_mode = "yolo"`}
 
       {/* ═══════════ ANALYTICS ═══════════ */}
       <AnalyticsPanel />
+
+      <hr style={{ margin: "24px 0", border: "none", borderTop: "1px solid var(--color-border)" }} />
+
+      {/* ═══════════ ORCHESTRATION ═══════════ */}
+      <OrchestratePanel />
+
+      <hr style={{ margin: "24px 0", border: "none", borderTop: "1px solid var(--color-border)" }} />
+
+      {/* ═══════════ LEARNED PATTERNS ═══════════ */}
+      <LearnedPatternsPanel />
 
       <hr style={{ margin: "24px 0", border: "none", borderTop: "1px solid var(--color-border)" }} />
 

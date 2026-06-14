@@ -671,6 +671,20 @@ export interface TurnTimelinePoint {
   toolCalls: string[];
 }
 
+export interface LearnedPatternView {
+  name: string;
+  trigger: string;
+  action: string;
+  confidence: number;
+  draft: string;
+}
+
+export interface LearnedTrajectoryView {
+  label: string;
+  turns: number[];
+  count: number;
+}
+
 export interface CompactionEvent {
   trigger: string;
   messages: number;

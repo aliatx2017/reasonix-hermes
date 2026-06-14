@@ -322,6 +322,7 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 - **Analytics** (`AnalyticsPanel.tsx` + `TurnTimeline()` Go binding): Per-turn token bar chart, cache hit/miss stacked bars, top tools ranked chart, per-turn tool call grid.
 - **Orchestration** (`internal/orchestrate/`): `Chain`, `Pair`, `CIFix` + 6 tests. Three slash commands: `/chain <task>`, `/pair <task>`, `/ci-fix <cmd>` (+ completions).
 - **Docs updated**: `CONTRIBUTING.md` completely rewritten for Hermes fork (8 constitution rules, Hermes binary build, upstream sync, desktop conventions). `docs/index.html` rebranded to Reasonix-Hermes (◆ logo, v1.7.0, npm, Hermes features). `SPEC.md` §2: +2 packages (eval, orchestrate). `AGENTS.md`: +2 customizations.
+- **Desktop widgets**: `OrchestratePanel` (Chain/Pair/CI-Fix with copyable slash commands) + `LearnedPatternsPanel` (patterns + trajectories from Go binding, confidence badges, draft snippets). Wired into HermesSettings.
 - **Upstream**: No new commits (still at 21d77d2). Up to date.
 - **Build**: All binaries compile. `go build ./... && go vet ./...` pass. `tsc --noEmit` 0 errors. All test packages pass (config, orchestrate, eval, i18n, control).
 
@@ -329,5 +330,5 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 - [ ] **npm: publish reasonix-hermes** — pipeline verified; needs npm 2FA-bypass token + tag push
 - [ ] **Upstream the LINE adapter** — open a PR to esengine/deepseek-reasonix with `internal/bot/line/`
 - [ ] **Desktop app distribution** — cut a desktop-vX.Y.Z release tag (release-desktop.yml pipeline is ready)
-- [ ] **Desktop orchestration panel** — surface Chain/Pair/CIFix results in a desktop widget
-- [ ] **LearnedPatterns** — Go Wails binding exists but no frontend widget (unused API surface)
+- [x] **Desktop orchestration panel** — OrchestratePanel widget done (Chain/Pair/CI-Fix cards)
+- [x] **LearnedPatterns widget** — LearnedPatternsPanel done (patterns + trajectories)
