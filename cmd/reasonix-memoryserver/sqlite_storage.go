@@ -40,7 +40,8 @@ func newSQLiteStorage(dir string) (*sqliteStorage, error) {
 			ttl_ns       INTEGER NOT NULL DEFAULT 0,
 			expires_at   TEXT NOT NULL DEFAULT '',
 			importance   REAL NOT NULL DEFAULT 0.5,
-			vector       TEXT NOT NULL DEFAULT '{}'
+			vector       TEXT NOT NULL DEFAULT '{}',
+			dense_vector TEXT NOT NULL DEFAULT ''
 		);
 		CREATE INDEX IF NOT EXISTS idx_memories_session ON memories(session_id);
 		CREATE INDEX IF NOT EXISTS idx_memories_expires ON memories(expires_at);
@@ -55,7 +56,7 @@ func newSQLiteStorage(dir string) (*sqliteStorage, error) {
 }
 
 func (s *sqliteStorage) Load() ([]MemoryEntry, error) {
-	rows, err := s.db.Query(`SELECT id, session_id, content, tags, created_at, access_count, ttl_ns, expires_at, importance, vector FROM memories ORDER BY created_at`)
+	rows, err := s.db.Query(`SELECT id, session_id, content, tags, created_at, access_count, ttl_ns, expires_at, importance, vector, dense_vector FROM memories ORDER BY created_at`)
 	if err != nil {
 		return nil, err
 	}
@@ -64,9 +65,9 @@ func (s *sqliteStorage) Load() ([]MemoryEntry, error) {
 	var entries []MemoryEntry
 	for rows.Next() {
 		var e MemoryEntry
-		var tagsJSON, createdAtStr, expiresAtStr, vectorJSON string
+		var tagsJSON, createdAtStr, expiresAtStr, vectorJSON, denseVectorJSON string
 		if err := rows.Scan(&e.ID, &e.SessionID, &e.Content, &tagsJSON,
-			&createdAtStr, &e.AccessCount, &e.TTL, &expiresAtStr, &e.Importance, &vectorJSON); err != nil {
+			&createdAtStr, &e.AccessCount, &e.TTL, &expiresAtStr, &e.Importance, &vectorJSON, &denseVectorJSON); err != nil {
 			return nil, err
 		}
 		if err := json.Unmarshal([]byte(tagsJSON), &e.Tags); err != nil {
@@ -74,6 +75,9 @@ func (s *sqliteStorage) Load() ([]MemoryEntry, error) {
 		}
 		if err := json.Unmarshal([]byte(vectorJSON), &e.Vector); err != nil {
 			e.Vector = nil
+		}
+		if err := json.Unmarshal([]byte(denseVectorJSON), &e.DenseVector); err != nil {
+			e.DenseVector = nil
 		}
 		if t, err := time.Parse(time.RFC3339, createdAtStr); err == nil {
 			e.CreatedAt = t
@@ -99,7 +103,7 @@ func (s *sqliteStorage) Save(entries []MemoryEntry) error {
 	// The id column has a PRIMARY KEY constraint — INSERT OR REPLACE
 	// deletes the old row and inserts the new one in a single step,
 	// avoiding the DELETE-all-then-reinsert race window.
-	stmt, err := tx.Prepare(`INSERT OR REPLACE INTO memories (id, session_id, content, tags, created_at, access_count, ttl_ns, expires_at, importance, vector) VALUES (?,?,?,?,?,?,?,?,?,?)`)
+	stmt, err := tx.Prepare(`INSERT OR REPLACE INTO memories (id, session_id, content, tags, created_at, access_count, ttl_ns, expires_at, importance, vector, dense_vector) VALUES (?,?,?,?,?,?,?,?,?,?,?)`)
 	if err != nil {
 		return err
 	}
@@ -114,13 +118,17 @@ func (s *sqliteStorage) Save(entries []MemoryEntry) error {
 		if err != nil {
 			vectorJSON = []byte("{}")
 		}
+		denseVectorJSON, err := json.Marshal(e.DenseVector)
+		if err != nil {
+			denseVectorJSON = []byte("[]")
+		}
 		createdAt := e.CreatedAt.Format(time.RFC3339)
 		expiresAt := ""
 		if !e.ExpiresAt.IsZero() {
 			expiresAt = e.ExpiresAt.Format(time.RFC3339)
 		}
 		if _, err := stmt.Exec(e.ID, e.SessionID, e.Content, string(tagsJSON),
-			createdAt, e.AccessCount, int64(e.TTL), expiresAt, e.Importance, string(vectorJSON)); err != nil {
+			createdAt, e.AccessCount, int64(e.TTL), expiresAt, e.Importance, string(vectorJSON), string(denseVectorJSON)); err != nil {
 			return err
 		}
 	}
@@ -151,7 +159,7 @@ func (s *sqliteStorage) Search(query, sessionID string, tags []string, limit int
 		where = "WHERE " + strings.Join(conditions, " AND ")
 	}
 
-	q := fmt.Sprintf(`SELECT id, session_id, content, tags, created_at, access_count, ttl_ns, expires_at, importance, vector FROM memories %s ORDER BY importance DESC, created_at DESC LIMIT ?`, where)
+	q := fmt.Sprintf(`SELECT id, session_id, content, tags, created_at, access_count, ttl_ns, expires_at, importance, vector, dense_vector FROM memories %s ORDER BY importance DESC, created_at DESC LIMIT ?`, where)
 	args = append(args, limit)
 
 	rows, err := s.db.Query(q, args...)
@@ -163,9 +171,9 @@ func (s *sqliteStorage) Search(query, sessionID string, tags []string, limit int
 	var entries []MemoryEntry
 	for rows.Next() {
 		var e MemoryEntry
-		var tagsJSON, createdAtStr, expiresAtStr, vectorJSON string
+		var tagsJSON, createdAtStr, expiresAtStr, vectorJSON, denseVectorJSON string
 		if err := rows.Scan(&e.ID, &e.SessionID, &e.Content, &tagsJSON,
-			&createdAtStr, &e.AccessCount, &e.TTL, &expiresAtStr, &e.Importance, &vectorJSON); err != nil {
+			&createdAtStr, &e.AccessCount, &e.TTL, &expiresAtStr, &e.Importance, &vectorJSON, &denseVectorJSON); err != nil {
 			return nil, err
 		}
 		if err := json.Unmarshal([]byte(tagsJSON), &e.Tags); err != nil {
@@ -173,6 +181,9 @@ func (s *sqliteStorage) Search(query, sessionID string, tags []string, limit int
 		}
 		if err := json.Unmarshal([]byte(vectorJSON), &e.Vector); err != nil {
 			e.Vector = nil
+		}
+		if err := json.Unmarshal([]byte(denseVectorJSON), &e.DenseVector); err != nil {
+			e.DenseVector = nil
 		}
 		if t, err := time.Parse(time.RFC3339, createdAtStr); err == nil {
 			e.CreatedAt = t

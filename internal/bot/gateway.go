@@ -71,6 +71,10 @@ type BotGateway struct {
 	allowlist      map[Platform]map[string]bool
 	groupAllowlist map[Platform]map[string]bool
 
+	idleTimeout time.Duration // evict sessions idle longer than this (default 30m)
+	ctx         context.Context
+	cancel      context.CancelFunc
+
 	logger *slog.Logger
 }
 
@@ -135,6 +139,7 @@ func NewGatewayWithAdapterBindings(cfg GatewayConfig, adapters []AdapterBinding,
 		controllers:    make(map[string]*sessionState),
 		allowlist:      make(map[Platform]map[string]bool),
 		groupAllowlist: make(map[Platform]map[string]bool),
+		idleTimeout:    30 * time.Minute,
 		logger:         logger.With("component", "bot_gateway"),
 	}
 	gw.buildAllowlist()
@@ -161,7 +166,7 @@ func normalizeAdapterBindings(adapters []AdapterBinding) []AdapterBinding {
 }
 
 func (gw *BotGateway) buildAllowlist() {
-	for _, plat := range []Platform{PlatformQQ, PlatformFeishu, PlatformWeixin, PlatformDiscord, PlatformTelegram, PlatformLine} {
+	for _, plat := range []Platform{PlatformQQ, PlatformFeishu, PlatformWeixin, PlatformDiscord, PlatformTelegram, PlatformLine, PlatformSlack} {
 		gw.allowlist[plat] = make(map[string]bool)
 		if !gw.cfg.Allowlist.Enabled {
 			continue
@@ -205,6 +210,10 @@ func (gw *BotGateway) Start(ctx context.Context) error {
 		go gw.dispatchLoop(ctx, binding)
 	}
 
+	// Start idle session eviction: every 5 minutes, remove sessions idle > 30 minutes.
+	gw.ctx, gw.cancel = context.WithCancel(ctx)
+	go gw.evictLoop()
+
 	return nil
 }
 
@@ -234,6 +243,9 @@ func (gw *BotGateway) AdapterWebhookURL(platform Platform) string {
 
 // Stop 停止所有适配器并关闭所有 session。
 func (gw *BotGateway) Stop() {
+	if gw.cancel != nil {
+		gw.cancel()
+	}
 	gw.mu.Lock()
 	for key, state := range gw.controllers {
 		if state.cancel != nil {
@@ -1054,4 +1066,40 @@ func normalizeAskSelection(q event.AskQuestion, raw string) []string {
 		out = append(out, part)
 	}
 	return out
+}
+
+// evictLoop periodically scans for idle sessions and cleans them up.
+func (gw *BotGateway) evictLoop() {
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-gw.ctx.Done():
+			return
+		case <-ticker.C:
+			gw.evictIdleSessions()
+		}
+	}
+}
+
+// evictIdleSessions removes session state for controllers that have been
+// inactive longer than idleTimeout. It closes each evicted controller and
+// removes the entry from the controllers map under the gateway mutex.
+func (gw *BotGateway) evictIdleSessions() {
+	cutoff := time.Now().Add(-gw.idleTimeout)
+	gw.mu.Lock()
+	defer gw.mu.Unlock()
+
+	for key, state := range gw.controllers {
+		if state.lastActive.Before(cutoff) {
+			gw.logger.Info("bot session evicted (idle)", "session", key[:8], "idle_since", state.lastActive.Format(time.RFC3339))
+			if state.cancel != nil {
+				state.cancel()
+			}
+			if state.ctrl != nil {
+				state.ctrl.Close()
+			}
+			delete(gw.controllers, key)
+		}
+	}
 }

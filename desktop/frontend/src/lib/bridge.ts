@@ -64,6 +64,8 @@ import type {
   GitCommitView,
   GitCommitDetailView,
   GoalProgressView,
+  HotbarView,
+  ProfileView,
   CheckpointFileView,
   ConstitutionHealthView,
   SubagentNodeView,
@@ -314,6 +316,8 @@ export interface AppBindings {
   SetStatusBarItems(items: string[]): Promise<void>;
   SetDesktopLanguage(lang: string): Promise<void>;
   SetDesktopAppearance(theme: string, style: string): Promise<void>;
+  SetDesktopSettingsHotbar(h: HotbarView): Promise<void>;
+  SetDesktopSettingsProfiles(profiles: Record<string, ProfileView>): Promise<void>;
   UpdateTrayIcon(): Promise<void>;
   SetDesktopCheckUpdates(enabled: boolean): Promise<void>;
   SetDesktopTelemetry(enabled: boolean): Promise<void>;
@@ -2612,6 +2616,8 @@ function makeMockApp(): AppBindings {
           settings.desktopTheme = theme === "auto" || theme === "light" ? theme : "dark";
           settings.desktopThemeStyle = style;
         },
+        async SetDesktopSettingsHotbar(_h: HotbarView) {},
+        async SetDesktopSettingsProfiles(_profiles: Record<string, ProfileView>) {},
         async UpdateTrayIcon() { /* no-op in browser */ },
         async SetDesktopCheckUpdates(enabled: boolean) {
           settings.checkUpdates = enabled;

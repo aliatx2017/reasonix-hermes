@@ -832,6 +832,8 @@ All run locally and never reach the model:
 | `/goal status` | Show goal progress |
 | `/goal clear` | Cancel active goal |
 | `/init` | Generate AGENTS.md from codebase analysis |
+| `/learn` | Show detected patterns and suggest skill drafts |
+| `/install-source` | CLI: install skills/MCP from URL, path, or package (`reasonix install-source install --source <url>`) |
 
 ### 10.2 Custom commands
 
@@ -931,6 +933,45 @@ Use `forget` to delete stale or wrong memories. Stored as frontmatter files
 with a `MEMORY.md` index in `~/.config/reasonix/projects/<hash>/memory/`.
 
 ### 13.3 Managing memory
+
+| Action | How |
+|--------|-----|
+| View loaded memory | `/memory` |
+| Quick-add a note | `#<note>` in chat → appends to REASONIX.md |
+| Save a durable fact | Tell the agent "remember that …" |
+| Delete a memory | Tell the agent "forget about …" |
+| Bootstrap project memory | `/init` |
+
+### 13.4 Dense embeddings (optional)
+
+When the Hindsight memory server is configured with embedding support, facts
+stored via `hindsight_retain` are automatically embedded using the configured
+provider's embeddings API (OpenAI-compatible `/v1/embeddings`). This enables
+semantic search via `hindsight_recall` with `dense=true`:
+
+```sh
+# Start memory server with embedding:
+EMBEDDING_PROVIDER=https://api.deepseek.com \
+EMBEDDING_MODEL=text-embedding-3-small \
+EMBEDDING_API_KEY=$DEEPSEEK_API_KEY \
+./bin/reasonix-memory --backend sqlite --http
+```
+
+In `reasonix.toml`:
+```toml
+[embedding]
+provider   = "deepseek"            # provider name from [[providers]]
+model      = "text-embedding-3-small"
+api_key_env = "DEEPSEEK_API_KEY"
+batch_size = 20                    # facts per API call
+```
+
+Dense vectors are stored alongside sparse TF-IDF vectors. The memory server's
+`hindsight_reflect` output includes embedding coverage stats. The desktop D3
+memory graph shows which facts have dense embeddings via the `hasDenseEmbedding`
+toggle.
+
+---
 
 | Action | How |
 |--------|-----|
@@ -1471,6 +1512,7 @@ The upstream v1.6.0 introduced a multi-platform bot gateway supporting:
 | Feishu (飞书) | `internal/bot/feishu/` | Upstream |
 | LINE | `internal/bot/line/` | Hermes addition ✅ |
 | QQ | `internal/bot/qq/` | Upstream |
+| Slack | `internal/bot/slack/` | Hermes addition ✅ |
 | Telegram | `internal/bot/telegram/` | Hermes addition ✅ |
 | WeChat (微信) | `internal/bot/weixin/` | Upstream |
 

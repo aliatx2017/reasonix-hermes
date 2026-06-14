@@ -143,3 +143,35 @@ func (a *App) ConstitutionHealth() ConstitutionHealthView {
 		Status:      "healthy",
 	}
 }
+
+// --- Learned Patterns ---
+
+// LearnedPatternView is a detected agent behaviour pattern displayable in the desktop.
+type LearnedPatternView struct {
+	Name       string `json:"name"`
+	Trigger    string `json:"trigger"`
+	Action     string `json:"action"`
+	Confidence int    `json:"confidence"`
+	Draft      string `json:"draft"` // suggested SKILL.md
+}
+
+// LearnedTrajectoryView is a multi-turn trajectory summary.
+type LearnedTrajectoryView struct {
+	Label string `json:"label"`
+	Turns []int  `json:"turns"`
+	Count int    `json:"count"`
+}
+
+// LearnedPatterns returns detected patterns and trajectories from the active
+// session's learner (if enabled). Returns empty slices when learning is
+// disabled or no data has been collected.
+func (a *App) LearnedPatterns() ([]LearnedPatternView, []LearnedTrajectoryView) {
+	tab := a.activeTab()
+	if tab == nil || tab.Ctrl == nil {
+		return nil, nil
+	}
+	// Learner is not yet wired through the controller; return empty for now.
+	// When [learn].enabled=true and the agent observes turns, patterns and
+	// trajectories will be available here.
+	return nil, nil
+}

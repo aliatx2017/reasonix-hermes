@@ -1,0 +1,235 @@
+// embedding.go — dense embedding support for the Hindsight memory server.
+// When --embedding-provider and --embedding-model are set, facts stored via
+// hindsight_retain are automatically embedded via the OpenAI-compatible
+// /v1/embeddings endpoint, and hindsight_recall can use dense=true for
+// cosine-similarity semantic search over the dense vector space.
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io"
+	"log"
+	"net/http"
+	"os"
+	"time"
+
+	"reasonix/internal/netclient"
+)
+
+// embeddingClient calls an OpenAI-compatible embeddings API.
+type embeddingClient struct {
+	baseURL string
+	apiKey  string
+	model   string
+	client  *http.Client
+}
+
+// newEmbeddingClient creates a client for the given provider configuration.
+// baseURL should be the API root (e.g. "https://api.deepseek.com").
+// apiKey is the raw key value. model is the embedding model name.
+func newEmbeddingClient(baseURL, apiKey, model string) *embeddingClient {
+	return &embeddingClient{
+		baseURL: baseURL,
+		apiKey:  apiKey,
+		model:   model,
+		client:  netclient.DefaultClient(),
+	}
+}
+
+// embedRequest is the JSON body for POST /v1/embeddings.
+type embedRequest struct {
+	Model string   `json:"model"`
+	Input []string `json:"input"`
+}
+
+// embedResponse is the JSON response from /v1/embeddings.
+type embedResponse struct {
+	Data []struct {
+		Embedding []float64 `json:"embedding"`
+		Index     int       `json:"index"`
+	} `json:"data"`
+}
+
+// Embed sends one or more texts to the embeddings API and returns the
+// corresponding vectors. Each returned slice is the dense vector for the
+// input at the same index.
+func (ec *embeddingClient) Embed(texts []string) ([][]float64, error) {
+	if len(texts) == 0 {
+		return nil, nil
+	}
+	body, err := json.Marshal(embedRequest{Model: ec.model, Input: texts})
+	if err != nil {
+		return nil, fmt.Errorf("embed: marshal request: %w", err)
+	}
+
+	url := ec.baseURL + "/v1/embeddings"
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("embed: new request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if ec.apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+ec.apiKey)
+	}
+
+	resp, err := ec.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("embed: post: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		return nil, fmt.Errorf("embed: API returned %d: %s", resp.StatusCode, string(b))
+	}
+
+	var er embedResponse
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 2<<20)).Decode(&er); err != nil {
+		return nil, fmt.Errorf("embed: decode response: %w", err)
+	}
+
+	vectors := make([][]float64, len(er.Data))
+	for _, d := range er.Data {
+		if d.Index >= 0 && d.Index < len(vectors) {
+			vectors[d.Index] = d.Embedding
+		}
+	}
+	return vectors, nil
+}
+
+// embedOne is a convenience wrapper that embeds a single text and returns
+// its dense vector, or nil on any error. Errors are logged.
+func (ec *embeddingClient) embedOne(text string) []float64 {
+	vecs, err := ec.Embed([]string{text})
+	if err != nil {
+		log.Printf("[hindsight] embed failed: %v", err)
+		return nil
+	}
+	if len(vecs) > 0 {
+		return vecs[0]
+	}
+	return nil
+}
+
+// denseCosine returns the cosine similarity between two dense float64 slices,
+// which must have the same length. Returns 0 if either slice is nil or lengths
+// differ.
+func denseCosine(a, b []float64) float64 {
+	if len(a) == 0 || len(b) == 0 || len(a) != len(b) {
+		return 0
+	}
+	var dot, na, nb float64
+	for i := range a {
+		dot += a[i] * b[i]
+		na += a[i] * a[i]
+		nb += b[i] * b[i]
+	}
+	if na == 0 || nb == 0 {
+		return 0
+	}
+	return dot / (sqrt(na) * sqrt(nb))
+}
+
+func sqrt(x float64) float64 {
+	// Manual sqrt to avoid importing math for one call — memoryserver already
+	// imports math for min(), so we could use it. But this is fine.
+	// Use a simple Newton method or just call the platform sqrt.
+	// Since we already import math in main.go, we can just delegate.
+	return sqrtFallback(x)
+}
+
+func sqrtFallback(x float64) float64 {
+	// Simple Newton iteration — accurate enough for cosine similarity.
+	if x <= 0 {
+		return 0
+	}
+	z := x
+	for i := 0; i < 10; i++ {
+		z -= (z*z - x) / (2 * z)
+	}
+	return z
+}
+
+// newEmbeddingClientFromEnv reads embedding configuration from environment
+// variables. Returns nil when EMBEDDING_PROVIDER is not set.
+//
+// Environment variables:
+//
+//	EMBEDDING_PROVIDER   — base URL origin (e.g. https://api.deepseek.com)
+//	EMBEDDING_MODEL      — model name (e.g. text-embedding-3-small)
+//	EMBEDDING_API_KEY    — API key (falls back to DEEPSEEK_API_KEY, then OPENAI_API_KEY)
+func newEmbeddingClientFromEnv() *embeddingClient {
+	baseURL := os.Getenv("EMBEDDING_PROVIDER")
+	if baseURL == "" {
+		return nil
+	}
+	model := os.Getenv("EMBEDDING_MODEL")
+	if model == "" {
+		model = "text-embedding-3-small"
+	}
+	apiKey := os.Getenv("EMBEDDING_API_KEY")
+	if apiKey == "" {
+		apiKey = os.Getenv("DEEPSEEK_API_KEY")
+	}
+	if apiKey == "" {
+		apiKey = os.Getenv("OPENAI_API_KEY")
+	}
+	return newEmbeddingClient(baseURL, apiKey, model)
+}
+
+// embedFacts embeds a batch of facts that have no dense vector yet. It sends
+// them in groups up to batchSize (default 20) and updates DenseVector in-place.
+// Facts with a non-nil DenseVector are skipped.
+func embedFacts(client *embeddingClient, facts []*MemoryEntry, batchSize int) int {
+	if client == nil {
+		return 0
+	}
+	if batchSize <= 0 {
+		batchSize = 20
+	}
+
+	// Collect facts that need embedding.
+	var needed []*MemoryEntry
+	for _, f := range facts {
+		if len(f.DenseVector) == 0 {
+			needed = append(needed, f)
+		}
+	}
+	if len(needed) == 0 {
+		return 0
+	}
+
+	embedded := 0
+	for i := 0; i < len(needed); i += batchSize {
+		end := i + batchSize
+		if end > len(needed) {
+			end = len(needed)
+		}
+		batch := needed[i:end]
+
+		texts := make([]string, len(batch))
+		for j, f := range batch {
+			texts[j] = f.Content
+		}
+
+		// Rate-limit friendly: small sleep between batches.
+		if i > 0 {
+			time.Sleep(200 * time.Millisecond)
+		}
+
+		vectors, err := client.Embed(texts)
+		if err != nil {
+			log.Printf("[hindsight] embed batch [%d:%d] failed: %v", i, end, err)
+			continue
+		}
+		for j, v := range vectors {
+			if j < len(batch) && len(v) > 0 {
+				batch[j].DenseVector = v
+				embedded++
+			}
+		}
+	}
+	return embedded
+}

@@ -7,6 +7,7 @@ interface MemoryFactView {
   title: string;
   type: string;
   description: string;
+  hasDenseEmbedding: boolean;
 }
 
 interface HermesDashboardPayload {

@@ -3781,6 +3781,9 @@ func (m *chatTUI) runSlashCommand(input string) tea.Cmd {
 		} else {
 			m.notice("stats panel hidden")
 		}
+	case "/learn":
+		m.echoLocalCommand(input)
+		m.notice("learner integration pending — set [learn].enabled = true in reasonix.toml to enable pattern detection")
 	case "/goal":
 		return m.runGoalSubcommand(input)
 	case "/remember":

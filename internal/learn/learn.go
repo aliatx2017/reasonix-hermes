@@ -185,6 +185,91 @@ func (l *Learner) BuildReflectionPrompt() string {
 	return b.String()
 }
 
+// SuggestSkill generates a SKILL.md markdown draft from a detected pattern.
+// The user should review and approve before it is written to disk.
+func (l *Learner) SuggestSkill(p Pattern) string {
+	var b strings.Builder
+	name := strings.ReplaceAll(strings.ToLower(p.Name), " ", "-")
+	if !strings.HasPrefix(name, "skill-") {
+		name = "skill-" + name
+	}
+	b.WriteString("---\n")
+	b.WriteString(fmt.Sprintf("name: %s\n", name))
+	b.WriteString(fmt.Sprintf("description: Auto-detected pattern: %s (confidence=%d)\n", p.Name, p.Confidence))
+	b.WriteString(fmt.Sprintf("trigger: %s\n", p.Trigger))
+	b.WriteString(fmt.Sprintf("runAs: inline\n"))
+	b.WriteString("---\n\n")
+	b.WriteString(fmt.Sprintf("# %s\n\n", p.Name))
+	b.WriteString(fmt.Sprintf("**Detected by Reasonix learner** (observed %d times).\n\n", p.Confidence))
+	b.WriteString(fmt.Sprintf("## Trigger\n\n%s\n\n", p.Trigger))
+	b.WriteString(fmt.Sprintf("## Action\n\n%s\n\n", p.Action))
+	b.WriteString("## Review\n\n")
+	b.WriteString("This skill was automatically suggested. Please review the trigger and action ")
+	b.WriteString("before saving — the learner may have detected a coincidence, not a genuine workflow.\n")
+	return b.String()
+}
+
+// MultiTurnTrajectory groups consecutive turns that share a tool sequence into a
+// higher-level pattern. It returns trajectory summaries useful for reflection.
+type MultiTurnTrajectory struct {
+	Label  string `json:"label"`  // e.g. "edit+test (3 turns)"
+	Turns  []int  `json:"turns"`  // turn numbers in this trajectory
+	Count  int    `json:"count"`  // number of turns
+}
+
+// Trajectories returns multi-turn sequences detected from observations.
+// A trajectory is a run of consecutive turns that share the same tool-call
+// pattern (same ordered tool names).
+func (l *Learner) Trajectories() []MultiTurnTrajectory {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	if len(l.observations) < 2 {
+		return nil
+	}
+
+	// Build signatures for consecutive turns.
+	type sig struct {
+		key  string
+		turn int
+	}
+	var sigs []sig
+	for _, obs := range l.observations {
+		if len(obs.ToolCalls) == 0 {
+			continue
+		}
+		names := make([]string, len(obs.ToolCalls))
+		for i, tc := range obs.ToolCalls {
+			names[i] = tc.Name
+		}
+		sigs = append(sigs, sig{key: strings.Join(names, "→"), turn: obs.Turn})
+	}
+
+	if len(sigs) < 2 {
+		return nil
+	}
+
+	// Group consecutive turns with the same signature.
+	var trajectories []MultiTurnTrajectory
+	current := MultiTurnTrajectory{Label: sigs[0].key, Turns: []int{sigs[0].turn}, Count: 1}
+	for i := 1; i < len(sigs); i++ {
+		if sigs[i].key == current.Label {
+			current.Turns = append(current.Turns, sigs[i].turn)
+			current.Count++
+		} else {
+			if current.Count >= 3 {
+				trajectories = append(trajectories, current)
+			}
+			current = MultiTurnTrajectory{Label: sigs[i].key, Turns: []int{sigs[i].turn}, Count: 1}
+		}
+	}
+	if current.Count >= 3 {
+		trajectories = append(trajectories, current)
+	}
+
+	return trajectories
+}
+
 // Reset clears all observations and patterns.
 func (l *Learner) Reset() {
 	l.mu.Lock()

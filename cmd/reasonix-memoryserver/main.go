@@ -54,7 +54,8 @@ type MemoryEntry struct {
 	TTL         time.Duration `json:"ttl_ns"`       // nanoseconds; 0 = use default
 	ExpiresAt   time.Time     `json:"expires_at"`   // computed as CreatedAt + TTL
 	Importance  float64        `json:"importance"`   // 0.0–1.0, bumped on recall
-	Vector      map[string]float64 `json:"vector,omitempty"` // TF vector for semantic search
+	Vector      map[string]float64 `json:"vector,omitempty"` // TF vector for sparse semantic search
+	DenseVector []float64     `json:"dense_vector,omitempty"` // dense embedding vector from API
 }
 
 // Expired reports whether the entry has passed its expiry and should be
@@ -74,6 +75,8 @@ type MemoryStore struct {
 	dir     string // directory path (for diagnostics)
 	entries []MemoryEntry
 	nextID  atomic.Int64
+	embed   *embeddingClient // optional dense embedding API client
+	embedBatch int            // max facts per embedding API call
 }
 
 // Dir returns the storage directory path.
@@ -182,6 +185,63 @@ func NewMemoryStoreWithStorage(s Storage, dir string) (*MemoryStore, error) {
 	return ms, nil
 }
 
+// SetEmbedder wires the optional dense embedding client and batch size.
+func (ms *MemoryStore) SetEmbedder(ec *embeddingClient, batchSize int) {
+	ms.embed = ec
+	ms.embedBatch = batchSize
+}
+
+// SearchDense returns memories ranked by cosine similarity of their dense
+// vectors to the query vector. Facts without dense vectors are skipped.
+func (ms *MemoryStore) SearchDense(query, sessionID string, limit int) ([]MemoryEntry, error) {
+	if ms.embed == nil {
+		return nil, fmt.Errorf("dense search requires an embedding provider (set EMBEDDING_PROVIDER)")
+	}
+	queryVec := ms.embed.embedOne(query)
+	if queryVec == nil {
+		return nil, fmt.Errorf("failed to embed query")
+	}
+
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
+
+	type scored struct {
+		entry MemoryEntry
+		score float64
+	}
+	var candidates []scored
+	for i := range ms.entries {
+		e := &ms.entries[i]
+		if e.Expired() {
+			continue
+		}
+		if len(e.DenseVector) == 0 {
+			continue
+		}
+		if sessionID != "" && e.SessionID != sessionID {
+			continue
+		}
+		sim := denseCosine(queryVec, e.DenseVector)
+		if sim > 0.3 { // minimum similarity threshold
+			candidates = append(candidates, scored{entry: *e, score: sim})
+		}
+	}
+
+	sort.Slice(candidates, func(i, j int) bool {
+		return candidates[i].score > candidates[j].score
+	})
+
+	if limit > 0 && len(candidates) > limit {
+		candidates = candidates[:limit]
+	}
+
+	results := make([]MemoryEntry, len(candidates))
+	for i, c := range candidates {
+		results[i] = c.entry
+	}
+	return results, nil
+}
+
 func (ms *MemoryStore) load() error {
 	entries, err := ms.storage.Load()
 	if err != nil {
@@ -262,6 +322,12 @@ func (ms *MemoryStore) Retain(sessionID, content string, tags []string) (*Memory
 		Importance: 0.5, // start at medium importance
 		Vector:     vectorize(content),
 	}
+
+	// Auto-embed with dense vectors when the embedding client is configured.
+	if ms.embed != nil {
+		entry.DenseVector = ms.embed.embedOne(content)
+	}
+
 	ms.entries = append(ms.entries, entry)
 	if err := ms.save(); err != nil {
 		// Rollback
@@ -398,6 +464,37 @@ func (ms *MemoryStore) SearchSimilar(query string, sessionID string, limit int) 
 	return results, nil
 }
 
+// MemoryStats holds aggregate counts for the desktop dashboard.
+type MemoryStats struct {
+	TotalFacts     int `json:"totalFacts"`
+	ActiveFacts    int `json:"activeFacts"`
+	DenseCount     int `json:"denseCount"`     // facts with dense embeddings
+	SparseCount    int `json:"sparseCount"`    // facts with TF-IDF vectors
+	EmbedAvailable bool `json:"embedAvailable"` // embedding client is configured
+}
+
+// Stats returns aggregate memory statistics.
+func (ms *MemoryStore) Stats() MemoryStats {
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
+	var s MemoryStats
+	s.EmbedAvailable = ms.embed != nil
+	for i := range ms.entries {
+		e := &ms.entries[i]
+		s.TotalFacts++
+		if !e.Expired() {
+			s.ActiveFacts++
+		}
+		if len(e.DenseVector) > 0 {
+			s.DenseCount++
+		}
+		if len(e.Vector) > 0 {
+			s.SparseCount++
+		}
+	}
+	return s
+}
+
 func (ms *MemoryStore) Reflect(sessionID string) string {
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
@@ -416,9 +513,14 @@ func (ms *MemoryStore) Reflect(sessionID string) string {
 	var out strings.Builder
 	out.WriteString(fmt.Sprintf("# Session Reflection: %s\n\n", sessionID))
 	out.WriteString(fmt.Sprintf("%d memories retained:\n\n", len(sessionMemories)))
+	var denseCount int
 	for _, e := range sessionMemories {
 		out.WriteString(fmt.Sprintf("- [%s] %s\n", e.CreatedAt.Format("Jan 2 15:04"), truncateStr(e.Content, 100)))
+		if len(e.DenseVector) > 0 {
+			denseCount++
+		}
 	}
+	out.WriteString(fmt.Sprintf("\n---\n%d/%d have dense embeddings.\n", denseCount, len(sessionMemories)))
 	return out.String()
 }
 
@@ -457,6 +559,7 @@ func memoryTools() []mcputil.Tool {
 					"query":      map[string]any{"type": "string", "description": "Search keyword (empty = all). Use with semantic=true for meaning-based search."},
 					"limit":      map[string]any{"type": "integer", "description": "Max results (default 10)"},
 					"semantic":   map[string]any{"type": "boolean", "description": "Use TF-IDF vector similarity instead of keyword matching"},
+					"dense":      map[string]any{"type": "boolean", "description": "Use dense embedding similarity (requires EMBEDDING_PROVIDER configured)"},
 				},
 			},
 		},
@@ -510,9 +613,15 @@ func (h *memoryHandler) handle(name string, args map[string]any) (string, error)
 		if s, ok := args["semantic"].(bool); ok {
 			semantic = s
 		}
+		dense := false
+		if d, ok := args["dense"].(bool); ok {
+			dense = d
+		}
 		var entries []MemoryEntry
 		var err error
-		if semantic && query != "" {
+		if dense && query != "" && h.store.embed != nil {
+			entries, err = h.store.SearchDense(query, sessionID, limit)
+		} else if semantic && query != "" {
 			entries, err = h.store.SearchSimilar(query, sessionID, limit)
 		} else {
 			entries, err = h.store.Recall(sessionID, query, limit)
@@ -583,6 +692,15 @@ func main() {
 		defer ss.Close()
 	}
 	store.Tidy() // clean up expired entries on startup
+
+	// Wire optional dense embedding client (reads EMBEDDING_PROVIDER / EMBEDDING_MODEL / EMBEDDING_API_KEY).
+	ec := newEmbeddingClientFromEnv()
+	if ec != nil {
+		store.SetEmbedder(ec, 20)
+		log.Printf("[hindsight] dense embedding configured: %s (%s)", ec.baseURL, ec.model)
+	} else {
+		log.Printf("[hindsight] dense embedding not configured (set EMBEDDING_PROVIDER to enable)")
+	}
 
 	h := &memoryHandler{store: store}
 

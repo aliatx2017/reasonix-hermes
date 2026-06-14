@@ -65,6 +65,7 @@ type Config struct {
 	Mesh          MeshConfig          `toml:"mesh"`
 	Collab        CollabConfig        `toml:"collab"`
 	Marketplace   MarketplaceConfig   `toml:"marketplace"`
+	Embedding     EmbeddingConfig     `toml:"embedding"`
 }
 
 // UIConfig controls CLI presentation-only settings. Desktop appearance is kept in
@@ -489,6 +490,7 @@ type BotConfig struct {
 	Discord          DiscordBotConfig      `toml:"discord"`
 	Telegram         TelegramBotConfig     `toml:"telegram"`
 	Line             LineBotConfig         `toml:"line"`
+	Slack            SlackBotConfig        `toml:"slack"`
 	Connections      []BotConnectionConfig `toml:"connections"`
 }
 
@@ -625,6 +627,13 @@ type LineBotConfig struct {
 	AllowDMs bool   `toml:"allow_dms"` // respond to DMs (default true)
 }
 
+// SlackBotConfig configures a Slack bot via Socket Mode.
+type SlackBotConfig struct {
+	Enabled     bool   `toml:"enabled"`
+	TokenEnv    string `toml:"token_env"`     // env var for bot token, e.g. SLACK_BOT_TOKEN
+	AppTokenEnv string `toml:"app_token_env"` // env var for app-level token, e.g. SLACK_APP_TOKEN
+}
+
 // BotConnectionConfig is the desktop-friendly connection record for IM bot
 // channels. It keeps install/runtime state separate from legacy per-provider
 // knobs so the UI can expose a simple "connect first" flow while old configs
@@ -651,7 +660,8 @@ type BotConnectionCredential struct {
 	AppSecretEnv string `toml:"app_secret_env"`
 	AccountID    string `toml:"account_id"`
 	TokenEnv     string `toml:"token_env"`
-	SecretEnv    string `toml:"secret_env"` // LINE channel secret (also used for other webhook-signing platforms)
+	AppTokenEnv  string `toml:"app_token_env"` // Slack app-level token (also used for other socket-mode platforms)
+	SecretEnv    string `toml:"secret_env"`    // LINE channel secret (also used for other webhook-signing platforms)
 }
 
 type BotConnectionSessionMapping struct {
@@ -966,6 +976,17 @@ type AuxModelRef struct {
 // IsSet reports whether both Provider and Model are non-empty.
 func (r AuxModelRef) IsSet() bool {
 	return strings.TrimSpace(r.Provider) != "" && strings.TrimSpace(r.Model) != ""
+}
+
+// EmbeddingConfig controls text embedding for the memory server's dense vector
+// search. When set, facts stored via hindsight_retain are automatically embedded
+// using the configured provider/model, and hindsight_recall can use dense=true
+// for cosine-similarity semantic search alongside the existing TF-IDF sparse index.
+type EmbeddingConfig struct {
+	Provider  string `toml:"provider"`   // provider name (e.g. "deepseek" or an openai-compatible entry)
+	Model     string `toml:"model"`      // embedding model id (e.g. "text-embedding-3-small")
+	APIKeyEnv string `toml:"api_key_env"` // env var for the API key (falls back to the provider's key when empty)
+	BatchSize int    `toml:"batch_size"`  // max facts per embedding API call (default 20); set 0 to embed one-by-one
 }
 
 // ProviderEntry declares a model provider instance. ContextWindow is the model's

@@ -579,6 +579,76 @@ func nextForError(err error) string {
 	}
 }
 
+// CLIRequest is the structured input for the CLI frontend (reasonix install-source).
+// It mirrors the tool's JSON schema fields as Go values rather than raw JSON,
+// letting CLI callers avoid manual JSON construction.
+type CLIRequest struct {
+	Op        string            // "install" | "uninstall"
+	Source    string            // URL, local path, or package name
+	Apply     bool              // actually write/connect
+	Scope     string            // project|global
+	Kind      string            // auto|skill|mcp
+	Mode      string            // auto|copy|link|register
+	Name      string            // override discovered name
+	Transport string            // auto|stdio|http|sse
+	Command   string            // stdio command override
+	Args      []string          // stdio args
+	Env       map[string]string // MCP env
+	Headers   map[string]string // HTTP headers
+	Tier      string            // lazy|background|eager
+	Replace   bool              // overwrite existing MCP entries
+	Strict    *bool             // require skill frontmatter; nil = true
+}
+
+// CLIResponse is the CLI-facing result of RunCLI. Output is the raw JSON the
+// tool returned, formatted for terminal display. OK is false when the tool
+// returned an error or a non-ok status.
+type CLIResponse struct {
+	OK     bool
+	Output string
+}
+
+// RunCLI executes the install_source tool from outside an agent session
+// (e.g. from the CLI subcommand) and returns a CLI-friendly response.
+func RunCLI(ctx context.Context, t tool.Tool, req CLIRequest) CLIResponse {
+	strict := req.Strict == nil || *req.Strict
+	args, err := json.Marshal(request{
+		Op:        req.Op,
+		Source:    req.Source,
+		Apply:     req.Apply,
+		Scope:     req.Scope,
+		Kind:      req.Kind,
+		Mode:      req.Mode,
+		Name:      req.Name,
+		Transport: req.Transport,
+		Command:   req.Command,
+		Args:      req.Args,
+		Env:       req.Env,
+		Headers:   req.Headers,
+		Tier:      req.Tier,
+		Replace:   req.Replace,
+		Strict:    &strict,
+	})
+	if err != nil {
+		return CLIResponse{OK: false, Output: fmt.Sprintf("install-source: marshal args: %v", err)}
+	}
+	result, err := t.Execute(ctx, args)
+	if err != nil {
+		return CLIResponse{OK: false, Output: fmt.Sprintf("install-source: %v", err)}
+	}
+	// Pretty-print the JSON response.
+	var obj map[string]any
+	if err := json.Unmarshal([]byte(result), &obj); err != nil {
+		return CLIResponse{OK: true, Output: result}
+	}
+	pretty, _ := json.MarshalIndent(obj, "", "  ")
+	ok := true
+	if v, _ := obj["ok"].(bool); !v {
+		ok = false
+	}
+	return CLIResponse{OK: ok, Output: string(pretty)}
+}
+
 // currentDir / userHomeDir / lstat are tiny wrappers that exist so tests
 // can stub them; the wrappers today just call the stdlib versions.
 var (

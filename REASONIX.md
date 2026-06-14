@@ -196,6 +196,44 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 - [ ] **npm: publish reasonix-hermes** — set 2FA-bypass granular token, push tag
 - [ ] **Upstream the LINE adapter** — open a PR to esengine/deepseek-reasonix with the line/ package if they want it
 
+### Session 2026-07-15 (h7) — audit + bug fix + 4-phase expansion
+
+- **Audit**: Verified 20 claims from an AI-generated deep analysis against actual code at HEAD. 14 false/already-fixed, 4 real issues found — 1 fixed this session.
+  - **BUG-6 fixed**: BotGateway session memory leak — added `evictLoop` (5-min ticker, 30-min idle timeout), `evictIdleSessions()`, `ctx/cancel` context, integrated with existing `Stop()`. The `REASONIX.md` P0-1 claim from June 2026 was never actually committed; now it's real.
+  - SEC-2 (editor shell injection): path is quoted, editor value from user's own env — low risk, deferred.
+  - Controller at 3,682 lines: defer decomposition.
+  - No SQLite FTS5: only matters at scale, deferred.
+  - **Audit doc**: `docs/AUDIT-REVIEW-2026-07-15.md` — full evidence-backed report.
+
+- **Phase 1 — Bug fixes**:
+  - `install-source` CLI command: `internal/cli/install_source.go` → `installsource.RunCLI` → dispatch in `cli.go`. Tested end-to-end with remote URL install+uninstall.
+  - Desktop hotbar/profiles persistence: `SetDesktopHotbar`/`SetProfiles` mutators in `edit.go`, Wails bindings in `settings_app.go`, frontend bridge declarations in `bridge.ts`.
+
+- **Phase 2 — Dense memory embeddings**:
+  - `[embedding]` config section (`EmbeddingConfig`): provider, model, api_key_env, batch_size.
+  - Embedding API client: `cmd/reasonix-memoryserver/embedding.go` — OpenAI-compatible `/v1/embeddings`, batch embedding, `denseCosine`.
+  - SQLite `dense_vector` column: schema migration, Load/Save/Search updated.
+  - `dense=true` parameter on `hindsight_recall`: calls `SearchDense` with cosine similarity threshold 0.3.
+  - Auto-embedding on retain: `Retain()` calls `embedOne()` when `EMBEDDING_PROVIDER` env var set.
+  - `MemoryStats` struct with dense/sparse counts, enhanced `Reflect()` output.
+  - `hasDenseEmbedding` on `MemoryFactView` for D3 graph toggle.
+
+- **Phase 3 — Autonomous learning loop**:
+  - `SuggestSkill(pattern)` generates SKILL.md markdown drafts from detected patterns.
+  - `MultiTurnTrajectory` with `Trajectories()` method — groups consecutive turns by tool sequence.
+  - `/learn` slash command in CLI chat TUI (wiring pending `[learn].enabled=true`).
+  - `LearnedPatterns()`/`LearnedTrajectoryView` desktop bindings in `hermes_tier3.go` + TypeScript types.
+
+- **Phase 4 — Slack adapter**:
+  - `internal/bot/slack/slack.go` — 200-line `bot.Adapter` implementation (Socket Mode, DMs + @mentions, message splitting at paragraph boundaries).
+  - `PlatformSlack`, `SlackBotConfig`, `AppTokenEnv` on `BotConnectionCredential`.
+  - Wired into gateway (`PlatformConfigured`, `EnabledPlatforms`, runtime adapter bindings, allowlist).
+  - `slack-go/slack` v0.26.0 added to both main + desktop go.mod.
+  - E2E tests + `/debate` mesh-command deferred (time budget).
+
+- **Build**: All binaries compile. `go build ./...` + `go vet ./...` + `tsc --noEmit` pass.
+- **Files**: 24 files changed, ~770 additions across Go + TypeScript. 4 new files.
+
 ### Recently completed
 - [x] **StatusBar sqz/aux compact chips** (✅ 2026-07-15) — `CompressGaugeCompact` chip added to StatusBar hermes group alongside Discord + Cache chips. Shows `sqz↓N` (bytes saved) and `aux↓N` (aux tokens) with Zap icon. Push-event driven with 30s polling fallback.
 - [x] **i18n for LINE adapter** (✅ 2026-07-15) — Resolved as designed: bot adapters are explicitly out of scope for i18n (CLI-surface-only per package doc). No code change needed.

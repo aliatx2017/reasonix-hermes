@@ -683,6 +683,7 @@ export interface MemoryFactView {
   title: string;
   type: string;
   description: string;
+  hasDenseEmbedding: boolean; // true when the fact has a dense embedding vector
 }
 
 export interface BotLiveStatusView {
@@ -758,6 +759,20 @@ export interface ConstitutionHealthView {
   principles: string[];
   constraints: string[];
   status: string;
+}
+
+export interface LearnedPatternView {
+  name: string;
+  trigger: string;
+  action: string;
+  confidence: number;
+  draft: string;
+}
+
+export interface LearnedTrajectoryView {
+  label: string;
+  turns: number[];
+  count: number;
 }
 
 export interface CheckpointFileView {

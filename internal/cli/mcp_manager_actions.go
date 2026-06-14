@@ -396,13 +396,13 @@ func mcpEditConfigLaunchCommand(path string, lookPath func(string) (string, erro
 	}
 	if editor := strings.TrimSpace(os.Getenv("VISUAL")); editor != "" {
 		return mcpEditConfigLaunch{
-			cmd:    exec.Command("sh", "-lc", editor+" "+shellQuote(path)),
+			cmd:    exec.Command("sh", "-lc", shellQuote(editor)+" "+shellQuote(path)),
 			editor: mcpEditorDisplayName(editor),
 		}, nil
 	}
 	if editor := strings.TrimSpace(os.Getenv("EDITOR")); editor != "" {
 		return mcpEditConfigLaunch{
-			cmd:    exec.Command("sh", "-lc", editor+" "+shellQuote(path)),
+			cmd:    exec.Command("sh", "-lc", shellQuote(editor)+" "+shellQuote(path)),
 			editor: mcpEditorDisplayName(editor),
 		}, nil
 	}

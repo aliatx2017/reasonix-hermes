@@ -277,9 +277,10 @@ type CompressStatsView struct {
 
 // MemoryFactView is one fact from the auto-memory store.
 type MemoryFactView struct {
-	Title       string `json:"title"`
-	Type        string `json:"type"`
-	Description string `json:"description"`
+	Title             string `json:"title"`
+	Type              string `json:"type"`
+	Description       string `json:"description"`
+	HasDenseEmbedding bool   `json:"hasDenseEmbedding"`
 }
 
 // MemoryFacts returns facts and docs from the auto-memory store for graph display.

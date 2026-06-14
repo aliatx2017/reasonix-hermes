@@ -15,6 +15,7 @@ const (
 	PlatformDiscord  Platform = "discord"
 	PlatformTelegram Platform = "telegram"
 	PlatformLine     Platform = "line"
+	PlatformSlack    Platform = "slack"
 )
 
 // ChatType identifies the conversation type.

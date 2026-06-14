@@ -1527,6 +1527,17 @@ func (a *App) SetExpandThinking(on bool) error {
 	return a.applyConfigOnly(func(c *config.Config) error { return c.SetExpandThinking(on) })
 }
 
+// SetDesktopHotbar validates and persists the desktop hotbar key bindings.
+// Changes are written to config on disk and take effect immediately.
+func (a *App) SetDesktopHotbar(h config.HotbarConfig) error {
+	return a.applyConfigOnly(func(c *config.Config) error { return c.SetDesktopHotbar(h) })
+}
+
+// SetProfiles replaces all harness profiles. An empty map clears them.
+func (a *App) SetProfiles(profiles map[string]config.ProfileConfig) error {
+	return a.applyConfigOnly(func(c *config.Config) error { return c.SetProfiles(profiles) })
+}
+
 // MigrateDesktopPreferences imports old browser-local desktop preferences into
 // the user config once. Existing [desktop] values win so stale localStorage never
 // overwrites an explicit config edit.

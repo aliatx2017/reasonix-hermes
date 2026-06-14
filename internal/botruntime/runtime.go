@@ -11,6 +11,7 @@ import (
 	"reasonix/internal/bot/feishu"
 	"reasonix/internal/bot/line"
 	"reasonix/internal/bot/qq"
+	"reasonix/internal/bot/slack"
 	"reasonix/internal/bot/telegram"
 	"reasonix/internal/bot/weixin"
 	"reasonix/internal/config"
@@ -39,6 +40,8 @@ func EnabledPlatforms(cfg *config.Config, channels []string) (map[bot.Platform]b
 				enabled[bot.PlatformTelegram] = PlatformConfigured(cfg, bot.PlatformTelegram)
 			case bot.PlatformLine:
 				enabled[bot.PlatformLine] = PlatformConfigured(cfg, bot.PlatformLine)
+			case bot.PlatformSlack:
+				enabled[bot.PlatformSlack] = PlatformConfigured(cfg, bot.PlatformSlack)
 			default:
 				if strings.EqualFold(ch, "lark") {
 					enabled[bot.PlatformFeishu] = PlatformConfigured(cfg, bot.PlatformFeishu)
@@ -55,6 +58,7 @@ func EnabledPlatforms(cfg *config.Config, channels []string) (map[bot.Platform]b
 	enabled[bot.PlatformDiscord] = PlatformConfigured(cfg, bot.PlatformDiscord)
 	enabled[bot.PlatformTelegram] = PlatformConfigured(cfg, bot.PlatformTelegram)
 	enabled[bot.PlatformLine] = PlatformConfigured(cfg, bot.PlatformLine)
+	enabled[bot.PlatformSlack] = PlatformConfigured(cfg, bot.PlatformSlack)
 	return enabled, warnings
 }
 
@@ -119,6 +123,10 @@ func PlatformConfigured(cfg *config.Config, platform bot.Platform) bool {
 		}
 	case bot.PlatformLine:
 		if cfg.Bot.Line.Enabled {
+			return true
+		}
+	case bot.PlatformSlack:
+		if cfg.Bot.Slack.Enabled {
 			return true
 		}
 	}
@@ -271,6 +279,13 @@ func AdapterBindings(cfg *config.Config, enabled map[bot.Platform]bool, feishuDo
 			lineCfg.SecretEnv = firstNonEmptyString(strings.TrimSpace(conn.Credential.SecretEnv), lineCfg.SecretEnv)
 			bindings = append(bindings, bot.AdapterBinding{ID: id, Domain: "line", Platform: platform, Adapter: line.New(lineCfg, logger)})
 			hasConnection[platform] = true
+		case bot.PlatformSlack:
+			slackCfg := cfg.Bot.Slack
+			slackCfg.Enabled = true
+			slackCfg.TokenEnv = firstNonEmptyString(strings.TrimSpace(conn.Credential.TokenEnv), slackCfg.TokenEnv)
+			slackCfg.AppTokenEnv = firstNonEmptyString(strings.TrimSpace(conn.Credential.AppTokenEnv), slackCfg.AppTokenEnv)
+			bindings = append(bindings, bot.AdapterBinding{ID: id, Domain: "slack", Platform: platform, Adapter: slack.New(slackCfg, logger)})
+			hasConnection[platform] = true
 		}
 	}
 	if enabled[bot.PlatformQQ] && !hasConnection[bot.PlatformQQ] {
@@ -292,6 +307,9 @@ func AdapterBindings(cfg *config.Config, enabled map[bot.Platform]bool, feishuDo
 	}
 	if enabled[bot.PlatformLine] && !hasConnection[bot.PlatformLine] {
 		bindings = append(bindings, bot.AdapterBinding{ID: string(bot.PlatformLine), Domain: "line", Platform: bot.PlatformLine, Adapter: line.New(cfg.Bot.Line, logger)})
+	}
+	if enabled[bot.PlatformSlack] && !hasConnection[bot.PlatformSlack] {
+		bindings = append(bindings, bot.AdapterBinding{ID: string(bot.PlatformSlack), Domain: "slack", Platform: bot.PlatformSlack, Adapter: slack.New(cfg.Bot.Slack, logger)})
 	}
 	return bindings
 }
