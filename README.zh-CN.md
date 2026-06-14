@@ -64,6 +64,14 @@ Reasonix 本身是一个**配置与插件驱动**的 coding agent —— 单一�
 
 ## 安装
 
+### 一行命令（npm）
+
+```sh
+npm i -g reasonix-hermes
+```
+
+自动拉取对应平台的预编译二进制，安装后 `reasonix-hermes`（及 `reasonix`）可用。
+
 ### 从源码构建
 
 ```sh

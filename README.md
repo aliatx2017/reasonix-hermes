@@ -120,6 +120,15 @@ See the [Guide](./docs/GUIDE.md), [Spec](./docs/SPEC.md), and [Hermes Guide](./d
 
 ## Install
 
+### One-line (npm)
+
+```sh
+npm i -g reasonix-hermes
+```
+
+This pulls the prebuilt binary for your platform and adds `reasonix-hermes`
+(and `reasonix`) to your PATH.
+
 ### Build from source
 
 ```sh

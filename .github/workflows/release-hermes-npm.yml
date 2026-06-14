@@ -1,0 +1,43 @@
+name: Release Hermes npm
+
+on:
+  push:
+    tags: ['hermes-npm-v*']
+  workflow_dispatch:
+    inputs:
+      base_version:
+        description: "canary: intended next stable version, e.g. 1.7.0"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  npm:
+    name: publish reasonix-hermes npm packages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Resolve version
+        id: ver
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            base="${{ inputs.base_version }}"; base="${base#v}"
+            echo "arg=v${base}-canary.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "arg=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - run: node npm/build-hermes.mjs "${{ steps.ver.outputs.arg }}" --publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
