@@ -32,8 +32,9 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 ## Notes
 
-- **Upstream synced**: `v1.7.0` (commit ed07684, 2026-07-14). 59 commits merged. 9 binaries built and passing.
-- **Commit**: `c973fb7` — transparent logo lockup with animated Diamond Wing + wordmark, 540px README hero.
+- **Upstream synced**: `v1.7.0` (commit ed07684, 2026-07-14). 59 commits merged. 7 CLI binaries + desktop built and passing.
+- **Commit**: `194e1f4` — npm packaging + logo + README overhaul.
+- **npm**: `npm i -g reasonix-hermes` — one-line install (sub-packages at `@aliatx2017/reasonix-hermes-*`). Pipeline verified; publish pending 2FA-bypass token.
 - **Key v1.6.0 additions**: vision support (image downscaling + detail knob), built-in Time + Context7 MCP servers, configurable shell interpreter (`[tools.shell]`), notification sound system, token economy composer mode, desktop time filter + custom fonts + status bar customization + Windows ARM64, crash capture (Go panics/breadcrumbs/group summaries), lightweight local history + memory retrieval, Traditional Chinese (zh-TW) locale, updater resilience, agent fixes (decline-ask guard, compaction bounds), desktop hooks UI.
 - **Key v1.7.0 additions** (merged 2026-07-14): reasoning language settings (`agent.reasoning_language`), session ownership and state routing integration, checkpoint boundary corrections (optimistic rewind), enriched+memoized shell PATH for MCP stdio subprocesses, dropped phrase-matched approved-plan continuation, desktop golangci-lint CI, `SaveDocForTab` Wails binding.
 - **Language policy**: All Chinese comments translated to English in `internal/bot/` and `internal/config/` — SPEC §1 compliance restored. Upstream v1.6.0 still has some Chinese comments in IM bot code; these are upstream-authored and left as-is.
@@ -174,20 +175,23 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 - **Dependencies**: `gorilla/websocket` v1.5.3 added to go.mod.
 - **Total**: 15 new files, ~12 files modified, 2 new packages, 3 new React components, 8 new tests, 1 new skill. All builds clean.
 
+**Session 2026-07-14 (h5)** (logo + branding + README overhaul + npm packaging):
+- **Animated logo**: Diamond Wing (concentric spinning squares + sparkles + swept wings) — transparent background, 7 initial concepts narrowed to refined animated SVG. Combined lockup with "Reasonix-Hermes" monospace wordmark (rainbow gradient crawl) + "AI CODING AGENT" subtitle.
+- **README overhaul**: Removed upstream prebuilt install (npm/brew), fixed all binary names (`reasonix-bridge` → `reasonix-mcpbridge`), `English` → `中文` link to zh-CN README, updated custom code paths, added expansion packs table. Both English + Chinese READMEs synced.
+- **npm packaging**: `npm i -g reasonix-hermes` — one-line install. `npm/hermes/` package (7 sub-packages across 6 platforms), `bin/reasonix-hermes.js` runner script, `npm/build-hermes.mjs` cross-compile pipeline, `.github/workflows/release-hermes-npm.yml` CI. Pipeline verified (all 6 platforms cross-compile, ~20MB each). Publish pending npm 2FA-bypass token.
+- **nil-slice fix**: `SessionMessages()` return `[]provider.Message{}` instead of `nil` — prevents JSON null crash in React.
+- **Build artifacts gitignored**: `npm/.stage-hermes/` added to `.gitignore`.
+- **Total**: 10 new files, ~6 files modified. All binaries build, all tests pass.
+
 ### Next to build
+- [ ] **npm: publish reasonix-hermes** — set 2FA-bypass granular token, push tag
 - [ ] **Web UI (serve mode)** — browser-based frontend via `internal/serve/`, live session viewer + chat
 - [ ] **E2E test harness** — replay-based regression testing for agent behaviour across saved sessions
 - [ ] **Plugin marketplace** — community plugin registry (discovery, ratings, one-click install)
 - [ ] **Desktop collab panel** — React component showing live watchers + steer console (builds on `internal/collab/`)
 - [ ] **Multi-model council** — majority voting, weighted consensus, chain-of-thought synthesis (builds on `internal/mesh/`)
-- [ ] **Performance: 1M+ token session stress test** — verify cache stability, compaction correctness, memory usage
 
-### Recently completed (all 8 from original "Next" list)
-- [x] Desktop schedule/cost/publish widgets (✅ 2026-07-14)
-- [x] GitHub Action for PR review (✅ 2026-07-14)
-- [x] LSP wiring — confirmed already done by upstream (✅ 2026-07-14)
-- [x] Self-improving skill loops (✅ 2026-07-14)
-- [x] Agent-to-agent MCP mesh (✅ 2026-07-14)
-- [x] Telegram bot adapter (✅ 2026-07-14)
-- [x] Live collaboration (✅ 2026-07-14)
-- [x] Helm chart / cloud deploy (✅ 2026-07-14)
+### Recently completed
+- [x] Animated logo + wordmark lockup (✅ 2026-07-14)
+- [x] README overhaul — Hermes-first, no upstream install links (✅ 2026-07-14)
+- [x] npm i -g reasonix-hermes packaging (✅ 2026-07-14, publish pending token)
