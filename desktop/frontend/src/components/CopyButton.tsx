@@ -1,6 +1,6 @@
-import { Check, Copy } from 'lucide-react';
-import { useState } from 'react';
-import { useT } from '../lib/i18n';
+import { useState } from "react";
+import { Check, Copy } from "lucide-react";
+import { useT } from "../lib/i18n";
 
 // CopyButton copies text to the clipboard on click and briefly flips to a check.
 // navigator.clipboard works in the webview under the click's user gesture; a
@@ -10,18 +10,20 @@ export function CopyButton({
   getText,
   className,
   label,
+  showInlineLabel = true,
 }: {
   text?: string;
   getText?: () => string | Promise<string>;
   className?: string;
   label?: string;
+  showInlineLabel?: boolean;
 }) {
   const t = useT();
   const [copied, setCopied] = useState(false);
-  const actionLabel = label ?? t('msg.copy');
+  const actionLabel = label ?? t("msg.copy");
   const copy = async () => {
     try {
-      const value = getText ? await getText() : (text ?? '');
+      const value = getText ? await getText() : text ?? "";
       await navigator.clipboard.writeText(value);
       setCopied(true);
       setTimeout(() => setCopied(false), 1200);
@@ -31,13 +33,15 @@ export function CopyButton({
   };
   return (
     <button
-      className={`copybtn ${className ?? ''}`}
+      className={`copybtn ${className ?? ""}`}
       onClick={copy}
       aria-label={actionLabel}
       type="button"
     >
       {copied ? <Check size={13} /> : <Copy size={13} />}
-      <span className="copybtn__label-inline">{copied ? t('msg.copied') : actionLabel}</span>
+      {showInlineLabel && (
+        <span className="copybtn__label-inline">{copied ? t("msg.copied") : actionLabel}</span>
+      )}
     </button>
   );
 }

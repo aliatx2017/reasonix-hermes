@@ -265,6 +265,9 @@ func sha256For(sums, name string) (string, error) {
 // the symlink-redirect variant a lexical "../" check misses: a parent component
 // an earlier entry turned into a symlink, written *through* to land outside root.
 func resolveWithin(root, name string) (string, error) {
+	if !filepath.IsLocal(name) {
+		return "", fmt.Errorf("unsafe path %q in archive", name)
+	}
 	target := filepath.Join(root, name)
 	if target != root && !strings.HasPrefix(target, root+string(os.PathSeparator)) {
 		return "", fmt.Errorf("unsafe path %q in archive", name)
@@ -284,6 +287,21 @@ func resolveWithin(root, name string) (string, error) {
 		return "", fmt.Errorf("unsafe path %q in archive: escapes via symlink", name)
 	}
 	return filepath.Join(realParent, filepath.Base(target)), nil
+}
+
+func cleanSymlinkTarget(root, linkPath, linkname string) (string, error) {
+	if linkname == "" || filepath.IsAbs(linkname) {
+		return "", fmt.Errorf("unsafe symlink target %q in archive", linkname)
+	}
+	clean := filepath.Clean(linkname)
+	dest, err := filepath.EvalSymlinks(filepath.Join(filepath.Dir(linkPath), clean))
+	if err != nil {
+		return "", fmt.Errorf("unsafe symlink target %q in archive: %w", linkname, err)
+	}
+	if dest != root && !strings.HasPrefix(dest, root+string(os.PathSeparator)) {
+		return "", fmt.Errorf("unsafe symlink target %q in archive", linkname)
+	}
+	return filepath.ToSlash(clean), nil
 }
 
 // symlinkWithin rejects a symlink whose target escapes root. linkPath is the
@@ -330,11 +348,15 @@ func extractTarGz(data []byte, dir string) error {
 				return err
 			}
 		case tar.TypeSymlink:
-			if err := symlinkWithin(root, target, hdr.Linkname); err != nil {
+			linkname, err := cleanSymlinkTarget(root, target, hdr.Linkname)
+			if err != nil {
+				return err
+			}
+			if err := symlinkWithin(root, target, linkname); err != nil {
 				return err
 			}
 			_ = os.Remove(target)
-			if err := os.Symlink(hdr.Linkname, target); err != nil {
+			if err := os.Symlink(linkname, target); err != nil {
 				return err
 			}
 		case tar.TypeReg:

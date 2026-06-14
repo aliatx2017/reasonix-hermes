@@ -236,13 +236,14 @@ context7_enabled = false # built-in Context7 documentation MCP server
 # max_depth = 3                                  # nested scan depth; set 1 for legacy root-only discovery
 
 # Hooks run shell commands around the loop (PreToolUse / PostToolUse /
-# UserPromptSubmit / Stop). They are NOT configured here — put them in
+# PermissionRequest / UserPromptSubmit / Stop). They are NOT configured here — put them in
 # settings.json: ~/.reasonix/settings.json (global, always on) and
 # <project>/.reasonix/settings.json (project, runs only after `/hooks trust`).
 # Exit 0 = pass, exit 2 = block (PreToolUse / UserPromptSubmit only). Example
 # ~/.reasonix/settings.json:
 #   { "hooks": {
 #       "PreToolUse":  [ { "match": "bash", "command": "my-guard.sh" } ],
+#       "PermissionRequest": [ { "match": "bash", "command": "notify-send 'approval needed'" } ],
 #       "PostToolUse": [ { "match": ".*file", "command": "gofmt -w ." } ],
 #       "Stop":        [ { "command": "notify-send 'turn done'" } ] } }
 
@@ -401,6 +402,7 @@ network = true
 # enabled        = false
 # app_id         = ""
 # app_secret_env  = "QQ_BOT_APP_SECRET"
+# sandbox        = false   # true 使用 QQ 沙箱 API / gateway
 #
 # [bot.feishu]
 # enabled             = false

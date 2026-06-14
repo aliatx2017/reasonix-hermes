@@ -32,82 +32,19 @@ reasonix/
 ├── README.md / README.zh-CN.md
 ├── reasonix.example.toml         # sample config
 ├── docs/SPEC.md             # this file
-├── cmd/
-│   ├── reasonix/main.go          # entry; blank-imports built-in providers/tools
-│   ├── reasonix-hooks/           # native Go hook runner (retain/reflect)
-│   ├── reasonix-mcpbridge/       # MCP bridge server (6 tools)
-│   ├── reasonix-memoryserver/    # Hindsight memory server
-│   ├── reasonix-pr-review/       # GitHub Actions PR review CLI
-│   └── reasonix-plugin-example/  # reference MCP stdio plugin
-├── deploy/
-│   ├── docker-compose.yml        # single-node $5 VPS deploy
-│   └── helm/reasonix/            # Kubernetes Helm chart
-├── pkg/
-│   ├── httputil/            # Bearer token auth middleware
-│   └── mcputil/             # MCP JSON-RPC server framework types
+├── cmd/reasonix/main.go          # entry; blank-imports built-in providers/tools
+├── cmd/reasonix-plugin-example/  # reference MCP stdio plugin (a runnable example)
 └── internal/
-    ├── acp/                 # Agent Communication Protocol (live sessions)
-    ├── agent/               # LLM agent loop, compaction, sub-agents
-    ├── billing/             # wallet-balance checks
-    ├── boot/                # controller assembly, model resolution
-    ├── bot/                 # multi-platform bot gateway (Discord/QQ/Feishu/WeChat/Telegram)
-    │   ├── discord/         # Discord adapter
-    │   ├── feishu/          # Feishu adapter
-    │   ├── qq/              # QQ adapter
-    │   ├── telegram/        # Telegram adapter
-    │   └── weixin/          # WeChat adapter
-    ├── builtinmcp/          # built-in MCP servers (Time, Context7)
-    ├── checkpoint/          # file-snapshot undo system
-    ├── cli/                 # Bubble Tea TUI, command routing
-    ├── codegraph/           # semantic code index
-    ├── collab/              # live collaboration WebSocket hub
-    ├── command/             # custom slash commands (.reasonix/commands/*.md)
-    ├── compress/            # tool output token compressor (SHA-256 cache, dedup, JSON)
+    ├── cli/                 # subcommand routing, flags, assembly, exit codes
     ├── config/              # TOML loading (flag > project > user > defaults)
-    ├── constitution/        # structured project invariants (.reasonix/constitution.json)
-    ├── control/             # transport-agnostic Controller
-    ├── diff/                # unified diff generation
-    ├── doctor/              # system diagnostics
-    ├── event/               # typed event stream (Sink, Event)
-    ├── evidence/            # readiness audit receipts
-    ├── fileref/             # file reference resolution
-    ├── fileutil/            # file utility functions (+ encoding sub-package)
-    ├── frontmatter/         # YAML frontmatter parser
-    ├── history/             # lightweight local history + memory retrieval
-    ├── hook/                # PreToolUse/PostToolUse/Stop hook runner
-    ├── i18n/                # English/Chinese message catalogs
-    ├── inspect/             # codebase inspection utilities
-    ├── installsource/       # install_source tool (skills, MCP servers)
-    ├── instruction/         # system prompt composition
-    ├── jobs/                # background job runner
-    ├── learn/               # self-improving skill loops (post-session reflection)
-    ├── lsp/                 # LSP client integration
-    ├── mcpdiag/             # MCP server diagnostics
-    ├── memory/              # hierarchical doc-memory + auto-memory (remember/forget)
-    ├── mesh/                # agent-to-agent MCP mesh (peer delegation, council mode)
-    ├── netclient/           # HTTP client factory with proxy support
-    ├── nilutil/             # nil-safe interface helpers
-    ├── notify/              # cross-platform desktop notifications
-    ├── outputstyle/         # output style enum (concise, verbose)
-    ├── permission/          # per-call Policy: allow/ask/deny rules → Decision
-    ├── plugin/              # stdio/HTTP/SSE MCP client; adapts remote tools
-    ├── proc/                # process management (kill groups, signals)
     ├── provider/            # Provider interface + types + kind→factory registry
-    │   ├── anthropic/       # Anthropic Messages API impl
-    │   ├── ollamacloud/      # Ollama Cloud OpenAI-compatible impl; delegates to openai
-    │   └── openai/           # OpenAI-compatible impl; init() registers "openai"
-    ├── publish/             # session transcript export (HTML/JSON)
-    ├── sandbox/             # OS-level sandbox (macOS Seatbelt, Linux bubblewrap, Windows AppContainer)
-    ├── scheduler/           # cron-driven automated agent tasks
-    ├── serve/               # HTTP/WebSocket server mode
-    ├── skill/               # skill registry and loader
-    ├── sysproxy/            # system proxy detection
-    ├── e2e/                 # replay-based regression testing harness
-    └── tool/                # Tool interface + Registry
-        └── builtin/         # 15 built-in tools: bash, read_file, write_file,
-                             #   edit_file, multiedit, ls, glob, grep, webfetch,
-                             #   todowrite, completestep, delete_range,
-                             #   notebook_edit, delete_symbol, bgjobs
+    │   └── openai/          # OpenAI-compatible impl; init() registers "openai"
+    ├── tool/                # Tool interface + Registry
+    │   └── builtin/         # read_file/write_file/edit_file/move_file/bash/ls/glob/grep
+    ├── permission/          # per-call Policy: allow/ask/deny rules → Decision
+    ├── command/             # custom slash commands loaded from .reasonix/commands/*.md
+    ├── plugin/              # stdio JSON-RPC (MCP) client; adapts remote tools
+    └── agent/               # Session + harness loop
 ```
 
 Dependency direction (acyclic): `cli → {agent, plugin, config} → {tool, provider}`.
@@ -315,7 +252,9 @@ func (p Policy) Decide(toolName string, readOnly bool, args json.RawMessage) Dec
 - **Rule syntax.** A rule is `Tool` (matches any call in that tool family) or
   `Tool(specifier)` (matches when the call's *subject* matches the specifier).
   Bash and file mutation approvals use Claude Code-style families such as
-  `Bash(npm run build)`, `Bash(npm run test:*)`, and `Edit(docs/**)`. Legacy
+  `Bash(npm run build)`, `Bash(npm run test:*)`, and `Edit(docs/**)`. Built-in
+  file mutations include writes, edits, notebook edits, symbol/range deletes,
+  and `move_file` renames/moves. Legacy
   lowercase tool IDs and `tool=literal` rules still load for compatibility. The
   `:*` suffix marks a Bash command-prefix approval; generated prefix rules also
   reject later commands that introduce shell operators, so `Bash(go test:*)`
@@ -479,21 +418,12 @@ type ToolSchema struct { Name, Description string; Parameters json.RawMessage }
 type Request    struct { Messages []Message; Tools []ToolSchema; Temperature float64; MaxTokens int }
 
 type ChunkType int
-const (
-    ChunkText         ChunkType = iota  // streaming text delta
-    ChunkReasoning                     // thinking-mode chain-of-thought
-    ChunkToolCallStart                 // tool call name announced, arguments streaming
-    ChunkToolCall                      // complete tool call ready for execution
-    ChunkUsage                         // token usage report for the turn
-    ChunkDone                          // stream finished successfully
-    ChunkError                         // stream terminated with an error
-)
+const (ChunkText ChunkType = iota; ChunkToolCall; ChunkDone; ChunkError)
 
 type Chunk struct {
     Type     ChunkType
-    Text     string    // ChunkText, ChunkReasoning
+    Text     string    // ChunkText
     ToolCall *ToolCall // ChunkToolCall
-    Usage    *Usage    // ChunkUsage
     Err      error     // ChunkError
 }
 ```
@@ -569,7 +499,7 @@ ask   = []                                 # force a prompt even if otherwise al
 
 [sandbox]
 # workspace_root = ""          # file-writers confined here; empty = cwd (writes stay in-project)
-# allow_write    = ["/tmp"]    # extra dirs write_file/edit_file/multi_edit may modify
+# allow_write    = ["/tmp"]    # extra dirs write_file/edit_file/multi_edit/move_file may modify
 
 [[plugins]]
 name    = "example"            # type defaults to "stdio"
@@ -602,17 +532,15 @@ Reasonix unchanged.
 
 `[sandbox]` is the *enforcement* layer beneath permissions (which are *policy*).
 Phase 0 confines the file-writing built-ins (`write_file`, `edit_file`,
-`multi_edit`) to `workspace_root` (default cwd) plus `allow_write`: a write whose
+`multi_edit`, `move_file`) to `workspace_root` (default cwd) plus `allow_write`: a write whose
 target — resolved to an absolute, symlink-free path so a symlinked dir or `..`
 cannot tunnel out — falls outside every root is refused, and the error is fed
 back to the model. Confinement is on by default (root = cwd), so edits stay in
-the project; reads are unrestricted. `bash` is itself jailed by default
-(`[sandbox] bash = "enforce"`): on macOS via `sandbox-exec` (Seatbelt SBPL
-profile), on Linux via `bwrap` (bubblewrap bind-mounts + network namespace),
-and on Windows via `AppContainer` (LowBox isolation via `CreateProcess` with
-`SECURITY_CAPABILITIES`, available since Win8+). Each backend allows writes
-only to the workspace root + temp + toolchain caches, and network only when
-`network = true`. Unsupported platforms fall back to running unconfined.
+the project; reads are unrestricted. `bash` is itself jailed on macOS by default
+(`[sandbox] bash = "enforce"`, Seatbelt): each command runs under sandbox-exec
+allowed to write only the same roots (+ temp and toolchain caches) and to reach
+the network only when `network = true`. Unsupported platforms fall back to
+running unconfined. The escape-prompt and Linux support are Phase 1's remainder (§9).
 
 ## 6. Error Handling
 
@@ -640,14 +568,13 @@ only to the workspace root + temp + toolchain caches, and network only when
 
 - Sandbox Phase 1: an OS-level jail for `bash` so commands — not just the
   file-writer built-ins (Phase 0) — are confined to the workspace. **macOS
-  (Seatbelt via `sandbox-exec`) ships, Linux (bubblewrap) ships, Windows
-  (AppContainer) ships — all three platforms on by default** (see §5).
-  Remaining: the escape-prompt — detect a sandbox-denied failure and offer to
-  re-run the command unconfined via the permission gate (in `reasonix run`, the
-  command just fails and the model adapts), which completes the "allow inside
-  the box, prompt at its edge" model. Shells out to OS tooling so the binary
-  stays dependency-free. With this in place, "always allow" rule persistence
-  becomes optional rather than load-bearing.
+  (Seatbelt via `sandbox-exec`) ships, on by default** (see §5). Remaining: (a)
+  the escape-prompt — detect a sandbox-denied failure and offer to re-run the
+  command unconfined via the permission gate (in `reasonix run`, the command just
+  fails and the model adapts), which completes the "allow inside the box, prompt
+  at its edge" model; (b) Linux (bubblewrap / landlock). Shells out to OS tooling
+  so the binary stays dependency-free; Windows is out of scope. With this in
+  place, "always allow" rule persistence becomes optional rather than load-bearing.
 - MCP long tail (deferred deliberately — no consumer / no foundation yet): OAuth
   2.0 + `headersHelper` auth for remote servers; the remaining `.mcp.json` scopes
   (local / user — project scope shipped, see §5); tool-search deferral;

@@ -6,18 +6,15 @@
 &nbsp;·&nbsp;
 <a href="./GUIDE.md">General guide</a>
 
-> For desktop users. This guide explains how to connect Feishu, Lark, WeChat,
-> and Discord bots, how to use Reasonix from IM, and how approvals, Ask
-> questions, YOLO, and bot commands work.
+> For desktop users. This guide explains how to connect Feishu, Lark, and WeChat
+> bots, how to use Reasonix from IM, and how approvals, Ask questions, YOLO, and
+> bot commands work.
 
 ## Contents
 
 - [What the bot does](#what-the-bot-does)
-- [Connect the channels](#connect-the-channels)
-  - [Feishu](#feishu)
-  - [Lark](#lark)
-  - [WeChat](#wechat)
-  - [Discord](#discord)
+- [Connect the three channels](#connect-the-three-channels)
+- [Run the bot headlessly](#run-the-bot-headlessly)
 - [Usage flow](#usage-flow)
 - [Channel interaction differences](#channel-interaction-differences)
 - [Command quick reference](#command-quick-reference)
@@ -91,39 +88,45 @@ approval modes.
 WeChat does not provide interactive card buttons here, so approvals and Ask
 questions are handled through text commands.
 
-### Discord
+## Run the bot headlessly
 
-**Prerequisites:** A Discord bot token from the [Discord Developer Portal](https://discord.com/developers/applications).
+The desktop app is the easiest way to create and test bot connections, but the
+runtime itself can also run as a long-lived headless gateway:
 
-Config (in `reasonix.toml`):
-```toml
-[bot]
-enabled             = true
-model               = "deepseek"
-max_steps           = 100
-debounce_ms         = 1500
-tool_approval_mode  = "ask"
-
-[bot.allowlist]
-enabled        = true
-discord_users  = ["YOUR_DISCORD_USER_ID"]
-
-[bot.discord]
-enabled       = true
-token_env     = "DISCORD_BOT_TOKEN"
-server_id     = ""     # your guild ID, or empty for all
-channel_id    = ""     # restrict to one channel, or empty for all
-allow_dms     = true
+```sh
+reasonix bot doctor
+reasonix bot start --channels feishu,lark,weixin --dir /path/to/project
 ```
 
-Start via CLI:
-```bash
-DISCORD_BOT_TOKEN="your-token" ./bin/reasonix bot start --channels discord
-```
+Use `--channels` to choose which configured IM inputs to accept. `feishu` and
+`lark` select the matching Feishu-family connection; `weixin` selects the saved
+WeChat iLink account; `qq` selects the configured QQ bot. Use `--dir` to attach
+incoming messages to a project workspace and `--model` to override the default
+model for this process.
 
-**Slash commands:** `/model` — show or switch the model.  
-**Approvals:** Reply `approve N` or `deny N` (plain text, not slash command).  
-**Messages:** @mention the bot or send in a monitored channel.
+The headless gateway uses the same config records as the desktop app:
+
+- `[[bot.connections]]` identifies each IM input. `provider` is the adapter
+  family (`feishu`, `weixin`, or `qq`), while `domain` distinguishes variants
+  such as Feishu vs Lark.
+- `credential.app_id`, `credential.app_secret_env`, `credential.account_id`,
+  and `credential.token_env` point to app IDs, app secrets, saved accounts, and
+  tokens. Secrets stay in environment variables or the Reasonix user credentials
+  store.
+- `workspace_root`, `model`, and `tool_approval_mode` can be set per
+  connection. This lets different IM channels route to different local projects
+  or approval postures.
+- `session_mappings` are filled from inbound messages with the remote chat ID
+  and scope. The desktop UI can open the matching conversation once the mapping
+  also has a local `session_id` target, such as a saved `path:` session target
+  from a desktop-managed bot runtime or a manually configured mapping.
+
+Access control is still mandatory. Either enable an allowlist under
+`[bot.allowlist]` with at least one relevant platform user ID, or set
+`allow_all = true` deliberately. Group IDs are optional additional scoping for
+group chats; they do not replace the required user allowlist. Remote users go
+through the same controller, permission policy, tool approval mode, and sandbox
+rules as local desktop or CLI turns.
 
 ## Usage flow
 
