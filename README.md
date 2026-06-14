@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <strong>English</strong>
+  <a href="./README.zh-CN.md">中文</a>
   &nbsp;·&nbsp;
   <a href="./docs/GUIDE.md">Guide</a>
   &nbsp;·&nbsp;
@@ -114,35 +114,35 @@ external MCP servers plug in at runtime over stdio or HTTP.
 - **Zero-friction.** `CGO_ENABLED=0` single binary; cross-compile to six
   targets with one command.
 
-See the upstream [README](https://github.com/esengine/deepseek-reasonix),
-[Guide](./docs/GUIDE.md), and [Spec](./docs/SPEC.md) for the full picture.
+See the [Guide](./docs/GUIDE.md), [Spec](./docs/SPEC.md), and [Hermes Guide](./docs/HERMES-GUIDE.md) for the full picture.
 
 <br/>
 
 ## Install
 
-### Prebuilt (upstream releases)
-
-```sh
-npm i -g reasonix                  # any OS; pulls the upstream prebuilt binary
-brew install esengine/reasonix/reasonix   # macOS
-```
-
-### Build Hermes from source
+### Build from source
 
 ```sh
 git clone https://github.com/aliatx2017/reasonix-hermes.git
 cd reasonix-hermes
+
+# Core CLI
 go build -o bin/reasonix ./cmd/reasonix
 
-# Hermes extras
-go build -o bin/reasonix-bridge   ./cmd/reasonix-mcpbridge      # MCP bridge server
-go build -o bin/reasonix-memory   ./cmd/reasonix-memoryserver    # Hindsight memory
-go build -o bin/reasonix-bot      ./bot                          # Discord bot
-go build -o bin/reasonix-hooks    ./cmd/reasonix-hooks           # Hook runner
-go build -o bin/reasonix-review   ./cmd/reasonix-pr-review       # PR review CLI
+# Hermes services
+go build -o bin/reasonix-mcpbridge  ./cmd/reasonix-mcpbridge   # MCP bridge (6 tools)
+go build -o bin/reasonix-memory     ./cmd/reasonix-memoryserver # Hindsight memory
+go build -o bin/reasonix-bot        ./bot                       # Discord + Telegram bot
+go build -o bin/reasonix-hooks      ./cmd/reasonix-hooks        # Hook runner
+go build -o bin/reasonix-review     ./cmd/reasonix-pr-review    # PR review CLI
 
-# Install the 17-skill community registry
+# Desktop app (Wails + React 19)
+cd desktop && wails build -o ../bin/reasonix-desktop
+```
+
+### Install the 17-skill community registry
+
+```sh
 ./bin/reasonix install-source install \
   --source https://github.com/aliatx2017/reasonix-hermes/tree/main/skills-hub/skills
 ```
@@ -152,21 +152,21 @@ go build -o bin/reasonix-review   ./cmd/reasonix-pr-review       # PR review CLI
 ## Quick start
 
 ```sh
-reasonix setup                      # config wizard → ./reasonix.toml
-export DEEPSEEK_API_KEY=sk-...      # or put it in .env
-reasonix chat                       # start a session
+./bin/reasonix setup                      # config wizard → ./reasonix.toml
+export DEEPSEEK_API_KEY=sk-...            # or put it in .env
+./bin/reasonix chat                       # start a session
 
 # Run a one-shot task
-reasonix run "add unit tests for the auth module"
+./bin/reasonix run "add unit tests for the auth module"
 
 # Start the MCP bridge (expose Reasonix to other agents)
-./bin/reasonix-bridge --http --port 9090
+./bin/reasonix-mcpbridge --http --port 9090
 
 # Start the memory server
 ./bin/reasonix-memory --backend sqlite --http --port 8080
 
-# Run the Discord bot
-export DISCORD_BOT_TOKEN="..." DISCORD_SERVER_ID="..."
+# Run the Discord/Telegram bot
+export DISCORD_BOT_TOKEN="..."
 ./bin/reasonix-bot
 ```
 
@@ -248,10 +248,14 @@ git fetch upstream
 git merge upstream/main-v2
 ```
 
-Our custom code lives in `cmd/reasonix-*`, `pkg/httputil`, `pkg/mcputil`,
-`bot/`, `internal/bot/discord/`, and `skills-hub/`. We do not modify the
-upstream engine (`internal/agent`, `internal/provider`, `internal/tool`, etc.)
-except for the shared `internal/bot/` gateway used by our Discord adapter.
+Our custom code lives in `cmd/reasonix-*`, `internal/bot/`, `internal/learn/`,
+`internal/mesh/`, `internal/collab/`, `internal/compress/`,
+`internal/scheduler/`, `internal/publish/`, `pkg/`, `bot/`, `deploy/`,
+`skills-hub/`, and the `desktop/hermes_dashboard.go` + React hermes components.
+We do not modify the upstream engine (`internal/agent`, `internal/provider`,
+`internal/tool`, `internal/plugin`, `internal/skill`, `internal/lsp`, etc.)
+except for the shared `internal/bot/` gateway and `internal/control/` getters
+used by our adapters and desktop dashboard.
 
 For the full upstream feature set — desktop app (Wails + React 19), bot gateway
 (Feishu/WeChat/QQ), ACP sessions, PDF extraction, themeable workspace — see the

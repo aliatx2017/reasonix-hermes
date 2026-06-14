@@ -58,37 +58,35 @@ Reasonix 本身是一个**配置与插件驱动**的 coding agent —— 单一�
   文件树、checkpoint/rewind、bot gateway。
 - **零摩擦**：`CGO_ENABLED=0` 单二进制；一条命令交叉编译到六个目标平台。
 
-详见上游 [README](https://github.com/esengine/deepseek-reasonix)、
-[指南](./docs/GUIDE.zh-CN.md) 和 [规格](./docs/SPEC.md)。
+详见 [指南](./docs/GUIDE.zh-CN.md)、[规格](./docs/SPEC.md) 和 [Hermes 指南](./docs/HERMES-GUIDE.md)。
 
 <br/>
 
 ## 安装
 
-### 预编译（上游 release）
-
-```sh
-npm i -g reasonix                  # 任意系统;自动拉取预编译原生二进制
-brew install esengine/reasonix/reasonix   # macOS
-```
-
-预编译归档(`darwin|linux|windows × amd64|arm64`)和 `SHA256SUMS` 见每个
-[GitHub release](https://github.com/esengine/DeepSeek-Reasonix/releases)。
-
-### 从源码构建 Hermes
+### 从源码构建
 
 ```sh
 git clone https://github.com/aliatx2017/reasonix-hermes.git
 cd reasonix-hermes
+
+# 核心 CLI
 go build -o bin/reasonix ./cmd/reasonix
 
-# Hermes 扩展
-go build -o bin/reasonix-bridge ./cmd/reasonix-mcpbridge      # MCP bridge server
-go build -o bin/reasonix-memory  ./cmd/reasonix-memoryserver   # Hindsight 记忆
-go build -o bin/reasonix-bot     ./bot                         # Discord bot
-go build -o bin/reasonix-hooks   ./cmd/reasonix-hooks          # Hook runner
+# Hermes 服务
+go build -o bin/reasonix-mcpbridge  ./cmd/reasonix-mcpbridge   # MCP bridge（6 个工具）
+go build -o bin/reasonix-memory     ./cmd/reasonix-memoryserver # Hindsight 记忆
+go build -o bin/reasonix-bot        ./bot                       # Discord + Telegram bot
+go build -o bin/reasonix-hooks      ./cmd/reasonix-hooks        # Hook runner
+go build -o bin/reasonix-review     ./cmd/reasonix-pr-review    # PR review CLI
 
-# 安装 17 个社区 skill
+# 桌面应用（Wails + React 19）
+cd desktop && wails build -o ../bin/reasonix-desktop
+```
+
+### 安装 17 个社区 skill
+
+```sh
 ./bin/reasonix install-source install \
   --source https://github.com/aliatx2017/reasonix-hermes/tree/main/skills-hub/skills
 ```
@@ -98,21 +96,21 @@ go build -o bin/reasonix-hooks   ./cmd/reasonix-hooks          # Hook runner
 ## 快速开始
 
 ```sh
-reasonix setup                      # 配置向导 → ./reasonix.toml
-export DEEPSEEK_API_KEY=sk-...      # 或写入 .env
-reasonix chat                       # 启动会话
+./bin/reasonix setup                      # 配置向导 → ./reasonix.toml
+export DEEPSEEK_API_KEY=sk-...            # 或写入 .env
+./bin/reasonix chat                       # 启动会话
 
 # 一次性任务
-reasonix run "给 auth 模块补单元测试"
+./bin/reasonix run "给 auth 模块补单元测试"
 
 # 启动 MCP bridge（向其他 agent 暴露 Reasonix）
-./bin/reasonix-bridge --http --port 9090
+./bin/reasonix-mcpbridge --http --port 9090
 
 # 启动记忆服务
 ./bin/reasonix-memory --backend sqlite --http --port 8080
 
-# 运行 Discord bot
-export DISCORD_BOT_TOKEN="你的token" DISCORD_SERVER_ID="..."
+# 运行 Discord/Telegram bot
+export DISCORD_BOT_TOKEN="你的token"
 ./bin/reasonix-bot
 ```
 
@@ -142,12 +140,15 @@ git fetch upstream
 git merge upstream/main-v2
 ```
 
-自定义代码位于 `cmd/reasonix-*`、`pkg/httputil`、`pkg/mcputil`、`bot/`、
-`internal/bot/discord/` 和 `skills-hub/`。除 `internal/bot/` 共用 gateway 外，
+自定义代码位于 `cmd/reasonix-*`、`internal/bot/`、`internal/learn/`、
+`internal/mesh/`、`internal/collab/`、`internal/compress/`、
+`internal/scheduler/`、`internal/publish/`、`pkg/`、`bot/`、`deploy/`、
+`skills-hub/`，以及 `desktop/hermes_dashboard.go` 和 React hermes 组件。
+除 `internal/bot/` 共用 gateway 以及 `internal/control/` 的 getter 外，
 不修改上游引擎。
 
 上游完整功能集（桌面应用、bot gateway（飞书/微信/QQ）、ACP session、PDF 提取、
-可切换主题工作区）详见 [上游 README](https://github.com/esengine/deepseek-reasonix)。
+可切换主题工作区）详见 [上游仓库](https://github.com/esengine/deepseek-reasonix)。
 
 <br/>
 
