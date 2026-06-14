@@ -998,6 +998,11 @@ export interface BotConnectionDiagnostic {
   status: string;
   message: string;
   messageId: string;
+  phase: string;
+  code: string;
+  reportKind: string;
+  reportDetail: string;
+  occurredAt: string;
 }
 
 export interface SettingsView {

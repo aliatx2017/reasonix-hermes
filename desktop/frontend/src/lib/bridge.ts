@@ -2583,9 +2583,10 @@ function makeMockApp(): AppBindings {
         },
         async DiagnoseBotConnection(id: string) {
           const connection = settings.bot.connections.find((c) => c.id === id);
+          const occurredAt = new Date().toISOString();
           return connection
-            ? { id, label: connection.label, status: connection.enabled ? "ok" : "disabled", message: connection.enabled ? "连接配置已保存。" : "连接已保存但未启用。", messageId: "" }
-            : { id, label: "", status: "missing", message: "未找到连接。", messageId: "" };
+            ? { id, label: connection.label, status: connection.enabled ? "ok" : "disabled", message: connection.enabled ? "连接配置已保存。" : "连接已保存但未启用。", messageId: "", phase: "config", code: connection.enabled ? "config_ok" : "connection_disabled", reportKind: "", reportDetail: "", occurredAt }
+            : { id, label: "", status: "missing", message: "未找到连接。", messageId: "", phase: "config", code: "connection_missing", reportKind: "bot", reportDetail: JSON.stringify({ schemaVersion: 2, kind: "bot", source: "bot.runtime", label: "bot.mock.config", message: "mock missing bot connection", errorType: "BotConnectionDiagnostic", errorMessage: "bot connection record was not found", topFrame: "bot.config", occurredAt }), occurredAt };
         },
         async TestBotConnection(id: string, target?: string) {
           const diag = await this.DiagnoseBotConnection(id);

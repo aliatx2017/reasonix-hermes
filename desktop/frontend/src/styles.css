@@ -12721,7 +12721,7 @@ a[href] {
   flex: 0 0 auto;
   display: flex;
   align-items: center;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
 }
@@ -12734,6 +12734,18 @@ a[href] {
   font-size: var(--font-control-small);
   line-height: 1.45;
   padding-left: 10px;
+}
+.bot-diagnostic-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+.bot-diagnostic-actions small {
+  color: var(--fg-muted);
+  font-size: 11px;
+  line-height: 1.35;
 }
 .bot-detail-section {
   display: grid;
