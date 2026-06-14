@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "reasonix.fullname" . }}
+  labels:
+    {{- include "reasonix.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "reasonix.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "reasonix.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      containers:
+        {{- if .Values.components.bot.enabled }}
+        - name: bot
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/app/reasonix-bot"]
+          envFrom:
+            - secretRef:
+                name: {{ include "reasonix.fullname" . }}-secrets
+          env:
+            - name: REASONIX_CONFIG
+              value: /etc/reasonix/reasonix.toml
+          volumeMounts:
+            - name: config
+              mountPath: /etc/reasonix
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+        {{- end }}
+
+        {{- if .Values.components.mcpbridge.enabled }}
+        - name: mcpbridge
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/app/reasonix-mcpbridge", "--http", "--port", "{{ .Values.service.mcpbridgePort }}"]
+          ports:
+            - containerPort: {{ .Values.service.mcpbridgePort }}
+              name: mcp
+          envFrom:
+            - secretRef:
+                name: {{ include "reasonix.fullname" . }}-secrets
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+        {{- end }}
+
+        {{- if .Values.components.memoryserver.enabled }}
+        - name: memoryserver
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/app/reasonix-memoryserver", "--http", "--port", "{{ .Values.service.memoryPort }}"]
+          ports:
+            - containerPort: {{ .Values.service.memoryPort }}
+              name: memory
+          envFrom:
+            - secretRef:
+                name: {{ include "reasonix.fullname" . }}-secrets
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+        {{- end }}
+
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "reasonix.fullname" . }}-config
+        {{- if .Values.persistence.enabled }}
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "reasonix.fullname" . }}-data
+        {{- else }}
+        - name: data
+          emptyDir: {}
+        {{- end }}

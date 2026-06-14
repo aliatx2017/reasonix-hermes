@@ -2180,6 +2180,23 @@ func (c *Controller) ScheduleResults(limit int) []scheduler.Result {
 	return c.schedule.Results(limit)
 }
 
+// Schedule returns the scheduler, or nil when not configured.
+func (c *Controller) Schedule() *scheduler.Scheduler {
+	return c.schedule
+}
+
+// SessionMessages returns a snapshot of the session message history for export.
+func (c *Controller) SessionMessages() []provider.Message {
+	if c.executor == nil {
+		return nil
+	}
+	sess := c.executor.Session()
+	if sess == nil {
+		return nil
+	}
+	return sess.Snapshot()
+}
+
 // TurnUsageHistory returns a snapshot of the last N per-turn Usage samples for
 // rendering token breakdown charts in the frontend.
 func (c *Controller) TurnUsageHistory() []provider.Usage {

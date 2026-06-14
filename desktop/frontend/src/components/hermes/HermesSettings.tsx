@@ -1,8 +1,11 @@
-import { BarChart3, BookOpen, FileText, GitBranch, History, Keyboard, Network, Shield, Sliders, Zap } from "lucide-react";
-import type { SettingsView, HotbarView, ProfileView } from "../../lib/types";
+import { BarChart3, BookOpen, Calendar, Download, FileText, GitBranch, History, Keyboard, Network, Shield, Sliders, Zap } from "lucide-react";
+import type { SettingsView, HotbarView, ProfileView, CostSummaryView, ScheduleDashboardView } from "../../lib/types";
 import { CacheEconomyGauge } from "./CacheEconomyGauge";
+import { CostWidget } from "./CostWidget";
 import { DiscordMonitor } from "./DiscordMonitor";
 import { GoalProgressWidget } from "./GoalProgressWidget";
+import { PublishWidget } from "./PublishWidget";
+import { ScheduleWidget } from "./ScheduleWidget";
 import { SkillsHubBrowser } from "./SkillsHubBrowser";
 import { SubagentTreePanel } from "./SubagentTreePanel";
 import { ConstitutionHealthPanel } from "./ConstitutionHealthPanel";
@@ -18,6 +21,8 @@ interface HermesSettingsProps {
   cache?: { hitTokens: number; missTokens: number; totalTokens: number; hitRate: number } | null;
   discord?: { running: boolean; platform: string; activeSessions: number; status: string } | null;
   goal?: { active: boolean; goal: string; status: string; turns: number; blocks: number } | null;
+  cost?: CostSummaryView | null;
+  schedule?: ScheduleDashboardView | null;
 }
 
 const HOTBAR_KEYS = [
@@ -41,7 +46,7 @@ const ACTION_LABELS: Record<string, string> = {
   settings: "Settings",
 };
 
-export function HermesSettings({ s, onHotbarChange: _onHotbar, onProfileSelect: _onProfile, cache, discord, goal }: HermesSettingsProps) {
+export function HermesSettings({ s, onHotbarChange: _onHotbar, onProfileSelect: _onProfile, cache, discord, goal, cost, schedule }: HermesSettingsProps) {
   const profiles = Object.entries(s.profiles ?? {}) as [string, ProfileView][];
   const activeProfile = s.activeProfile || "";
 
@@ -104,6 +109,34 @@ export function HermesSettings({ s, onHotbarChange: _onHotbar, onProfileSelect: 
           Memory Fact Graph
         </h3>
         <MemoryFactGraph />
+      </section>
+
+      <hr style={{ margin: "24px 0", border: "none", borderTop: "1px solid var(--color-border)" }} />
+
+      {/* ═══════════ COST + SCHEDULE + PUBLISH ═══════════ */}
+      <section className="settings-section">
+        <h3 className="settings-section__title">
+          <Calendar size={16} style={{ marginRight: 6 }} />
+          Session Cost & Scheduling
+        </h3>
+        <div style={{ display: "flex", gap: 12, marginTop: 8, flexWrap: "wrap" }}>
+          <div style={{ flex: "1 1 200px", minWidth: 180 }}>
+            <CostWidget data={cost ?? null} />
+          </div>
+          <div style={{ flex: "2 1 350px", minWidth: 300 }}>
+            <ScheduleWidget data={schedule ?? null} />
+          </div>
+        </div>
+      </section>
+
+      <hr style={{ margin: "24px 0", border: "none", borderTop: "1px solid var(--color-border)" }} />
+
+      <section className="settings-section">
+        <h3 className="settings-section__title">
+          <Download size={16} style={{ marginRight: 6 }} />
+          Publish Transcript
+        </h3>
+        <PublishWidget />
       </section>
 
       <hr style={{ margin: "24px 0", border: "none", borderTop: "1px solid var(--color-border)" }} />

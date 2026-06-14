@@ -1,0 +1,53 @@
+# Default values for reasonix.
+# Declare secrets via --set or a separate values file — never commit them.
+
+# Image
+image:
+  repository: ghcr.io/aliatx2017/reasonix-hermes
+  tag: latest
+  pullPolicy: IfNotPresent
+
+# Which components to run
+components:
+  bot:
+    enabled: false
+    model: deepseek-flash
+    maxSteps: 25
+  mcpbridge:
+    enabled: false
+  memoryserver:
+    enabled: false
+    dataPath: /data/memory
+
+# Secrets (use --set or sealed-secrets, never commit plaintext)
+secrets:
+  deepseekApiKey: ""
+  discordBotToken: ""
+  meshToken: ""
+
+# Config overrides (merged into reasonix.toml)
+config:
+  defaultModel: deepseek-flash
+  language: en
+
+# Networking
+service:
+  type: ClusterIP
+  mcpbridgePort: 9090
+  memoryPort: 9091
+  collabPort: 9092
+
+# Persistence
+persistence:
+  enabled: true
+  size: 1Gi
+  storageClass: ""
+
+# Resources
+resources:
+  requests:
+    memory: 256Mi
+    cpu: 100m
+  limits:
+    memory: 1Gi
+    cpu: 500m

@@ -67,30 +67,37 @@ cd desktop && wails dev
 
 ```
 cmd/reasonix/          CLI entry point (delegates to internal/cli/)
-internal/              Upstream Reasonix engine (40+ packages)
+cmd/reasonix-pr-review/ PR review CLI for GitHub Actions
+internal/              Reasonix engine (75 packages)
   agent/               Core agent loop, compaction, subagents
-  checkpoint/          File-snapshot undo system
+  boot/                Controller assembly, tool wiring
+  bot/                 Multi-platform bot gateway (Discord/QQ/Feishu/WeChat/Telegram)
+  collab/              Live collaboration WebSocket hub
+  compress/            Tool output token compressor
   config/              TOML config loader + model fallback
   constitution/        Structured project invariants (.reasonix/constitution.json)
+  control/             Transport-agnostic Controller
+  learn/               Self-improving skill loops (pattern detection)
+  mesh/                Agent-to-agent MCP mesh (delegate, broadcast, council)
   permission/          Tool-call permission gating
-  skill/               Built-in skills registry
-  tool/                Built-in tools (bash, read, write, edit, etc.)
   plugin/              MCP client (stdio, HTTP, SSE)
   provider/            LLM providers (Anthropic, OpenAI/DeepSeek)
-  bot/                 Feishu/WeChat/QQ bot adapters (upstream)
-  codegraph/           Semantic code index
-  lsp/                 Language server integration
-  ...                  (30+ more packages)
+  publish/             Session transcript export (HTML/JSON)
+  scheduler/           Cron-driven automated agent tasks
+  skill/               Built-in skills registry
+  tool/                Built-in tools (bash, read, write, edit, lsp_*, etc.)
+  ...
 pkg/                   ── Our custom additions ──
   httputil/            Shared Bearer auth middleware
   mcputil/             Shared MCP types and server helpers
-  (see pkg/README.md)  Library documentation
 cmd/                   ── Our custom binaries ──
-  reasonix-mcpbridge/  MCP bridge server (6 tools: run, doctor, plan, orchestrate, get_skill, get_skills)
-  reasonix-memoryserver/ Hindsight MCP server (3 tools: retain, recall, reflect; SQLite + file, TTL/importance, vector search)
-bot/                   Our Discord bot gateway (slash commands + /goal + /model)
-cmd/reasonix-hooks/    Native Go hook runner (zero-dependency binary)
-desktop/               Wails v2 desktop app (upstream, full-featured)
+  reasonix-mcpbridge/  MCP bridge server (6 tools)
+  reasonix-memoryserver/ Hindsight MCP server (3 tools)
+  reasonix-pr-review/  PR review CLI
+bot/                   Discord bot gateway
+cmd/reasonix-hooks/    Native Go hook runner
+deploy/                Helm chart + docker-compose for one-click deploy
+desktop/               Wails v2 desktop app + React 19 frontend
 skills-hub/            17-skill community registry + static catalog site
 ```
 
@@ -104,9 +111,19 @@ skills-hub/            17-skill community registry + static catalog site
 | `bot/` + `internal/bot/discord/` | Discord bot (+ /goal + /model) | Discord integration (upstream has Feishu/WeChat/QQ only) |
 | `cmd/reasonix-hooks/` | Native Go hook runner | Zero-dependency binary for PreToolUse/Stop hooks |
 | `skills-hub/` | 17 community skills + catalog site | Curated skill registry with frontmatter playbooks |
+| `internal/learn/` | Self-improving skill loops | Observes agent patterns, detects repeated sequences, generates skills |
+| `internal/mesh/` | Agent-to-agent MCP mesh | Peer delegation, broadcast, council mode for multi-agent collaboration |
+| `internal/collab/` | Live collaboration hub | WebSocket session sharing between Reasonix instances |
+| `internal/compress/` | Tool output token compressor | SHA-256 cache, repeated-line collapsing, JSON minification |
+| `internal/scheduler/` | Cron-driven task scheduler | Automated agent runs at scheduled times |
+| `internal/publish/` | Session transcript export | Self-contained HTML + JSON export |
+| `internal/bot/telegram/` | Telegram bot adapter | Long-polling Telegram integration via go-telegram-bot-api/v5 |
+| `cmd/reasonix-pr-review/` | PR review CLI | Fetches PR diff, runs review with 6-dimension prompt |
+| `deploy/` | Helm chart + docker-compose | One-command deploy to K8s or $5 VPS |
 | `reasonix-hermes.json` | Install source manifest | `reasonix install-source install --source https://github.com/aliatx2017/reasonix-hermes/tree/main/skills-hub/skills` |
 | `reasonix-deepseek-ecosystem-2026.md` | Ecosystem reference | Comprehensive survey of integrations and plugins |
 | `.github/workflows/ci-hermes.yml` | Supplementary CI | Desktop frontend build + Hermes package tests in CI |
+| `.github/workflows/pr-review.yml` | PR review action | Auto-reviews PRs with Reasonix |
 
 ## Docs
 
@@ -123,7 +140,8 @@ skills-hub/            17-skill community registry + static catalog site
 - `reasonix.toml` is gitignored (upstream convention) — never commit secrets
 - Discord bot uses `github.com/bwmarrin/discordgo` (added to go.mod)
 - Discord bot must use `control.Controller` like every other frontend — not inline chat history
-- **Tests**: 228 tests across 7 packages. `go test ./cmd/... ./pkg/... ./internal/bot/...`
+- **Tests**: ~2,430 tests across 75 packages. `go test ./...`
+- **New packages (custom)**: `internal/learn/` (self-improving skill loops), `internal/mesh/` (agent-to-agent MCP mesh), `internal/collab/` (live collaboration WebSocket hub), `internal/compress/` (tool output token compressor), `internal/scheduler/` (cron-driven tasks), `internal/publish/` (session transcript export), `internal/bot/telegram/` (Telegram bot adapter).
 - **CodeWhale features** (10/10 done, 2026-07-04): Shell env hooks, parallel sub-agent batch dispatch, completion sound, harness profiles, constitution system, workshop sidecar, desktop hotbar, external sandbox, Nix flake, Dockerfile.
 - **CI & tooling** (2026-07-06): `biome format` check on desktop frontend (105 files), `wails build` CI job, `taplo` TOML lint (CI + pre-commit hook), Go `go-version-file: go.mod` (toolchain 1.26.4), 7-job Hermes CI pipeline all-green.
 - **Bug fixes** (2026-07-06): duplicate `price` key in `reasonix.example.toml`, data race in `mockProvider.Stream()`, `TestSaveToScopes` cross-platform fix.

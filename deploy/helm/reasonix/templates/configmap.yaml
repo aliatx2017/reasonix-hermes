@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "reasonix.fullname" . }}-config
+  labels:
+    {{- include "reasonix.labels" . | nindent 4 }}
+data:
+  reasonix.toml: |
+    config_version = 1
+    default_model = "{{ .Values.config.defaultModel }}"
+    language = "{{ .Values.config.language }}"
+
+    [agent]
+    max_steps = {{ .Values.components.bot.maxSteps | default 25 }}
+
+    [mesh]
+    enabled = false

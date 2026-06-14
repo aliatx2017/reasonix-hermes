@@ -369,6 +369,8 @@ network = true
 # weixin_groups = []
 # discord_users = []
 # discord_groups = []
+# telegram_users = []
+# telegram_groups = []
 #
 # [bot.qq]
 # enabled        = false
@@ -399,6 +401,11 @@ network = true
 # allow_dms = true
 # webhook_url_env = "DISCORD_WEBHOOK_URL"
 
+# [bot.telegram]
+# enabled = false
+# token_env = "TELEGRAM_BOT_TOKEN"
+# allow_dms = true
+
 # ── Scheduled Tasks ─────────────────────────────────────────────────────────
 # Cron-driven automated agent tasks. The scheduler runs in the background while
 # the agent is active and fires each task at its scheduled time. Results are
@@ -417,3 +424,42 @@ network = true
 # cron    = "0 9 * * 1"           # Monday 9am
 # prompt  = "Summarize this week's work. What was accomplished? What's pending?"
 # model   = "deepseek-pro"
+
+# ── Self-Improving Skill Loops ──────────────────────────────────────────────
+# The learner observes agent behaviour across turns, detects repeated tool/skill
+# patterns, and triggers a post-session reflection turn to generate new or
+# updated SKILL.md files automatically.
+
+# [learn]
+# enabled        = true
+# max_patterns   = 20     # max patterns to detect
+# min_confidence = 3      # observations before a pattern forms
+
+# ── Agent-to-Agent MCP Mesh ─────────────────────────────────────────────────
+# The mesh lets Reasonix instances delegate tasks to each other. Each peer is
+# another Reasonix instance running as an MCP server. Council mode broadcasts a
+# task to all peers and synthesises their answers.
+
+# [mesh]
+# enabled = false
+#
+# [[mesh.peers]]
+# name     = "staging-agent"
+# url      = "http://staging.example.com:9090/mcp"
+# token_env = "MESH_STAGING_TOKEN"
+# enabled  = true
+#
+# [[mesh.peers]]
+# name     = "prod-planner"
+# url      = "http://prod.example.com:9090/mcp"
+# token_env = "MESH_PROD_TOKEN"
+# enabled  = true
+
+# ── Live Collaboration ─────────────────────────────────────────────────────
+# The collab hub lets other Reasonix instances watch a session in real-time
+# via WebSocket. Watchers receive turn events, tool calls, and results. They
+# can optionally send steer commands to guide the agent mid-turn.
+
+# [collab]
+# enabled     = false
+# listen_addr = ":9091"

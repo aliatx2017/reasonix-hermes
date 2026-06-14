@@ -35,7 +35,13 @@ reasonix/
 ├── cmd/
 │   ├── reasonix/main.go          # entry; blank-imports built-in providers/tools
 │   ├── reasonix-hooks/           # native Go hook runner (retain/reflect)
+│   ├── reasonix-mcpbridge/       # MCP bridge server (6 tools)
+│   ├── reasonix-memoryserver/    # Hindsight memory server
+│   ├── reasonix-pr-review/       # GitHub Actions PR review CLI
 │   └── reasonix-plugin-example/  # reference MCP stdio plugin
+├── deploy/
+│   ├── docker-compose.yml        # single-node $5 VPS deploy
+│   └── helm/reasonix/            # Kubernetes Helm chart
 ├── pkg/
 │   ├── httputil/            # Bearer token auth middleware
 │   └── mcputil/             # MCP JSON-RPC server framework types
@@ -44,16 +50,19 @@ reasonix/
     ├── agent/               # LLM agent loop, compaction, sub-agents
     ├── billing/             # wallet-balance checks
     ├── boot/                # controller assembly, model resolution
-    ├── bot/                 # multi-platform bot gateway (Discord/QQ/Feishu/WeChat)
+    ├── bot/                 # multi-platform bot gateway (Discord/QQ/Feishu/WeChat/Telegram)
     │   ├── discord/         # Discord adapter
     │   ├── feishu/          # Feishu adapter
     │   ├── qq/              # QQ adapter
+    │   ├── telegram/        # Telegram adapter
     │   └── weixin/          # WeChat adapter
     ├── builtinmcp/          # built-in MCP servers (Time, Context7)
     ├── checkpoint/          # file-snapshot undo system
     ├── cli/                 # Bubble Tea TUI, command routing
     ├── codegraph/           # semantic code index
+    ├── collab/              # live collaboration WebSocket hub
     ├── command/             # custom slash commands (.reasonix/commands/*.md)
+    ├── compress/            # tool output token compressor (SHA-256 cache, dedup, JSON)
     ├── config/              # TOML loading (flag > project > user > defaults)
     ├── constitution/        # structured project invariants (.reasonix/constitution.json)
     ├── control/             # transport-agnostic Controller
@@ -71,9 +80,11 @@ reasonix/
     ├── installsource/       # install_source tool (skills, MCP servers)
     ├── instruction/         # system prompt composition
     ├── jobs/                # background job runner
+    ├── learn/               # self-improving skill loops (post-session reflection)
     ├── lsp/                 # LSP client integration
     ├── mcpdiag/             # MCP server diagnostics
     ├── memory/              # hierarchical doc-memory + auto-memory (remember/forget)
+    ├── mesh/                # agent-to-agent MCP mesh (peer delegation, council mode)
     ├── netclient/           # HTTP client factory with proxy support
     ├── nilutil/             # nil-safe interface helpers
     ├── notify/              # cross-platform desktop notifications
@@ -84,7 +95,9 @@ reasonix/
     ├── provider/            # Provider interface + types + kind→factory registry
     │   ├── anthropic/       # Anthropic Messages API impl
     │   └── openai/          # OpenAI-compatible impl; init() registers "openai"
+    ├── publish/             # session transcript export (HTML/JSON)
     ├── sandbox/             # OS-level sandbox (macOS Seatbelt, Linux bubblewrap, Windows AppContainer)
+    ├── scheduler/           # cron-driven automated agent tasks
     ├── serve/               # HTTP/WebSocket server mode
     ├── skill/               # skill registry and loader
     ├── sysproxy/            # system proxy detection

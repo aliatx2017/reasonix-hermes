@@ -1,5 +1,5 @@
 // Package bot implements the Reasonix multi-channel IM bot message gateway,
-// supporting QQ, Feishu, WeChat, and Discord. Architecture follows the
+// supporting QQ, Feishu, WeChat, Discord, and Telegram. Architecture follows the
 // Hermes Agent gateway/adapter/session pattern.
 package bot
 
@@ -9,10 +9,11 @@ import "context"
 type Platform string
 
 const (
-	PlatformQQ      Platform = "qq"
-	PlatformFeishu  Platform = "feishu"
-	PlatformWeixin  Platform = "weixin"
-	PlatformDiscord Platform = "discord"
+	PlatformQQ       Platform = "qq"
+	PlatformFeishu   Platform = "feishu"
+	PlatformWeixin   Platform = "weixin"
+	PlatformDiscord  Platform = "discord"
+	PlatformTelegram Platform = "telegram"
 )
 
 // ChatType identifies the conversation type.

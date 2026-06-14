@@ -3,6 +3,14 @@
 > Investigation and recommendation for adding OS-level sandbox confinement to
 > Windows, making `[sandbox].mode = "enforce"` functional on all three platforms.
 
+> **Research validation** (Carlucci et al., 2026, 2606.13474): The "Loss of Control
+> Risk" paper finds that operational variability erodes safeguards over time and
+> that the constrain/audit/reverse/halt taxonomy is the correct risk model for
+> internal agent deployment. Our three-platform sandbox (macOS Seatbelt, Linux
+> bubblewrap, Windows AppContainer) directly implements this taxonomy: constrain
+> (read-only root), audit (checkpoint snapshots), reverse (undo/rewind), halt
+> (permission gating).
+
 ## 1. Current State
 
 | Platform | Tool | Implementation | `Available()` |

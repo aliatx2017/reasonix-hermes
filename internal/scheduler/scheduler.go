@@ -30,6 +30,9 @@ type Task struct {
 
 func (t Task) isEnabled() bool { return t.Enabled == nil || *t.Enabled }
 
+// IsEnabled reports whether the task is enabled.
+func (t Task) IsEnabled() bool { return t.isEnabled() }
+
 // Config is the [schedule] block.
 type Config struct {
 	Tasks []Task `toml:"tasks"`

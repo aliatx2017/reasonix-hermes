@@ -78,6 +78,21 @@ The terminal chat UI has been enhanced:
 - **`/stats` compaction log** — each compaction pass with trigger, message count, and summary
 - **`/stats` memory facts** — fact list with name and title
 - **`/stats` goal progress** — status, turns, and blocks when a goal is active
+- **`/write <file>`** — opens .md files in $EDITOR for Write Mode
+- **`/publish` / `/cost`** — session transcript export (HTML/JSON) and cost summary
+
+### Expansion packs (v1.7.0+)
+
+| Feature | What it does |
+|---------|-------------|
+| **Telegram bot adapter** | Long-polling Telegram adapter implementing `bot.Adapter` — DMs, groups, supergroups, media extraction, message splitting. Config at `[bot.telegram]`. |
+| **Self-improving skill loops** | `internal/learn/` — observes turn patterns (edit→test, write→build), detects repeated sequences, builds reflection prompts for automated SKILL.md generation. Config at `[learn]`. |
+| **Agent-to-agent MCP mesh** | `internal/mesh/` — peer delegation, broadcast, council mode (N peers → consensus synthesis). HTTP JSON-RPC transport with bearer auth. Config at `[mesh]` with `[[mesh.peers]]`. |
+| **Live collaboration** | `internal/collab/` — WebSocket hub for real-time session sharing between Reasonix instances. Subscribe/broadcast/steer protocol. Config at `[collab]`. |
+| **Schedule dashboard** | Cron-driven automated agent tasks with next-run timers and result ring (desktop widget). Config at `[[schedule.tasks]]`. |
+| **Session publishing** | Export session transcripts as self-contained HTML (inline CSS, syntax highlighting) or JSON. Desktop widget with one-click download+clipboard. |
+| **PR review action** | GitHub Action: on PR open/sync → fetches diff → runs Reasonix review with 6-dimension prompt (correctness, CI, constraints, security, trustworthiness, completeness) → posts comment. |
+| **Helm chart + docker-compose** | One-command deploy to Kubernetes or single-node $5 VPS. `deploy/helm/reasonix/` (7-file chart) + `deploy/docker-compose.yml`. |
 
 <br/>
 
@@ -121,10 +136,11 @@ cd reasonix-hermes
 go build -o bin/reasonix ./cmd/reasonix
 
 # Hermes extras
-go build -o bin/reasonix-bridge ./cmd/reasonix-mcpbridge      # MCP bridge server
-go build -o bin/reasonix-memory  ./cmd/reasonix-memoryserver   # Hindsight memory
-go build -o bin/reasonix-bot     ./bot                         # Discord bot
-go build -o bin/reasonix-hooks   ./cmd/reasonix-hooks          # Hook runner
+go build -o bin/reasonix-bridge   ./cmd/reasonix-mcpbridge      # MCP bridge server
+go build -o bin/reasonix-memory   ./cmd/reasonix-memoryserver    # Hindsight memory
+go build -o bin/reasonix-bot      ./bot                          # Discord bot
+go build -o bin/reasonix-hooks    ./cmd/reasonix-hooks           # Hook runner
+go build -o bin/reasonix-review   ./cmd/reasonix-pr-review       # PR review CLI
 
 # Install the 17-skill community registry
 ./bin/reasonix install-source install \

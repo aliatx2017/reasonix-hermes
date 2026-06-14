@@ -54,6 +54,10 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
   - Updated `docs/GUIDE.md` and `docs/GUIDE.zh-CN.md` with Hermes features
 
 - **Key differentiators**: Discord bot (real agent loop + /goal + /model), MCP bridge (6 tools), Hindsight memory (3 tools, SQLite + TTL/importance + vector search), 17-skill registry, native Go hooks, portable mode.
+- **Research-backed design** (July 2026 arxiv sweep):
+  - **Cache-stable prefix**: Validated by Zhang, "Can I Buy Your KV Cache?" (2606.13361) — publisher prefill caching is 49.7× cheaper than re-prefill per agent. Our byte-stable system prompt prefix is this exact optimization applied at the session level.
+  - **Sandbox + checkpoint + permission gating**: Validated by Carlucci et al., "Loss of Control Risk" (2606.13474) — the constrain/audit/reverse/halt taxonomy maps to our bwrap/Seatbelt + checkpoints + permission architecture. Operational variability erodes safeguards over time → structural invariants (constitution) are the right defense.
+  - **AGENTS.md / REASONIX.md**: Validated by Arabat & Sayagh, "Instructions-as-Code" (2606.13449) — well-structured, long instruction files correlate with 20%+ merge-rate improvement in 15,549 agentic PRs across 148 projects.
 - **CodeWhale features** (10/10 done, 2026-07-04): Shell env hooks, parallel sub-agent dispatch (task batch), completion sound (/sound), harness profiles (/profile), constitution system (.reasonix/constitution.json), workshop sidecar (>12KB output synthesis), hotbar (desktop keys 1-7), external sandbox (remote OpenSandbox API), Nix flake, Dockerfile.
 - **Desktop built**: `bin/reasonix-desktop` (33MB, Wails v2.12.0 + React 19 + Vite 8 + TypeScript 6). Fixed vite.config.ts `manualChunks` for Vite 8/Rolldown compatibility. HotbarConfig restored.
 - **Desktop Hermes enrichment** (12 features across 3 tiers, 2026-07-13):
@@ -149,12 +153,37 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 **Total**: 22 files changed, 7 new files, 433 lines modified + ~950 new lines, 49 new tests. All binaries build clean.
 
+**Session 2026-07-14 (h3)** (Telegram bot + learn + mesh):
+- **Telegram bot adapter**: Added `PlatformTelegram`, `TelegramBotConfig`, `internal/bot/telegram/` adapter implementing `bot.Adapter` with long-polling via `go-telegram-bot-api/v5`. 16 tests. Wired into gateway, runtime, CLI, allowlist. Config at `[bot.telegram]`.
+- **Self-improving skill loops**: New `internal/learn/` package — `Learner` struct observes turn patterns, detects repeated tool sequences (edit-then-test, write-then-build), `BuildReflectionPrompt` for post-session synthesis. 16 tests. Config at `[learn]`.
+- **Agent-to-agent MCP mesh**: New `internal/mesh/` package — `Mesh` struct with JSON-RPC/MCP client, `Delegate`/`Broadcast`/`Query`/`Status` operations, `Council` orchestrator with `Convene`/`Consensus`/`Merge`. 13 tests with httptest mock peers. Config at `[mesh]` with `[[mesh.peers]]`.
+- **SPEC.md updated**: Added `telegram/`, `compress/`, `learn/`, `mesh/`, `publish/`, `scheduler/` to layout; bot gateway now shows 5 platforms.
+- **Config additions**: `[bot.telegram]`, `[learn]`, `[mesh]` sections. `PlatformTelegram`, `TelegramBotConfig`, `LearnConfig`, `MeshConfig` types.
+- **Total**: 7 new files, ~12 files modified, 3 new packages, 45 new tests. All binaries build clean.
+
+**Session 2026-07-14 (h4)** (desktop widgets + GitHub Action + LSP audit + docs + collab + deploy):
+- **Desktop schedule/cost/publish widgets**: Added Go bindings (`ScheduleDashboard`, `CostSummary`, `PublishSessionHTML`/`JSON`, `ExportSession`) to `hermes_dashboard.go`; `Schedule()` and `SessionMessages()` controller methods; `IsEnabled()` export on scheduler.Task. Three new React components: `ScheduleWidget.tsx`, `CostWidget.tsx`, `PublishWidget.tsx`. Extended `useHermesLiveData`, `HermesSettings`, `bridge.ts`, `types.ts`.
+- **GitHub Action for PR review**: New `cmd/reasonix-pr-review/` CLI (fetches PR metadata + diff from GitHub API, pipes to reasonix for review with 6-dimension prompt encoding paper findings). New `.github/workflows/pr-review.yml`.
+- **PR review prompt enhanced**: 6 dimensions including deception detection (RogueAI paper) and verification/trustworthiness checks.
+- **LSP wiring**: Audited — confirmed already fully wired by upstream. No new code needed.
+- **Research documentation**: 3 paper citations in REASONIX.md (#10 KV Cache validates cache-stable prefix; #17 Loss of Control validates sandbox+constitution; #19 Instructions-as-Code validates AGENTS.md). WINDOWS-SANDBOX-DESIGN.md updated.
+- **Evidence-first reasoning skill**: New project skill `.reasonix/skills/evidence-first-reasoning/SKILL.md` — encodes Marozzo & Liò protocol.
+- **Live collaboration**: New `internal/collab/` package — WebSocket Hub with subscribe/broadcast/steer protocol, 8 tests. Config at `[collab]`.
+- **Helm chart + cloud deploy**: `deploy/helm/reasonix/` (7-file Helm chart), `deploy/docker-compose.yml` (single-node $5 VPS), `deploy/README.md`.
+- **Dependencies**: `gorilla/websocket` v1.5.3 added to go.mod.
+- **Total**: 15 new files, ~12 files modified, 2 new packages, 3 new React components, 8 new tests, 1 new skill. All builds clean.
+
 ### Next to build
-- [ ] **Self-improving skill loops** — `internal/learn/` package, post-session reflection (~1,000 lines)
-- [ ] **Agent-to-agent MCP mesh** — `internal/mesh/` package, peer discovery, council mode (~800 lines)
-- [ ] **Telegram bot adapter** — next to Discord, same `bot.Adapter` interface (~500 lines)
-- [ ] **Desktop schedule/cost/publish widgets** — React components for new backend features
-- [ ] **LSP wiring** — connect upstream `internal/lsp/` to agent tool calls (~600 lines)
-- [ ] **GitHub Action for PR review** — `reasonix-hermes/review@v1` (~200 lines)
-- [ ] **Live collaboration** — `internal/collab/` package, WebSocket session sharing (~600 lines)
-- [ ] **Helm chart / one-click cloud deploy** — deploy stack on $5 VPS (~300 lines)
+- [ ] **Web UI (serve mode)** — browser-based frontend via `internal/serve/`
+- [ ] **E2E test harness** — replay-based regression testing for agent behaviour
+- [ ] **Plugin marketplace** — community plugin registry (discovery, ratings, auto-install)
+
+### Recently completed (all 8 from original "Next" list)
+- [x] Desktop schedule/cost/publish widgets (✅ 2026-07-14)
+- [x] GitHub Action for PR review (✅ 2026-07-14)
+- [x] LSP wiring — confirmed already done by upstream (✅ 2026-07-14)
+- [x] Self-improving skill loops (✅ 2026-07-14)
+- [x] Agent-to-agent MCP mesh (✅ 2026-07-14)
+- [x] Telegram bot adapter (✅ 2026-07-14)
+- [x] Live collaboration (✅ 2026-07-14)
+- [x] Helm chart / cloud deploy (✅ 2026-07-14)

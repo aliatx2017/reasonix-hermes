@@ -27,6 +27,7 @@ import type {
   CommandInfo,
   ContextInfo,
   ContextPanelInfo,
+  CostSummaryView,
   DirEntry,
   DroppedItem,
   EffortInfo,
@@ -73,6 +74,7 @@ import type {
   FIMResult,
   MemoryFactView,
   MemoryDashboardView,
+  ScheduleDashboardView,
   WorkspaceView,
 } from "./types";
 
@@ -233,6 +235,11 @@ export interface AppBindings {
   BotLiveStatus(): Promise<BotLiveStatusView>;
   GoalProgress(): Promise<GoalProgressView>;
   GoalProgressForTab(tabID: string): Promise<GoalProgressView>;
+  CostSummary(): Promise<CostSummaryView>;
+  CostSummaryForTab(tabID: string): Promise<CostSummaryView>;
+  ScheduleDashboard(): Promise<ScheduleDashboardView>;
+  PublishSessionHTML(): Promise<string>;
+  PublishSessionJSON(): Promise<string>;
   SubagentTree(): Promise<SubagentNodeView[]>;
   SubagentTreeForTab(tabID: string): Promise<SubagentNodeView[]>;
   ConstitutionHealth(): Promise<ConstitutionHealthView>;
@@ -2411,6 +2418,30 @@ function makeMockApp(): AppBindings {
         },
         async GoalProgressForTab(_tabID: string) {
           return { active: false, goal: "", status: "", turns: 0, blocks: 0 };
+        },
+        async CostSummary() {
+          return { sessionCost: 0.012, currency: "¥" };
+        },
+        async CostSummaryForTab(_tabID: string) {
+          return { sessionCost: 0.012, currency: "¥" };
+        },
+        async ScheduleDashboard() {
+          return {
+            active: true,
+            tasks: [
+              { name: "daily-review", cron: "0 2 * * *", prompt: "Review all changes", enabled: true, nextRun: "2026-07-15T02:00:00Z" },
+              { name: "weekly-summary", cron: "0 9 * * 1", prompt: "Summarize work", enabled: true, nextRun: "2026-07-20T09:00:00Z" },
+            ],
+            recentRuns: [
+              { taskName: "daily-review", runAt: "2026-07-14T02:00:00Z", duration: "3.2s", success: true, summary: "All changes reviewed. No issues found.", error: "" },
+            ],
+          };
+        },
+        async PublishSessionHTML() {
+          return "<html><body>Mock session</body></html>";
+        },
+        async PublishSessionJSON() {
+          return '{"title":"Mock","model":"deepseek-flash","date":"2026-07-14T00:00:00Z","messages":[]}';
         },
         async SubagentTree() { return []; },
         async SubagentTreeForTab(_tabID: string) { return []; },

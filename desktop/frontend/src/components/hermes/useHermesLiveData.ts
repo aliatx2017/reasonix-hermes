@@ -1,12 +1,21 @@
 import { useState, useEffect, useCallback } from "react";
 import { app } from "../../lib/bridge";
-import type { CacheEconomyView, BotLiveStatusView, GoalProgressView, MemoryDashboardView } from "../../lib/types";
+import type {
+  CacheEconomyView,
+  BotLiveStatusView,
+  GoalProgressView,
+  MemoryDashboardView,
+  CostSummaryView,
+  ScheduleDashboardView,
+} from "../../lib/types";
 
 interface HermesLiveData {
   cache: CacheEconomyView | null;
   discord: BotLiveStatusView | null;
   goal: GoalProgressView | null;
   memory: MemoryDashboardView | null;
+  cost: CostSummaryView | null;
+  schedule: ScheduleDashboardView | null;
 }
 
 interface HermesDashboardPayload {
@@ -14,6 +23,8 @@ interface HermesDashboardPayload {
   memory: MemoryDashboardView | null;
   bot: BotLiveStatusView | null;
   goal: GoalProgressView | null;
+  cost: CostSummaryView | null;
+  schedule: ScheduleDashboardView | null;
 }
 
 const POLL_MS = 5000;
@@ -21,7 +32,7 @@ const EVENT_CHANNEL = "hermes:dashboard";
 
 export function useHermesLiveData(tabId: string | undefined, enabled: boolean): HermesLiveData {
   const [data, setData] = useState<HermesLiveData>({
-    cache: null, discord: null, goal: null, memory: null,
+    cache: null, discord: null, goal: null, memory: null, cost: null, schedule: null,
   });
 
   // Prefer Wails push events; fall back to polling.
@@ -39,6 +50,8 @@ export function useHermesLiveData(tabId: string | undefined, enabled: boolean): 
             discord: payload.bot ?? null,
             goal: payload.goal ?? null,
             memory: payload.memory ?? null,
+            cost: (payload as any).cost ?? null,
+            schedule: (payload as any).schedule ?? null,
           });
         });
         // Initial fetch in case the first event hasn't fired yet.
@@ -59,13 +72,15 @@ export function useHermesLiveData(tabId: string | undefined, enabled: boolean): 
     if (!enabled) return;
     try {
       const tid = tabId ?? "";
-      const [cache, discord, goal, memory] = await Promise.all([
+      const [cache, discord, goal, memory, cost, schedule] = await Promise.all([
         tid ? app.CacheEconomyForTab(tid) : app.CacheEconomy(),
         app.BotLiveStatus(),
         tid ? app.GoalProgressForTab(tid) : app.GoalProgress(),
         app.MemoryDashboard(),
+        tid ? app.CostSummaryForTab(tid) : app.CostSummary(),
+        app.ScheduleDashboard(),
       ]);
-      setData({ cache, discord, goal, memory });
+      setData({ cache, discord, goal, memory, cost, schedule });
     } catch {
       // silent — bridge may not be ready
     }

@@ -672,6 +672,34 @@ export interface GoalProgressView {
   blocks: number;
 }
 
+export interface CostSummaryView {
+  sessionCost: number;
+  currency: string;
+}
+
+export interface ScheduleTaskView {
+  name: string;
+  cron: string;
+  prompt: string;
+  enabled: boolean;
+  nextRun: string;
+}
+
+export interface ScheduleResultView {
+  taskName: string;
+  runAt: string;
+  duration: string;
+  success: boolean;
+  summary: string;
+  error?: string;
+}
+
+export interface ScheduleDashboardView {
+  active: boolean;
+  tasks: ScheduleTaskView[];
+  recentRuns: ScheduleResultView[];
+}
+
 export interface MemoryDashboardView {
   totalFacts: number;
   totalDocs: number;

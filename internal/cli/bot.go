@@ -106,16 +106,18 @@ func botStart(args []string, version string) int {
 			Enabled:  cfg.Bot.Allowlist.Enabled,
 			AllowAll: cfg.Bot.Allowlist.AllowAll,
 			Users: map[bot.Platform][]string{
-				bot.PlatformQQ:      cfg.Bot.Allowlist.QQUsers,
-				bot.PlatformFeishu:  cfg.Bot.Allowlist.FeishuUsers,
-				bot.PlatformWeixin:  cfg.Bot.Allowlist.WeixinUsers,
-				bot.PlatformDiscord: cfg.Bot.Allowlist.DiscordUsers,
+				bot.PlatformQQ:       cfg.Bot.Allowlist.QQUsers,
+				bot.PlatformFeishu:   cfg.Bot.Allowlist.FeishuUsers,
+				bot.PlatformWeixin:   cfg.Bot.Allowlist.WeixinUsers,
+				bot.PlatformDiscord:  cfg.Bot.Allowlist.DiscordUsers,
+				bot.PlatformTelegram: cfg.Bot.Allowlist.TelegramUsers,
 			},
 			Groups: map[bot.Platform][]string{
-				bot.PlatformQQ:      cfg.Bot.Allowlist.QQGroups,
-				bot.PlatformFeishu:  cfg.Bot.Allowlist.FeishuGroups,
-				bot.PlatformWeixin:  cfg.Bot.Allowlist.WeixinGroups,
-				bot.PlatformDiscord: cfg.Bot.Allowlist.DiscordGroups,
+				bot.PlatformQQ:       cfg.Bot.Allowlist.QQGroups,
+				bot.PlatformFeishu:   cfg.Bot.Allowlist.FeishuGroups,
+				bot.PlatformWeixin:   cfg.Bot.Allowlist.WeixinGroups,
+				bot.PlatformDiscord:  cfg.Bot.Allowlist.DiscordGroups,
+				bot.PlatformTelegram: cfg.Bot.Allowlist.TelegramGroups,
 			},
 		},
 		Debounce:  time.Duration(cfg.Bot.DebounceMs) * time.Millisecond,
@@ -275,10 +277,12 @@ func botDoctor(args []string) int {
 		addCheck("bot.allowlist", "open", "allow_all=true — every reachable user can trigger local tools")
 	} else if bc.Allowlist.Enabled {
 		addCheck("bot.allowlist", "enabled",
-			fmt.Sprintf("qq=%d feishu=%d weixin=%d users",
+			fmt.Sprintf("qq=%d feishu=%d weixin=%d discord=%d telegram=%d users",
 				len(bc.Allowlist.QQUsers),
 				len(bc.Allowlist.FeishuUsers),
-				len(bc.Allowlist.WeixinUsers)))
+				len(bc.Allowlist.WeixinUsers),
+				len(bc.Allowlist.DiscordUsers),
+				len(bc.Allowlist.TelegramUsers)))
 	} else {
 		addCheck("bot.allowlist", "missing", "bot start will refuse without allowlist or allow_all=true")
 	}
@@ -361,7 +365,7 @@ func loadBotCommandConfig() (*config.Config, error) {
 }
 
 func botConfigIsUserOwned(bc config.BotConfig) bool {
-	if bc.Enabled || len(bc.Connections) > 0 || bc.QQ.Enabled || bc.Feishu.Enabled || bc.Weixin.Enabled {
+	if bc.Enabled || len(bc.Connections) > 0 || bc.QQ.Enabled || bc.Feishu.Enabled || bc.Weixin.Enabled || bc.Discord.Enabled || bc.Telegram.Enabled {
 		return true
 	}
 	if bc.Allowlist.AllowAll || botruntime.AllowlistUserCount(bc.Allowlist) > 0 {

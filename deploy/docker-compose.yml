@@ -1,0 +1,39 @@
+# Reasonix-Hermes — single-node deploy for $5 VPS.
+# Start: docker-compose up -d
+# Stop:  docker-compose down
+
+version: "3.8"
+
+services:
+  mcpbridge:
+    image: ghcr.io/aliatx2017/reasonix-hermes:latest
+    command: ["/app/reasonix-mcpbridge", "--http", "--port", "9090"]
+    ports:
+      - "9090:9090"
+    environment:
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+    restart: unless-stopped
+
+  memoryserver:
+    image: ghcr.io/aliatx2017/reasonix-hermes:latest
+    command: ["/app/reasonix-memoryserver", "--http", "--port", "9091"]
+    ports:
+      - "9091:9091"
+    volumes:
+      - memory-data:/data
+    environment:
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+    restart: unless-stopped
+
+  bot:
+    image: ghcr.io/aliatx2017/reasonix-hermes:latest
+    command: ["/app/reasonix-bot", "--model", "deepseek-flash"]
+    environment:
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN:-}
+    restart: unless-stopped
+    profiles:
+      - bot
+
+volumes:
+  memory-data:

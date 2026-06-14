@@ -6,6 +6,9 @@ import (
 	"path/filepath"
 	"reasonix/internal/control"
 	"reasonix/internal/diff"
+	"reasonix/internal/provider"
+	"reasonix/internal/publish"
+	"strings"
 	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -171,16 +174,17 @@ func (a *App) ctrlForTab(tabID string) *control.Controller {
 
 // HermesDashboardEvent is the push payload sent to the frontend every few seconds.
 type HermesDashboardEvent struct {
-	Cache        CacheEconomyView        `json:"cache"`
-	Cost         CostSummaryView         `json:"cost"`
-	Memory       MemoryDashboardView     `json:"memory"`
-	Bot          BotLiveStatusView       `json:"bot"`
-	Goal         GoalProgressView        `json:"goal"`
-	Subagents    []SubagentNodeView      `json:"subagents"`
-	Constitution ConstitutionHealthView  `json:"constitution"`
-	TurnUsage    []TurnUsagePoint        `json:"turnUsage"`
-	Compactions  []CompactionEvent       `json:"compactions"`
-	MemoryFacts  []MemoryFactView        `json:"memoryFacts"`
+	Cache         CacheEconomyView       `json:"cache"`
+	Cost          CostSummaryView        `json:"cost"`
+	Memory        MemoryDashboardView    `json:"memory"`
+	Bot           BotLiveStatusView      `json:"bot"`
+	Goal          GoalProgressView       `json:"goal"`
+	Subagents     []SubagentNodeView     `json:"subagents"`
+	Constitution  ConstitutionHealthView `json:"constitution"`
+	TurnUsage     []TurnUsagePoint       `json:"turnUsage"`
+	Compactions   []CompactionEvent      `json:"compactions"`
+	MemoryFacts   []MemoryFactView       `json:"memoryFacts"`
+	Schedule      ScheduleDashboardView  `json:"schedule"`
 }
 
 // MemoryFactView is one fact from the auto-memory store.
@@ -384,9 +388,160 @@ func (a *App) startHermesEventLoop(ctx context.Context) {
 					TurnUsage:     a.TurnUsageHistory(),
 					Compactions:   a.CompactionHistory(),
 					MemoryFacts:   a.MemoryFacts(),
+					Schedule:      a.ScheduleDashboard(),
 				}
 				runtime.EventsEmit(ctx, "hermes:dashboard", ev)
 			}
 		}
 	}()
+}
+
+// --- Schedule Dashboard ---
+
+// ScheduleTaskView is one scheduled task for the dashboard.
+type ScheduleTaskView struct {
+	Name       string `json:"name"`
+	Cron       string `json:"cron"`
+	Prompt     string `json:"prompt"` // truncated
+	Enabled    bool   `json:"enabled"`
+	NextRun    string `json:"nextRun"` // ISO 8601, empty if not computed
+}
+
+// ScheduleResultView is one completed run result.
+type ScheduleResultView struct {
+	TaskName string `json:"taskName"`
+	RunAt    string `json:"runAt"`
+	Duration string `json:"duration"` // e.g. "2.5s"
+	Success  bool   `json:"success"`
+	Summary  string `json:"summary"` // first 200 chars
+	Error    string `json:"error,omitempty"`
+}
+
+// ScheduleDashboardView is the schedule status payload.
+type ScheduleDashboardView struct {
+	Active      bool                 `json:"active"`
+	Tasks       []ScheduleTaskView   `json:"tasks"`
+	RecentRuns  []ScheduleResultView `json:"recentRuns"`
+}
+
+// ScheduleDashboard returns schedule status for the active tab.
+func (a *App) ScheduleDashboard() ScheduleDashboardView {
+	ctrl := a.ctrlForTab("")
+	if ctrl == nil {
+		return ScheduleDashboardView{Active: false, Tasks: []ScheduleTaskView{}, RecentRuns: []ScheduleResultView{}}
+	}
+
+	sched := ctrl.Schedule()
+	if sched == nil {
+		return ScheduleDashboardView{Active: false, Tasks: []ScheduleTaskView{}, RecentRuns: []ScheduleResultView{}}
+	}
+
+	// Tasks
+	tasks := sched.Tasks()
+	nextRuns := sched.AllNextRuns()
+	taskViews := make([]ScheduleTaskView, len(tasks))
+	for i, t := range tasks {
+		nextRun := ""
+		if nr, ok := nextRuns[t.Name]; ok {
+			nextRun = nr.Format(time.RFC3339)
+		}
+		prompt := t.Prompt
+		if len(prompt) > 120 {
+			prompt = prompt[:117] + "..."
+		}
+		taskViews[i] = ScheduleTaskView{
+			Name:    t.Name,
+			Cron:    t.Cron,
+			Prompt:  prompt,
+			Enabled: t.IsEnabled(),
+			NextRun: nextRun,
+		}
+	}
+
+	// Recent results
+	results := sched.Results(10)
+	resultViews := make([]ScheduleResultView, len(results))
+	for i, r := range results {
+		summary := r.Summary
+		if len(summary) > 200 {
+			summary = summary[:197] + "..."
+		}
+		resultViews[i] = ScheduleResultView{
+			TaskName: r.TaskName,
+			RunAt:    r.RunAt.Format(time.RFC3339),
+			Duration: r.Duration.Truncate(time.Millisecond).String(),
+			Success:  r.Success,
+			Summary:  summary,
+			Error:    r.Error,
+		}
+	}
+
+	return ScheduleDashboardView{
+		Active:     true,
+		Tasks:      taskViews,
+		RecentRuns: resultViews,
+	}
+}
+
+// --- Publish Session Export ---
+
+// PublishExportFormat is the requested output format.
+type PublishExportFormat string
+
+const (
+	PublishHTML PublishExportFormat = "html"
+	PublishJSON PublishExportFormat = "json"
+)
+
+// ExportSession exports the active session transcript in the requested format.
+func (a *App) ExportSession(format string) string {
+	ctrl := a.ctrlForTab("")
+	if ctrl == nil {
+		return ""
+	}
+
+	messages := ctrl.SessionMessages()
+	if messages == nil {
+		messages = []provider.Message{}
+	}
+
+	// Derive a title from the first user message
+	var title string
+	for _, m := range messages {
+		if m.Role == "user" && title == "" {
+			t := strings.TrimSpace(m.Content)
+			if len(t) > 80 {
+				t = t[:77] + "..."
+			}
+			title = t
+		}
+	}
+
+	session := publish.Session{
+		Title:    title,
+		Model:    ctrl.Label(),
+		Date:     time.Now(),
+		Messages: messages,
+	}
+
+	switch PublishExportFormat(format) {
+	case PublishJSON:
+		b, err := publish.ToJSON(session)
+		if err != nil {
+			return ""
+		}
+		return string(b)
+	default:
+		return publish.ToHTML(session)
+	}
+}
+
+// PublishSession exports the active session as a self-contained HTML document.
+func (a *App) PublishSessionHTML() string {
+	return a.ExportSession("html")
+}
+
+// PublishSessionJSON exports the active session as a JSON document.
+func (a *App) PublishSessionJSON() string {
+	return a.ExportSession("json")
 }

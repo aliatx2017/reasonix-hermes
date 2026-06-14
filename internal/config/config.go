@@ -61,6 +61,9 @@ type Config struct {
 	LSP           LSPConfig           `toml:"lsp"`
 	Bot           BotConfig           `toml:"bot"`
 	Schedule      ScheduleConfig      `toml:"schedule"`
+	Learn         LearnConfig         `toml:"learn"`
+	Mesh          MeshConfig          `toml:"mesh"`
+	Collab        CollabConfig        `toml:"collab"`
 }
 
 // UIConfig controls CLI presentation-only settings. Desktop appearance is kept in
@@ -483,6 +486,7 @@ type BotConfig struct {
 	Feishu           FeishuBotConfig       `toml:"feishu"`
 	Weixin           WeixinBotConfig       `toml:"weixin"`
 	Discord          DiscordBotConfig      `toml:"discord"`
+	Telegram         TelegramBotConfig     `toml:"telegram"`
 	Connections      []BotConnectionConfig `toml:"connections"`
 }
 
@@ -501,6 +505,35 @@ type ScheduleTaskConfig struct {
 	Enabled *bool  `toml:"enabled"` // nil or true = enabled
 }
 
+// LearnConfig controls self-improving skill loops. The learner observes agent
+// behaviour across turns, detects repeated tool/skill patterns, and enables a
+// post-session reflection turn to generate new SKILL.md files.
+type LearnConfig struct {
+	Enabled       bool `toml:"enabled"`
+	MaxPatterns   int  `toml:"max_patterns"`   // max patterns to detect (default 20)
+	MinConfidence int  `toml:"min_confidence"`  // observations before pattern forms (default 3)
+}
+
+// MeshConfig is the [mesh] section for agent-to-agent MCP delegation.
+type MeshConfig struct {
+	Enabled bool              `toml:"enabled"`
+	Peers   []MeshPeerConfig  `toml:"peers"`
+}
+
+// MeshPeerConfig is one entry in [[mesh.peers]].
+type MeshPeerConfig struct {
+	Name     string `toml:"name"`
+	URL      string `toml:"url"`
+	TokenEnv string `toml:"token_env"`
+	Enabled  bool   `toml:"enabled"`
+}
+
+// CollabConfig is the [collab] section for live collaborative session sharing.
+type CollabConfig struct {
+	Enabled    bool   `toml:"enabled"`
+	ListenAddr string `toml:"listen_addr"` // WebSocket listen address, e.g. ":9091"
+}
+
 // BotAllowlist 控制哪些用户可以使用 bot。
 type BotAllowlist struct {
 	Enabled      bool     `toml:"enabled"`
@@ -508,11 +541,13 @@ type BotAllowlist struct {
 	QQUsers      []string `toml:"qq_users"`
 	FeishuUsers  []string `toml:"feishu_users"`
 	WeixinUsers  []string `toml:"weixin_users"`
-	DiscordUsers []string `toml:"discord_users"`
-	QQGroups     []string `toml:"qq_groups"`
-	FeishuGroups []string `toml:"feishu_groups"`
-	WeixinGroups []string `toml:"weixin_groups"`
-	DiscordGroups []string `toml:"discord_groups"`
+	DiscordUsers   []string `toml:"discord_users"`
+	TelegramUsers  []string `toml:"telegram_users"`
+	QQGroups       []string `toml:"qq_groups"`
+	FeishuGroups   []string `toml:"feishu_groups"`
+	WeixinGroups   []string `toml:"weixin_groups"`
+	DiscordGroups  []string `toml:"discord_groups"`
+	TelegramGroups []string `toml:"telegram_groups"`
 }
 
 // QQBotConfig QQ 官方 Bot API v2 配置。
@@ -550,6 +585,13 @@ type DiscordBotConfig struct {
 	ChannelID     string `toml:"channel_id"`     // restrict to single channel (optional; empty = all channels)
 	AllowDMs      bool   `toml:"allow_dms"`      // respond to DMs (default true)
 	WebhookURLEnv string `toml:"webhook_url_env"` // env var for notification webhook URL (optional; e.g. DISCORD_WEBHOOK_URL)
+}
+
+// TelegramBotConfig configures a Telegram bot.
+type TelegramBotConfig struct {
+	Enabled  bool   `toml:"enabled"`
+	TokenEnv string `toml:"token_env"` // env var name, e.g. TELEGRAM_BOT_TOKEN
+	AllowDMs bool   `toml:"allow_dms"` // respond to DMs (default true)
 }
 
 // BotConnectionConfig is the desktop-friendly connection record for IM bot

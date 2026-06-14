@@ -1,0 +1,69 @@
+name: Reasonix PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  pull_request_review_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    name: Reasonix Code Review
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache: true
+
+      - name: Build reasonix-pr-review
+        run: go build -o bin/reasonix-pr-review ./cmd/reasonix-pr-review
+
+      - name: Install reasonix (if not built)
+        run: |
+          if ! command -v reasonix &>/dev/null; then
+            go build -o bin/reasonix ./cmd/reasonix
+            echo "$PWD/bin" >> $GITHUB_PATH
+          fi
+
+      - name: Run review
+        id: review
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: |
+          set -o pipefail
+          bin/reasonix-pr-review \
+            -repo "${{ github.repository }}" \
+            -pr "${{ github.event.pull_request.number }}" \
+            -model "deepseek-pro" 2>&1 | tee review.md
+
+      - name: Post review comment
+        if: success() && steps.review.outcome == 'success'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const review = fs.readFileSync('review.md', 'utf8');
+            if (review.trim()) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                body: review,
+              });
+            }
