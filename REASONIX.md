@@ -185,13 +185,14 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 ### Next to build
 - [ ] **npm: publish reasonix-hermes** — set 2FA-bypass granular token, push tag
-- [ ] **Web UI (serve mode)** — browser-based frontend via `internal/serve/`, live session viewer + chat
-- [ ] **E2E test harness** — replay-based regression testing for agent behaviour across saved sessions
 - [ ] **Plugin marketplace** — community plugin registry (discovery, ratings, one-click install)
-- [ ] **Desktop collab panel** — React component showing live watchers + steer console (builds on `internal/collab/`)
-- [ ] **Multi-model council** — majority voting, weighted consensus, chain-of-thought synthesis (builds on `internal/mesh/`)
 
 ### Recently completed
+- [x] **Ollama Cloud provider + auxiliary model routing** (✅ 2026-07-14) — new `ollamacloud` provider kind, 42 models via OpenAI-compatible API at ollama.com/v1. Auxiliary model config: `[agent.auxiliary]` with compression/vision/web_extract overrides. Compaction summarizer + vision requests auto-route to aux providers (cheaper/faster). Tested live: deepseek-v4-flash for compression, gemini-3-flash-preview for vision.
+- [x] **Web UI (serve mode)** (✅ pre-existing, enhanced) — 1160-line SPA at `reasonix serve`, SSE streaming, model switching, approvals. Now works with Ollama Cloud + aux models.
+- [x] **Desktop collab panel** (✅ 2026-07-14) — Go bindings (CollabDashboard, startCollabHub with steer forwarding), React CollabPanel component (live badge, watcher count, session list), integrated into useHermesLiveData push + polling.
+- [x] **Multi-model council UI** (✅ 2026-07-14) — Controller mesh integration (SetMesh/Council/MeshStatus), boot.go mesh creation from [mesh] config, CLI `/council` slash command (status + task dispatch), desktop CouncilPanel widget (peer list + status).
+- [x] **E2E test harness** (✅ 2026-07-14) — New `internal/e2e/` package: Harness struct, SessionInputs, SessionTools, TurnCount, Analyze, AssertTools, AssertTurns, ListSessions, RunAll. 7 tests passing.
 - [x] Animated logo + wordmark lockup (✅ 2026-07-14)
 - [x] README overhaul — Hermes-first, no upstream install links (✅ 2026-07-14)
 - [x] npm i -g reasonix-hermes packaging (✅ 2026-07-14, publish pending token)

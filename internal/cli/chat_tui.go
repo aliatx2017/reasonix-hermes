@@ -3787,6 +3787,22 @@ func (m *chatTUI) runSlashCommand(input string) tea.Cmd {
 		m.echoLocalCommand(input)
 		m.showStats = true
 		m.notice("cost panel shown — /stats to hide")
+	case "/council":
+		m.echoLocalCommand(input)
+		task := strings.TrimSpace(strings.TrimPrefix(input, cmd))
+		if task == "" {
+			m.notice(m.ctrl.MeshStatus())
+		} else {
+			m.notice("dispatching to council peers…")
+			go func() {
+				result, err := m.ctrl.Council(context.Background(), task)
+				if err != nil {
+					m.notice("council: " + err.Error())
+				} else {
+					m.notice("council consensus:\n" + result)
+				}
+			}()
+		}
 	default:
 		// A custom command wins over a skill of the same name; both resolve to a turn.
 		if sent, ok := m.ctrl.CustomCommand(input); ok {

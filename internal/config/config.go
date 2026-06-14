@@ -908,6 +908,32 @@ type AgentConfig struct {
 	// CompressToolOutput enables token-saving compression on tool results via
 	// SHA-256 content caching, line dedup, and JSON minification (default true).
 	CompressToolOutput *bool `toml:"compress_tool_output"`
+	// Auxiliary overrides which model handles background jobs: compaction
+	// summarization, vision/image processing, and web-page extraction. Each entry
+	// names a [[providers]] instance. When unset the main model handles it.
+	Auxiliary AuxiliaryConfig `toml:"auxiliary"`
+}
+
+// AuxiliaryConfig selects alternate models for background jobs that don't need
+// the full reasoning power of the main model. Pointing compaction, vision, and
+// web extraction at a fast cheap model (e.g. MiMo-V2-Flash or DeepSeek V4 Flash
+// via Ollama Cloud) keeps the main model's context budget for real reasoning.
+type AuxiliaryConfig struct {
+	Compression AuxModelRef `toml:"compression"`  // compaction summarizer
+	Vision      AuxModelRef `toml:"vision"`       // image/vision requests
+	WebExtract  AuxModelRef `toml:"web_extract"`  // web-page content extraction
+}
+
+// AuxModelRef names a configured [[providers]] instance to use for an auxiliary
+// job. Both fields must be set for the override to take effect.
+type AuxModelRef struct {
+	Provider string `toml:"provider"` // provider name, e.g. "ollamacloud-flash"
+	Model    string `toml:"model"`    // model id, e.g. "deepseek-v4-flash"
+}
+
+// IsSet reports whether both Provider and Model are non-empty.
+func (r AuxModelRef) IsSet() bool {
+	return strings.TrimSpace(r.Provider) != "" && strings.TrimSpace(r.Model) != ""
 }
 
 // ProviderEntry declares a model provider instance. ContextWindow is the model's

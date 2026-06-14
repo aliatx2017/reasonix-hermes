@@ -80,6 +80,19 @@ compact_force_ratio = 0.9 # force compacting at this high-water mark
 # output_style = "explanatory"   # persona/tone folded into the prompt: explanatory | learning | concise,
 #                                  or a custom .reasonix/output-styles/<name>.md ; empty = default
 
+# Route background jobs to cheaper models so the main model focuses on reasoning.
+# Each entry names a [[providers]] instance. Unset = reuse the main model.
+# [agent.auxiliary]
+#   [agent.auxiliary.compression]
+#     provider = "ollamacloud-flash"
+#     model = "deepseek-v4-flash"
+#   [agent.auxiliary.vision]
+#     provider = "ollamacloud-vision"
+#     model = "gemini-3-flash-preview"   # multimodal; also try qwen3-vl:235b-instruct
+#   [agent.auxiliary.web_extract]
+#     provider = "ollamacloud-flash"
+#     model = "deepseek-v4-flash"
+
 # A provider is a vendor endpoint (one base_url + key) that offers one or more
 # models. Use `models = [...]` to expose several under a single entry — switching
 # models reuses the same connection; no need to re-declare base_url/api_key.
@@ -170,6 +183,18 @@ effort = "high"
 # api_key_env = "GLM_API_KEY"
 # context_window = 128000
 # effort = "high"
+
+# Ollama Cloud — OpenAI-compatible provider kind. Defaults to
+# https://api.ollama.com/v1. Model names support colon-delimited tags
+# (e.g. gemma4:31b, deepseek-v4-pro). Good for cheap auxiliary models.
+# [[providers]]
+# name = "ollamacloud-flash"
+# kind = "ollamacloud"
+# model = "deepseek-v4-flash"
+# api_key_env = "OLLAMA_API_KEY"
+# context_window = 256000
+# price = { input = 0.10, output = 0.30, currency = "$" } # per 1M tokens
+# vision = false   # set true for vision models like qwen3-vl:235b-instruct
 
 [tools]
 enabled = []               # empty = all built-in tools

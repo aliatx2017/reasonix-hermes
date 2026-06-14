@@ -30,6 +30,7 @@ import (
 	"reasonix/internal/billing"
 	"reasonix/internal/boot"
 	"reasonix/internal/builtinmcp"
+	"reasonix/internal/collab"
 	"reasonix/internal/config"
 	"reasonix/internal/control"
 	"reasonix/internal/event"
@@ -79,6 +80,8 @@ type App struct {
 	mediaTokens *mediaTokenStore
 	botInstalls map[string]*botInstallSession
 	botRuntime  *desktopBotRuntime
+
+	collabHub *collab.Hub // live collaboration WebSocket hub (nil when disabled)
 
 	metrics atomic.Pointer[metricsAggregator] // non-nil only when desktop.metrics is opted in; swapped live by SetDesktopMetrics
 }
@@ -278,6 +281,7 @@ func (a *App) startup(ctx context.Context) {
 	}
 
 	go a.restoreOrBuildTabs()
+	a.goSafe("startCollabHub", a.startCollabHub)
 	a.goSafe("refreshBotRuntime", a.refreshBotRuntime)
 	a.goSafe("sendStartupPing", a.sendStartupPing)
 	a.goSafe("flushMetrics", a.flushMetrics)
@@ -4639,4 +4643,42 @@ func (a *App) ConnectKey(apiKey string) error {
 		a.mu.Unlock()
 	}
 	return nil
+}
+
+// --- Collab Hub ---
+
+// startCollabHub creates the WebSocket hub for live collaboration if enabled
+// in config. Safe to call when collab is disabled — it does nothing.
+func (a *App) startCollabHub() {
+	cfg, err := config.Load()
+	if err != nil {
+		return
+	}
+	if !cfg.Collab.Enabled {
+		return
+	}
+	collabCfg := collab.Config{
+		Enabled:    cfg.Collab.Enabled,
+		ListenAddr: cfg.Collab.ListenAddr,
+	}
+	h := collab.New(collabCfg, func(sessionID, text string) {
+		// Steer: forward to the tab that owns this session.
+		a.mu.RLock()
+		defer a.mu.RUnlock()
+		for _, tab := range a.tabs {
+			if tab.Ctrl != nil && tab.Ctrl.SessionDir() != "" && strings.Contains(sessionID, tab.Ctrl.SessionDir()) {
+				tab.Ctrl.Steer(text)
+				return
+			}
+		}
+	}, nil)
+	if h != nil {
+		_ = h.Start()
+	}
+	a.collabHub = h
+}
+
+// collabHub returns the collab hub (may be nil).
+func (a *App) getCollabHub() *collab.Hub {
+	return a.collabHub
 }

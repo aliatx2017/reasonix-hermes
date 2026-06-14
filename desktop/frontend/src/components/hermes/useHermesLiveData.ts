@@ -7,6 +7,8 @@ import type {
   MemoryDashboardView,
   CostSummaryView,
   ScheduleDashboardView,
+  CollabView,
+  CouncilDashboardView,
 } from "../../lib/types";
 
 interface HermesLiveData {
@@ -16,6 +18,8 @@ interface HermesLiveData {
   memory: MemoryDashboardView | null;
   cost: CostSummaryView | null;
   schedule: ScheduleDashboardView | null;
+  collab: CollabView | null;
+  council: CouncilDashboardView | null;
 }
 
 interface HermesDashboardPayload {
@@ -25,6 +29,8 @@ interface HermesDashboardPayload {
   goal: GoalProgressView | null;
   cost: CostSummaryView | null;
   schedule: ScheduleDashboardView | null;
+  collab: CollabView | null;
+  council: CouncilDashboardView | null;
 }
 
 const POLL_MS = 5000;
@@ -32,7 +38,7 @@ const EVENT_CHANNEL = "hermes:dashboard";
 
 export function useHermesLiveData(tabId: string | undefined, enabled: boolean): HermesLiveData {
   const [data, setData] = useState<HermesLiveData>({
-    cache: null, discord: null, goal: null, memory: null, cost: null, schedule: null,
+    cache: null, discord: null, goal: null, memory: null, cost: null, schedule: null, collab: null, council: null,
   });
 
   // Prefer Wails push events; fall back to polling.
@@ -52,6 +58,8 @@ export function useHermesLiveData(tabId: string | undefined, enabled: boolean): 
             memory: payload.memory ?? null,
             cost: (payload as any).cost ?? null,
             schedule: (payload as any).schedule ?? null,
+            collab: (payload as any).collab ?? null,
+            council: (payload as any).council ?? null,
           });
         });
         // Initial fetch in case the first event hasn't fired yet.
@@ -72,15 +80,17 @@ export function useHermesLiveData(tabId: string | undefined, enabled: boolean): 
     if (!enabled) return;
     try {
       const tid = tabId ?? "";
-      const [cache, discord, goal, memory, cost, schedule] = await Promise.all([
+      const [cache, discord, goal, memory, cost, schedule, collab, council] = await Promise.all([
         tid ? app.CacheEconomyForTab(tid) : app.CacheEconomy(),
         app.BotLiveStatus(),
         tid ? app.GoalProgressForTab(tid) : app.GoalProgress(),
         app.MemoryDashboard(),
         tid ? app.CostSummaryForTab(tid) : app.CostSummary(),
         app.ScheduleDashboard(),
+        app.CollabDashboard(),
+        app.CouncilDashboard(),
       ]);
-      setData({ cache, discord, goal, memory, cost, schedule });
+      setData({ cache, discord, goal, memory, cost, schedule, collab, council });
     } catch {
       // silent — bridge may not be ready
     }

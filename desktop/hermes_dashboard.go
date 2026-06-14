@@ -185,6 +185,8 @@ type HermesDashboardEvent struct {
 	Compactions   []CompactionEvent      `json:"compactions"`
 	MemoryFacts   []MemoryFactView       `json:"memoryFacts"`
 	Schedule      ScheduleDashboardView  `json:"schedule"`
+	Collab        CollabView              `json:"collab"`
+	Council       CouncilDashboardView    `json:"council"`
 }
 
 // MemoryFactView is one fact from the auto-memory store.
@@ -389,6 +391,8 @@ func (a *App) startHermesEventLoop(ctx context.Context) {
 					Compactions:   a.CompactionHistory(),
 					MemoryFacts:   a.MemoryFacts(),
 					Schedule:      a.ScheduleDashboard(),
+					Collab:        a.CollabDashboard(),
+					Council:       a.CouncilDashboard(),
 				}
 				runtime.EventsEmit(ctx, "hermes:dashboard", ev)
 			}
@@ -544,4 +548,71 @@ func (a *App) PublishSessionHTML() string {
 // PublishSessionJSON exports the active session as a JSON document.
 func (a *App) PublishSessionJSON() string {
 	return a.ExportSession("json")
+}
+
+// --- Collab Dashboard ---
+
+// CollabView is the desktop collab panel payload.
+type CollabView struct {
+	Enabled     bool     `json:"enabled"`
+	ListenAddr  string   `json:"listenAddr"`
+	Watchers    int      `json:"watchers"`
+	Sessions    []string `json:"sessions"`
+}
+
+// CollabDashboard returns collab status for the active tab.
+func (a *App) CollabDashboard() CollabView {
+	hub := a.getCollabHub()
+	if hub == nil {
+		return CollabView{}
+	}
+	ctrl := a.ctrlForTab("")
+	sessionID := ""
+	if ctrl != nil {
+		sessionID = ctrl.SessionDir()
+	}
+	return CollabView{
+		Enabled:    true,
+		ListenAddr: ":9091",
+		Watchers:   hub.SessionWatchers(sessionID),
+		Sessions:   hub.ActiveSessions(),
+	}
+}
+
+// --- Council Dashboard ---
+
+// CouncilPeerView is one peer in the council dashboard.
+type CouncilPeerView struct {
+	Name    string `json:"name"`
+	URL     string `json:"url"`
+	Enabled bool   `json:"enabled"`
+}
+
+// CouncilDashboardView is the council status payload.
+type CouncilDashboardView struct {
+	Enabled bool              `json:"enabled"`
+	Peers   []CouncilPeerView `json:"peers"`
+	Status  string            `json:"status"`
+}
+
+// CouncilDashboard returns mesh council status for the active tab.
+func (a *App) CouncilDashboard() CouncilDashboardView {
+	ctrl := a.ctrlForTab("")
+	if ctrl == nil {
+		return CouncilDashboardView{}
+	}
+	m := ctrl.Mesh()
+	if m == nil {
+		return CouncilDashboardView{Status: "disabled"}
+	}
+	peerNames := m.Peers()
+	peers := make([]CouncilPeerView, 0, len(peerNames))
+	for _, name := range peerNames {
+		peers = append(peers, CouncilPeerView{Name: name, Enabled: true})
+	}
+	return CouncilDashboardView{
+		Enabled: len(peerNames) > 0,
+		Peers:   peers,
+		Status:  ctrl.MeshStatus(),
+	}
 }

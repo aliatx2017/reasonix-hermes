@@ -94,13 +94,15 @@ reasonix/
     ├── proc/                # process management (kill groups, signals)
     ├── provider/            # Provider interface + types + kind→factory registry
     │   ├── anthropic/       # Anthropic Messages API impl
-    │   └── openai/          # OpenAI-compatible impl; init() registers "openai"
+    │   ├── ollamacloud/      # Ollama Cloud OpenAI-compatible impl; delegates to openai
+    │   └── openai/           # OpenAI-compatible impl; init() registers "openai"
     ├── publish/             # session transcript export (HTML/JSON)
     ├── sandbox/             # OS-level sandbox (macOS Seatbelt, Linux bubblewrap, Windows AppContainer)
     ├── scheduler/           # cron-driven automated agent tasks
     ├── serve/               # HTTP/WebSocket server mode
     ├── skill/               # skill registry and loader
     ├── sysproxy/            # system proxy detection
+    ├── e2e/                 # replay-based regression testing harness
     └── tool/                # Tool interface + Registry
         └── builtin/         # 15 built-in tools: bash, read_file, write_file,
                              #   edit_file, multiedit, ls, glob, grep, webfetch,

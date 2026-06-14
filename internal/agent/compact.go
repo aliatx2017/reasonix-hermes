@@ -508,7 +508,11 @@ func (a *Agent) summarize(ctx context.Context, region []provider.Message, instru
 	if strings.TrimSpace(instructions) != "" {
 		sys += "\n\nAdditional focus for this compaction (prioritize keeping this):\n" + strings.TrimSpace(instructions)
 	}
-	ch, err := a.prov.Stream(ctx, provider.Request{
+	prov := a.prov
+	if a.compressionProv != nil {
+		prov = a.compressionProv
+	}
+	ch, err := prov.Stream(ctx, provider.Request{
 		Messages: []provider.Message{
 			{Role: provider.RoleSystem, Content: sys},
 			{Role: provider.RoleUser, Content: renderTranscript(region)},

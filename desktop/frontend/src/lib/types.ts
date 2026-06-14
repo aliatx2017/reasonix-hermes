@@ -1021,3 +1021,26 @@ export interface UpdateProgress {
   total: number;
   err?: string;
 }
+
+// --- Collab ---
+
+export interface CollabView {
+  enabled: boolean;
+  listenAddr: string;
+  watchers: number;
+  sessions: string[];
+}
+
+// --- Council ---
+
+export interface CouncilPeerView {
+  name: string;
+  url: string;
+  enabled: boolean;
+}
+
+export interface CouncilDashboardView {
+  enabled: boolean;
+  peers: CouncilPeerView[];
+  status: string;
+}

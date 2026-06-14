@@ -1,6 +1,8 @@
 import { BarChart3, BookOpen, Calendar, Download, FileText, GitBranch, History, Keyboard, Network, Shield, Sliders, Zap } from "lucide-react";
-import type { SettingsView, HotbarView, ProfileView, CostSummaryView, ScheduleDashboardView } from "../../lib/types";
+import type { SettingsView, HotbarView, ProfileView, CostSummaryView, ScheduleDashboardView, CollabView, CouncilDashboardView } from "../../lib/types";
 import { CacheEconomyGauge } from "./CacheEconomyGauge";
+import { CollabPanel } from "./CollabPanel";
+import { CouncilPanel } from "./CouncilPanel";
 import { CostWidget } from "./CostWidget";
 import { DiscordMonitor } from "./DiscordMonitor";
 import { GoalProgressWidget } from "./GoalProgressWidget";
@@ -23,6 +25,8 @@ interface HermesSettingsProps {
   goal?: { active: boolean; goal: string; status: string; turns: number; blocks: number } | null;
   cost?: CostSummaryView | null;
   schedule?: ScheduleDashboardView | null;
+  collab?: CollabView | null;
+  council?: CouncilDashboardView | null;
 }
 
 const HOTBAR_KEYS = [
@@ -46,7 +50,7 @@ const ACTION_LABELS: Record<string, string> = {
   settings: "Settings",
 };
 
-export function HermesSettings({ s, onHotbarChange: _onHotbar, onProfileSelect: _onProfile, cache, discord, goal, cost, schedule }: HermesSettingsProps) {
+export function HermesSettings({ s, onHotbarChange: _onHotbar, onProfileSelect: _onProfile, cache, discord, goal, cost, schedule, collab, council }: HermesSettingsProps) {
   const profiles = Object.entries(s.profiles ?? {}) as [string, ProfileView][];
   const activeProfile = s.activeProfile || "";
 
@@ -137,6 +141,24 @@ export function HermesSettings({ s, onHotbarChange: _onHotbar, onProfileSelect: 
           Publish Transcript
         </h3>
         <PublishWidget />
+      </section>
+
+      <hr style={{ margin: "24px 0", border: "none", borderTop: "1px solid var(--color-border)" }} />
+
+      {/* ═══════════ COLLAB + COUNCIL ═══════════ */}
+      <section className="settings-section">
+        <h3 className="settings-section__title">
+          <Network size={16} style={{ marginRight: 6 }} />
+          Collaboration & Council
+        </h3>
+        <div style={{ display: "flex", gap: 12, marginTop: 8, flexWrap: "wrap" }}>
+          <div style={{ flex: "1 1 250px", minWidth: 220 }}>
+            <CollabPanel collab={collab ?? null} />
+          </div>
+          <div style={{ flex: "1 1 250px", minWidth: 220 }}>
+            <CouncilPanel council={council ?? null} />
+          </div>
+        </div>
       </section>
 
       <hr style={{ margin: "24px 0", border: "none", borderTop: "1px solid var(--color-border)" }} />

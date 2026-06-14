@@ -415,9 +415,13 @@ func (c *client) readStream(ctx context.Context, resp *http.Response, out chan<-
 		}
 
 		delta := sr.Choices[0].Delta
-		if delta.ReasoningContent != "" {
+		rc := delta.ReasoningContent
+		if rc == "" {
+			rc = delta.Reasoning // Ollama Cloud uses "reasoning"
+		}
+		if rc != "" {
 			emitted = true
-			out <- provider.Chunk{Type: provider.ChunkReasoning, Text: delta.ReasoningContent}
+			out <- provider.Chunk{Type: provider.ChunkReasoning, Text: rc}
 		}
 		if delta.Content != "" {
 			r, txt := think.push(delta.Content)
@@ -604,6 +608,7 @@ type streamResponse struct {
 		Delta struct {
 			Content          string         `json:"content"`
 			ReasoningContent string         `json:"reasoning_content"`
+			Reasoning        string         `json:"reasoning"` // Ollama Cloud uses "reasoning"
 			ToolCalls        []chatToolCall `json:"tool_calls"`
 		} `json:"delta"`
 		FinishReason *string `json:"finish_reason"`

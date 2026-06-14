@@ -34,6 +34,7 @@ import (
 	"reasonix/internal/jobs"
 	"reasonix/internal/lsp"
 	"reasonix/internal/memory"
+	"reasonix/internal/mesh"
 	"reasonix/internal/netclient"
 	"reasonix/internal/outputstyle"
 	"reasonix/internal/permission"
@@ -168,6 +169,11 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Resolve auxiliary providers: each optional override routes background jobs
+	// (compaction summarization, vision, web extraction) to cheaper models,
+	// keeping the main provider free for real reasoning. nil means "use main".
+	compressionProv, visionProv, webExtractProv := resolveAuxProviders(cfg, proxySpec, sink)
 
 	sysPrompt, err := cfg.ResolveSystemPromptForRoot(root)
 	if err != nil {
@@ -849,6 +855,9 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 		WorkshopThreshold: workshopThreshold,
 		Workshop:          workshopSynthesizer(jm, execProv, reg, entry, cfg.Agent),
 		CompressToolOutput: compressEnabled(cfg.Agent.CompressToolOutput),
+		CompressionProv:   compressionProv,
+		VisionProv:        visionProv,
+		WebExtractProv:    webExtractProv,
 	}, sink)
 
 	var runner agent.Runner = executor
@@ -933,7 +942,25 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	if classifier != nil {
 		ctrlOpts.Classifier = classifier
 	}
-	return control.New(ctrlOpts), nil
+	ctrl := control.New(ctrlOpts)
+
+	// Mesh: agent-to-agent MCP delegation. Config at [mesh].
+	if cfg.Mesh.Enabled && len(cfg.Mesh.Peers) > 0 {
+		var meshPeers []mesh.PeerConfig
+		for _, p := range cfg.Mesh.Peers {
+			meshPeers = append(meshPeers, mesh.PeerConfig{
+				Name:     p.Name,
+				URL:      p.URL,
+				TokenEnv: p.TokenEnv,
+				Enabled:  p.Enabled,
+			})
+		}
+		if m := mesh.New(mesh.Config{Enabled: true, Peers: meshPeers}); m != nil {
+			ctrl.SetMesh(m)
+		}
+	}
+
+	return ctrl, nil
 }
 
 func migrateLegacySessionSources(sink event.Sink) {
@@ -1410,6 +1437,38 @@ func buildScheduleConfig(cfg *config.Config) *scheduler.Config {
 		}
 	}
 	return &scheduler.Config{Tasks: tasks}
+}
+
+// resolveAuxProviders creates optional providers for background jobs
+// (compaction summarization, vision, web extraction) from the [agent.auxiliary]
+// config block. Each returns nil when unconfigured, which means "use the main
+// provider". Resolution errors are surfaced as notices, not hard failures —
+// a missing auxiliary model shouldn't block the session.
+func resolveAuxProviders(cfg *config.Config, proxy netclient.ProxySpec, sink event.Sink) (compression, vision, webExtract provider.Provider) {
+	aux := cfg.Agent.Auxiliary
+	resolve := func(ref config.AuxModelRef, label string) provider.Provider {
+		if !ref.IsSet() {
+			return nil
+		}
+		e, ok := cfg.ResolveModel(ref.Provider + "/" + ref.Model)
+		if !ok {
+			sink.Emit(event.Event{Kind: event.Notice, Level: event.LevelWarn,
+				Text: fmt.Sprintf("auxiliary %s model %q not found — using main provider", label, ref.Provider+"/"+ref.Model)})
+			return nil
+		}
+		p, err := NewProviderWithProxy(e, proxy)
+		if err != nil {
+			sink.Emit(event.Event{Kind: event.Notice, Level: event.LevelWarn,
+				Text: fmt.Sprintf("auxiliary %s provider %q: %v — using main provider", label, ref.Provider, err)})
+			return nil
+		}
+		sink.Emit(event.Event{Kind: event.Notice, Level: event.LevelInfo,
+			Text: fmt.Sprintf("auxiliary %s → %s/%s", label, ref.Provider, ref.Model)})
+		return p
+	}
+	return resolve(aux.Compression, "compression"),
+		resolve(aux.Vision, "vision"),
+		resolve(aux.WebExtract, "web_extract")
 }
 
 // compressEnabled resolves the CompressToolOutput config: nil = default true.

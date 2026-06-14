@@ -109,6 +109,9 @@ func Run(args []string, version string) int {
 	case "models":
 		configureCLIThemeFromConfigNoProbe()
 		return modelsCommand(rest)
+	case "marketplace":
+		configureCLIThemeFromConfigNoProbe()
+		return marketplaceCommand(rest)
 	case "upgrade", "update":
 		configureCLIThemeFromConfigNoProbe()
 		return upgradeCommand(rest, version)
@@ -127,7 +130,7 @@ func Run(args []string, version string) int {
 
 func shouldMigrateLegacyConfigForCLI(cmd string) bool {
 	switch cmd {
-	case "", "run", "chat", "code", "serve", "setup", "config", "init", "acp", "mcp", "codegraph", "doctor", "bot", "models", "upgrade", "update":
+	case "", "run", "chat", "code", "serve", "setup", "config", "init", "acp", "mcp", "codegraph", "doctor", "bot", "models", "marketplace", "upgrade", "update":
 		return true
 	default:
 		return false

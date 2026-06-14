@@ -173,6 +173,12 @@ type Agent struct {
 	pricing              *provider.Pricing
 	compress             *compress.Compressor // tool output token compressor (nil = disabled)
 
+	// Auxiliary providers handle background jobs with cheaper models, leaving the
+	// main provider free for real reasoning. When nil the main provider is used.
+	compressionProv provider.Provider // compaction summarizer
+	visionProv      provider.Provider // image/vision requests
+	webExtractProv  provider.Provider // web-page extraction (placeholder)
+
 	// sink receives the turn's typed event stream (reasoning/text deltas, tool
 	// dispatch/results, usage, notices). The agent no longer formats output
 	// itself — a frontend's Sink decides how to render. Never nil; New defaults
@@ -574,6 +580,12 @@ type Options struct {
 
 	// ProjectChecks are host-observable structured checks extracted during boot.
 	ProjectChecks []instruction.VerifyCheck
+
+	// Auxiliary providers handle background jobs with cheaper models, leaving
+	// the main provider free for reasoning. When nil the main provider is used.
+	CompressionProv provider.Provider // compaction summarizer (defaults to main)
+	VisionProv      provider.Provider // image/vision requests (defaults to main)
+	WebExtractProv  provider.Provider // web-page content extraction (defaults to main)
 }
 
 // New constructs an Agent. MaxSteps <= 0 means no cap — the run loop continues
@@ -631,6 +643,9 @@ func New(prov provider.Provider, tools *tool.Registry, session *Session, opts Op
 		compactForceRatio: opts.CompactForceRatio,
 		recentKeep:        opts.RecentKeep,
 		archiveDir:        opts.ArchiveDir,
+		compressionProv:   opts.CompressionProv,
+		visionProv:        opts.VisionProv,
+		webExtractProv:    opts.WebExtractProv,
 	}
 }
 
@@ -1063,6 +1078,26 @@ func streamRecoveryMessage(hasPartialText, hadPartialTool bool) string {
 	}
 }
 
+// selectStreamProvider picks the right provider for the current request:
+// the vision auxiliary provider when images are attached, otherwise the main
+// provider. When no auxiliary is configured the main provider is always used.
+func (a *Agent) selectStreamProvider() provider.Provider {
+	if a.visionProv != nil && hasImages(a.session.Messages) {
+		return a.visionProv
+	}
+	return a.prov
+}
+
+// hasImages reports whether any message in the slice carries attached images.
+func hasImages(msgs []provider.Message) bool {
+	for _, m := range msgs {
+		if len(m.Images) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
 // stream runs one completion, emitting reasoning and text deltas as typed
 // events and collecting complete tool calls. A Message event closes the text
 // stream so a sink can re-render the streamed raw text as styled markdown. The
@@ -1072,7 +1107,8 @@ func (a *Agent) stream(ctx context.Context, turn int) (string, string, string, [
 	ctx = provider.WithRetryNotify(ctx, func(info provider.RetryInfo) {
 		a.sink.Emit(event.Event{Kind: event.Retrying, RetryAttempt: info.Attempt, RetryMax: info.Max})
 	})
-	ch, err := a.prov.Stream(ctx, provider.Request{
+	p := a.selectStreamProvider()
+	ch, err := p.Stream(ctx, provider.Request{
 		Messages:    a.session.Messages,
 		Tools:       a.tools.Schemas(),
 		Temperature: a.temperature,

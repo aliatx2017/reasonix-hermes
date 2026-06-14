@@ -75,6 +75,8 @@ import type {
   MemoryFactView,
   MemoryDashboardView,
   ScheduleDashboardView,
+  CollabView,
+  CouncilDashboardView,
   WorkspaceView,
 } from "./types";
 
@@ -238,6 +240,8 @@ export interface AppBindings {
   CostSummary(): Promise<CostSummaryView>;
   CostSummaryForTab(tabID: string): Promise<CostSummaryView>;
   ScheduleDashboard(): Promise<ScheduleDashboardView>;
+  CollabDashboard(): Promise<CollabView>;
+  CouncilDashboard(): Promise<CouncilDashboardView>;
   PublishSessionHTML(): Promise<string>;
   PublishSessionJSON(): Promise<string>;
   SubagentTree(): Promise<SubagentNodeView[]>;
@@ -2436,6 +2440,12 @@ function makeMockApp(): AppBindings {
               { taskName: "daily-review", runAt: "2026-07-14T02:00:00Z", duration: "3.2s", success: true, summary: "All changes reviewed. No issues found.", error: "" },
             ],
           };
+        },
+        async CollabDashboard() {
+          return { enabled: false, listenAddr: "", watchers: 0, sessions: [] };
+        },
+        async CouncilDashboard() {
+          return { enabled: false, peers: [], status: "disabled" };
         },
         async PublishSessionHTML() {
           return "<html><body>Mock session</body></html>";

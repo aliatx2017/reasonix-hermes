@@ -141,7 +141,7 @@ skills-hub/            17-skill community registry + static catalog site
 - Discord bot uses `github.com/bwmarrin/discordgo` (added to go.mod)
 - Discord bot must use `control.Controller` like every other frontend — not inline chat history
 - **Tests**: ~2,430 tests across 75 packages. `go test ./...`
-- **New packages (custom)**: `internal/learn/` (self-improving skill loops), `internal/mesh/` (agent-to-agent MCP mesh), `internal/collab/` (live collaboration WebSocket hub), `internal/compress/` (tool output token compressor), `internal/scheduler/` (cron-driven tasks), `internal/publish/` (session transcript export), `internal/bot/telegram/` (Telegram bot adapter).
+- **New packages (custom)**: `internal/learn/` (self-improving skill loops), `internal/mesh/` (agent-to-agent MCP mesh), `internal/collab/` (live collaboration WebSocket hub), `internal/compress/` (tool output token compressor), `internal/scheduler/` (cron-driven tasks), `internal/publish/` (session transcript export), `internal/bot/telegram/` (Telegram bot adapter), `internal/e2e/` (replay-based regression testing harness), `internal/marketplace/` (community skill registry, agentskills.io-compatible), `internal/provider/ollamacloud/` (Ollama Cloud API provider).
 - **CodeWhale features** (10/10 done, 2026-07-04): Shell env hooks, parallel sub-agent batch dispatch, completion sound, harness profiles, constitution system, workshop sidecar, desktop hotbar, external sandbox, Nix flake, Dockerfile.
 - **CI & tooling** (2026-07-06): `biome format` check on desktop frontend (105 files), `wails build` CI job, `taplo` TOML lint (CI + pre-commit hook), Go `go-version-file: go.mod` (toolchain 1.26.4), 7-job Hermes CI pipeline all-green.
 - **Bug fixes** (2026-07-06): duplicate `price` key in `reasonix.example.toml`, data race in `mockProvider.Stream()`, `TestSaveToScopes` cross-platform fix.
@@ -149,6 +149,14 @@ skills-hub/            17-skill community registry + static catalog site
 - **New files**: `flake.nix`, `Dockerfile`, `.dockerignore`, `internal/sandbox/remote.go`
 - **Config additions**: `[notifications].sound`, `active_profile`, `[profiles.<name>]` blocks, `[sandbox].remote_sandbox_url`, `[sandbox].remote_sandbox_token`
 - **2026-07-12 session** — 13 features shipped: Hermes accent theme, live data push (Wails events), token sparkline chart, compaction timeline, checkpoint file preview, Write Mode (Go fs bindings + React editor), memory fact graph, reasonix.example.toml full update, remote sandbox e2e tests, workspace slug fix ($HOME relativization), CLI TUI enhancements (pinned banner, bottom counters, /stats sparkline+compaction+memory+goal). Built CLI (26MB) + desktop (33MB). VS Code fork removed.
+- **2026-07-14 session** (Ollama Cloud + aux models + 4 features):
+  - **Ollama Cloud provider**: New `ollamacloud` provider kind, 42 models, OpenAI-compatible at ollama.com/v1. `reasoning` field name fix in openai provider.
+  - **Auxiliary model routing**: `[agent.auxiliary]` config block — compression/vision/web_extract each take their own provider+model. Agent routes compaction summarizer through compressionProv, vision requests through visionProv when images present. Tested with `deepseek-v4-flash` (compression) + `gemini-3-flash-preview` (vision).
+  - **Desktop collab panel**: Go collab Hub + CollabDashboard binding, React CollabPanel (live badge, watcher count, session list), integrated into live data push + polling.
+  - **Multi-model council UI**: Controller mesh integration (SetMesh/Council/MeshStatus), boot.go mesh creation, CLI `/council` command, desktop CouncilPanel.
+  - **E2E test harness**: New `internal/e2e/` — Harness, SessionInputs, SessionTools, Analyze, AssertTools/Turns, RunAll. 7 tests.
+  - **Skill marketplace**: Community registry (12 skills, agentskills.io-compatible SKILL.md format), `internal/marketplace/` Go package, CLI `reasonix marketplace` command, desktop MarketplacePanel with tag filters + install buttons.
+  - **Total**: 30+ files changed, 3 new Go packages, 4 new React components, 80+ tests. All binaries rebuilt. Upstream synced to ed07684.
 
 ## roach-code Multi-Provider Research
 
