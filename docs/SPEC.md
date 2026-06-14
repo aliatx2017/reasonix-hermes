@@ -76,6 +76,7 @@ reasonix/
     ├── diff/               # line-level unified diff between two file versions
     ├── doctor/             # collects local, redacted diagnostics for issue reports
     ├── e2e/                # [Hermes] replay-based regression testing harness
+    ├── eval/               # [Hermes] session comparison tool — structural diff, Jaccard similarity
     ├── event/              # typed event stream the agent emits during a turn
     ├── evidence/           # step completion evidence tracking
     ├── fileref/            # file reference resolution
@@ -97,6 +98,7 @@ reasonix/
     ├── netclient/          # HTTP client builder sharing Reasonix proxy/TLS config
     ├── nilutil/            # nil-slice safety utilities
     ├── notify/             # desktop notification sound system
+    ├── orchestrate/        # [Hermes] multi-agent orchestration (chain, pair, CI-fix workflows)
     ├── outputstyle/        # selectable output persona/style block injection
     ├── permission/         # per-call Policy: allow/ask/deny rules → Decision
     ├── plugin/             # MCP client — connects to external MCP servers (stdio, HTTP, SSE)
@@ -117,7 +119,7 @@ reasonix/
 ```
 
 [Hermes] = Reasonix-Hermes custom additions (not present in upstream esengine/deepseek-reasonix).
-Total: 57 internal packages (43 core + 14 Hermes).
+Total: 58 internal packages (43 core + 15 Hermes).
 
 Dependency direction (acyclic): `cli → {agent, plugin, config} → {tool, provider}`.
 Built-in subpackages (`provider/openai`, `tool/builtin`) import their parent to

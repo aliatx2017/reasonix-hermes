@@ -3825,6 +3825,53 @@ func (m *chatTUI) runSlashCommand(input string) tea.Cmd {
 				}
 			}()
 		}
+	case "/chain":
+		m.echoLocalCommand(input)
+		task := strings.TrimSpace(strings.TrimPrefix(input, cmd))
+		if task == "" {
+			m.notice("/chain <task> — runs analyze-then-implement in sequence")
+		} else {
+			m.notice("chain: analyzing → implementing…")
+			prompt := fmt.Sprintf(
+				"First, analyze this task and identify key steps, risks, and approach. "+
+					"Do NOT make changes yet — just produce a concise analysis. "+
+					"Then, in the same response, implement the task based on your analysis.\n\n"+
+					"Task: %s", task,
+			)
+			return m.startTurn(prompt, input, input)
+		}
+	case "/pair":
+		m.echoLocalCommand(input)
+		task := strings.TrimSpace(strings.TrimPrefix(input, cmd))
+		if task == "" {
+			m.notice("/pair <task> — review + implement + merge (three-phase)")
+		} else {
+			m.notice("pair: review + implement + merge…")
+			prompt := fmt.Sprintf(
+				"You are running a three-phase workflow for this task:\n\n"+
+					"Task: %s\n\n"+
+					"Phase 1 (Review): Analyze for correctness, edge cases, and risks. "+
+					"Do not implement.\n"+
+					"Phase 2 (Implement): Write the solution, addressing the review points.\n"+
+					"Phase 3 (Merge): Combine into a final, production-quality result.\n\n"+
+					"Execute all three phases in one comprehensive response.", task,
+			)
+			return m.startTurn(prompt, input, input)
+		}
+	case "/ci-fix":
+		m.echoLocalCommand(input)
+		ciCmd := strings.TrimSpace(strings.TrimPrefix(input, cmd))
+		if ciCmd == "" {
+			ciCmd = "go test ./... 2>&1"
+		}
+		m.notice(fmt.Sprintf("ci-fix: running %q then fixing failures…", ciCmd))
+		prompt := fmt.Sprintf(
+			"Run the shell command `%s` to detect failures, then fix each failing test "+
+				"one by one. After each fix, re-run the affected test to verify. "+
+				"Be systematic and make minimal, targeted changes.",
+			ciCmd,
+		)
+		return m.startTurn(prompt, input, input)
 	default:
 		// A custom command wins over a skill of the same name; both resolve to a turn.
 		if sent, ok := m.ctrl.CustomCommand(input); ok {

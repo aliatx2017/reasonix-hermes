@@ -52,6 +52,13 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 	}
 	b.WriteString("\n")
 
+	if c.ActiveProfile != "" {
+		fmt.Fprintf(&b, "active_profile = %q   # named profile from [profiles] to use by default\n", c.ActiveProfile)
+	} else {
+		b.WriteString("# active_profile = \"quick-fix\"   # named profile from [profiles] to use by default\n")
+	}
+	b.WriteString("\n")
+
 	if shouldRenderUI(c, defaults, scope) {
 		b.WriteString("[ui]\n")
 		fmt.Fprintf(&b, "theme = %q   # auto|dark|light; CLI colors only; REASONIX_THEME can override per run\n", c.UITheme())
@@ -380,6 +387,12 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 	}
 	fmt.Fprintf(&b, "bash    = %q\n", c.BashMode())
 	fmt.Fprintf(&b, "network = %v\n", c.Sandbox.Network)
+	if c.Sandbox.RemoteSandboxURL != "" {
+		fmt.Fprintf(&b, "remote_sandbox_url = %q   # remote sandbox endpoint (OpenSandbox API)\n", c.Sandbox.RemoteSandboxURL)
+	}
+	if c.Sandbox.RemoteSandboxToken != "" {
+		fmt.Fprintf(&b, "remote_sandbox_token = %q   # bearer auth for remote sandbox\n", c.Sandbox.RemoteSandboxToken)
+	}
 	b.WriteString("\n")
 
 	b.WriteString("[statusline]\n")
@@ -417,6 +430,12 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 		fmt.Fprintf(&b, "qq_groups = %s\n", renderStringArray(c.Bot.Allowlist.QQGroups))
 		fmt.Fprintf(&b, "feishu_groups = %s\n", renderStringArray(c.Bot.Allowlist.FeishuGroups))
 		fmt.Fprintf(&b, "weixin_groups = %s\n", renderStringArray(c.Bot.Allowlist.WeixinGroups))
+		fmt.Fprintf(&b, "discord_users = %s\n", renderStringArray(c.Bot.Allowlist.DiscordUsers))
+		fmt.Fprintf(&b, "telegram_users = %s\n", renderStringArray(c.Bot.Allowlist.TelegramUsers))
+		fmt.Fprintf(&b, "line_users = %s\n", renderStringArray(c.Bot.Allowlist.LineUsers))
+		fmt.Fprintf(&b, "discord_groups = %s\n", renderStringArray(c.Bot.Allowlist.DiscordGroups))
+		fmt.Fprintf(&b, "telegram_groups = %s\n", renderStringArray(c.Bot.Allowlist.TelegramGroups))
+		fmt.Fprintf(&b, "line_groups = %s\n", renderStringArray(c.Bot.Allowlist.LineGroups))
 		b.WriteString("\n[bot.qq]\n")
 		fmt.Fprintf(&b, "enabled = %v\n", c.Bot.QQ.Enabled)
 		fmt.Fprintf(&b, "app_id = %q\n", c.Bot.QQ.AppID)
@@ -436,6 +455,36 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 		fmt.Fprintf(&b, "account_id = %q\n", c.Bot.Weixin.AccountID)
 		fmt.Fprintf(&b, "token_env = %q\n", c.Bot.Weixin.TokenEnv)
 		fmt.Fprintf(&b, "api_base = %q\n", c.Bot.Weixin.APIBase)
+		b.WriteString("\n[bot.discord]\n")
+		fmt.Fprintf(&b, "enabled = %v\n", c.Bot.Discord.Enabled)
+		fmt.Fprintf(&b, "token_env = %q\n", c.Bot.Discord.TokenEnv)
+		if c.Bot.Discord.ServerID != "" {
+			fmt.Fprintf(&b, "server_id = %q\n", c.Bot.Discord.ServerID)
+		} else {
+			b.WriteString("# server_id = \"\"   # optional guild ID\n")
+		}
+		if c.Bot.Discord.ChannelID != "" {
+			fmt.Fprintf(&b, "channel_id = %q\n", c.Bot.Discord.ChannelID)
+		} else {
+			b.WriteString("# channel_id = \"\"   # optional single-channel restriction\n")
+		}
+		fmt.Fprintf(&b, "allow_dms = %v\n", c.Bot.Discord.AllowDMs)
+		if c.Bot.Discord.WebhookURLEnv != "" {
+			fmt.Fprintf(&b, "webhook_url_env = %q\n", c.Bot.Discord.WebhookURLEnv)
+		}
+		b.WriteString("\n[bot.telegram]\n")
+		fmt.Fprintf(&b, "enabled = %v\n", c.Bot.Telegram.Enabled)
+		fmt.Fprintf(&b, "token_env = %q\n", c.Bot.Telegram.TokenEnv)
+		fmt.Fprintf(&b, "allow_dms = %v\n", c.Bot.Telegram.AllowDMs)
+		b.WriteString("\n[bot.line]\n")
+		fmt.Fprintf(&b, "enabled = %v\n", c.Bot.Line.Enabled)
+		fmt.Fprintf(&b, "token_env = %q\n", c.Bot.Line.TokenEnv)
+		fmt.Fprintf(&b, "secret_env = %q\n", c.Bot.Line.SecretEnv)
+		fmt.Fprintf(&b, "allow_dms = %v\n", c.Bot.Line.AllowDMs)
+		b.WriteString("\n[bot.slack]\n")
+		fmt.Fprintf(&b, "enabled = %v\n", c.Bot.Slack.Enabled)
+		fmt.Fprintf(&b, "token_env = %q\n", c.Bot.Slack.TokenEnv)
+		fmt.Fprintf(&b, "app_token_env = %q\n", c.Bot.Slack.AppTokenEnv)
 		for _, conn := range c.Bot.Connections {
 			b.WriteString("\n[[bot.connections]]\n")
 			fmt.Fprintf(&b, "id = %q\n", conn.ID)
@@ -468,6 +517,131 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 			if len(conn.SessionMappings) > 0 {
 				fmt.Fprintf(&b, "session_mappings = %s\n", renderBotSessionMappings(conn.SessionMappings))
 			}
+		}
+		b.WriteString("\n")
+	}
+
+	// [schedule] — cron-driven automated agent tasks.
+	if c.Schedule.Tasks != nil || scope != RenderScopeProject {
+		b.WriteString("[schedule]\n")
+		if c.Schedule.Tasks == nil {
+			b.WriteString("# [[schedule.tasks]]\n")
+			b.WriteString("# name    = \"daily-report\"\n")
+			b.WriteString("# cron    = \"0 9 * * *\"\n")
+			b.WriteString("# prompt  = \"Summarize today's PRs and issues\"\n")
+			b.WriteString("# enabled = true\n")
+		} else {
+			for _, t := range c.Schedule.Tasks {
+				b.WriteString("\n[[schedule.tasks]]\n")
+				fmt.Fprintf(&b, "name    = %q\n", t.Name)
+				fmt.Fprintf(&b, "cron    = %q\n", t.Cron)
+				fmt.Fprintf(&b, "prompt  = %q\n", t.Prompt)
+				if t.Model != "" {
+					fmt.Fprintf(&b, "model   = %q\n", t.Model)
+				}
+				if t.Enabled != nil {
+					fmt.Fprintf(&b, "enabled = %v\n", *t.Enabled)
+				}
+			}
+		}
+		b.WriteString("\n")
+	}
+
+	// [learn] — self-improving skill loop detector.
+	if c.Learn != (LearnConfig{}) || scope != RenderScopeProject {
+		b.WriteString("[learn]\n")
+		fmt.Fprintf(&b, "enabled = %v   # observe agent patterns and suggest new skills\n", c.Learn.Enabled)
+		if c.Learn.MaxPatterns > 0 {
+			fmt.Fprintf(&b, "max_patterns = %d   # max patterns to detect (default 20)\n", c.Learn.MaxPatterns)
+		}
+		if c.Learn.MinConfidence > 0 {
+			fmt.Fprintf(&b, "min_confidence = %d   # observations before pattern forms (default 3)\n", c.Learn.MinConfidence)
+		}
+		b.WriteString("\n")
+	}
+
+	// [mesh] — agent-to-agent MCP delegation.
+	if c.Mesh.Peers != nil || scope != RenderScopeProject {
+		b.WriteString("[mesh]\n")
+		fmt.Fprintf(&b, "enabled = %v   # enable peer-to-peer agent delegation\n", c.Mesh.Enabled)
+		if c.Mesh.Peers == nil {
+			b.WriteString("# [[mesh.peers]]\n")
+			b.WriteString("# name    = \"reasonix-alpha\"\n")
+			b.WriteString("# url     = \"https://alpha.internal/mcp\"\n")
+			b.WriteString("# token_env = \"MESH_ALPHA_TOKEN\"\n")
+			b.WriteString("# enabled = true\n")
+		} else {
+			for _, p := range c.Mesh.Peers {
+				b.WriteString("\n[[mesh.peers]]\n")
+				fmt.Fprintf(&b, "name     = %q\n", p.Name)
+				fmt.Fprintf(&b, "url      = %q\n", p.URL)
+				if p.TokenEnv != "" {
+					fmt.Fprintf(&b, "token_env = %q\n", p.TokenEnv)
+				}
+				fmt.Fprintf(&b, "enabled  = %v\n", p.Enabled)
+			}
+		}
+		b.WriteString("\n")
+	}
+
+	// [collab] — live collaborative session sharing.
+	if c.Collab != (CollabConfig{}) || scope != RenderScopeProject {
+		b.WriteString("[collab]\n")
+		fmt.Fprintf(&b, "enabled = %v   # enable live session sharing via WebSocket\n", c.Collab.Enabled)
+		if c.Collab.ListenAddr != "" {
+			fmt.Fprintf(&b, "listen_addr = %q   # WebSocket listen address, e.g. \":9091\"\n", c.Collab.ListenAddr)
+		} else {
+			b.WriteString("# listen_addr = \":9091\"   # WebSocket listen address\n")
+		}
+		b.WriteString("\n")
+	}
+
+	// [marketplace] — community skill registries.
+	b.WriteString("[marketplace]\n")
+	b.WriteString("\n[marketplace.lobehub]\n")
+	fmt.Fprintf(&b, "enabled = %v   # auto-register and sync from LobeHub marketplace (360k+ skills)\n", c.Marketplace.LobeHub.Enabled)
+	if c.Marketplace.LobeHub.ClientID != "" {
+		fmt.Fprintf(&b, "client_id = %q\n", c.Marketplace.LobeHub.ClientID)
+	}
+	if c.Marketplace.LobeHub.ClientSecret != "" {
+		fmt.Fprintf(&b, "client_secret = %q\n", c.Marketplace.LobeHub.ClientSecret)
+	}
+	if c.Marketplace.LobeHub.ClientName != "" {
+		fmt.Fprintf(&b, "client_name = %q\n", c.Marketplace.LobeHub.ClientName)
+	}
+	if c.Marketplace.LobeHub.ClientType != "" {
+		fmt.Fprintf(&b, "client_type = %q\n", c.Marketplace.LobeHub.ClientType)
+	}
+	fmt.Fprintf(&b, "sync_on_startup = %v\n", c.Marketplace.LobeHub.SyncOnStartup)
+	if c.Marketplace.LobeHub.Query != "" {
+		fmt.Fprintf(&b, "query = %q\n", c.Marketplace.LobeHub.Query)
+	}
+	if c.Marketplace.LobeHub.Sort != "" {
+		fmt.Fprintf(&b, "sort = %q\n", c.Marketplace.LobeHub.Sort)
+	}
+	if c.Marketplace.LobeHub.Category != "" {
+		fmt.Fprintf(&b, "category = %q\n", c.Marketplace.LobeHub.Category)
+	}
+	b.WriteString("\n")
+
+	// [embedding] — dense vector embeddings for memory search.
+	if c.Embedding.Provider != "" || scope != RenderScopeProject {
+		b.WriteString("[embedding]\n")
+		if c.Embedding.Provider != "" {
+			fmt.Fprintf(&b, "provider = %q   # provider name for embedding API\n", c.Embedding.Provider)
+		} else {
+			b.WriteString("# provider = \"deepseek\"   # provider for embedding API\n")
+		}
+		if c.Embedding.Model != "" {
+			fmt.Fprintf(&b, "model = %q   # embedding model id (e.g. text-embedding-3-small)\n", c.Embedding.Model)
+		} else {
+			b.WriteString("# model = \"text-embedding-3-small\"\n")
+		}
+		if c.Embedding.APIKeyEnv != "" {
+			fmt.Fprintf(&b, "api_key_env = %q   # env var for API key\n", c.Embedding.APIKeyEnv)
+		}
+		if c.Embedding.BatchSize > 0 {
+			fmt.Fprintf(&b, "batch_size = %d   # max facts per embedding call (default 20)\n", c.Embedding.BatchSize)
 		}
 		b.WriteString("\n")
 	}

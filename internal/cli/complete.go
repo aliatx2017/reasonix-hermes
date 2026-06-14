@@ -92,6 +92,15 @@ func (m *chatTUI) slashItems() []compItem {
 		{label: "/forget", insert: "/forget ", hint: i18n.M.CmdForget},
 		{label: "/quit", insert: "/quit", hint: i18n.M.CmdQuit},
 		{label: "/write", insert: "/write ", hint: i18n.M.CmdWrite},
+		{label: "/stats", insert: "/stats", hint: "toggle session statistics panel"},
+		{label: "/cost", insert: "/cost", hint: "show session cost breakdown"},
+		{label: "/council", insert: "/council ", hint: "dispatch task to mesh council peers"},
+		{label: "/learn", insert: "/learn", hint: "suggest skills from detected patterns"},
+		{label: "/publish", insert: "/publish", hint: "export session as HTML/JSON"},
+		{label: "/todo", insert: "/todo", hint: "show or update task list"},
+		{label: "/chain", insert: "/chain ", hint: "run analyze-then-implement"},
+		{label: "/pair", insert: "/pair ", hint: "run review + implement + merge"},
+		{label: "/ci-fix", insert: "/ci-fix ", hint: "run tests and auto-fix failures"},
 	}
 	for _, c := range m.commands {
 		items = append(items, compItem{label: "/" + c.Name, insert: "/" + c.Name + " ", hint: c.Description})

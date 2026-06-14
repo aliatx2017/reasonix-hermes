@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Reasonix — DeepSeek-native coding agent for your terminal</title>
-<meta name="description" content="Open-source AI coding agent for your terminal, engineered around DeepSeek's byte-stable prefix cache. Long sessions hold 90%+ cache hit and input-token cost collapses to ~1/5. A single Go binary. npm · Homebrew · desktop. MIT." />
-<link rel="canonical" href="https://esengine.github.io/DeepSeek-Reasonix/" />
+<title>Reasonix-Hermes — AI coding agent with MCP bridges, bots, skills, and desktop</title>
+<meta name="description" content="Reasonix-Hermes extends DeepSeek-Reasonix with multi-platform IM bots (Discord/Telegram/LINE/Slack), MCP bridges, Hindsight memory, 17-skill registry, PR review, live collab, and a Wails desktop app. One npm install. MIT." />
+<link rel="canonical" href="https://aliatx2017.github.io/reasonix-hermes/" />
 <link rel="icon" href="favicon.svg" type="image/svg+xml" />
-<meta property="og:title" content="Reasonix — DeepSeek-native coding agent" />
-<meta property="og:description" content="Cache-first AI coding agent for your terminal. A single Go binary. npm · Homebrew · desktop. MIT." />
-<meta property="og:url" content="https://esengine.github.io/DeepSeek-Reasonix/" />
+<meta property="og:title" content="Reasonix-Hermes — AI coding agent" />
+<meta property="og:description" content="Multi-platform bots, MCP bridges, Hindsight memory, desktop app, and a 17-skill community registry. One npm install. MIT." />
+<meta property="og:url" content="https://aliatx2017.github.io/reasonix-hermes/" />
 <style>
   :root{
     --bg:#f7f6f3; --paper:#fdfdfc; --ink:#16171a; --body:#3c3e44; --muted:#74777e; --faint:#9b9ea5;
@@ -135,12 +135,12 @@
 <body>
 <nav>
   <div class="wrap nav">
-    <a class="brand" href="#top"><span class="mk">R</span>Reasonix</a>
+    <a class="brand" href="#top"><span class="mk">◆</span>Reasonix-Hermes</a>
     <div class="nav-links">
       <a href="#install" data-en>Install</a><a href="#install" data-zh>安装</a>
       <a href="#features" data-en>Features</a><a href="#features" data-zh>特性</a>
-      <a href="#why" data-en>Why DeepSeek</a><a href="#why" data-zh>为何 DeepSeek</a>
-      <a href="https://github.com/esengine/DeepSeek-Reasonix">GitHub</a>
+      <a href="#why" data-en>Why Hermes</a><a href="#why" data-zh>为何 Hermes</a>
+      <a href="https://github.com/aliatx2017/reasonix-hermes">GitHub</a>
     </div>
     <div class="nav-right">
       <button class="lang" id="lang">中文</button>
@@ -151,22 +151,22 @@
 
 <a id="top"></a>
 <header class="hero wrap">
-  <div class="kicker"><span class="b">v1.0.0</span> · <span data-en>a ground-up rewrite in Go · open source, MIT</span><span data-zh>Go 全新重写 · 开源 MIT</span></div>
+  <div class="kicker"><span class="b">v1.7.0</span> · <span data-en>forked from DeepSeek-Reasonix · open source, MIT</span><span data-zh>从 DeepSeek-Reasonix fork · 开源 MIT</span></div>
   <h1>
     <span data-en>A <em>DeepSeek</em>-native agent for your terminal.</span>
     <span data-zh><em>DeepSeek</em> 原生的终端编码 Agent。</span>
   </h1>
   <p class="lede">
-    <span data-en>The loop is append-only, aligned to DeepSeek's byte-stable prefix cache — so long sessions hold <b>90%+ cache hit</b> and input-token cost collapses to <b>~1/5</b>. One Go binary. Terminal-first.</span>
-    <span data-zh>运行循环 append-only,对齐 DeepSeek 字节稳定的 prefix-cache —— 长会话缓存命中 <b>90%+</b>,输入 token 成本降到 <b>约 1/5</b>。单个 Go 二进制,终端优先。</span>
+    <span data-en>DeepSeek-native agent with <b>MCP bridges, 7 IM bots, Hindsight memory, and a desktop app</b>.</span>
+    <span data-zh>DeepSeek 原生 agent,附带 <b>MCP 桥接、7 平台 IM 机器人、记忆系统和桌面端</b>。</span>
   </p>
   <div class="cta">
     <a class="btn btn-dark" href="#install"><span data-en>Get started</span><span data-zh>开始使用</span></a>
-    <a class="btn btn-line" href="https://github.com/esengine/DeepSeek-Reasonix"><span data-en>View on GitHub</span><span data-zh>在 GitHub 查看</span></a>
+    <a class="btn btn-line" href="https://github.com/aliatx2017/reasonix-hermes"><span data-en>View on GitHub</span><span data-zh>在 GitHub 查看</span></a>
   </div>
   <div class="install">
-    <span><span class="p">$ </span>npm i -g reasonix</span>
-    <button class="cp" data-copy="npm i -g reasonix"><span data-en>Copy</span><span data-zh>复制</span></button>
+    <span><span class="p">$ </span>npm i -g reasonix-hermes</span>
+    <button class="cp" data-copy="npm i -g reasonix-hermes"><span data-en>Copy</span><span data-zh>复制</span></button>
   </div>
 
   <div class="term">
@@ -190,20 +190,13 @@
   </div>
   <div class="tabs">
     <button class="tab on" data-tab="npm">npm</button>
-    <button class="tab" data-tab="brew">Homebrew</button>
     <button class="tab" data-tab="desk"><span data-en>Desktop</span><span data-zh>桌面端</span></button>
   </div>
   <div class="panel on" data-panel="npm">
-    <div class="block"><button class="cp" data-copy="npm i -g reasonix
-reasonix setup
-reasonix chat"><span data-en>Copy</span><span data-zh>复制</span></button><pre><span class="p">$</span> npm i -g reasonix
+    <div class="block"><button class="cp" data-copy="npm i -g reasonix-hermes"><span data-en>Copy</span><span data-zh>复制</span></button><pre><span class="p">$</span> npm i -g reasonix-hermes
 <span class="p">$</span> reasonix setup        <span class="c"># config wizard → ./reasonix.toml</span>
 <span class="p">$</span> reasonix chat         <span class="c"># or: reasonix run "implement the TODOs"</span></pre></div>
-    <p class="undertext"><span data-en>Any OS · macOS, Linux, Windows × amd64/arm64. Short alias <code>dsnix</code> too.</span><span data-zh>任意系统 · macOS、Linux、Windows × amd64/arm64。</span></p>
-  </div>
-  <div class="panel" data-panel="brew">
-    <div class="block"><button class="cp" data-copy="brew install esengine/reasonix/reasonix"><span data-en>Copy</span><span data-zh>复制</span></button><pre><span class="p">$</span> brew install esengine/reasonix/reasonix</pre></div>
-    <p class="undertext"><span data-en>macOS. The cask pulls the archive from the latest release.</span><span data-zh>macOS。cask 从最新 release 拉取归档。</span></p>
+    <p class="undertext"><span data-en>Any OS · macOS, Linux, Windows × amd64/arm64. Ships Hermes bots + MCP bridges + desktop.</span><span data-zh>任意系统 · macOS、Linux、Windows × amd64/arm64。附带 Hermes 机器人 + MCP 桥接 + 桌面端。</span></p>
   </div>
   <div class="panel" data-panel="desk">
     <div class="dls">
@@ -217,7 +210,7 @@ reasonix chat"><span data-en>Copy</span><span data-zh>复制</span></button><pre
         <span class="os">Linux</span><span class="fn">Reasonix-linux-amd64.tar.gz</span><span class="ar" data-en>x64</span><span class="ar" data-zh>x64</span><span class="go">↓</span>
       </a>
     </div>
-    <p class="undertext"><span data-en>Served from the R2 CDN (fast worldwide). Or browse <a href="https://github.com/esengine/DeepSeek-Reasonix/releases/latest">all releases on GitHub</a>.</span><span data-zh>经 R2 CDN 分发(全球加速)。或在 <a href="https://github.com/esengine/DeepSeek-Reasonix/releases/latest">GitHub releases</a> 浏览全部。</span></p>
+    <p class="undertext"><span data-en>Served from the R2 CDN (fast worldwide). Or browse <a href="https://github.com/aliatx2017/reasonix-hermes/releases/latest">all releases on GitHub</a>.</span><span data-zh>经 R2 CDN 分发(全球加速)。或在 <a href="https://github.com/aliatx2017/reasonix-hermes/releases/latest">GitHub releases</a> 浏览全部。</span></p>
   </div>
 </section>
 
@@ -233,19 +226,22 @@ reasonix chat"><span data-en>Copy</span><span data-zh>复制</span></button><pre
     <div class="feat"><div class="n">04</div><h3 data-en>Plan mode + sandbox</h3><h3 data-zh>计划模式 + 沙箱</h3><p data-en>Writers are jailed to the workspace; <code>/plan</code> gates the session read-only until you approve.</p><p data-zh>写工具被关进工作区;<code>/plan</code> 进只读门,批准前不写盘。</p></div>
     <div class="feat"><div class="n">05</div><h3 data-en>Subagents &amp; skills</h3><h3 data-zh>子智能体与技能</h3><p data-en>explore / research / review / security-review agents, plus Markdown skill scripts with isolated tools.</p><p data-zh>explore / research / review / security-review 子智能体,加 Markdown 技能脚本与隔离工具。</p></div>
     <div class="feat"><div class="n">06</div><h3 data-en>Terminal-native</h3><h3 data-zh>终端原生</h3><p data-en>Not another IDE plugin. <code>git diff</code> handles diffs, <code>ls</code> handles trees — the terminal is the workspace.</p><p data-zh>不是又一个 IDE 插件。diff 交给 <code>git diff</code> —— 终端就是工作面板。</p></div>
+    <div class="feat"><div class="n">07</div><h3>✦ Multi-platform bots</h3><p data-en>Discord, Telegram, LINE, Slack, QQ, Feishu, WeChat. One gateway, seven adapters, zero drama.</p><p data-zh>Discord、Telegram、LINE、Slack、QQ、飞书、微信。一个网关,七种适配器。</p></div>
+    <div class="feat"><div class="n">08</div><h3>✦ Hindsight memory</h3><p data-en>SQLite + dense/sparse vector search. Facts persist across sessions with TTL + importance ranking.</p><p data-zh>SQLite + 稠密/稀疏向量检索。事实跨会话持久,支持 TTL + 重要性排序。</p></div>
+    <div class="feat"><div class="n">09</div><h3>✦ Desktop app</h3><p data-en>Wails + React 19 + TypeScript. Live dashboards, theme engine, hotbar, and skill browser.</p><p data-zh>Wails + React 19 + TypeScript。实时仪表盘、主题引擎、快捷键栏和技能浏览器。</p></div>
   </div>
 </section>
 
 <section id="why" class="wrap">
   <div class="why">
     <div>
-      <div class="lab" data-en>Why DeepSeek</div><div class="lab" data-zh>为何 DeepSeek</div>
-      <h2><span data-en>The cheapness is the point.</span><span data-zh>便宜,就是核心。</span></h2>
-      <p class="sub"><span data-en>Most agents pay full price for the same growing prompt every turn. Reasonix keeps the prefix byte-identical so DeepSeek's cache does the heavy lifting.</span><span data-zh>多数 agent 每回合都为同一段不断增长的 prompt 付全价。Reasonix 让前缀逐字节稳定,让 DeepSeek 的缓存替你扛下来。</span></p>
+      <div class="lab" data-en>Why Hermes</div><div class="lab" data-zh>为何 Hermes</div>
+      <h2><span data-en>Reasonix, extended.</span><span data-zh>Reasonix,全面增强。</span></h2>
+      <p class="sub"><span data-en>Hermes adds 7 IM bots, Hindsight memory, MCP bridges, 17 community skills, PR review, live collab, and a Wails desktop — all while keeping the cache-first architecture intact.</span><span data-zh>Hermes 增加了 7 平台 IM 机器人、记忆系统、MCP 桥接、17 个社区技能、PR 审查、实时协作和 Wails 桌面端 —— 同时保持缓存优先架构不变。</span></p>
     </div>
     <div class="nums">
-      <div class="num"><div class="v">90%+</div><div class="l"><span data-en>cache hit on long sessions</span><span data-zh>长会话缓存命中</span></div></div>
-      <div class="num"><div class="v">~1/5</div><div class="l"><span data-en>input-token cost</span><span data-zh>输入 token 成本</span></div></div>
+      <div class="num"><div class="v">7</div><div class="l"><span data-en>IM bot platforms</span><span data-zh>IM 机器人平台</span></div></div>
+      <div class="num"><div class="v">6</div><div class="l"><span data-en>MCP bridge tools</span><span data-zh>MCP 桥接工具</span></div></div>
       <div class="num"><div class="v">0</div><div class="l"><span data-en>Node runtime to run it</span><span data-zh>运行所需 Node</span></div></div>
     </div>
   </div>
@@ -253,12 +249,12 @@ reasonix chat"><span data-en>Copy</span><span data-zh>复制</span></button><pre
 
 <footer>
   <div class="wrap foot">
-    <div>© 2026 Reasonix · <span data-en>MIT licensed</span><span data-zh>MIT 许可</span></div>
+    <div>© 2026 Reasonix-Hermes · <span data-en>MIT licensed</span><span data-zh>MIT 许可</span></div>
     <div class="foot-links">
-      <a href="https://github.com/esengine/DeepSeek-Reasonix">GitHub</a>
-      <a href="https://www.npmjs.com/package/reasonix">npm</a>
+      <a href="https://github.com/aliatx2017/reasonix-hermes">GitHub</a>
+      <a href="https://www.npmjs.com/package/reasonix-hermes">npm</a>
       <a href="https://platform.deepseek.com" target="_blank" rel="noreferrer">DeepSeek</a>
-      <a href="https://github.com/esengine/DeepSeek-Reasonix/releases/latest"><span data-en>Releases</span><span data-zh>下载</span></a>
+      <a href="https://github.com/aliatx2017/reasonix-hermes/releases/latest"><span data-en>Releases</span><span data-zh>下载</span></a>
     </div>
   </div>
 </footer>

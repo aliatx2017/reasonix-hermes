@@ -77,8 +77,10 @@ internal/              Reasonix engine (75 packages)
   config/              TOML config loader + model fallback
   constitution/        Structured project invariants (.reasonix/constitution.json)
   control/             Transport-agnostic Controller
+  eval/                Session comparison and evaluation (Jaccard, structural diff)
   learn/               Self-improving skill loops (pattern detection)
   mesh/                Agent-to-agent MCP mesh (delegate, broadcast, council)
+  orchestrate/         Multi-agent orchestration (chain, pair, CI-fix workflows)
   permission/          Tool-call permission gating
   plugin/              MCP client (stdio, HTTP, SSE)
   provider/            LLM providers (Anthropic, OpenAI/DeepSeek)
@@ -124,6 +126,8 @@ skills-hub/            17-skill community registry + static catalog site
 | `internal/provider/ollamacloud/` | Ollama Cloud provider | 42 models via ollama.com/v1 OpenAI-compatible API |
 | `internal/constitution/` | Project invariants | Structured principles/constraints/rules from .reasonix/constitution.json |
 | `internal/e2e/` | Regression testing harness | Replay-based session testing (inputs, turns, assertions) |
+| `internal/eval/` | Session comparison tool | Structural diff, Jaccard similarity, CLI + desktop binding |
+| `internal/orchestrate/` | Multi-agent orchestration | Chain, pair, and CI-fix workflows (6 tests) |
 | `cmd/reasonix-pr-review/` | PR review CLI | Fetches PR diff, runs review with 6-dimension prompt |
 | `npm/hermes/` | npm package | One-line install: `npm i -g reasonix-hermes` (7 sub-packages) |
 | `deploy/` | Helm chart + docker-compose | One-command deploy to K8s or $5 VPS |

@@ -661,6 +661,16 @@ export interface TurnUsagePoint {
   cacheMissTokens: number;
 }
 
+export interface TurnTimelinePoint {
+  turn: number;
+  promptTokens: number;
+  completionTokens: number;
+  cacheHitTokens: number;
+  cacheMissTokens: number;
+  totalTokens: number;
+  toolCalls: string[];
+}
+
 export interface CompactionEvent {
   trigger: string;
   messages: number;
@@ -1043,6 +1053,42 @@ export interface BotConnectionDiagnostic {
   reportKind: string;
   reportDetail: string;
   occurredAt: string;
+}
+
+// --- Eval & Session Comparison ---
+
+export interface ToolDiffEntry {
+  name: string;
+  countA: number;
+  countB: number;
+  delta: number;
+}
+
+export interface TurnDiffEntry {
+  index: number;
+  match: boolean;
+  toolsA: string[];
+  toolsB: string[];
+  missingA: string[];
+  missingB: string[];
+}
+
+export interface SessionComparisonView {
+  sessionA: string;
+  sessionB: string;
+  tokensInA: number;
+  tokensInB: number;
+  tokensOutA: number;
+  tokensOutB: number;
+  turnsA: number;
+  turnsB: number;
+  costA: number;
+  costB: number;
+  currency: string;
+  similarity: number;
+  textReport: string;
+  toolDiffs: ToolDiffEntry[];
+  turnDiffs: TurnDiffEntry[];
 }
 
 export interface SettingsView {

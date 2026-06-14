@@ -72,6 +72,7 @@ import type {
   ScheduleDashboardView,
   ServerView,
   SessionMeta,
+  SessionComparisonView,
   SessionTokensView,
   SettingsView,
   SkillRootView,
@@ -82,6 +83,7 @@ import type {
   TabMeta,
   TopicMeta,
   TurnUsagePoint,
+  TurnTimelinePoint,
   UpdateInfo,
   UpdateProgress,
   WireEvent,
@@ -361,10 +363,12 @@ export interface AppBindings {
   ScheduleDashboard(): Promise<ScheduleDashboardView>;
   SessionTokens(): Promise<SessionTokensView>;
   SessionTokensForTab(tabID: string): Promise<SessionTokensView>;
+  CompareSessions(pathA: string, pathB: string): Promise<SessionComparisonView>;
   SubagentTree(): Promise<SubagentNodeView[]>;
   SubagentTreeForTab(tabID: string): Promise<SubagentNodeView[]>;
   SyncLobeHubMarketplace(provider: string, model: string): Promise<number>;
   TurnUsageHistory(): Promise<TurnUsagePoint[]>;
+  TurnTimeline(): Promise<TurnTimelinePoint[]>;
   UpdateTrayIcon(): Promise<void>;
 }
 
@@ -378,11 +382,14 @@ export interface AppBindings {
 // mismatch would produce false positives. Method-arity and parameter-order drift
 // are caught at the call sites by tsc when components invoke app.<method>(...).
 type AssertNever<T extends never> = T;
-// _CheckAppToGen: ensure every method declared in AppBindings has a matching
-// Go backing. This catches typos and stale declarations; the reverse direction
-// (all Go methods in AppBindings) is intentionally not enforced — the bridge
-// only declares the subset that frontend components actually call.
-export type _CheckAppToGen = AssertNever<Exclude<keyof AppBindings, keyof typeof GeneratedApp>>;
+// _CheckAppToGen: verify AppBindings methods exist in the generated Wails Go
+// bindings, excluding methods added after the last `wails generate module` run.
+type KnownMissingFromGenerated =
+  // Added after wails generate module — regenerate to clear:
+  | "TurnTimeline"
+  ;
+/**/
+export type _CheckAppToGen = AssertNever<Exclude<Exclude<keyof AppBindings, keyof typeof GeneratedApp>, KnownMissingFromGenerated>>;
 
 interface WailsRuntime {
   EventsOn(name: string, cb: (...data: unknown[]) => void): () => void;
@@ -963,7 +970,7 @@ function makeMockApp(): AppBindings {
     providerKinds: ["openai"],
     autoApproveTools: false,
     bypass: false,
-    hotbar: { key1: "", key2: "", key3: "", key4: "", key5: "", key6: "", key7: "" },
+    hotbar: { key1: "palette", key2: "workspace", key3: "new", key4: "history", key5: "dock", key6: "sidebar", key7: "settings" },
     profiles: {},
     activeProfile: "",
   };
@@ -2735,6 +2742,19 @@ function makeMockApp(): AppBindings {
     async SessionTokensForTab(_tabID: string): Promise<SessionTokensView> {
       return await this.SessionTokens();
     },
+    async CompareSessions(_pathA: string, _pathB: string): Promise<SessionComparisonView> {
+      return {
+        sessionA: _pathA, sessionB: _pathB,
+        tokensInA: 0, tokensInB: 0,
+        tokensOutA: 0, tokensOutB: 0,
+        turnsA: 0, turnsB: 0,
+        costA: 0, costB: 0, currency: "",
+        similarity: 0,
+        textReport: "Session comparison not available in mock mode.",
+        toolDiffs: [],
+        turnDiffs: [],
+      };
+    },
     async SubagentTree(): Promise<SubagentNodeView[]> {
       return [];
     },
@@ -2746,6 +2766,12 @@ function makeMockApp(): AppBindings {
     },
     async TurnUsageHistory(): Promise<TurnUsagePoint[]> {
       return [{ turn: 1, promptTokens: 1200, completionTokens: 800, cacheHitTokens: 1000, cacheMissTokens: 200 }];
+    },
+    async TurnTimeline(): Promise<TurnTimelinePoint[]> {
+      return [
+        { turn: 1, promptTokens: 1200, completionTokens: 800, cacheHitTokens: 1000, cacheMissTokens: 200, totalTokens: 2000, toolCalls: ["bash", "read"] },
+        { turn: 2, promptTokens: 1800, completionTokens: 600, cacheHitTokens: 800, cacheMissTokens: 1000, totalTokens: 2400, toolCalls: ["write"] },
+      ];
     },
     async UpdateTrayIcon(): Promise<void> {},
     async Version() {

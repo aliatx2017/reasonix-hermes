@@ -308,3 +308,26 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 - **Session comparison tool**: New `internal/eval/` package — `LoadSessionSnapshot`, `Compare`, `FormatText`. Jaccard similarity on tool sequences. 6 tests. CLI: `reasonix eval compare <a> <b>`. Wails desktop binding: `CompareSessions(pathA, pathB)` → `SessionComparisonView`. Regenerated wailsjs includes `CompareSessions`.
 - **Files**: 10 files changed — 2 new (`internal/eval/eval.go`, `internal/eval/eval_test.go`), 2 new (`internal/cli/eval.go`, `desktop/hermes_eval.go`), 5 modified (`docs/SPEC.md`, `AGENTS.md`, `REASONIX.md`, `internal/cli/cli.go`, `desktop/frontend/src/lib/bridge.ts`, `desktop/frontend/src/lib/types.ts`, `desktop/frontend/src/components/SettingsPanel.tsx`, `desktop/frontend/src/components/hermes/MarketplacePanel.tsx`).
 - **Build**: All binaries compile. go build + vet + test all green. tsc clean.
+
+### Session 2026-07-15 (h11) — Completeness sweep + eval GUI + analytics + orchestrate + docs
+
+- **Completeness sweep**: Audited 4 surfaces — slash commands, i18n (332 keys × 3 catalogs = zero drift), Wails bindings, config render.go.
+  - **Slash commands**: 6 orphan completers added (`/stats`, `/cost`, `/council`, `/learn`, `/publish`, `/todo`)
+  - **Wails bindings**: Removed stale `CompareSessions` from `KnownMissingFromGenerated` (already in generated wailsjs). `TurnTimeline` remains the sole legitimate exclude.
+  - **Config render.go data-loss bug fixed**: 10 sections were missing from rendering, silent data loss on `Config.Save()`. Added rendering for `[schedule]`, `[learn]`, `[mesh]`, `[collab]`, `[marketplace]` + `[marketplace.lobehub]`, `[embedding]`, `[bot.discord]`, `[bot.telegram]`, `[bot.line]`, `[bot.slack]`, remote sandbox fields, allowlist fields (discord/telegram/line users+groups), and `active_profile`.
+- **Desktop bug fixes**:
+  - Hotbar "unbound(default)": Fixed `isDefault` logic — empty strings no longer show "(default)" suffix. Bridge mock now has real hotbar defaults.
+  - Profiles empty state: Verified correct — already shows TOML template examples.
+- **Eval GUI** (`EvalPanel.tsx`): Session file picker from `ListSessions()`, stats cards, Jaccard similarity bar, tool usage table, turn match grid. Types + bridge binding.
+- **Analytics** (`AnalyticsPanel.tsx` + `TurnTimeline()` Go binding): Per-turn token bar chart, cache hit/miss stacked bars, top tools ranked chart, per-turn tool call grid.
+- **Orchestration** (`internal/orchestrate/`): `Chain`, `Pair`, `CIFix` + 6 tests. Three slash commands: `/chain <task>`, `/pair <task>`, `/ci-fix <cmd>` (+ completions).
+- **Docs updated**: `CONTRIBUTING.md` completely rewritten for Hermes fork (8 constitution rules, Hermes binary build, upstream sync, desktop conventions). `docs/index.html` rebranded to Reasonix-Hermes (◆ logo, v1.7.0, npm, Hermes features). `SPEC.md` §2: +2 packages (eval, orchestrate). `AGENTS.md`: +2 customizations.
+- **Upstream**: No new commits (still at 21d77d2). Up to date.
+- **Build**: All binaries compile. `go build ./... && go vet ./...` pass. `tsc --noEmit` 0 errors. All test packages pass (config, orchestrate, eval, i18n, control).
+
+### Next to build
+- [ ] **npm: publish reasonix-hermes** — pipeline verified; needs npm 2FA-bypass token + tag push
+- [ ] **Upstream the LINE adapter** — open a PR to esengine/deepseek-reasonix with `internal/bot/line/`
+- [ ] **Desktop app distribution** — cut a desktop-vX.Y.Z release tag (release-desktop.yml pipeline is ready)
+- [ ] **Desktop orchestration panel** — surface Chain/Pair/CIFix results in a desktop widget
+- [ ] **LearnedPatterns** — Go Wails binding exists but no frontend widget (unused API surface)

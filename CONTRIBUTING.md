@@ -1,21 +1,43 @@
-# Contributing to Reasonix
+# Contributing to Reasonix-Hermes
 
-Thank you for your interest in contributing to Reasonix! This guide covers
-everything you need to get started.
+Thank you for your interest in contributing to the Reasonix-Hermes fork! This
+guide covers everything you need to get started. Reasonix-Hermes extends upstream
+[esengine/deepseek-reasonix](https://github.com/esengine/deepseek-reasonix) with
+MCP bridges, multi-platform bots, Hindsight memory, 17-skill registry, and a
+Wails desktop app.
 
 ## Prerequisites
 
 - **Go 1.25+** — the project targets the latest stable Go release
 - **Git** — for version control
-- **Node.js** (optional) — only if you work on the desktop app (`desktop/`)
+- **Node.js 22+** (required for desktop frontend TypeScript builds)
+- **Wails v2** (optional) — only if you work on the desktop app (`desktop/`)
 
 ## Getting started
 
 ```bash
 git clone https://github.com/aliatx2017/reasonix-hermes.git
 cd reasonix-hermes
-go build ./cmd/reasonix    # builds the CLI binary
+go build ./...             # builds everything
 go test ./...              # runs the full test suite
+go vet ./...               # static analysis
+```
+
+Build all Hermes binaries:
+```bash
+go build -o bin/reasonix ./cmd/reasonix
+go build -o bin/reasonix-bot ./bot
+go build -o bin/reasonix-mcpbridge ./cmd/reasonix-mcpbridge
+go build -o bin/reasonix-memory ./cmd/reasonix-memoryserver
+go build -o bin/reasonix-hooks ./cmd/reasonix-hooks
+go build -o bin/reasonix-pr-review ./cmd/reasonix-pr-review
+```
+
+Desktop (Wails + React 19 + TypeScript):
+```bash
+cd desktop/frontend && npm install && cd ../..
+cd desktop && wails build -o ../bin/reasonix-desktop
+tsc --noEmit                     # in desktop/frontend — must pass before committing
 ```
 
 ## Project structure
@@ -39,6 +61,7 @@ go test ./...              # runs the full test suite
 | `internal/learn` | [Hermes] Self-improving skill loops |
 | `internal/marketplace` | [Hermes] Community skill registry + LobeHub sync |
 | `internal/mesh` | [Hermes] Agent-to-agent MCP mesh |
+| `internal/orchestrate` | [Hermes] Multi-agent orchestration (chain, pair, CI-fix) |
 | `internal/publish` | [Hermes] Session transcript export |
 | `internal/scheduler` | [Hermes] Cron-driven automated tasks |
 | `internal/tool/builtin` | Built-in tools (bash, read_file, …) |
@@ -77,7 +100,7 @@ Parents never import children.
 ### Building
 
 ```bash
-make build          # go build ./...
+make build          # go build ./...  (CLI + plugin-example only)
 make test           # go test ./...
 make vet            # go vet ./...
 make fmt            # gofmt -w .
@@ -85,13 +108,23 @@ make hooks          # install git hooks (pre-push: go vet)
 make cross          # cross-compile for all 6 targets
 ```
 
-### Running tests
-
+To build all Hermes binaries including desktop:
 ```bash
-go test ./...                           # all tests
-go test ./internal/agent/ -v            # verbose, one package
-go test ./internal/tool/builtin/ -run TestGrep  # one test
+go build ./...                          # all Go packages
+go build -o bin/reasonix-desktop ./desktop  # Wails desktop (needs wails)
+cd desktop/frontend && npx tsc --noEmit    # TypeScript check
 ```
+
+### Pre-commit checks
+
+Before committing, run ALL of:
+```bash
+go build ./... && go vet ./...         # Go builds + static analysis
+go test ./...                           # all tests must pass
+cd desktop/frontend && npx tsc --noEmit  # TypeScript compiles clean
+```
+
+CI enforces these automatically. No PR merges with failing checks.
 
 ### Code style
 
@@ -100,6 +133,8 @@ go test ./internal/tool/builtin/ -run TestGrep  # one test
 - Library code never calls `os.Exit` or prints to stdout/stderr
 - Only `cli/` and `main/` decide exit codes and user-facing messages
 - Exported identifiers must have doc comments
+- **English only** for all communication and code authored in this fork
+- Chinese comments in `internal/bot/` are upstream-authored — leave them; new code is English-only
 
 ### Commit messages
 
@@ -112,6 +147,40 @@ test(event): add comprehensive unit tests for event package
 docs: add CONTRIBUTING.md
 ci: add golangci-lint and govulncheck
 ```
+
+## Hermes-specific conventions
+
+These rules are enforced by the `.reasonix/constitution.json` and CI. Violations
+block merges.
+
+### Wails/desktop rules
+- **`no-nil-slices`**: Wails Go bindings must return empty slices (`[]T{}`), never
+  `nil` — `nil` serializes as `null` in JSON, crashing `.length`/`.map` in React.
+- **`typescript-clean`**: `tsc --noEmit` must pass before committing desktop changes.
+- **`controller-seam`**: Add behavior to `control.Controller`, not individual
+  frontends, so CLI/HTTP/Desktop all inherit it.
+
+### Config rules
+- **`config-render-complete`**: Every `toml:"…"` tag in `internal/config/config.go`
+  must have a corresponding render in `internal/config/render.go`. Run
+  `go test ./internal/config/... -run TestRender` to verify round-trip.
+- **`i18n-complete`**: New i18n fields must be populated in all 3 catalogs
+  (`en`, `zh`, `zh-TW`). `TestCatalogsComplete` enforces this.
+
+### Code rules
+- **`spec-first`**: Change `docs/SPEC.md` before changing `internal/` code.
+- **`init-registration`**: New built-in tools/providers must self-register via `init()`.
+- **`go-vet-clean`**: `go build ./... && go vet ./...` must pass before committing.
+
+### Upstream sync
+Always sync upstream before wrapping up a session:
+```bash
+git fetch upstream
+git merge upstream/main-v2
+# resolve conflicts, then:
+go build ./... && go vet ./... && go test ./...
+```
+The `.github/workflows/sync-upstream.yml` workflow runs this daily at 20:00 UTC.
 
 ## Adding a new built-in tool
 
@@ -133,15 +202,28 @@ ci: add golangci-lint and govulncheck
 ## Adding i18n strings
 
 1. Add the field to `internal/i18n/i18n.go` (`Messages` struct)
-2. Add the value in `internal/i18n/messages_en.go` and `messages_zh.go`
-3. The `TestCatalogsComplete` test will fail if you miss a locale. Three catalogs: `en`, `zh`, `zh-TW`.
+2. Add the value in all three catalogs: `messages_en.go`, `messages_zh.go`,
+   `messages_zh_tw.go`
+3. The `TestCatalogsComplete` test fails if any locale is missing a key.
+   Three catalogs: `en`, `zh`, `zh-TW`.
+
+## Adding a new rendering section
+
+When adding a new `[section]` to `config.go`, you MUST add its counterpart in
+`render.go`. Otherwise `Config.Save()` silently drops the section. Verify with:
+```bash
+go test ./internal/config/... -run TestRenderTOMLRoundTrips
+```
 
 ## Submitting changes
 
 1. Fork the repository
 2. Create a feature branch from `main`
 3. Make your changes with tests
-4. Ensure `go test ./...` passes
+4. Ensure **all** of these pass:
+   - `go build ./... && go vet ./...`
+   - `go test ./...`
+   - `cd desktop/frontend && npx tsc --noEmit`
 5. Ensure `gofmt -l .` shows no changes
 6. Submit a pull request to `main`
 

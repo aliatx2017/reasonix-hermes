@@ -434,6 +434,59 @@ type TurnUsagePoint struct {
 	CacheMissTokens  int `json:"cacheMissTokens"`
 }
 
+// TurnTimelinePoint enriches per-turn usage with tool calls.
+type TurnTimelinePoint struct {
+	Turn             int      `json:"turn"`
+	PromptTokens     int      `json:"promptTokens"`
+	CompletionTokens int      `json:"completionTokens"`
+	CacheHitTokens   int      `json:"cacheHitTokens"`
+	CacheMissTokens  int      `json:"cacheMissTokens"`
+	TotalTokens      int      `json:"totalTokens"`
+	ToolCalls        []string `json:"toolCalls"`
+}
+
+// TurnTimeline returns per-turn analytics enriched with tool call names.
+func (a *App) TurnTimeline() []TurnTimelinePoint {
+	ctrl := a.ctrlForTab("")
+	if ctrl == nil {
+		return []TurnTimelinePoint{}
+	}
+	history := ctrl.TurnUsageHistory()
+	msgs := ctrl.SessionMessages()
+	turnTools := turnToolCalls(msgs)
+
+	points := make([]TurnTimelinePoint, len(history))
+	for i, u := range history {
+		points[i] = TurnTimelinePoint{
+			Turn:             i + 1,
+			PromptTokens:     u.PromptTokens,
+			CompletionTokens: u.CompletionTokens,
+			CacheHitTokens:   u.CacheHitTokens,
+			CacheMissTokens:  u.CacheMissTokens,
+			TotalTokens:      u.TotalTokens,
+			ToolCalls:        turnTools[i+1],
+		}
+	}
+	return points
+}
+
+// turnToolCalls groups tool call names by turn index from session messages.
+func turnToolCalls(msgs []provider.Message) map[int][]string {
+	result := make(map[int][]string)
+	turn := 0
+	for _, msg := range msgs {
+		if msg.Role == provider.RoleUser {
+			turn++
+		}
+		if msg.Role == provider.RoleAssistant {
+			for _, tc := range msg.ToolCalls {
+				result[turn] = append(result[turn], tc.Name)
+			}
+		}
+	}
+	return result
+}
+
 // TurnUsageHistory returns per-turn token usage for sparkline charts.
 func (a *App) TurnUsageHistory() []TurnUsagePoint {
 	ctrl := a.ctrlForTab("")

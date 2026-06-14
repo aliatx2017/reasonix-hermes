@@ -9,6 +9,8 @@ import { GoalProgressWidget } from "./GoalProgressWidget";
 import { PublishWidget } from "./PublishWidget";
 import { ScheduleWidget } from "./ScheduleWidget";
 import { SkillStorePanel } from "./SkillStorePanel";
+import { AnalyticsPanel } from "./AnalyticsPanel";
+import { EvalPanel } from "./EvalPanel";
 import { SubagentTreePanel } from "./SubagentTreePanel";
 import { ConstitutionHealthPanel } from "./ConstitutionHealthPanel";
 import { TokenBreakdownChart } from "./TokenBreakdownChart";
@@ -201,7 +203,9 @@ export function HermesSettings({ s, onHotbarChange: _onHotbar, onProfileSelect: 
           {HOTBAR_KEYS.map(({ key, digit, defaultAction }) => {
             const action = s.hotbar?.[key] || "";
             const label = ACTION_LABELS[action] || action;
-            const isDefault = !action || action === defaultAction;
+            // unbound (empty string) is not "default" — the default for this key is defaultAction.
+            // Only mark as default when the action matches the built-in default for this specific key.
+            const isDefault = action === defaultAction;
             return (
               <div key={key} style={{
                 display: "flex", alignItems: "center", gap: 8,
@@ -314,6 +318,11 @@ tool_approve_mode = "yolo"`}
 
       <hr style={{ margin: "24px 0", border: "none", borderTop: "1px solid var(--color-border)" }} />
 
+      {/* ═══════════ EVAL ═══════════ */}
+      <EvalPanel />
+
+      <hr style={{ margin: "24px 0", border: "none", borderTop: "1px solid var(--color-border)" }} />
+
       {/* ═══════════ SKILL STORE ═══════════ */}
       <section className="settings-section">
         <h3 className="settings-section__title">
@@ -341,6 +350,11 @@ tool_approve_mode = "yolo"`}
         </p>
         <SubagentTreePanel />
       </section>
+
+      <hr style={{ margin: "24px 0", border: "none", borderTop: "1px solid var(--color-border)" }} />
+
+      {/* ═══════════ ANALYTICS ═══════════ */}
+      <AnalyticsPanel />
 
       <hr style={{ margin: "24px 0", border: "none", borderTop: "1px solid var(--color-border)" }} />
 
