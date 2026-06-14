@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/logo-animated.svg" alt="Reasonix Hermes — Diamond Wing" width="420"/>
+  <img src="docs/logo-animated.svg" alt="Reasonix-Hermes" width="540"/>
 </p>
 
 <p align="center">
