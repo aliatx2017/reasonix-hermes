@@ -611,6 +611,14 @@ export interface SessionTokensView {
   turns: number;
 }
 
+export interface CompressStatsView {
+  bytesSaved: number;
+  cacheHits: number;
+  linesCollapsed: number;
+  jsonFieldsStripped: number;
+  auxTokens: number;
+}
+
 export interface TurnUsagePoint {
   turn: number;
   promptTokens: number;
@@ -687,6 +695,7 @@ export interface ScheduleTaskView {
   name: string;
   cron: string;
   prompt: string;
+  model?: string;
   enabled: boolean;
   nextRun: string;
 }

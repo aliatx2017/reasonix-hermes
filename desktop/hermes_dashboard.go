@@ -2,14 +2,17 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"reasonix/internal/compress"
 	"reasonix/internal/control"
 	"reasonix/internal/diff"
 	"reasonix/internal/marketplace"
 	"reasonix/internal/provider"
 	"reasonix/internal/publish"
+	"reasonix/internal/scheduler"
 	"strings"
 	"time"
 
@@ -79,6 +82,27 @@ func (a *App) SessionTokensForTab(tabID string) SessionTokensView {
 		TokensIn:  ctrl.SessionTokensIn(),
 		TokensOut: ctrl.SessionTokensOut(),
 		Turns:     ctrl.SessionTurns(),
+	}
+}
+
+// CompressStats returns tool-output compression savings for the active tab.
+func (a *App) CompressStats() CompressStatsView {
+	return a.CompressStatsForTab("")
+}
+
+// CompressStatsForTab returns compression savings for a specific tab.
+func (a *App) CompressStatsForTab(tabID string) CompressStatsView {
+	ctrl := a.ctrlForTab(tabID)
+	if ctrl == nil {
+		return CompressStatsView{}
+	}
+	cs := ctrl.CompressStats()
+	return CompressStatsView{
+		BytesSaved:        cs.BytesSaved,
+		CacheHits:         cs.CacheHits,
+		LinesCollapsed:    cs.LinesCollapsed,
+		JSONFieldsStripped: cs.JSONFieldsStripped,
+		AuxTokens:         ctrl.AuxTokens(),
 	}
 }
 
@@ -210,6 +234,7 @@ type HermesDashboardEvent struct {
 	Schedule      ScheduleDashboardView  `json:"schedule"`
 	Collab        CollabView              `json:"collab"`
 	Council       CouncilDashboardView    `json:"council"`
+	Compress      CompressStatsView       `json:"compress"`
 }
 
 // SessionTokensView carries cumulative token and turn counts.
@@ -217,6 +242,15 @@ type SessionTokensView struct {
 	TokensIn  int `json:"tokensIn"`
 	TokensOut int `json:"tokensOut"`
 	Turns     int `json:"turns"`
+}
+
+// CompressStatsView carries tool-output compression savings for the dashboard.
+type CompressStatsView struct {
+	BytesSaved        int `json:"bytesSaved"`
+	CacheHits         int `json:"cacheHits"`
+	LinesCollapsed    int `json:"linesCollapsed"`
+	JSONFieldsStripped int `json:"jsonFieldsStripped"`
+	AuxTokens         int `json:"auxTokens"`
 }
 
 // MemoryFactView is one fact from the auto-memory store.
@@ -424,6 +458,7 @@ func (a *App) startHermesEventLoop(ctx context.Context) {
 					Schedule:      a.ScheduleDashboard(),
 					Collab:        a.CollabDashboard(),
 					Council:       a.CouncilDashboard(),
+					Compress:      a.CompressStats(),
 				}
 				runtime.EventsEmit(ctx, "hermes:dashboard", ev)
 			}
@@ -438,6 +473,7 @@ type ScheduleTaskView struct {
 	Name       string `json:"name"`
 	Cron       string `json:"cron"`
 	Prompt     string `json:"prompt"` // truncated
+	Model      string `json:"model,omitempty"`
 	Enabled    bool   `json:"enabled"`
 	NextRun    string `json:"nextRun"` // ISO 8601, empty if not computed
 }
@@ -488,6 +524,7 @@ func (a *App) ScheduleDashboard() ScheduleDashboardView {
 			Name:    t.Name,
 			Cron:    t.Cron,
 			Prompt:  prompt,
+			Model:   t.Model,
 			Enabled: t.IsEnabled(),
 			NextRun: nextRun,
 		}
@@ -516,6 +553,32 @@ func (a *App) ScheduleDashboard() ScheduleDashboardView {
 		Tasks:      taskViews,
 		RecentRuns: resultViews,
 	}
+}
+
+// AddScheduledTask adds or updates a scheduled task at runtime.
+// name, cron, prompt, model are the task fields. enabled defaults to true.
+func (a *App) AddScheduledTask(name, cron, prompt, model string, enabled bool) bool {
+	ctrl := a.ctrlForTab("")
+	if ctrl == nil {
+		return false
+	}
+	e := enabled
+	return ctrl.AddScheduledTask(scheduler.Task{
+		Name:    name,
+		Cron:    cron,
+		Prompt:  prompt,
+		Model:   model,
+		Enabled: &e,
+	})
+}
+
+// RemoveScheduledTask removes a scheduled task by name at runtime.
+func (a *App) RemoveScheduledTask(name string) bool {
+	ctrl := a.ctrlForTab("")
+	if ctrl == nil {
+		return false
+	}
+	return ctrl.RemoveScheduledTask(name)
 }
 
 // --- Publish Session Export ---
@@ -553,10 +616,14 @@ func (a *App) ExportSession(format string) string {
 	}
 
 	session := publish.Session{
-		Title:    title,
-		Model:    ctrl.Label(),
-		Date:     time.Now(),
-		Messages: messages,
+		Title:     title,
+		Model:     ctrl.Label(),
+		Date:      time.Now(),
+		Messages:  messages,
+		TokensIn:  ctrl.SessionTokensIn(),
+		TokensOut: ctrl.SessionTokensOut(),
+		Turns:     ctrl.SessionTurns(),
+		Cost:      ctrl.SessionCost(),
 	}
 
 	switch PublishExportFormat(format) {
@@ -699,5 +766,52 @@ func (a *App) SyncLobeHubMarketplace(clientID, clientSecret string) (fetched int
 
 	reg := marketplace.DefaultRegistry()
 	fetched, added, err = reg.SyncFromLobeHub(client, "", "installCount", "")
+	if err == nil && fetched > 0 {
+		a.saveLobeHubSyncMeta(LobeHubSyncMeta{
+			LastSync:   time.Now(),
+			Fetched:    fetched,
+			Added:      added,
+		})
+	}
 	return fetched, added, err
+}
+
+// LobeHubSyncMeta records the last LobeHub marketplace sync.
+type LobeHubSyncMeta struct {
+	LastSync time.Time `json:"lastSync"`
+	Fetched  int       `json:"fetched"`
+	Added    int       `json:"added"`
+}
+
+// LastLobeHubSync returns the metadata from the most recent LobeHub sync.
+func (a *App) LastLobeHubSync() LobeHubSyncMeta {
+	return a.loadLobeHubSyncMeta()
+}
+
+func (a *App) lobeHubSyncPath() string {
+	cfgDir, _ := os.UserConfigDir()
+	return filepath.Join(cfgDir, "reasonix", "lobehub-sync.json")
+}
+
+func (a *App) saveLobeHubSyncMeta(meta LobeHubSyncMeta) {
+	path := a.lobeHubSyncPath()
+	data, err := json.Marshal(meta)
+	if err != nil {
+		return
+	}
+	os.MkdirAll(filepath.Dir(path), 0o755)
+	os.WriteFile(path, data, 0o644)
+}
+
+func (a *App) loadLobeHubSyncMeta() LobeHubSyncMeta {
+	path := a.lobeHubSyncPath()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return LobeHubSyncMeta{}
+	}
+	var meta LobeHubSyncMeta
+	if err := json.Unmarshal(data, &meta); err != nil {
+		return LobeHubSyncMeta{}
+	}
+	return meta
 }

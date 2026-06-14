@@ -9,6 +9,7 @@ import (
 	"reasonix/internal/bot"
 	"reasonix/internal/bot/discord"
 	"reasonix/internal/bot/feishu"
+	"reasonix/internal/bot/line"
 	"reasonix/internal/bot/qq"
 	"reasonix/internal/bot/telegram"
 	"reasonix/internal/bot/weixin"
@@ -36,6 +37,8 @@ func EnabledPlatforms(cfg *config.Config, channels []string) (map[bot.Platform]b
 				enabled[bot.PlatformDiscord] = PlatformConfigured(cfg, bot.PlatformDiscord)
 			case bot.PlatformTelegram:
 				enabled[bot.PlatformTelegram] = PlatformConfigured(cfg, bot.PlatformTelegram)
+			case bot.PlatformLine:
+				enabled[bot.PlatformLine] = PlatformConfigured(cfg, bot.PlatformLine)
 			default:
 				if strings.EqualFold(ch, "lark") {
 					enabled[bot.PlatformFeishu] = PlatformConfigured(cfg, bot.PlatformFeishu)
@@ -51,6 +54,7 @@ func EnabledPlatforms(cfg *config.Config, channels []string) (map[bot.Platform]b
 	enabled[bot.PlatformWeixin] = PlatformConfigured(cfg, bot.PlatformWeixin)
 	enabled[bot.PlatformDiscord] = PlatformConfigured(cfg, bot.PlatformDiscord)
 	enabled[bot.PlatformTelegram] = PlatformConfigured(cfg, bot.PlatformTelegram)
+	enabled[bot.PlatformLine] = PlatformConfigured(cfg, bot.PlatformLine)
 	return enabled, warnings
 }
 
@@ -111,6 +115,10 @@ func PlatformConfigured(cfg *config.Config, platform bot.Platform) bool {
 		}
 	case bot.PlatformTelegram:
 		if cfg.Bot.Telegram.Enabled {
+			return true
+		}
+	case bot.PlatformLine:
+		if cfg.Bot.Line.Enabled {
 			return true
 		}
 	}
@@ -256,6 +264,13 @@ func AdapterBindings(cfg *config.Config, enabled map[bot.Platform]bool, feishuDo
 			telegramCfg.TokenEnv = firstNonEmptyString(strings.TrimSpace(conn.Credential.TokenEnv), telegramCfg.TokenEnv)
 			bindings = append(bindings, bot.AdapterBinding{ID: id, Domain: "telegram", Platform: platform, Adapter: telegram.New(telegramCfg, logger)})
 			hasConnection[platform] = true
+		case bot.PlatformLine:
+			lineCfg := cfg.Bot.Line
+			lineCfg.Enabled = true
+			lineCfg.TokenEnv = firstNonEmptyString(strings.TrimSpace(conn.Credential.TokenEnv), lineCfg.TokenEnv)
+			lineCfg.SecretEnv = firstNonEmptyString(strings.TrimSpace(conn.Credential.SecretEnv), lineCfg.SecretEnv)
+			bindings = append(bindings, bot.AdapterBinding{ID: id, Domain: "line", Platform: platform, Adapter: line.New(lineCfg, logger)})
+			hasConnection[platform] = true
 		}
 	}
 	if enabled[bot.PlatformQQ] && !hasConnection[bot.PlatformQQ] {
@@ -274,6 +289,9 @@ func AdapterBindings(cfg *config.Config, enabled map[bot.Platform]bool, feishuDo
 	}
 	if enabled[bot.PlatformTelegram] && !hasConnection[bot.PlatformTelegram] {
 		bindings = append(bindings, bot.AdapterBinding{ID: string(bot.PlatformTelegram), Domain: "telegram", Platform: bot.PlatformTelegram, Adapter: telegram.New(cfg.Bot.Telegram, logger)})
+	}
+	if enabled[bot.PlatformLine] && !hasConnection[bot.PlatformLine] {
+		bindings = append(bindings, bot.AdapterBinding{ID: string(bot.PlatformLine), Domain: "line", Platform: bot.PlatformLine, Adapter: line.New(cfg.Bot.Line, logger)})
 	}
 	return bindings
 }
@@ -307,7 +325,7 @@ func ModelName(cfg *config.Config, override string) string {
 }
 
 func AllowlistUserCount(a config.BotAllowlist) int {
-	return len(a.QQUsers) + len(a.FeishuUsers) + len(a.WeixinUsers) + len(a.DiscordUsers) + len(a.TelegramUsers)
+	return len(a.QQUsers) + len(a.FeishuUsers) + len(a.WeixinUsers) + len(a.DiscordUsers) + len(a.TelegramUsers) + len(a.LineUsers)
 }
 
 func NewRemoteRememberer(logger *slog.Logger) func(bot.InboundMessage) {
@@ -419,6 +437,10 @@ func rememberAllowlist(allowlist *config.BotAllowlist, platform bot.Platform, us
 			allowlist.WeixinUsers, changed = appendUniqueString(allowlist.WeixinUsers, userID)
 		case bot.PlatformDiscord:
 			allowlist.DiscordUsers, changed = appendUniqueString(allowlist.DiscordUsers, userID)
+		case bot.PlatformTelegram:
+			allowlist.TelegramUsers, changed = appendUniqueString(allowlist.TelegramUsers, userID)
+		case bot.PlatformLine:
+			allowlist.LineUsers, changed = appendUniqueString(allowlist.LineUsers, userID)
 		}
 	}
 	if !chatUsesGroupAllowlist(chatType) {

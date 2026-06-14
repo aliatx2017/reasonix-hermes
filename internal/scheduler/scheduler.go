@@ -378,6 +378,63 @@ func (s *Scheduler) Tasks() []Task {
 	return out
 }
 
+// AddTask adds a task to the scheduler at runtime and recomputes next-run times.
+// It replaces an existing task with the same name. Returns false if the scheduler
+// is nil.
+func (s *Scheduler) AddTask(t Task) bool {
+	if s == nil {
+		return false
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i, existing := range s.config.Tasks {
+		if existing.Name == t.Name {
+			s.config.Tasks[i] = t
+			s.logger.Info("scheduler: task updated", "name", t.Name)
+			s.recomputeOne(&s.config.Tasks[i])
+			return true
+		}
+	}
+	s.config.Tasks = append(s.config.Tasks, t)
+	s.logger.Info("scheduler: task added", "name", t.Name)
+	s.recomputeOne(&s.config.Tasks[len(s.config.Tasks)-1])
+	return true
+}
+
+// RemoveTask removes a task by name and recomputes next-run times.
+// Returns false if the scheduler is nil or the name is not found.
+func (s *Scheduler) RemoveTask(name string) bool {
+	if s == nil {
+		return false
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i, t := range s.config.Tasks {
+		if t.Name == name {
+			s.config.Tasks = append(s.config.Tasks[:i], s.config.Tasks[i+1:]...)
+			delete(s.nextRun, name)
+			s.logger.Info("scheduler: task removed", "name", name)
+			return true
+		}
+	}
+	return false
+}
+
+// recomputeOne recalculates the next-run time for a single task.
+func (s *Scheduler) recomputeOne(t *Task) {
+	if !t.isEnabled() {
+		delete(s.nextRun, t.Name)
+		return
+	}
+	next, err := NextAfter(t.Cron, time.Now())
+	if err != nil {
+		s.logger.Warn("scheduler: bad cron for task", "name", t.Name, "cron", t.Cron, "err", err)
+		delete(s.nextRun, t.Name)
+		return
+	}
+	s.nextRun[t.Name] = next
+}
+
 // SortTasksByName sorts a task slice by name for stable display ordering.
 func SortTasksByName(tasks []Task) {
 	sort.Slice(tasks, func(i, j int) bool {

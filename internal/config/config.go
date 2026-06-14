@@ -488,6 +488,7 @@ type BotConfig struct {
 	Weixin           WeixinBotConfig       `toml:"weixin"`
 	Discord          DiscordBotConfig      `toml:"discord"`
 	Telegram         TelegramBotConfig     `toml:"telegram"`
+	Line             LineBotConfig         `toml:"line"`
 	Connections      []BotConnectionConfig `toml:"connections"`
 }
 
@@ -562,11 +563,13 @@ type BotAllowlist struct {
 	WeixinUsers  []string `toml:"weixin_users"`
 	DiscordUsers   []string `toml:"discord_users"`
 	TelegramUsers  []string `toml:"telegram_users"`
+	LineUsers      []string `toml:"line_users"`
 	QQGroups       []string `toml:"qq_groups"`
 	FeishuGroups   []string `toml:"feishu_groups"`
 	WeixinGroups   []string `toml:"weixin_groups"`
 	DiscordGroups  []string `toml:"discord_groups"`
 	TelegramGroups []string `toml:"telegram_groups"`
+	LineGroups     []string `toml:"line_groups"`
 }
 
 // QQBotConfig QQ 官方 Bot API v2 配置。
@@ -613,6 +616,14 @@ type TelegramBotConfig struct {
 	AllowDMs bool   `toml:"allow_dms"` // respond to DMs (default true)
 }
 
+// LineBotConfig configures a LINE bot.
+type LineBotConfig struct {
+	Enabled  bool   `toml:"enabled"`
+	TokenEnv string `toml:"token_env"` // env var name, e.g. LINE_CHANNEL_TOKEN
+	SecretEnv string `toml:"secret_env"` // env var name, e.g. LINE_CHANNEL_SECRET
+	AllowDMs bool   `toml:"allow_dms"` // respond to DMs (default true)
+}
+
 // BotConnectionConfig is the desktop-friendly connection record for IM bot
 // channels. It keeps install/runtime state separate from legacy per-provider
 // knobs so the UI can expose a simple "connect first" flow while old configs
@@ -639,6 +650,7 @@ type BotConnectionCredential struct {
 	AppSecretEnv string `toml:"app_secret_env"`
 	AccountID    string `toml:"account_id"`
 	TokenEnv     string `toml:"token_env"`
+	SecretEnv    string `toml:"secret_env"` // LINE channel secret (also used for other webhook-signing platforms)
 }
 
 type BotConnectionSessionMapping struct {

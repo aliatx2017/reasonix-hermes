@@ -65,6 +65,7 @@ import {
   type Mode,
   type ProjectNode,
   type SessionMeta,
+  type SessionTokensView,
   type SettingsTab,
   type SettingsView,
   type TabMeta,
@@ -1131,6 +1132,21 @@ export default function App() {
     const currentTabTurns = Math.max(state.checkpoints.length, visibleUserTurns);
     return currentTabTurns > 0 ? currentTabTurns : activeTopicTurns ?? 0;
   }, [activeTopicTurns, state.checkpoints.length, state.items]);
+  // Backend session stats (cumulative, persistent) — used for StatusBar so
+  // resumed CLI sessions show accurate turns/tokens via .sessionstats sidecar.
+  const [backendSessionStats, setBackendSessionStats] = useState<SessionTokensView>({ tokensIn: 0, tokensOut: 0, turns: 0 });
+  const prevRunning = useRef(state.running);
+  useEffect(() => {
+    // Only fetch when a turn just finished (running true→false), skipping
+    // mount (false) and turn-start (false→true) to avoid wasted RPC calls.
+    if (prevRunning.current && !state.running) {
+      const tid = activeTabId ?? "";
+      (tid ? app.SessionTokensForTab(tid) : app.SessionTokens())
+        .then((v) => setBackendSessionStats(v))
+        .catch(() => {});
+    }
+    prevRunning.current = state.running;
+  }, [activeTabId, state.running]);
   const startupSplashHold = state.meta?.ready !== true && !state.meta?.startupErr;
   const backendActiveComposerProfile = useMemo(() => {
     if (state.meta) {
@@ -2820,8 +2836,8 @@ export default function App() {
               running={state.running}
               collaborationMode={collaborationMode}
               toolApprovalMode={toolApprovalMode}
-              sessionTurns={sessionTurns}
-              sessionTokens={state.sessionTokens}
+              sessionTurns={backendSessionStats.turns > 0 ? backendSessionStats.turns : sessionTurns}
+              sessionTokens={backendSessionStats.tokensIn > 0 ? backendSessionStats.tokensIn + backendSessionStats.tokensOut : state.sessionTokens}
               turnTokens={state.turnTotalTokens}
               turnCost={state.turnCost}
               cost={state.sessionCost}

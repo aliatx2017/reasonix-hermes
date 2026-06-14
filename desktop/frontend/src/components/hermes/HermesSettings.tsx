@@ -1,5 +1,5 @@
-import { BarChart3, BookOpen, Calendar, Download, FileText, GitBranch, History, Keyboard, Network, Shield, Sliders, ShoppingBag, Zap } from "lucide-react";
-import type { SettingsView, HotbarView, ProfileView, CostSummaryView, SessionTokensView, ScheduleDashboardView, CollabView, CouncilDashboardView } from "../../lib/types";
+import { BarChart3, Calendar, Download, FileText, GitBranch, History, Keyboard, Network, Shield, Sliders, ShoppingBag, Zap } from "lucide-react";
+import type { SettingsView, HotbarView, ProfileView, CostSummaryView, SessionTokensView, CompressStatsView, ScheduleDashboardView, CollabView, CouncilDashboardView } from "../../lib/types";
 import { CacheEconomyGauge } from "./CacheEconomyGauge";
 import { CollabPanel } from "./CollabPanel";
 import { CouncilPanel } from "./CouncilPanel";
@@ -8,8 +8,7 @@ import { DiscordMonitor } from "./DiscordMonitor";
 import { GoalProgressWidget } from "./GoalProgressWidget";
 import { PublishWidget } from "./PublishWidget";
 import { ScheduleWidget } from "./ScheduleWidget";
-import { SkillsHubBrowser } from "./SkillsHubBrowser";
-import { MarketplacePanel } from "./MarketplacePanel";
+import { SkillStorePanel } from "./SkillStorePanel";
 import { SubagentTreePanel } from "./SubagentTreePanel";
 import { ConstitutionHealthPanel } from "./ConstitutionHealthPanel";
 import { TokenBreakdownChart } from "./TokenBreakdownChart";
@@ -26,6 +25,7 @@ interface HermesSettingsProps {
   goal?: { active: boolean; goal: string; status: string; turns: number; blocks: number } | null;
   cost?: CostSummaryView | null;
   tokens?: SessionTokensView | null;
+  compress?: CompressStatsView | null;
   schedule?: ScheduleDashboardView | null;
   collab?: CollabView | null;
   council?: CouncilDashboardView | null;
@@ -52,7 +52,13 @@ const ACTION_LABELS: Record<string, string> = {
   settings: "Settings",
 };
 
-export function HermesSettings({ s, onHotbarChange: _onHotbar, onProfileSelect: _onProfile, cache, discord, goal, cost, tokens, schedule, collab, council }: HermesSettingsProps) {
+function formatCompactBytes(n: number): string {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + "M";
+  if (n >= 1_000) return (n / 1_000).toFixed(1) + "K";
+  return n.toString();
+}
+
+export function HermesSettings({ s, onHotbarChange: _onHotbar, onProfileSelect: _onProfile, cache, discord, goal, cost, tokens, compress, schedule, collab, council }: HermesSettingsProps) {
   const profiles = Object.entries(s.profiles ?? {}) as [string, ProfileView][];
   const activeProfile = s.activeProfile || "";
 
@@ -75,6 +81,12 @@ export function HermesSettings({ s, onHotbarChange: _onHotbar, onProfileSelect: 
               <span title="Session turns">{tokens.turns} turns</span>
               <span title="Prompt tokens">↑{tokens.tokensIn.toLocaleString()}</span>
               <span title="Completion tokens">↓{tokens.tokensOut.toLocaleString()}</span>
+            </div>
+          )}
+          {compress && (compress.bytesSaved > 0 || compress.auxTokens > 0) && (
+            <div style={{ display: "inline-flex", gap: 8, padding: "4px 8px", background: "var(--color-surface)", borderRadius: 6, fontSize: 12, alignItems: "center", color: "var(--color-accent)" }}>
+              {compress.bytesSaved > 0 && <span title="Compressor bytes saved">sqz {formatCompactBytes(compress.bytesSaved)}</span>}
+              {compress.auxTokens > 0 && <span title="Tokens routed to cheaper providers">aux ↓{compress.auxTokens.toLocaleString()}</span>}
             </div>
           )}
         </div>
@@ -302,36 +314,17 @@ tool_approve_mode = "yolo"`}
 
       <hr style={{ margin: "24px 0", border: "none", borderTop: "1px solid var(--color-border)" }} />
 
-      {/* ═══════════ SKILLS HUB ═══════════ */}
-      <section className="settings-section">
-        <h3 className="settings-section__title">
-          <BookOpen size={16} style={{ marginRight: 6 }} />
-          Skills Hub
-        </h3>
-        <p className="settings-section__desc">
-          Browse our 17-skill community registry. Install via the command line or
-          use <code>/install</code> in chat.
-        </p>
-        <SkillsHubBrowser />
-      </section>
-
-      <hr style={{ margin: "24px 0", border: "none", borderTop: "1px solid var(--color-border)" }} />
-
-      {/* ═══════════ SKILL MARKETPLACE ═══════════ */}
+      {/* ═══════════ SKILL STORE ═══════════ */}
       <section className="settings-section">
         <h3 className="settings-section__title">
           <ShoppingBag size={16} style={{ marginRight: 6 }} />
-          Skill Marketplace
+          Skill Store
         </h3>
         <p className="settings-section__desc">
-          Community skill registry — install skills with one click. Compatible with
-          the{" "}
-          <a href="https://agentskills.io" target="_blank" rel="noreferrer">
-            agentskills.io
-          </a>{" "}
-          SKILL.md format.
+          Browse, sync, and install skills from the community. Four categories:
+          LobeHub (360k+), Market (agentskills.io), MCP servers, and Custom project skills.
         </p>
-        <MarketplacePanel />
+        <SkillStorePanel />
       </section>
 
       <hr style={{ margin: "24px 0", border: "none", borderTop: "1px solid var(--color-border)" }} />

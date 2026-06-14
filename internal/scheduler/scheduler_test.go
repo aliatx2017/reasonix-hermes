@@ -299,3 +299,76 @@ func taskNames(tasks []Task) []string {
 	}
 	return names
 }
+
+func TestAddTask(t *testing.T) {
+	s := New(Config{
+		Tasks: []Task{{Name: "t1", Cron: "* * * * *", Prompt: "hello"}},
+	}, &stubSender{}, nil)
+	if s == nil {
+		t.Fatal("nil scheduler")
+	}
+
+	// Add a new task.
+	if !s.AddTask(Task{Name: "t2", Cron: "0 2 * * *", Prompt: "daily"}) {
+		t.Fatal("AddTask returned false")
+	}
+	if n := s.Tasks(); len(n) != 2 {
+		t.Fatalf("expected 2 tasks, got %d: %v", len(n), taskNames(n))
+	}
+
+	// Update existing task.
+	s.AddTask(Task{Name: "t1", Cron: "0 9 * * 1-5", Prompt: "updated"})
+	tasks := s.Tasks()
+	if len(tasks) != 2 {
+		t.Fatalf("expected still 2 tasks, got %d", len(tasks))
+	}
+	for _, tk := range tasks {
+		if tk.Name == "t1" && tk.Prompt != "updated" {
+			t.Errorf("t1 not updated: %+v", tk)
+		}
+	}
+}
+
+func TestRemoveTask(t *testing.T) {
+	s := New(Config{
+		Tasks: []Task{
+			{Name: "t1", Cron: "* * * * *", Prompt: "a"},
+			{Name: "t2", Cron: "0 2 * * *", Prompt: "b"},
+		},
+	}, &stubSender{}, nil)
+	if s == nil {
+		t.Fatal("nil scheduler")
+	}
+
+	if !s.RemoveTask("t1") {
+		t.Fatal("RemoveTask t1 returned false")
+	}
+	ns := s.Tasks()
+	if len(ns) != 1 {
+		t.Fatalf("expected 1 task, got %d", len(ns))
+	}
+	if ns[0].Name != "t2" {
+		t.Errorf("expected t2 to remain, got %s", ns[0].Name)
+	}
+
+	// Remove non-existent task.
+	if s.RemoveTask("nope") {
+		t.Error("RemoveTask on non-existent should return false")
+	}
+
+	// Remove last task.
+	s.RemoveTask("t2")
+	if n := s.Tasks(); len(n) != 0 {
+		t.Fatalf("expected 0 tasks, got %d", len(n))
+	}
+}
+
+func TestAddRemoveTaskNilScheduler(t *testing.T) {
+	var s *Scheduler
+	if s.AddTask(Task{Name: "t"}) {
+		t.Error("AddTask on nil scheduler should return false")
+	}
+	if s.RemoveTask("t") {
+		t.Error("RemoveTask on nil scheduler should return false")
+	}
+}

@@ -2263,6 +2263,22 @@ func (c *Controller) Schedule() *scheduler.Scheduler {
 	return c.schedule
 }
 
+// AddScheduledTask adds or updates a scheduled task at runtime.
+func (c *Controller) AddScheduledTask(t scheduler.Task) bool {
+	if c.schedule == nil {
+		return false
+	}
+	return c.schedule.AddTask(t)
+}
+
+// RemoveScheduledTask removes a scheduled task by name at runtime.
+func (c *Controller) RemoveScheduledTask(name string) bool {
+	if c.schedule == nil {
+		return false
+	}
+	return c.schedule.RemoveTask(name)
+}
+
 // SessionMessages returns a snapshot of the session message history for export.
 func (c *Controller) SessionMessages() []provider.Message {
 	if c.executor == nil {

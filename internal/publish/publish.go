@@ -14,11 +14,17 @@ import (
 )
 
 // Session is the minimum data needed to publish a transcript.
+// Stat fields (TokensIn, TokensOut, Turns, Cost) are optional — when all are
+// zero, the stats line is omitted from HTML output.
 type Session struct {
-	Title    string             `json:"title,omitempty"`
-	Model    string             `json:"model,omitempty"`
-	Date     time.Time          `json:"date"`
-	Messages []provider.Message `json:"messages"`
+	Title     string             `json:"title,omitempty"`
+	Model     string             `json:"model,omitempty"`
+	Date      time.Time          `json:"date"`
+	Messages  []provider.Message `json:"messages"`
+	TokensIn  int                `json:"tokensIn,omitempty"`
+	TokensOut int                `json:"tokensOut,omitempty"`
+	Turns     int                `json:"turns,omitempty"`
+	Cost      float64            `json:"cost,omitempty"`
 }
 
 // ToJSON serializes the session as a JSON document.
@@ -75,6 +81,8 @@ code { font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospa
 .tool-call { font-size: 0.85rem; color: #666; margin-top: 0.5rem; }
 @media (prefers-color-scheme: dark) { .tool-call { color: #999; } }
 .footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid #ddd; font-size: 0.8rem; color: #999; }
+.stats { background: #f0f7f0; padding: 0.8rem 1rem; border-radius: 8px; margin-bottom: 1.5rem; font-size: 0.9rem; color: #2d4a2d; display: inline-block; }
+@media (prefers-color-scheme: dark) { .stats { background: #1a2a1a; color: #a0d0a0; } }
 </style>
 </head>
 <body>
@@ -96,6 +104,22 @@ code { font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospa
 	b.WriteString(" · ")
 	b.WriteString(fmt.Sprintf("%d messages", len(s.Messages)))
 	b.WriteString("</p>\n")
+
+	// ── session stats (when available) ──
+	if s.TokensIn+s.TokensOut > 0 || s.Turns > 0 {
+		b.WriteString(`<div class="stats">`)
+		if s.TokensIn+s.TokensOut > 0 {
+			b.WriteString(fmt.Sprintf("Tokens: %d↓ / %d↑", s.TokensIn, s.TokensOut))
+			if s.Cost > 0 {
+				b.WriteString(fmt.Sprintf(" · Cost: $%.4f", s.Cost))
+			}
+			b.WriteString(" · ")
+		}
+		if s.Turns > 0 {
+			b.WriteString(fmt.Sprintf("Turns: %d", s.Turns))
+		}
+		b.WriteString("</div>\n")
+	}
 
 	// ── messages ──
 	for _, m := range s.Messages {

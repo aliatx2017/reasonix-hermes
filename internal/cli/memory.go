@@ -45,10 +45,14 @@ func (m *chatTUI) publishSession() {
 		return
 	}
 	s := publish.Session{
-		Title:    "Reasonix Session",
-		Model:    m.label,
-		Date:     m.sessionStart,
-		Messages: msgs,
+		Title:     "Reasonix Session",
+		Model:     m.label,
+		Date:      m.sessionStart,
+		Messages:  msgs,
+		TokensIn:  m.ctrl.SessionTokensIn(),
+		TokensOut: m.ctrl.SessionTokensOut(),
+		Turns:     m.ctrl.SessionTurns(),
+		Cost:      m.ctrl.SessionCost(),
 	}
 	html := publish.ToHTML(s)
 

@@ -76,6 +76,7 @@ import type {
   MemoryDashboardView,
   ScheduleDashboardView,
   SessionTokensView,
+  CompressStatsView,
   CollabView,
   CouncilDashboardView,
   MarketplaceEntryView,
@@ -243,11 +244,16 @@ export interface AppBindings {
   CostSummaryForTab(tabID: string): Promise<CostSummaryView>;
   SessionTokens(): Promise<SessionTokensView>;
   SessionTokensForTab(tabID: string): Promise<SessionTokensView>;
+  CompressStats(): Promise<CompressStatsView>;
+  CompressStatsForTab(tabID: string): Promise<CompressStatsView>;
   ScheduleDashboard(): Promise<ScheduleDashboardView>;
+  AddScheduledTask(name: string, cron: string, prompt: string, model: string, enabled: boolean): Promise<boolean>;
+  RemoveScheduledTask(name: string): Promise<boolean>;
   CollabDashboard(): Promise<CollabView>;
   CouncilDashboard(): Promise<CouncilDashboardView>;
   MarketplaceRegistry(): Promise<MarketplaceEntryView[]>;
   SyncLobeHubMarketplace(clientID: string, clientSecret: string): Promise<{fetched: number, added: number}>;
+  LastLobeHubSync(): Promise<{lastSync: string, fetched: number, added: number}>;
   PublishSessionHTML(): Promise<string>;
   PublishSessionJSON(): Promise<string>;
   SubagentTree(): Promise<SubagentNodeView[]>;
@@ -2441,6 +2447,12 @@ function makeMockApp(): AppBindings {
         async SessionTokensForTab(_tabID: string) {
           return { tokensIn: 22134, tokensOut: 12345, turns: 12 };
         },
+        async CompressStats() {
+          return { bytesSaved: 0, cacheHits: 0, linesCollapsed: 0, jsonFieldsStripped: 0, auxTokens: 0 };
+        },
+        async CompressStatsForTab(_tabID: string) {
+          return { bytesSaved: 0, cacheHits: 0, linesCollapsed: 0, jsonFieldsStripped: 0, auxTokens: 0 };
+        },
         async ScheduleDashboard() {
           return {
             active: true,
@@ -2452,6 +2464,12 @@ function makeMockApp(): AppBindings {
               { taskName: "daily-review", runAt: "2026-07-14T02:00:00Z", duration: "3.2s", success: true, summary: "All changes reviewed. No issues found.", error: "" },
             ],
           };
+        },
+        async AddScheduledTask(_name: string, _cron: string, _prompt: string, _model: string, _enabled: boolean) {
+          return true;
+        },
+        async RemoveScheduledTask(_name: string) {
+          return true;
         },
         async CollabDashboard() {
           return { enabled: false, listenAddr: "", watchers: 0, sessions: [] };
@@ -2469,6 +2487,9 @@ function makeMockApp(): AppBindings {
         },
         async SyncLobeHubMarketplace(_clientID: string, _clientSecret: string) {
           return { fetched: 0, added: 0 };
+        },
+        async LastLobeHubSync() {
+          return { lastSync: "", fetched: 0, added: 0 };
         },
         async PublishSessionHTML() {
           return "<html><body>Mock session</body></html>";

@@ -2291,6 +2291,14 @@ func (m chatTUI) View() tea.View {
 	data = append(data, dim("turns")+" "+strconv.Itoa(m.sessionTurns))
 	msgs := m.ctrl.History()
 	data = append(data, dim("msgs")+" "+strconv.Itoa(len(msgs)))
+	// Compressor savings — bytes trimmed from tool output.
+	if cs := m.ctrl.CompressStats(); cs.BytesSaved > 0 {
+		data = append(data, dim("sqz")+" "+formatBytes(cs.BytesSaved))
+	}
+	// Auxiliary provider savings — tokens routed to cheaper models.
+	if aux := m.ctrl.AuxTokens(); aux > 0 {
+		data = append(data, dim("aux")+" "+formatTokenCount(aux))
+	}
 	// Goal progress when active.
 	if goal := m.ctrl.Goal(); goal != "" {
 		turns := m.ctrl.GoalTurns()
@@ -2737,6 +2745,17 @@ func (m chatTUI) renderStatsPanel() string {
 		rate := float64(hit) * 100 / float64(hit+miss)
 		row("Cache", fmt.Sprintf("%.1f%% (%s hit / %s miss)",
 			rate, formatTokenCount(hit), formatTokenCount(miss)))
+	}
+
+	// Compressor savings — only shown when bytes were actually trimmed.
+	if cs := m.ctrl.CompressStats(); cs.BytesSaved > 0 {
+		row("Compressor", fmt.Sprintf("%s saved (%d hits, %d lines collapsed)",
+			formatBytes(cs.BytesSaved), cs.CacheHits, cs.LinesCollapsed))
+	}
+
+	// Auxiliary provider savings — tokens routed to cheaper models (compression/vision).
+	if aux := m.ctrl.AuxTokens(); aux > 0 {
+		row("Aux savings", formatTokenCount(aux)+" tokens routed to cheaper providers")
 	}
 
 	if m.sessionCost > 0 && m.sessionCostSymbol != "" {
