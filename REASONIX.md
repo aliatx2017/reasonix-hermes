@@ -32,7 +32,7 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 ## Notes
 
-- **Upstream synced**: `v1.7.0` (commit ed07684, 2026-07-14). 59 commits merged. 7 CLI binaries + desktop built and passing.
+- **Upstream synced**: `v1.7.0` (commit 40aedfb, 2026-07-15). 69 commits merged. 7 CLI binaries + desktop built and passing.
 - **Commit**: `21c7266` — session stats persistence (CLI → desktop).
 - **npm**: `npm i -g reasonix-hermes` — one-line install (sub-packages at `@aliatx2017/reasonix-hermes-*`). Pipeline verified; publish pending 2FA-bypass token.
 - **Key v1.6.0 additions**: vision support (image downscaling + detail knob), built-in Time + Context7 MCP servers, configurable shell interpreter (`[tools.shell]`), notification sound system, token economy composer mode, desktop time filter + custom fonts + status bar customization + Windows ARM64, crash capture (Go panics/breadcrumbs/group summaries), lightweight local history + memory retrieval, Traditional Chinese (zh-TW) locale, updater resilience, agent fixes (decline-ask guard, compaction bounds), desktop hooks UI.
@@ -195,15 +195,6 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 ### Next to build
 - [ ] **npm: publish reasonix-hermes** — set 2FA-bypass granular token, push tag
 
-### Next to build
-- [ ] **npm: publish reasonix-hermes** — set 2FA-bypass granular token, push tag
-- [ ] **4-tab skill store UI** — merge SkillsHubBrowser + MarketplacePanel into unified tabbed panel (LobeHub/Market/MCP/Custom)
-- [ ] **Online skill sync** — persist synced skills to config, diff on re-sync, show "N new since last sync"
-- [ ] **LINE chat adapter** — port LobeHub's LINE adapter pattern to `internal/bot/line/`
-- [ ] **Agent task CRUD UI** — Create/Edit task modal for scheduler
-- [ ] **Desktop StatusBar: use backend-provided session stats** — wire `SessionTokens()` binding into StatusBar props instead of client-side computation, so resumed CLI sessions show accurate turns/tokens immediately
-- [ ] **Session stat import/export** — add stat fields to publish HTML/JSON exports
-
 ### Recently completed
 - [x] **Session stats persistence: CLI → desktop** (✅ 2026-07-14) — Agent aggregate counters (tokens in/out, turns), sidecar `.sessionstats` persistence, Controller pass-throughs, Wails bindings + frontend widget. 10 files changed (+276/-7). Resolves "why doesn't desktop show session stats for the CLI."
 - [x] **LobeHub marketplace API integration** (✅ 2026-07-14) — Full M2M OAuth2 client (stdlib-only HS256 JWT), auto-registration on first use, paginated skill fetch from 360k+ community skills, `SyncFromLobeHub()` registry merge, Wails binding `SyncLobeHubMarketplace()`, desktop "Sync from LobeHub" button with spin animation, CLI `reasonix marketplace sync` command, 4 httptest-based tests, `[marketplace.lobehub]` config section with 8 fields. Verified end-to-end against live API.
@@ -216,3 +207,13 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 - [x] **Desktop collab panel** (✅ 2026-07-14) — Go bindings (CollabDashboard, startCollabHub with steer forwarding), React CollabPanel component (live badge, watcher count, session list), integrated into useHermesLiveData push + polling.
 - [x] **Multi-model council UI** (✅ 2026-07-14) — Controller mesh integration (SetMesh/Council/MeshStatus), boot.go mesh creation from [mesh] config, CLI `/council` slash command (status + task dispatch), desktop CouncilPanel widget (peer list + status).
 - [x] **E2E test harness** (✅ 2026-07-14) — New `internal/e2e/` package: Harness struct, SessionInputs, SessionTools, TurnCount, Analyze, AssertTools, AssertTurns, ListSessions, RunAll. 7 tests passing.
+- [x] **6-item follow-up session** (✅ 2026-07-15) — All 6 "Next to build" items completed + upstream merge (40aedfb, 10 commits):
+  - StatusBar → backend SessionTokens() binding (turn-complete-only fetch, per-tab)
+  - publish.Session gains TokensIn/Out/Turns/Cost fields + HTML stats badge
+  - Scheduler CRUD: AddTask/RemoveTask + Controller methods + CreateEditTaskModal + ScheduleWidget ±/✎/✕ buttons
+  - Unified 4-tab SkillStorePanel (LobeHub/Market/MCP/Custom) replacing separate browser+marketplace
+  - LobeHub sync metadata persistence (lobehub-sync.json) + LastLobeHubSync Wails binding
+  - LINE chat adapter: PlatformLine + LineBotConfig + internal/bot/line/ (webhook server, line-bot-sdk-go/v8, 11 tests) wired into gateway/runtime/allowlist
+  - CLI TUI live data line now shows sqz/aux stats (was only in one-time banner); /stats panel also
+  - Desktop Hermes dashboard now surfaces CompressStatsView (sqz/aux savings) via Wails binding
+  - StatusBar fetch optimized: useRef guard skips mount + turn-start, per-tab binding
