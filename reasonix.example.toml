@@ -433,6 +433,12 @@ network = true
 # token_env = "TELEGRAM_BOT_TOKEN"
 # allow_dms = true
 
+# [bot.line]
+# enabled = false
+# token_env = "LINE_CHANNEL_TOKEN"
+# secret_env = "LINE_CHANNEL_SECRET"
+# allow_dms = true
+
 # ── Scheduled Tasks ─────────────────────────────────────────────────────────
 # Cron-driven automated agent tasks. The scheduler runs in the background while
 # the agent is active and fires each task at its scheduled time. Results are

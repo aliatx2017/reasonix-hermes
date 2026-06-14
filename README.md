@@ -86,6 +86,7 @@ The terminal chat UI has been enhanced:
 | Feature | What it does |
 |---------|-------------|
 | **Telegram bot adapter** | Long-polling Telegram adapter implementing `bot.Adapter` — DMs, groups, supergroups, media extraction, message splitting. Config at `[bot.telegram]`. |
+| **LINE bot adapter** | Webhook-based LINE Messaging API adapter implementing `bot.Adapter` — handles text messages via reply API, paragraph-aware splitting. Runs local HTTP server for webhook events. Config at `[bot.line]`. |
 | **Self-improving skill loops** | `internal/learn/` — observes turn patterns (edit→test, write→build), detects repeated sequences, builds reflection prompts for automated SKILL.md generation. Config at `[learn]`. |
 | **Agent-to-agent MCP mesh** | `internal/mesh/` — peer delegation, broadcast, council mode (N peers → consensus synthesis). HTTP JSON-RPC transport with bearer auth. Config at `[mesh]` with `[[mesh.peers]]`. |
 | **Live collaboration** | `internal/collab/` — WebSocket hub for real-time session sharing between Reasonix instances. Subscribe/broadcast/steer protocol. Config at `[collab]`. |
@@ -141,7 +142,7 @@ go build -o bin/reasonix ./cmd/reasonix
 # Hermes services
 go build -o bin/reasonix-mcpbridge  ./cmd/reasonix-mcpbridge   # MCP bridge (6 tools)
 go build -o bin/reasonix-memory     ./cmd/reasonix-memoryserver # Hindsight memory
-go build -o bin/reasonix-bot        ./bot                       # Discord + Telegram bot
+go build -o bin/reasonix-bot        ./bot                       # Discord, Telegram, LINE bot
 go build -o bin/reasonix-hooks      ./cmd/reasonix-hooks        # Hook runner
 go build -o bin/reasonix-review     ./cmd/reasonix-pr-review    # PR review CLI
 

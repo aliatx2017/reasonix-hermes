@@ -84,7 +84,7 @@ go build -o bin/reasonix ./cmd/reasonix
 # Hermes 服务
 go build -o bin/reasonix-mcpbridge  ./cmd/reasonix-mcpbridge   # MCP bridge（6 个工具）
 go build -o bin/reasonix-memory     ./cmd/reasonix-memoryserver # Hindsight 记忆
-go build -o bin/reasonix-bot        ./bot                       # Discord + Telegram bot
+go build -o bin/reasonix-bot        ./bot                       # Discord、Telegram、LINE bot
 go build -o bin/reasonix-hooks      ./cmd/reasonix-hooks        # Hook runner
 go build -o bin/reasonix-review     ./cmd/reasonix-pr-review    # PR review CLI
 

@@ -194,6 +194,11 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 ### Next to build
 - [ ] **npm: publish reasonix-hermes** — set 2FA-bypass granular token, push tag
+- [ ] **Desktop StatusBar: add sqz/aux compact chips** — wire `CompressStatsView` to a compact status-bar chip (like the existing Discord dot), so savings are visible without opening Hermes settings
+- [ ] **i18n for LINE adapter** — the LINE adapter's notice/log strings are hardcoded English; add them to the 3 i18n catalogs (en, zh, zh-TW)
+- [ ] **LINE adapter webhook URL discovery** — expose the auto-assigned port so it can be configured as a LINE webhook (currently logged but not surfaced)
+- [ ] **Upstream the LINE adapter** — open a PR to esengine/deepseek-reasonix with the line/ package if they want it
+- [ ] **MCP tab live data** — the SkillStorePanel MCP tab is static; wire it to real MCP server list via Wails binding
 
 ### Recently completed
 - [x] **Session stats persistence: CLI → desktop** (✅ 2026-07-14) — Agent aggregate counters (tokens in/out, turns), sidecar `.sessionstats` persistence, Controller pass-throughs, Wails bindings + frontend widget. 10 files changed (+276/-7). Resolves "why doesn't desktop show session stats for the CLI."

@@ -260,6 +260,7 @@ export interface AppBindings {
   LastLobeHubSync(): Promise<{lastSync: string, fetched: number, added: number}>;
   PublishSessionHTML(): Promise<string>;
   PublishSessionJSON(): Promise<string>;
+  ExportSession(format: string): Promise<string>;
   SubagentTree(): Promise<SubagentNodeView[]>;
   SubagentTreeForTab(tabID: string): Promise<SubagentNodeView[]>;
   ConstitutionHealth(): Promise<ConstitutionHealthView>;
@@ -2513,6 +2514,9 @@ function makeMockApp(): AppBindings {
         },
         async PublishSessionJSON() {
           return '{"title":"Mock","model":"deepseek-flash","date":"2026-07-14T00:00:00Z","messages":[]}';
+        },
+        async ExportSession(_format: string) {
+          return "<html><body>Mock session</body></html>";
         },
         async SubagentTree() { return []; },
         async SubagentTreeForTab(_tabID: string) { return []; },
