@@ -19,7 +19,7 @@ and recommendations.
 
 ## The 7 Concepts
 
-1. **Diamond Wing** — Reasonix diamond core + Hermes swept wings
+1. **Diamond Wing** — Reasonix diamond core + Hermes swept wings ⭐ **[animated version →](01-diamond-wing-animated.svg)**
 2. **Whale-Wing** — DeepSeek whale arc + Hermes wing + diamond heart
 3. **Terminal Talaria** — Winged sandals as blinking cursor
 4. **Monospace "RH"** — Pure typographic mark, monospace wordmark
