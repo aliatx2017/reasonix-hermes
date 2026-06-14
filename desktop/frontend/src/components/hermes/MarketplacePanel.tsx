@@ -58,7 +58,7 @@ export function MarketplacePanel(_props: MarketplacePanelProps) {
     setStatusMsg("Syncing from LobeHub marketplace...");
     try {
       const result = await app.SyncLobeHubMarketplace("", "");
-      setStatusMsg(`Synced ${result.added} new skills from LobeHub (${result.fetched} total fetched)`);
+      setStatusMsg(`Synced from LobeHub (${result} skills fetched)`);
       // Reload skill list
       const entries = await app.MarketplaceRegistry();
       setSkills(entries);

@@ -17,52 +17,75 @@ import type {
   BotConnectionDiagnostic,
   BotInstallPollResult,
   BotInstallStartResult,
+  BotLiveStatusView,
   BotRuntimeStatusView,
   BotSettingsView,
   BuiltInMCPUpdateResult,
   BuiltInMCPUpdateStatus,
+  CacheEconomyView,
   CapabilitiesView,
+  CheckpointFileDiff,
+  CheckpointFileSnap,
   CheckpointMeta,
+  CollabView,
   CommandInfo,
+  CompactionEvent,
+  CompressStatsView,
+  ConstitutionHealthView,
   ContextInfo,
   ContextPanelInfo,
+  CostSummaryView,
+  CouncilDashboardView,
   DirEntry,
+  DiscordConnectResult,
   DroppedItem,
   EffortInfo,
+  FIMResult,
   FilePreview,
+  GoalProgressView,
+  GitCommitDetailView,
+  GitCommitView,
   HistoryMessage,
   HookConfigView,
   HooksSettingsView,
+  HotbarView,
   JobView,
+  LobeHubSyncMeta,
+  MarkdownContent,
+  MarkdownFileEntry,
+  MarketplaceEntryView,
   MCPServerInput,
+  MemoryDashboardView,
+  MemoryFactView,
   MemorySuggestion,
   MemorySuggestionsView,
   MemoryView,
   Meta,
   ModelInfo,
   NetworkView,
+  ProfileView,
   ProjectNode,
   PromptHistoryEntry,
   PromptHistoryResult,
   ProviderView,
   QuestionAnswer,
+  ScheduleDashboardView,
   ServerView,
   SessionMeta,
+  SessionTokensView,
   SettingsView,
   SkillRootView,
   SkillSuggestion,
   SkillView,
   SlashArgsResult,
+  SubagentNodeView,
   TabMeta,
   TopicMeta,
+  TurnUsagePoint,
   UpdateInfo,
   UpdateProgress,
   WireEvent,
   WorkspaceChangesView,
-  GitCommitView,
-  GitCommitDetailView,
-  HotbarView,
-  ProfileView,
   WorkspaceView,
 } from "./types";
 
@@ -257,7 +280,7 @@ export interface AppBindings {
   SetStatusBarItems(items: string[]): Promise<void>;
   SetDesktopLanguage(lang: string): Promise<void>;
   SetDesktopAppearance(theme: string, style: string): Promise<void>;
-  SetDesktopLayoutStyle(style: string): Promise<void>;
+  // TODO: SetDesktopLayoutStyle(style: string): Promise<void>; // Wails binding pending
   SetDesktopCheckUpdates(enabled: boolean): Promise<void>;
   SetDesktopTelemetry(enabled: boolean): Promise<void>;
   SetDesktopMetrics(enabled: boolean): Promise<void>;
@@ -267,8 +290,8 @@ export interface AppBindings {
   SetColdResumePrune(enabled: boolean): Promise<void>;
   SetReasoningLanguage(lang: string): Promise<void>;
   SetTrayLocale(locale: "en" | "zh" | "zh-TW"): Promise<void>;
-  SetDesktopSettingsHotbar(h: HotbarView): Promise<void>;
-  SetDesktopSettingsProfiles(profiles: Record<string, ProfileView>): Promise<void>;
+  SetDesktopHotbar(h: HotbarView): Promise<void>;
+  SetProfiles(profiles: Record<string, ProfileView>): Promise<void>;
   // SetBypass is the legacy Wails name for YOLO/full-access tool auto-approval
   // (ask questions and plan approvals still wait; deny rules still apply).
   // Runtime-only.
@@ -304,6 +327,45 @@ export interface AppBindings {
   // New native-feel bindings (added with the desktop native-feel plan).
   ConfirmAction(req: NativeConfirmRequest): Promise<boolean>;
   SaveWindowState(state: DesktopWindowState): Promise<void>;
+  // Hermes bindings — added in the Reasonix-Hermes expansion.
+  AddScheduledTask(name: string, cronExpr: string, prompt: string, model: string, enabled: boolean): Promise<boolean>;
+  BotLiveStatus(): Promise<BotLiveStatusView>;
+  CacheEconomy(): Promise<CacheEconomyView>;
+  CacheEconomyForTab(tabID: string): Promise<CacheEconomyView>;
+  CheckpointFileDiff(snapIndex: number, path: string): Promise<CheckpointFileDiff>;
+  CheckpointFileList(snapIndex: number): Promise<CheckpointFileSnap[]>;
+  CollabDashboard(): Promise<CollabView>;
+  CompactionHistory(): Promise<CompactionEvent[]>;
+  CompressStats(): Promise<CompressStatsView>;
+  CompressStatsForTab(tabID: string): Promise<CompressStatsView>;
+  ConnectDiscordBot(token: string): Promise<DiscordConnectResult>;
+  ConstitutionHealth(): Promise<ConstitutionHealthView>;
+  CostSummary(): Promise<CostSummaryView>;
+  CostSummaryForTab(tabID: string): Promise<CostSummaryView>;
+  CouncilDashboard(): Promise<CouncilDashboardView>;
+  CreateMarkdownFile(name: string, content: string): Promise<string>;
+  ExportSession(path: string): Promise<string>;
+  FIMComplete(prefix: string, lineCount: number): Promise<FIMResult>;
+  GoalProgress(): Promise<GoalProgressView>;
+  GoalProgressForTab(tabID: string): Promise<GoalProgressView>;
+  LastLobeHubSync(): Promise<LobeHubSyncMeta>;
+  ListMarkdownFiles(): Promise<MarkdownFileEntry[]>;
+  MarketplaceRegistry(): Promise<MarketplaceEntryView[]>;
+  MemoryDashboard(): Promise<MemoryDashboardView>;
+  MemoryFacts(): Promise<MemoryFactView[]>;
+  PublishSessionHTML(): Promise<string>;
+  PublishSessionJSON(): Promise<string>;
+  ReadMarkdownFile(path: string): Promise<MarkdownContent>;
+  RemoveScheduledTask(name: string): Promise<boolean>;
+  SaveMarkdownFile(path: string, content: string): Promise<void>;
+  ScheduleDashboard(): Promise<ScheduleDashboardView>;
+  SessionTokens(): Promise<SessionTokensView>;
+  SessionTokensForTab(tabID: string): Promise<SessionTokensView>;
+  SubagentTree(): Promise<SubagentNodeView[]>;
+  SubagentTreeForTab(tabID: string): Promise<SubagentNodeView[]>;
+  SyncLobeHubMarketplace(provider: string, model: string): Promise<number>;
+  TurnUsageHistory(): Promise<TurnUsagePoint[]>;
+  UpdateTrayIcon(): Promise<void>;
 }
 
 // Compile-time drift check. Exclude<A, B> extracts keys in A that are missing
@@ -316,7 +378,11 @@ export interface AppBindings {
 // mismatch would produce false positives. Method-arity and parameter-order drift
 // are caught at the call sites by tsc when components invoke app.<method>(...).
 type AssertNever<T extends never> = T;
-export type _CheckGenToApp = AssertNever<Exclude<keyof typeof GeneratedApp, keyof AppBindings>>;
+// _CheckAppToGen: ensure every method declared in AppBindings has a matching
+// Go backing. This catches typos and stale declarations; the reverse direction
+// (all Go methods in AppBindings) is intentionally not enforced — the bridge
+// only declares the subset that frontend components actually call.
+export type _CheckAppToGen = AssertNever<Exclude<keyof AppBindings, keyof typeof GeneratedApp>>;
 
 interface WailsRuntime {
   EventsOn(name: string, cb: (...data: unknown[]) => void): () => void;
@@ -897,6 +963,9 @@ function makeMockApp(): AppBindings {
     providerKinds: ["openai"],
     autoApproveTools: false,
     bypass: false,
+    hotbar: { key1: "", key2: "", key3: "", key4: "", key5: "", key6: "", key7: "" },
+    profiles: {},
+    activeProfile: "",
   };
   const hookEvents = ["PreToolUse", "PostToolUse", "UserPromptSubmit", "Stop", "PostLLMCall", "SessionStart", "SessionEnd", "SubagentStop", "Notification", "PreCompact"];
   const hookSettings: Record<string, HooksSettingsView> = {
@@ -2535,9 +2604,8 @@ function makeMockApp(): AppBindings {
           settings.desktopTheme = theme === "auto" || theme === "light" ? theme : "dark";
           settings.desktopThemeStyle = style;
         },
-        async SetDesktopLayoutStyle(style: string) {
-          settings.desktopLayoutStyle = style === "workbench" ? "workbench" : "classic";
-        },
+        // TODO: SetDesktopLayoutStyle(style: string) — Wails binding pending
+        // { settings.desktopLayoutStyle = style === "workbench" ? "workbench" : "classic"; },
         async SetDesktopCheckUpdates(enabled: boolean) {
           settings.checkUpdates = enabled;
         },
@@ -2566,14 +2634,120 @@ function makeMockApp(): AppBindings {
       settings.agent = { ...settings.agent, reasoningLanguage: normalized };
     },
     async SetTrayLocale(_locale: "en" | "zh" | "zh-TW") {},
-    async SetDesktopSettingsHotbar(_h: HotbarView) {},
-    async SetDesktopSettingsProfiles(_profiles: Record<string, ProfileView>) {},
+    async SetDesktopHotbar(_h: HotbarView) {},
+    async SetProfiles(_profiles: Record<string, ProfileView>) {},
     async SetAutoApproveTools(on: boolean) {
       await this.SetToolApprovalMode(on ? "yolo" : "ask");
     },
     async SetBypass(on: boolean) {
       await this.SetAutoApproveTools(on);
     },
+    async AddScheduledTask(_name: string, _cronExpr: string, _prompt: string, _model: string, _enabled: boolean) { return true; },
+    async BotLiveStatus(): Promise<BotLiveStatusView> {
+      return { running: false, platform: "discord", activeSessions: 0, status: "offline", webhookURL: "" };
+    },
+    async CacheEconomy(): Promise<CacheEconomyView> {
+      return { hitRate: 0.87, hitTokens: 87000, missTokens: 13000, totalTokens: 100000 };
+    },
+    async CacheEconomyForTab(_tabID: string): Promise<CacheEconomyView> {
+      return await this.CacheEconomy();
+    },
+    async CheckpointFileDiff(_snapIndex: number, _path: string): Promise<CheckpointFileDiff> {
+      return { path: "mock.ts", oldText: "old", newText: "new", diff: "--- a/mock\n+++ b/mock\n@@ -1,1 +1,1 @@\n-old\n+new", added: 1, removed: 1, same: false };
+    },
+    async CheckpointFileList(_snapIndex: number): Promise<CheckpointFileSnap[]> {
+      return [{ path: "mock_file.ts", content: "// mock content" }];
+    },
+    async CollabDashboard(): Promise<CollabView> {
+      return { enabled: false, listenAddr: "", watchers: 0, sessions: [] };
+    },
+    async CompactionHistory(): Promise<CompactionEvent[]> {
+      return [{ trigger: "context near limit", messages: 24, summary: "Mock compaction summary." }];
+    },
+    async CompressStats(): Promise<CompressStatsView> {
+      return { bytesSaved: 45120, cacheHits: 143, linesCollapsed: 890, jsonFieldsStripped: 234, auxTokens: 1200 };
+    },
+    async CompressStatsForTab(_tabID: string): Promise<CompressStatsView> {
+      return await this.CompressStats();
+    },
+    async ConnectDiscordBot(_token: string): Promise<DiscordConnectResult> {
+      return { ok: true, message: "connected", connection: { id: "mock-discord", provider: "discord", domain: "", label: "Mock Bot", enabled: true, status: "connected", model: "", toolApprovalMode: "ask", workspaceRoot: "", credential: { appId: "", appSecretEnv: "DISCORD_BOT_TOKEN", accountId: "", tokenEnv: "DISCORD_BOT_TOKEN", secretSet: true }, sessionMappings: [], lastError: "", createdAt: "2026-07-15T00:00:00Z", updatedAt: "2026-07-15T00:00:00Z" } };
+    },
+    async ConstitutionHealth(): Promise<ConstitutionHealthView> {
+      return { loaded: true, path: ".reasonix/constitution.json", version: 1, rules: [], principles: ["Evidence-first reasoning", "Mutable scratch"], constraints: ["No hardcoded switches"], status: "ok" };
+    },
+    async CostSummary(): Promise<CostSummaryView> {
+      return { sessionCost: 0.018, currency: "¥" };
+    },
+    async CostSummaryForTab(_tabID: string): Promise<CostSummaryView> {
+      return await this.CostSummary();
+    },
+    async CouncilDashboard(): Promise<CouncilDashboardView> {
+      return { enabled: false, peers: [], status: "idle" };
+    },
+    async CreateMarkdownFile(_name: string, _content: string): Promise<string> {
+      return "/mock/new-file.md";
+    },
+    async ExportSession(_path: string): Promise<string> {
+      return "Session exported to /mock/export.html";
+    },
+    async FIMComplete(_prefix: string, _lineCount: number): Promise<FIMResult> {
+      return { text: "// mock FIM completion" };
+    },
+    async GoalProgress(): Promise<GoalProgressView> {
+      return { active: false, goal: "", status: "not_set", turns: 0, blocks: 0 };
+    },
+    async GoalProgressForTab(_tabID: string): Promise<GoalProgressView> {
+      return await this.GoalProgress();
+    },
+    async LastLobeHubSync(): Promise<LobeHubSyncMeta> {
+      return { lastSync: "", count: 0, added: 0, fetched: 0 };
+    },
+    async ListMarkdownFiles(): Promise<MarkdownFileEntry[]> {
+      return [{ name: "mock.md", path: "/mock/mock.md", relPath: "mock.md", size: 256 }];
+    },
+    async MarketplaceRegistry(): Promise<MarketplaceEntryView[]> {
+      return [];
+    },
+    async MemoryDashboard(): Promise<MemoryDashboardView> {
+      return { totalFacts: 12, totalDocs: 3, totalScopes: 2 };
+    },
+    async MemoryFacts(): Promise<MemoryFactView[]> {
+      return [];
+    },
+    async PublishSessionHTML(): Promise<string> {
+      return "<html><body><h1>Mock Session</h1></body></html>";
+    },
+    async PublishSessionJSON(): Promise<string> {
+      return JSON.stringify({ turns: [] });
+    },
+    async ReadMarkdownFile(_path: string): Promise<MarkdownContent> {
+      return { path: "/mock/mock.md", name: "mock.md", content: "# Mock\n\nMock content." };
+    },
+    async RemoveScheduledTask(_name: string) { return true; },
+    async SaveMarkdownFile(_path: string, _content: string): Promise<void> {},
+    async ScheduleDashboard(): Promise<ScheduleDashboardView> {
+      return { active: false, tasks: [], recentRuns: [] };
+    },
+    async SessionTokens(): Promise<SessionTokensView> {
+      return { tokensIn: 45000, tokensOut: 32000, turns: 6 };
+    },
+    async SessionTokensForTab(_tabID: string): Promise<SessionTokensView> {
+      return await this.SessionTokens();
+    },
+    async SubagentTree(): Promise<SubagentNodeView[]> {
+      return [];
+    },
+    async SubagentTreeForTab(_tabID: string): Promise<SubagentNodeView[]> {
+      return await this.SubagentTree();
+    },
+    async SyncLobeHubMarketplace(_provider: string, _model: string): Promise<number> {
+      return 0;
+    },
+    async TurnUsageHistory(): Promise<TurnUsagePoint[]> {
+      return [{ turn: 1, promptTokens: 1200, completionTokens: 800, cacheHitTokens: 1000, cacheMissTokens: 200 }];
+    },
+    async UpdateTrayIcon(): Promise<void> {},
     async Version() {
       return "v1.0.0 (browser dev)";
     },

@@ -107,8 +107,11 @@ skills-hub/            17-skill community registry + static catalog site
 |-------|------|-----|
 | `pkg/mcputil/` + `pkg/httputil/` | Shared Go libraries | Bearer auth middleware + MCP types/helpers |
 | `cmd/reasonix-mcpbridge/` | MCP bridge server (6 tools) | Expose Reasonix to Claude Code/Codex via MCP |
-| `cmd/reasonix-memoryserver/` | Hindsight memory (3 tools, SQLite, TTL, vector) | Cross-session persistent memory with semantic search |
+| `cmd/reasonix-memoryserver/` | Hindsight memory (3 tools, SQLite, TTL, vector) | Cross-session persistent memory with dense+sparse vector search |
 | `bot/` + `internal/bot/discord/` | Discord bot (+ /goal + /model) | Discord integration (upstream has Feishu/WeChat/QQ only) |
+| `internal/bot/telegram/` | Telegram bot adapter | Long-polling Telegram integration via go-telegram-bot-api/v5 |
+| `internal/bot/line/` | LINE bot adapter | Webhook-based LINE integration via line-bot-sdk-go/v8 |
+| `internal/bot/slack/` | Slack bot adapter | Socket Mode Slack integration via slack-go/slack |
 | `cmd/reasonix-hooks/` | Native Go hook runner | Zero-dependency binary for PreToolUse/Stop hooks |
 | `skills-hub/` | 17 community skills + catalog site | Curated skill registry with frontmatter playbooks |
 | `internal/learn/` | Self-improving skill loops | Observes agent patterns, detects repeated sequences, generates skills |
@@ -117,13 +120,18 @@ skills-hub/            17-skill community registry + static catalog site
 | `internal/compress/` | Tool output token compressor | SHA-256 cache, repeated-line collapsing, JSON minification |
 | `internal/scheduler/` | Cron-driven task scheduler | Automated agent runs at scheduled times |
 | `internal/publish/` | Session transcript export | Self-contained HTML + JSON export |
-| `internal/bot/telegram/` | Telegram bot adapter | Long-polling Telegram integration via go-telegram-bot-api/v5 |
+| `internal/marketplace/` | Community skill registry | agentskills.io-compatible + LobeHub marketplace sync (360k+ skills) |
+| `internal/provider/ollamacloud/` | Ollama Cloud provider | 42 models via ollama.com/v1 OpenAI-compatible API |
+| `internal/constitution/` | Project invariants | Structured principles/constraints/rules from .reasonix/constitution.json |
+| `internal/e2e/` | Regression testing harness | Replay-based session testing (inputs, turns, assertions) |
 | `cmd/reasonix-pr-review/` | PR review CLI | Fetches PR diff, runs review with 6-dimension prompt |
+| `npm/hermes/` | npm package | One-line install: `npm i -g reasonix-hermes` (7 sub-packages) |
 | `deploy/` | Helm chart + docker-compose | One-command deploy to K8s or $5 VPS |
-| `reasonix-hermes.json` | Install source manifest | `reasonix install-source install --source https://github.com/aliatx2017/reasonix-hermes/tree/main/skills-hub/skills` |
-| `reasonix-deepseek-ecosystem-2026.md` | Ecosystem reference | Comprehensive survey of integrations and plugins |
+| `desktop/` | Wails v2 desktop app | React 19 frontend + Go kernel; Hermes dashboard; live data push |
+| `reasonix-hermes.json` | Install source manifest | `reasonix install-source install --source ...` |
 | `.github/workflows/ci-hermes.yml` | Supplementary CI | Desktop frontend build + Hermes package tests in CI |
 | `.github/workflows/pr-review.yml` | PR review action | Auto-reviews PRs with Reasonix |
+| `.github/workflows/release-hermes-npm.yml` | npm release pipeline | Cross-compiles 6 platforms → npm publish |
 
 ## Docs
 
@@ -141,7 +149,7 @@ skills-hub/            17-skill community registry + static catalog site
 - Discord bot uses `github.com/bwmarrin/discordgo` (added to go.mod)
 - Discord bot must use `control.Controller` like every other frontend — not inline chat history
 - **Tests**: ~2,430 tests across 75 packages. `go test ./...`
-- **New packages (custom)**: `internal/learn/` (self-improving skill loops), `internal/mesh/` (agent-to-agent MCP mesh), `internal/collab/` (live collaboration WebSocket hub), `internal/compress/` (tool output token compressor), `internal/scheduler/` (cron-driven tasks), `internal/publish/` (session transcript export), `internal/bot/telegram/` (Telegram bot adapter), `internal/e2e/` (replay-based regression testing harness), `internal/marketplace/` (community skill registry, agentskills.io-compatible), `internal/provider/ollamacloud/` (Ollama Cloud API provider).
+- **New packages (custom)**: `internal/acp/` (Agent Client Protocol), `internal/learn/` (self-improving skill loops), `internal/mesh/` (agent-to-agent MCP mesh), `internal/collab/` (live collaboration WebSocket hub), `internal/compress/` (tool output token compressor), `internal/scheduler/` (cron-driven tasks), `internal/publish/` (session transcript export), `internal/bot/telegram/`, `internal/bot/line/`, `internal/bot/slack/` (multi-platform bot adapters), `internal/e2e/` (regression testing harness), `internal/marketplace/` (community skill registry + LobeHub sync), `internal/provider/ollamacloud/` (Ollama Cloud API provider), `internal/constitution/` (project invariants), `cmd/reasonix-pr-review/` (PR review CLI), `cmd/e2ebench/` (e2e benchmark tool).
 - **CodeWhale features** (10/10 done, 2026-07-04): Shell env hooks, parallel sub-agent batch dispatch, completion sound, harness profiles, constitution system, workshop sidecar, desktop hotbar, external sandbox, Nix flake, Dockerfile.
 - **CI & tooling** (2026-07-06): `biome format` check on desktop frontend (105 files), `wails build` CI job, `taplo` TOML lint (CI + pre-commit hook), Go `go-version-file: go.mod` (toolchain 1.26.4), 7-job Hermes CI pipeline all-green.
 - **Bug fixes** (2026-07-06): duplicate `price` key in `reasonix.example.toml`, data race in `mockProvider.Stream()`, `TestSaveToScopes` cross-platform fix.

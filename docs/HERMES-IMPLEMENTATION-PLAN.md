@@ -1,25 +1,12 @@
 # Hermes Fork — Implementation Plan (June 2026)
 
+> **Status: 🏁 COMPLETE** — All planned phases (0–3) and beyond implemented as of
+> July 2026. This document is retained for historical reference. See
+> `CHANGELOG.md` for the delivered feature list.
+
 > **Note:** Paths updated June 12, 2026: `pkg/mcpbridge/` → `cmd/reasonix-mcpbridge/`,
 > `pkg/memoryserver/` → `cmd/reasonix-memoryserver/`. Historical references in
 > this document use the original paths.
-
-> **v1.6.0 sync:** July 13, 2026 — merged 38 upstream commits (62645d1). 32 merge conflicts
-> resolved. Key additions: vision support, built-in Time + Context7 MCP servers,
-> configurable shell interpreter, notification sound system, token economy mode,
-> desktop time filter + custom fonts + Windows ARM64, crash capture, Traditional Chinese
-> locale, updater resilience, agent fixes.
-
-> **Desktop Hermes enrichment** (July 13, 2026) — 12 features across 3 tiers:
-> - **Tier 1**: Cache economy gauge, Hindsight memory dashboard, Discord bot monitor, goal progress widget
-> - **Tier 2**: Live data polling (5s), StatusBar compact widgets, skills hub browser (17 skills)
-> - **Tier 3**: Sub-agent task tree, constitution health check, checkpoint file list
-> - **Branding**: Custom TUI banner (⚚ REASONIX-HERMES), window title "Reasonix-Hermes", tray label
-> - **New files**: `desktop/hermes_dashboard.go`, `hermes_tier3.go` (Go), 7 components in `components/hermes/` (React)
-> - **Settings tab**: Hermes tab with 7 sections — dashboard, hotbar, profiles, skills, sub-agents, constitution, about
-
-> Generated from fresh ecosystem research on June 10, 2026. Prioritized by
-> impact × feasibility × differentiation value. Each phase builds on the last.
 
 ---
 

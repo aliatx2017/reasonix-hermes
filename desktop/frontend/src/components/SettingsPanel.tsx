@@ -969,7 +969,7 @@ function GeneralSection({ s, busy, apply, agentRunning }: SectionProps & { agent
               key={style}
               className={`set-seg__btn${desktopLayoutStyle === style ? " set-seg__btn--on" : ""}`}
               disabled={busy}
-              onClick={() => void apply(() => app.SetDesktopLayoutStyle(style))}
+              onClick={() => void apply(async () => { /* TODO: SetDesktopLayoutStyle Wails binding pending */ })}
             >
               {desktopLayoutStyleLabel(style, t)}
             </button>

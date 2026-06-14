@@ -1129,3 +1129,10 @@ export interface MarketplaceEntryView {
   rating: number;
   url: string;
 }
+
+export interface LobeHubSyncMeta {
+  lastSync: string;
+  count: number;
+  added: number;
+  fetched: number;
+}

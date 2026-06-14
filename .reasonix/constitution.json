@@ -1,0 +1,80 @@
+{
+  "version": 1,
+  "conventions": {
+    "language": "Go",
+    "frontend": "TypeScript + React 19"
+  },
+  "principles": [
+    "Config-driven and plugin-driven core — no hardcoded models or tools",
+    "Single static CGO-free binary; cross-compile with one command",
+    "Interface-first and registry-based — Provider and Tool are interfaces",
+    "Cache-first system prompt — byte-stable prefix across turns for DeepSeek prefix cache",
+    "One transport-agnostic Controller behind every frontend",
+    "Keep changes minimal and correct — verify with tools, don't guess",
+    "English only for all communication and code authored in this fork"
+  ],
+  "constraints": [
+    "Never hardcode a switch on model/provider name",
+    "Never mutate the system prompt mid-session — ride the turn tail instead",
+    "Never commit secrets or API keys — use api_key_env",
+    "Always sync upstream (git fetch upstream) before ending a session",
+    "Always run go build ./... && go vet ./... after upstream merges",
+    "Chinese comments in internal/bot/ are upstream-authored — leave them; new code is English-only"
+  ],
+  "rules": [
+    {
+      "id": "spec-first",
+      "description": "Change the SPEC.md contract before changing the code",
+      "severity": "error",
+      "scope": "internal/**/*.go"
+    },
+    {
+      "id": "controller-seam",
+      "description": "Add behavior to control.Controller, not individual frontends",
+      "severity": "error",
+      "scope": "internal/control/**/*.go"
+    },
+    {
+      "id": "init-registration",
+      "description": "New built-in tools/providers must self-register via init()",
+      "severity": "warning",
+      "scope": "internal/tool/**/*.go internal/provider/**/*.go"
+    },
+    {
+      "id": "go-vet-clean",
+      "description": "go build ./... && go vet ./... must pass before committing",
+      "severity": "error",
+      "scope": "*.go"
+    },
+    {
+      "id": "typescript-clean",
+      "description": "tsc --noEmit must pass and CSS checks must pass before committing desktop changes",
+      "severity": "error",
+      "scope": "desktop/frontend/src/**/*.tsx desktop/frontend/src/**/*.ts"
+    },
+    {
+      "id": "no-nil-slices",
+      "description": "Wails Go bindings must return empty slices ([]T{}), never nil — nil serializes as null in JSON, crashing .length/.map in React",
+      "severity": "error",
+      "scope": "desktop/**/*.go"
+    },
+    {
+      "id": "i18n-complete",
+      "description": "New i18n fields must be populated in all 3 catalogs (en, zh, zh-TW) — TestCatalogsComplete enforces this",
+      "severity": "error",
+      "scope": "internal/i18n/**/*.go"
+    },
+    {
+      "id": "never-say-fixed",
+      "description": "Never say 'fixed' — banned word. Use 'try it' / 'should be resolved' instead. Only the user declares something fixed after testing. This is a hard, non-negotiable rule.",
+      "severity": "error",
+      "scope": "all communication"
+    },
+    {
+      "id": "substantiate-every-claim",
+      "description": "Never make claims without evidence. Verify first, speak second. Before any factual claim run the verification command and include the evidence with the claim. No assertion without substantiation.",
+      "severity": "error",
+      "scope": "all communication"
+    }
+  ]
+}

@@ -81,7 +81,18 @@
     - 16.2 [MCP Bridge Server](#162-mcp-bridge-server)
     - 16.3 [Hindsight Memory Server](#163-hindsight-memory-server)
     - 16.4 [Portable Mode](#164-portable-mode)
-    - 16.5 [Skills Hub](#165-skills-hub)
+    - 16.5 [Skills Hub & Marketplace](#165-skills-hub--marketplace)
+    - 16.6 [Telegram / LINE / Slack Bots](#166-telegram--line--slack-bots)
+    - 16.7 [Ollama Cloud Provider](#167-ollama-cloud-provider)
+    - 16.8 [Auxiliary Model Routing](#168-auxiliary-model-routing)
+    - 16.9 [Agent-to-Agent Mesh](#169-agent-to-agent-mesh)
+    - 16.10 [Live Collaboration](#1610-live-collaboration)
+    - 16.11 [Self-Improving Skill Loops](#1611-self-improving-skill-loops)
+    - 16.12 [Token Compressor](#1612-token-compressor)
+    - 16.13 [Cron Scheduler](#1613-cron-scheduler)
+    - 16.14 [Session Publishing & Export](#1614-session-publishing--export)
+    - 16.15 [Session Evaluation & Comparison](#1615-session-evaluation--comparison)
+    - 16.16 [Constitution System](#1616-constitution-system)
 17. [Desktop App](#17-desktop-app)
 18. [Bot Gateway (Multi-Platform)](#18-bot-gateway-multi-platform)
 19. [Troubleshooting & FAQ](#19-troubleshooting--faq)
@@ -1419,6 +1430,101 @@ Lists all configured providers with model, kind, pricing, and connectivity statu
 reasonix models           # list providers
 reasonix models refresh   # test connectivity
 ```
+
+### 16.11 Telegram / LINE / Slack Bots
+
+Hermes adds three bot platforms beyond upstream's Feishu/QQ/WeChat. Configuration
+is in `[bot.telegram]`, `[bot.line]`, `[bot.slack]`. See `docs/BOT_GUIDE.md`
+for connection instructions.
+
+### 16.12 Ollama Cloud Provider
+
+Use `kind = "ollamacloud"` with 42 models via the ollama.com/v1 API. Ideal for
+cheap auxiliary models. See `docs/OLLAMACLOUD.md`.
+
+### 16.13 Auxiliary Model Routing
+
+Offload compaction summaries, vision requests, and web extraction to cheaper/faster
+models via the `[agent.auxiliary]` config block:
+
+```toml
+[agent.auxiliary]
+compression_provider = "ollamacloud"
+compression_model = "deepseek-v4-flash"
+vision_provider = "ollamacloud"
+vision_model = "gemini-3-flash-preview"
+```
+
+### 16.14 Agent-to-Agent Mesh
+
+`internal/mesh/` enables peer delegation, broadcast queries, and council mode for
+multi-agent collaboration. Configure peers in `[[mesh.peers]]`. See the CLI
+`/council` command.
+
+### 16.15 Live Collaboration
+
+`internal/collab/` provides a WebSocket hub for session sharing between Reasonix
+instances. Configure via `[collab]`. Desktop users see the Collab panel in the
+Hermes dashboard.
+
+### 16.16 Self-Improving Skill Loops
+
+`internal/learn/` observes agent turn patterns, detects repeated tool sequences
+(edit-then-test, write-then-build), and generates skill suggestions. Enable via
+`[learn].enabled = true`. Use `/learn` in the CLI.
+
+### 16.17 Token Compressor
+
+`internal/compress/` reduces tool output token consumption via SHA-256 content
+caching, repeated-line collapsing, and JSON minification. Works transparently —
+the agent sees compact references instead of verbose output. Status bar shows
+`sqz↓N` (bytes saved). Enable via `[compress]`.
+
+### 16.18 Cron Scheduler
+
+`internal/scheduler/` runs automated agent tasks on cron schedules. Manage via
+desktop Schedule widget or CLI:
+
+```bash
+reasonix scheduler list
+reasonix scheduler add "daily-review" "@daily" "Review today's changes"
+```
+
+### 16.19 Session Publishing & Export
+
+Export sessions as self-contained HTML or JSON via `internal/publish/`:
+
+```bash
+reasonix publish session-01.json --format html > report.html
+```
+
+Desktop: Publish widget in Hermes dashboard.
+
+### 16.20 Session Evaluation & Comparison
+
+Compare two agent sessions structurally — turns, tools, tokens, cost, similarity:
+
+```bash
+reasonix eval compare session-a.json session-b.json
+```
+
+See `docs/EVAL.md` for the full guide.
+
+### 16.21 Constitution System
+
+`.reasonix/constitution.json` defines project invariants the agent checks before
+every tool call. See `docs/CONSTITUTION.md`.
+
+### 16.22 Skill Marketplace
+
+Community skill registry (agentskills.io-compatible) + LobeHub sync (360k+ skills):
+
+```bash
+reasonix marketplace list      # browse registry
+reasonix marketplace sync      # sync from LobeHub
+```
+
+See `docs/MARKETPLACE.md`.
 
 ---
 

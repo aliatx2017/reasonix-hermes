@@ -239,7 +239,13 @@ Full reference: **[Guide](./docs/GUIDE.md)** covers permissions, sandbox, plugin
 |-----|------|
 | **[Guide](./docs/GUIDE.md)** | Configuration, permissions & sandbox, plugins (MCP), slash commands, two-model collaboration |
 | **[Spec](./docs/SPEC.md)** | Engineering contract — architecture, registries, data types, and design principles |
+| **[Hermes Guide](./docs/HERMES-GUIDE.md)** | Comprehensive Hermes feature guide — 20+ sections covering all extensions |
 | **[Project](./AGENTS.md)** | Hermes fork architecture, commands, customizations, and contributor notes |
+| **[Desktop App](./docs/DESKTOP.md)** | Wails desktop app — Hermes dashboard, write mode, bot connections, live data |
+| **[Bot Guide](./docs/BOT_GUIDE.md)** | Connect Discord, Telegram, LINE, Slack, Feishu, WeChat, QQ bots |
+| **[Marketplace](./docs/MARKETPLACE.md)** | Community skill registry + LobeHub sync (360k+ skills) |
+| **[Constitution](./docs/CONSTITUTION.md)** | Project invariants — principles, constraints, and code-level rules |
+| **[Session Eval](./docs/EVAL.md)** | Compare two agent sessions for eval-driven development |
 | **[Migrating from 0.x](./docs/MIGRATING.md)** | Moving from legacy TypeScript releases to the 1.0 Go rewrite |
 | **[Checkpoints & rewind](./docs/CHECKPOINTS.md)** | Snapshot-based edit safety net (Esc-Esc / `/rewind`) |
 | **[Implementation Plan](./docs/HERMES-IMPLEMENTATION-PLAN.md)** | Phased roadmap — all 17 items complete |

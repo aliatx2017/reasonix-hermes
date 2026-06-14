@@ -32,9 +32,9 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 ## Notes
 
-- **Upstream synced**: `v1.7.0` (commit 21d77d2, 2026-07-15). ~80 commits merged. 7 CLI binaries + desktop built (30MB arm64).
-- **Commit**: `21c7266` — session stats persistence (CLI → desktop).
-- **npm**: `npm i -g reasonix-hermes` — one-line install (sub-packages at `@aliatx2017/reasonix-hermes-*`). Pipeline verified; publish pending 2FA-bypass token.
+- **Upstream synced**: `v1.7.0` (commit 21d77d2, 2026-07-15). ~80 commits merged. No new upstream commits this session.
+- **Commit**: work in progress — session 2026-07-15 (h9+h10) code health + docs sweep + eval tool.
+- **npm**: `npm i -g reasonix-hermes` — one-line install. Pipeline verified; publish pending 2FA-bypass token.
 - **Key v1.6.0 additions**: vision support (image downscaling + detail knob), built-in Time + Context7 MCP servers, configurable shell interpreter (`[tools.shell]`), notification sound system, token economy composer mode, desktop time filter + custom fonts + status bar customization + Windows ARM64, crash capture (Go panics/breadcrumbs/group summaries), lightweight local history + memory retrieval, Traditional Chinese (zh-TW) locale, updater resilience, agent fixes (decline-ask guard, compaction bounds), desktop hooks UI.
 - **Key v1.7.0 additions** (merged 2026-07-14): reasoning language settings (`agent.reasoning_language`), session ownership and state routing integration, checkpoint boundary corrections (optimistic rewind), enriched+memoized shell PATH for MCP stdio subprocesses, dropped phrase-matched approved-plan continuation, desktop golangci-lint CI, `SaveDocForTab` Wails binding.
 - **Language policy**: All Chinese comments translated to English in `internal/bot/` and `internal/config/` — SPEC §1 compliance restored. Upstream v1.6.0 still has some Chinese comments in IM bot code; these are upstream-authored and left as-is.
@@ -294,3 +294,17 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
   - CLI TUI live data line now shows sqz/aux stats (was only in one-time banner); /stats panel also
   - Desktop Hermes dashboard now surfaces CompressStatsView (sqz/aux savings) via Wails binding
   - StatusBar fetch optimized: useRef guard skips mount + turn-start, per-tab binding
+
+### Session 2026-07-15 (h9) — Code health + docs audit + session comparison tool
+
+- **Upstream sync**: Checked — no new commits beyond already-merged (86b3c79, aad377b, d22a852). Up to date.
+- **Bridge.ts drift fix**: wailsjs bindings were stale (gitignored, regenerated) — 230 methods in generated bindings, only 39 in AppBindings interface. Flipped `_CheckGenToApp` → `_CheckAppToGen` (verify AppBindings methods exist in Go, not vice versa). Added 37 Hermes method declarations + mock stubs. Fixed 5 type mismatches (HotbarView, DiscordConnectResult, LobeHubSyncMeta, etc.). Added `LobeHubSyncMeta` to types.ts. Regenerated wailsjs via `wails generate module`. Result: tsc --noEmit 0 errors (was 53).
+- **Renamed**: `SetDesktopSettingsHotbar`→`SetDesktopHotbar`, `SetDesktopSettingsProfiles`→`SetProfiles` (match Go Wails method names).
+- **Regenerated wailsjs bindings**: After `wails generate module`, 3 of 8 missing methods resolved (UpdateBuiltInMCPServer, BuiltInMCPUpdateStatuses, OpenTopicSession, SetProjectPinned, SetTopicPinned now in generated bindings).
+- **Code health verified**: go build ./... / go vet ./... pass. 73 test packages all OK. tsc --noEmit clean.
+- **h7 deferred items checked**: controller at 2,670 lines (already reduced), editor injection low risk (user's own env), FTS5 not needed, no regressions.
+- **SPEC.md §2 Layout overhaul**: documented all 57 internal packages + full cmd/ tree (was 9 packages). Added `[Hermes]` markers for our 14 custom packages.
+- **AGENTS.md updated**: customizations table expanded 19→26 rows (LINE, Slack, OllamaCloud, constitution, e2e, npm/hermes, desktop, release-hermes-npm CI).
+- **Session comparison tool**: New `internal/eval/` package — `LoadSessionSnapshot`, `Compare`, `FormatText`. Jaccard similarity on tool sequences. 6 tests. CLI: `reasonix eval compare <a> <b>`. Wails desktop binding: `CompareSessions(pathA, pathB)` → `SessionComparisonView`. Regenerated wailsjs includes `CompareSessions`.
+- **Files**: 10 files changed — 2 new (`internal/eval/eval.go`, `internal/eval/eval_test.go`), 2 new (`internal/cli/eval.go`, `desktop/hermes_eval.go`), 5 modified (`docs/SPEC.md`, `AGENTS.md`, `REASONIX.md`, `internal/cli/cli.go`, `desktop/frontend/src/lib/bridge.ts`, `desktop/frontend/src/lib/types.ts`, `desktop/frontend/src/components/SettingsPanel.tsx`, `desktop/frontend/src/components/hermes/MarketplacePanel.tsx`).
+- **Build**: All binaries compile. go build + vet + test all green. tsc clean.

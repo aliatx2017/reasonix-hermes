@@ -21,7 +21,47 @@ Our fork (`aliatx2017/reasonix-hermes`) adds:
 - **Research findings** (`docs/RESEARCH-FINDINGS-JUNE-2026.md`) — June 2026 deep-web sweep
 - **Implementation plan** (`docs/HERMES-IMPLEMENTATION-PLAN.md`) — phased roadmap
 
-### Hermes v1.6.1-h1 (2026-07-13)
+### Hermes v1.7.0-h1 (2026-07-15)
+
+**New bot platforms:**
+- **LINE adapter** (`internal/bot/line/`): Webhook server via line-bot-sdk-go/v8, 11 tests, wired into gateway/runtime/allowlist
+- **Slack adapter** (`internal/bot/slack/`): Socket Mode with slack-go/slack v0.26.0, DMs + @mentions, 23 tests
+- **Telegram adapter** (`internal/bot/telegram/`): Long-polling via go-telegram-bot-api/v5, 16 tests
+
+**New providers:**
+- **Ollama Cloud** (`internal/provider/ollamacloud/`): 42 models via ollama.com/v1 OpenAI-compatible API
+- **Auxiliary model routing**: `[agent.auxiliary]` config with compression/vision/web_extract overrides
+
+**New packages:**
+- `internal/learn/` — self-improving skill loops (pattern detection, skill generation, 16 tests)
+- `internal/mesh/` — agent-to-agent MCP mesh (delegate, broadcast, council, 13 tests)
+- `internal/collab/` — WebSocket live collaboration hub (subscribe/broadcast/steer, 8 tests)
+- `internal/compress/` — tool output token compressor (SHA-256 cache, dedup, JSON minification, 21 tests)
+- `internal/scheduler/` — cron-driven automated agent tasks (15 tests)
+- `internal/publish/` — session transcript export as HTML/JSON (9 tests)
+- `internal/marketplace/` — community skill registry + LobeHub sync (360k+ skills, M2M OAuth2)
+- `internal/constitution/` — structured project invariants from .reasonix/constitution.json
+- `internal/e2e/` — replay-based regression testing harness (7 tests)
+- `internal/eval/` — session comparison tool (6 tests): `reasonix eval compare <a> <b>`
+
+**Desktop Hermes enrichment (10+ widgets):**
+- Cache economy gauge, Hindsight memory dashboard, Discord bot live monitor, goal progress
+- Live data push (Wails event loop), token sparkline bar chart, compaction timeline
+- Checkpoint file preview, memory fact graph (D3 force-directed), sub-agent task tree
+- Constitution health panel, collab panel, council panel
+- Schedule widget (CRUD), cost widget, publish widget
+- 4-tab SkillStorePanel (LobeHub/Market/MCP/Custom)
+- Hotbar config, harness profiles, accent theme ("hermes" gold)
+
+**Features:**
+- `reasonix marketplace` CLI command (list, search, sync, install)
+- `reasonix eval compare` CLI command
+- Session stats persistence: CLI → desktop (sidecar `.sessionstats` files)
+- Dense memory embeddings: `[embedding]` config, OpenAI-compatible `/v1/embeddings`, cosine search
+- StatusBar compact chips: cache%, Discord dot, sqz/aux savings
+- Controller decomposition: `controller.go` 3,744 → 2,670 lines (4 sub-files)
+
+### Hermes v1.6.1-h2 (2026-07-13)
 
 **Write Mode (4 features):**
 - **Panel integration**: Write Mode is now a "Write" tab in the desktop right dock (alongside Overview/Files/Changed), with i18n in en/zh/zh-TW

@@ -1,15 +1,17 @@
-# Reasonix Codebase Audit
+# Reasonix Codebase Audit (Historical — June 2025)
 
-> **Note:** Paths updated June 2026: `pkg/mcpbridge/` → `cmd/reasonix-mcpbridge/`,
-> `pkg/memoryserver/` → `cmd/reasonix-memoryserver/`. File references in this
-> document reflect the original paths at time of audit and are preserved for
-> historical accuracy.
+> **Note:** This is a historical audit from June 2025. All 6 bugs documented
+> below have been fixed in subsequent releases. See `docs/AUDIT-REVIEW-2026-07-15.md`
+> for the most recent audit. The architecture tree below reflects the codebase
+> as of June 2025 (~20 packages). The current codebase has 57 packages (see
+> `docs/SPEC.md` §2 for the full layout).
 
 **Date:** 2025-06-11  
+**Status:** Historical — all bugs resolved  
 **Scope:** All Go source under `cmd/`, `internal/`, `pkg/`, `bot/`  
 **Files:** 272 non-test `.go` + 293 test `.go` = 565 total  
 **Lines:** ~64K production + ~50K test ≈ 114K total  
-**Build:** `go vet ./...` clean; `go test -race ./internal/...` 2,112/2,112 PASS; `go test ./cmd/... ./pkg/... ./bot/...` 228/228 PASS  
+**Build:** `go vet ./...` clean (at time of audit)  
 
 ---
 

@@ -32,11 +32,35 @@ reasonix/
 ├── README.md / README.zh-CN.md
 ├── reasonix.example.toml         # sample config
 ├── docs/SPEC.md             # this file
-├── cmd/reasonix/main.go          # entry; blank-imports built-in providers/tools
-├── cmd/reasonix-plugin-example/  # reference MCP stdio plugin (a runnable example)
+├── cmd/
+│   ├── reasonix/main.go          # CLI entry; blank-imports built-in providers/tools
+│   ├── reasonix-plugin-example/  # reference MCP stdio plugin (a runnable example)
+│   ├── reasonix-mcpbridge/       # [Hermes] MCP bridge server exposing Reasonix tools
+│   ├── reasonix-memoryserver/    # [Hermes] Hindsight memory MCP server (SQLite + vector)
+│   ├── reasonix-hooks/           # [Hermes] native Go hook runner
+│   ├── reasonix-pr-review/       # [Hermes] PR review CLI for GitHub Actions
+│   └── e2ebench/                 # [Hermes] e2e benchmarking tool
 └── internal/
-    ├── cli/                 # subcommand routing, flags, assembly, exit codes
-    ├── control/             # transport-agnostic session driver (one Controller behind every frontend)
+    ├── acp/                # Agent Client Protocol — stdio JSON-RPC 2.0 adapter for editors
+    ├── agent/              # Core agent loop: wires Provider + Tool Registry + Session
+    ├── billing/            # provider wallet balance queries for the status line
+    ├── boot/               # assembles a control.Controller from config (one Controller behind every frontend)
+    ├── bot/                # multi-platform IM bot gateway (Discord/QQ/Feishu/WeChat/Telegram/Line/Slack)
+    │   ├── discord/        # [Hermes] Discord adapter
+    │   ├── line/           # [Hermes] LINE adapter
+    │   ├── slack/          # [Hermes] Slack adapter
+    │   └── telegram/       # [Hermes] Telegram adapter
+    ├── botruntime/         # bot runtime bundling
+    ├── builtinmcp/         # built-in MCP servers shipped with Reasonix (codegraph, time, context7)
+    ├── checkpoint/         # snapshot-based edit safety net — saves before writer tools
+    ├── cli/                # subcommand routing, flags, assembly, exit codes
+    ├── codegraph/          # CodeGraph code-intelligence engine integration
+    ├── collab/             # [Hermes] live collaborative session sharing (WebSocket hub)
+    ├── command/            # custom slash commands loaded from .reasonix/commands/*.md
+    ├── compress/           # [Hermes] tool output token compressor (SHA-256 cache, dedup, JSON minification)
+    ├── config/             # TOML loading (flag > project > user > defaults)
+    ├── constitution/       # [Hermes] structured project invariants from .reasonix/constitution.json
+    ├── control/            # transport-agnostic session driver
     │   ├── controller.go             # Controller struct, Options, New, Send, Compose, session lifecycle (2,670 lines)
     │   ├── controller_approval.go    # gateApprover, approval helpers, requestApproval, notice/beep/profile
     │   ├── controller_checkpoints.go # RewindScope, Rewind, Fork, Branch, Summarize, ckptDir
@@ -49,16 +73,51 @@ reasonix/
     │   ├── input.go                  # input preprocessing and slash-command dispatch
     │   ├── refs.go                   # @-reference resolution
     │   └── slash.go                  # built-in slash command handling
-    ├── config/              # TOML loading (flag > project > user > defaults)
-    ├── provider/            # Provider interface + types + kind→factory registry
-    │   └── openai/          # OpenAI-compatible impl; init() registers "openai"
-    ├── tool/                # Tool interface + Registry
-    │   └── builtin/         # read_file/write_file/edit_file/move_file/bash/ls/glob/grep
-    ├── permission/          # per-call Policy: allow/ask/deny rules → Decision
-    ├── command/             # custom slash commands loaded from .reasonix/commands/*.md
-    ├── plugin/              # stdio JSON-RPC (MCP) client; adapts remote tools
-    └── agent/               # Session + harness loop
+    ├── diff/               # line-level unified diff between two file versions
+    ├── doctor/             # collects local, redacted diagnostics for issue reports
+    ├── e2e/                # [Hermes] replay-based regression testing harness
+    ├── event/              # typed event stream the agent emits during a turn
+    ├── evidence/           # step completion evidence tracking
+    ├── fileref/            # file reference resolution
+    ├── fileutil/           # file utility helpers
+    ├── frontmatter/        # minimal dependency-free YAML frontmatter parser for skill docs
+    ├── history/            # local session history search (BM25 retrieval)
+    ├── hook/               # user-configured shell-command hooks (PreToolUse, Stop, etc.)
+    ├── i18n/               # CLI translatable strings + locale detection (en/zh/zh-TW)
+    ├── inspect/            # projects running agent capabilities into plain serializable views
+    ├── installsource/      # install_source tool: two-phase install plan + apply for skills/MCP
+    ├── instruction/        # system prompt instruction assembly
+    ├── jobs/               # session-scoped background-job registry (bash/task parallelism)
+    ├── learn/              # [Hermes] self-improving skill loops (pattern detection, skill generation)
+    ├── lsp/                # minimal Language Server Protocol client
+    ├── marketplace/        # [Hermes] community skill registry (agentskills.io-compatible) + LobeHub sync
+    ├── mcpdiag/            # MCP server connection diagnostics
+    ├── memory/             # persistent memory (SQLite, TTL, importance, dense/sparse vector search)
+    ├── mesh/               # [Hermes] agent-to-agent MCP delegation (delegate, broadcast, council)
+    ├── netclient/          # HTTP client builder sharing Reasonix proxy/TLS config
+    ├── nilutil/            # nil-slice safety utilities
+    ├── notify/             # desktop notification sound system
+    ├── outputstyle/        # selectable output persona/style block injection
+    ├── permission/         # per-call Policy: allow/ask/deny rules → Decision
+    ├── plugin/             # MCP client — connects to external MCP servers (stdio, HTTP, SSE)
+    ├── proc/               # process management utilities
+    ├── provider/           # model-backend abstraction + kind→factory registry
+    │   ├── anthropic/      # Anthropic Messages API
+    │   ├── ollamacloud/    # [Hermes] Ollama Cloud API (ollama.com/v1)
+    │   └── openai/         # OpenAI-compatible impl (DeepSeek, MiMo, GLM, etc.); init() registers "openai"
+    ├── publish/            # [Hermes] session transcript export (HTML + JSON)
+    ├── retrieval/          # BM25 text retrieval engine
+    ├── sandbox/            # OS-level jail (bubblewrap on Linux, Seatbelt on macOS)
+    ├── scheduler/          # [Hermes] cron-driven automated agent tasks
+    ├── serve/              # HTTP/SSE server exposing a Controller over the wire
+    ├── skill/              # invokable playbooks loaded from Markdown skill files
+    ├── sysproxy/           # OS-level proxy resolution (Windows system/PAC)
+    └── tool/               # Tool interface + Registry
+        └── builtin/        # read_file/write_file/edit_file/move_file/bash/ls/glob/grep/delete_range
 ```
+
+[Hermes] = Reasonix-Hermes custom additions (not present in upstream esengine/deepseek-reasonix).
+Total: 57 internal packages (43 core + 14 Hermes).
 
 Dependency direction (acyclic): `cli → {agent, plugin, config} → {tool, provider}`.
 Built-in subpackages (`provider/openai`, `tool/builtin`) import their parent to

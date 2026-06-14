@@ -12,8 +12,8 @@ everything you need to get started.
 ## Getting started
 
 ```bash
-git clone https://github.com/esengine/DeepSeek-Reasonix.git
-cd DeepSeek-Reasonix
+git clone https://github.com/aliatx2017/reasonix-hermes.git
+cd reasonix-hermes
 go build ./cmd/reasonix    # builds the CLI binary
 go test ./...              # runs the full test suite
 ```
@@ -23,13 +23,29 @@ go test ./...              # runs the full test suite
 | Directory | Purpose |
 |-----------|---------|
 | `cmd/reasonix` | CLI entry point |
+| `cmd/reasonix-hooks` | [Hermes] Native Go hook runner |
+| `cmd/reasonix-mcpbridge` | [Hermes] MCP bridge server |
+| `cmd/reasonix-memoryserver` | [Hermes] Hindsight memory server |
+| `cmd/reasonix-pr-review` | [Hermes] PR review CLI |
 | `internal/agent` | Agent loop, session, coordinator |
+| `internal/bot` | [Hermes] Multi-platform bot gateway (Discord/QQ/Feishu/WeChat/Telegram/LINE/Slack) |
 | `internal/cli` | TUI, subcommands, setup wizard |
-| `internal/control` | Transport-agnostic controller |
+| `internal/collab` | [Hermes] Live collaboration WebSocket hub |
+| `internal/compress` | [Hermes] Tool output token compressor |
 | `internal/config` | TOML configuration loading |
+| `internal/constitution` | [Hermes] Project invariants (.reasonix/constitution.json) |
+| `internal/control` | Transport-agnostic controller |
+| `internal/eval` | [Hermes] Session comparison and evaluation |
+| `internal/learn` | [Hermes] Self-improving skill loops |
+| `internal/marketplace` | [Hermes] Community skill registry + LobeHub sync |
+| `internal/mesh` | [Hermes] Agent-to-agent MCP mesh |
+| `internal/publish` | [Hermes] Session transcript export |
+| `internal/scheduler` | [Hermes] Cron-driven automated tasks |
 | `internal/tool/builtin` | Built-in tools (bash, read_file, …) |
 | `internal/provider` | Model-backend abstraction |
-| `internal/provider/openai` | OpenAI-compatible provider |
+| `internal/provider/openai` | OpenAI-compatible provider (DeepSeek, MiMo, GLM) |
+| `internal/provider/ollamacloud` | [Hermes] Ollama Cloud API provider |
+| `internal/provider/anthropic` | Anthropic Messages API |
 | `internal/plugin` | MCP client (stdio + HTTP) |
 | `internal/event` | Typed event stream |
 | `internal/hook` | Shell hooks (PreToolUse, …) |
@@ -38,8 +54,14 @@ go test ./...              # runs the full test suite
 | `internal/sandbox` | OS-level sandboxing |
 | `internal/serve` | HTTP/SSE server frontend |
 | `internal/checkpoint` | Snapshot-based rewind |
+| `internal/acp` | Agent Client Protocol (stdio JSON-RPC) |
 | `desktop/` | Wails-based desktop app (separate Go module) |
-| `docs/` | Engineering spec, migration guide |
+| `docs/` | Engineering spec, migration guide, feature guides |
+| `npm/` | [Hermes] npm packaging pipeline |
+| `deploy/` | [Hermes] Helm chart + docker-compose |
+| `skills-hub/` | [Hermes] Curated community skill registry |
+
+[Hermes] = Reasonix-Hermes custom additions (not in upstream).
 
 ### Dependency direction
 
@@ -112,16 +134,16 @@ ci: add golangci-lint and govulncheck
 
 1. Add the field to `internal/i18n/i18n.go` (`Messages` struct)
 2. Add the value in `internal/i18n/messages_en.go` and `messages_zh.go`
-3. The `TestCatalogsComplete` test will fail if you miss a locale
+3. The `TestCatalogsComplete` test will fail if you miss a locale. Three catalogs: `en`, `zh`, `zh-TW`.
 
 ## Submitting changes
 
 1. Fork the repository
-2. Create a feature branch from `main-v2`
+2. Create a feature branch from `main`
 3. Make your changes with tests
 4. Ensure `go test ./...` passes
 5. Ensure `gofmt -l .` shows no changes
-6. Submit a pull request to `main-v2`
+6. Submit a pull request to `main`
 
 ## Reporting issues
 

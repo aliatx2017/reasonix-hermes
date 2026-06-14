@@ -6,9 +6,9 @@
 &nbsp;·&nbsp;
 <a href="./GUIDE.md">General guide</a>
 
-> For desktop users. This guide explains how to connect Feishu, Lark, and WeChat
-> bots, how to use Reasonix from IM, and how approvals, Ask questions, YOLO, and
-> bot commands work.
+> For desktop users. This guide explains how to connect Discord, Feishu, Lark,
+> WeChat, Telegram, LINE, and Slack bots, how to use Reasonix from IM, and how
+> approvals, Ask questions, YOLO, and bot commands work.
 
 ## Contents
 
@@ -245,6 +245,27 @@ Recommendations:
 - Use `/mode ask` for risky work, production code, or anything uncertain.
 - Use `/mode auto` when you want fewer routine prompts while keeping policy
   decisions.
+
+## Hermes bot platforms
+
+Reasonix-Hermes adds four additional bot platforms beyond the upstream three:
+
+### Discord
+Connect via **Settings → Bots → Add IM Bot → Discord**. Enter your bot token.
+Supports `/goal <objective>`, `/model flash|pro|mimo`, and approval/deny via
+plain-text `approve N` / `deny N`.
+
+### Telegram
+Connect via **Settings → Bots → Telegram**. Requires a bot token from @BotFather.
+Uses long-polling (no webhook needed). Supports all bot commands.
+
+### LINE
+Connect via **Settings → Bots → LINE**. Requires LINE Messaging API credentials.
+Uses webhook server mode. The webhook URL is shown in the connection settings.
+
+### Slack
+Connect via **Settings → Bots → Slack**. Requires a Slack app with Socket Mode
+enabled (App Token + Bot Token). Supports DMs and @mentions.
 
 ## Do upgrades require rebinding?
 
