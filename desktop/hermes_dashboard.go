@@ -62,6 +62,26 @@ func (a *App) CostSummaryForTab(tabID string) CostSummaryView {
 	}
 }
 
+// --- Session Aggregate Tokens ---
+
+// SessionTokens returns cumulative prompt/completion tokens and turn count.
+func (a *App) SessionTokens() SessionTokensView {
+	return a.SessionTokensForTab("")
+}
+
+// SessionTokensForTab returns cumulative tokens for a specific tab.
+func (a *App) SessionTokensForTab(tabID string) SessionTokensView {
+	ctrl := a.ctrlForTab(tabID)
+	if ctrl == nil {
+		return SessionTokensView{}
+	}
+	return SessionTokensView{
+		TokensIn:  ctrl.SessionTokensIn(),
+		TokensOut: ctrl.SessionTokensOut(),
+		Turns:     ctrl.SessionTurns(),
+	}
+}
+
 // CacheEconomyForTab returns cache stats for a specific tab.
 func (a *App) CacheEconomyForTab(tabID string) CacheEconomyView {
 	ctrl := a.ctrlForTab(tabID)
@@ -178,6 +198,7 @@ func (a *App) ctrlForTab(tabID string) *control.Controller {
 type HermesDashboardEvent struct {
 	Cache         CacheEconomyView       `json:"cache"`
 	Cost          CostSummaryView        `json:"cost"`
+	Tokens        SessionTokensView      `json:"tokens"`
 	Memory        MemoryDashboardView    `json:"memory"`
 	Bot           BotLiveStatusView      `json:"bot"`
 	Goal          GoalProgressView       `json:"goal"`
@@ -189,6 +210,13 @@ type HermesDashboardEvent struct {
 	Schedule      ScheduleDashboardView  `json:"schedule"`
 	Collab        CollabView              `json:"collab"`
 	Council       CouncilDashboardView    `json:"council"`
+}
+
+// SessionTokensView carries cumulative token and turn counts.
+type SessionTokensView struct {
+	TokensIn  int `json:"tokensIn"`
+	TokensOut int `json:"tokensOut"`
+	Turns     int `json:"turns"`
 }
 
 // MemoryFactView is one fact from the auto-memory store.
@@ -384,6 +412,7 @@ func (a *App) startHermesEventLoop(ctx context.Context) {
 				ev := HermesDashboardEvent{
 					Cache:         a.CacheEconomy(),
 					Cost:          a.CostSummary(),
+					Tokens:        a.SessionTokens(),
 					Memory:        a.MemoryDashboard(),
 					Bot:           a.BotLiveStatus(),
 					Goal:          a.GoalProgress(),

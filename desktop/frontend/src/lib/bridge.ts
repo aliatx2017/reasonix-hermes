@@ -75,6 +75,7 @@ import type {
   MemoryFactView,
   MemoryDashboardView,
   ScheduleDashboardView,
+  SessionTokensView,
   CollabView,
   CouncilDashboardView,
   MarketplaceEntryView,
@@ -240,6 +241,8 @@ export interface AppBindings {
   GoalProgressForTab(tabID: string): Promise<GoalProgressView>;
   CostSummary(): Promise<CostSummaryView>;
   CostSummaryForTab(tabID: string): Promise<CostSummaryView>;
+  SessionTokens(): Promise<SessionTokensView>;
+  SessionTokensForTab(tabID: string): Promise<SessionTokensView>;
   ScheduleDashboard(): Promise<ScheduleDashboardView>;
   CollabDashboard(): Promise<CollabView>;
   CouncilDashboard(): Promise<CouncilDashboardView>;
@@ -2431,6 +2434,12 @@ function makeMockApp(): AppBindings {
         },
         async CostSummaryForTab(_tabID: string) {
           return { sessionCost: 0.012, currency: "¥" };
+        },
+        async SessionTokens() {
+          return { tokensIn: 22134, tokensOut: 12345, turns: 12 };
+        },
+        async SessionTokensForTab(_tabID: string) {
+          return { tokensIn: 22134, tokensOut: 12345, turns: 12 };
         },
         async ScheduleDashboard() {
           return {

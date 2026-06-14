@@ -204,6 +204,18 @@ type Agent struct {
 	// SessionCost().
 	sessCost atomic.Int64
 
+	// sessTokensIn/sessTokensOut accumulate total prompt/completion tokens across
+	// every API call this session, so frontends can show aggregate token count
+	// without computing it from per-turn Usage samples. Atomic: the run loop
+	// accumulates them while the status line reads them.
+	sessTokensIn  atomic.Int64
+	sessTokensOut atomic.Int64
+
+	// sessTurns counts completed model turns (one call to Run = one turn).
+	// Incremented at the top of Run so it is always ≥1 for any session that has
+	// run at least one turn.
+	sessTurns atomic.Int64
+
 	// auxTokens counts tokens processed by auxiliary providers (compression,
 	// vision, web_extract) instead of the main provider. The delta between aux
 	// and what the main model would have cost is a proxy for savings.
@@ -385,6 +397,14 @@ func (a *Agent) SetSession(s *Session) {
 	a.session = s
 	a.sessMu.Unlock()
 	if s != nil {
+		// Seed aggregate atomics from loaded session metadata so a resumed
+		// session shows accurate cumulative stats from the previous run.
+		a.sessTokensIn.Store(int64(s.TokensIn))
+		a.sessTokensOut.Store(int64(s.TokensOut))
+		a.sessTurns.Store(int64(s.TurnCount))
+		a.sessCacheHit.Store(int64(s.CacheHit))
+		a.sessCacheMiss.Store(int64(s.CacheMiss))
+		a.sessCost.Store(int64(s.Cost * 1e8))
 		a.rebuildTodoState(s.Snapshot())
 	}
 }
@@ -405,6 +425,21 @@ func (a *Agent) SessionCache() (hit, miss int) {
 // no pricing data is configured.
 func (a *Agent) SessionCost() float64 {
 	return float64(a.sessCost.Load()) / 1e8
+}
+
+// SessionTokensIn returns the cumulative prompt tokens across every API call.
+func (a *Agent) SessionTokensIn() int {
+	return int(a.sessTokensIn.Load())
+}
+
+// SessionTokensOut returns the cumulative completion tokens across every API call.
+func (a *Agent) SessionTokensOut() int {
+	return int(a.sessTokensOut.Load())
+}
+
+// SessionTurns returns the number of completed model turns (calls to Run).
+func (a *Agent) SessionTurns() int {
+	return int(a.sessTurns.Load())
 }
 
 // AuxTokens returns the cumulative token count processed by auxiliary providers
@@ -685,6 +720,7 @@ func (a *Agent) Run(ctx context.Context, input string) error {
 	}
 	a.repeatSuccessCounts = nil
 	a.sink.Emit(event.Event{Kind: event.TurnStarted})
+	a.sessTurns.Add(1)
 	a.session.Add(provider.Message{Role: provider.RoleUser, Content: input, Images: userImages(ctx)})
 
 	finalReadinessBlocks := 0
@@ -1212,6 +1248,8 @@ func (a *Agent) stream(ctx context.Context, turn int) (string, string, string, [
 			a.lastUsage.Store(chunk.Usage)
 			a.sessCacheHit.Add(int64(chunk.Usage.CacheHitTokens))
 			a.sessCacheMiss.Add(int64(chunk.Usage.CacheMissTokens))
+			a.sessTokensIn.Add(int64(chunk.Usage.PromptTokens))
+			a.sessTokensOut.Add(int64(chunk.Usage.CompletionTokens))
 			if a.pricing != nil {
 				a.sessCost.Add(int64(a.pricing.Cost(chunk.Usage) * 1e8))
 			}

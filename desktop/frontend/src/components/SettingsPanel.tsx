@@ -4669,7 +4669,7 @@ function HermesLiveSection({ s, apply }: { s: SettingsView; apply: (fn: () => Pr
   const live = useHermesLiveData(undefined, true);
   return (
     <SettingsPageShell s={s} tab="hermes" busy={false} apply={apply}>
-      <HermesSettings s={s} onHotbarChange={() => {}} onProfileSelect={() => {}} cache={live.cache} discord={live.discord} goal={live.goal} cost={live.cost} schedule={live.schedule} collab={live.collab} council={live.council} />
+      <HermesSettings s={s} onHotbarChange={() => {}} onProfileSelect={() => {}} cache={live.cache} discord={live.discord} goal={live.goal} cost={live.cost} tokens={live.tokens} schedule={live.schedule} collab={live.collab} council={live.council} />
     </SettingsPageShell>
   );
 }

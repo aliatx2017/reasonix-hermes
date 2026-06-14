@@ -33,7 +33,7 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 ## Notes
 
 - **Upstream synced**: `v1.7.0` (commit ed07684, 2026-07-14). 59 commits merged. 7 CLI binaries + desktop built and passing.
-- **Commit**: `194e1f4` — npm packaging + logo + README overhaul.
+- **Commit**: `21c7266` — session stats persistence (CLI → desktop).
 - **npm**: `npm i -g reasonix-hermes` — one-line install (sub-packages at `@aliatx2017/reasonix-hermes-*`). Pipeline verified; publish pending 2FA-bypass token.
 - **Key v1.6.0 additions**: vision support (image downscaling + detail knob), built-in Time + Context7 MCP servers, configurable shell interpreter (`[tools.shell]`), notification sound system, token economy composer mode, desktop time filter + custom fonts + status bar customization + Windows ARM64, crash capture (Go panics/breadcrumbs/group summaries), lightweight local history + memory retrieval, Traditional Chinese (zh-TW) locale, updater resilience, agent fixes (decline-ask guard, compaction bounds), desktop hooks UI.
 - **Key v1.7.0 additions** (merged 2026-07-14): reasoning language settings (`agent.reasoning_language`), session ownership and state routing integration, checkpoint boundary corrections (optimistic rewind), enriched+memoized shell PATH for MCP stdio subprocesses, dropped phrase-matched approved-plan continuation, desktop golangci-lint CI, `SaveDocForTab` Wails binding.
@@ -183,6 +183,15 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 - **Build artifacts gitignored**: `npm/.stage-hermes/` added to `.gitignore`.
 - **Total**: 10 new files, ~6 files modified. All binaries build, all tests pass.
 
+**Session 2026-07-14 (h6)** (session stats persistence — CLI → desktop visibility):
+- **Agent aggregate counters**: Added `sessTokensIn`, `sessTokensOut`, `sessTurns` atomic counters to Agent alongside existing `sessCacheHit`/`sessCacheMiss`/`sessCost`. Incremented from `ChunkUsage` (tokens) and `Run()` start (turns). Getters: `SessionTokensIn()`, `SessionTokensOut()`, `SessionTurns()`.
+- **Sidecar persistence**: New `SessionMeta` struct + `SetMeta`/`SaveMeta`/`LoadMeta` methods on Session. Aggregate stats written to `<session>.sessionstats` sidecar file (atomic via tmp+rename, distinct from branch `.meta`). `Save()` auto-writes sidecar; `LoadSession()` auto-reads it; `SetSession()` seeds atomics from loaded metadata so resumed sessions show accurate cumulative stats.
+- **Controller wiring**: `SessionTokensIn()`/`SessionTokensOut()`/`SessionTurns()` pass-throughs to Agent; `snapshot()` stamps metadata from Agent before every save.
+- **Wails bindings**: `SessionTokensView` struct, `SessionTokens()`/`SessionTokensForTab()` bindings, `HermesDashboardEvent.Tokens` field wired into push event.
+- **Frontend**: `SessionTokensView` type, binding methods + mocks, `tokens` field in `HermesLiveData`/`HermesDashboardPayload`, aggregate stats widget in Hermes dashboard (turns/tokens-in/tokens-out).
+- **Bug fix**: Naming collision with branch `.meta` sidecar resolved (now `.sessionstats`).
+- **Total**: 10 files changed (+276/-7). All Go build/vet/test pass; TypeScript compiles clean. 6 CLI binaries rebuilt.
+
 ### Next to build
 - [ ] **npm: publish reasonix-hermes** — set 2FA-bypass granular token, push tag
 
@@ -192,9 +201,11 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 - [ ] **Online skill sync** — persist synced skills to config, diff on re-sync, show "N new since last sync"
 - [ ] **LINE chat adapter** — port LobeHub's LINE adapter pattern to `internal/bot/line/`
 - [ ] **Agent task CRUD UI** — Create/Edit task modal for scheduler
+- [ ] **Desktop StatusBar: use backend-provided session stats** — wire `SessionTokens()` binding into StatusBar props instead of client-side computation, so resumed CLI sessions show accurate turns/tokens immediately
+- [ ] **Session stat import/export** — add stat fields to publish HTML/JSON exports
 
 ### Recently completed
-- [x] **Plugin marketplace → polish** — install button wiring, ratings, registry auto-sync from agentskills.io community (✅ 2026-07-14)
+- [x] **Session stats persistence: CLI → desktop** (✅ 2026-07-14) — Agent aggregate counters (tokens in/out, turns), sidecar `.sessionstats` persistence, Controller pass-throughs, Wails bindings + frontend widget. 10 files changed (+276/-7). Resolves "why doesn't desktop show session stats for the CLI."
 - [x] **LobeHub marketplace API integration** (✅ 2026-07-14) — Full M2M OAuth2 client (stdlib-only HS256 JWT), auto-registration on first use, paginated skill fetch from 360k+ community skills, `SyncFromLobeHub()` registry merge, Wails binding `SyncLobeHubMarketplace()`, desktop "Sync from LobeHub" button with spin animation, CLI `reasonix marketplace sync` command, 4 httptest-based tests, `[marketplace.lobehub]` config section with 8 fields. Verified end-to-end against live API.
 - [x] **LAN skills** (✅ 2026-07-14) — 4 new project skills: `searxng-local` (private web search via LAN SearXNG), `crawl4ai-local` (web crawler with headless browser), `google-maps-scraper` (business listings scraper), `last30days` (41k★ social research skill from mvanhorn). All LAN services verified operational.
 - [x] **Competitive landscape survey** (✅ 2026-07-14) — Researched 15+ open-source AI agent platforms: LobeHub (78k★), OpenHands (77k★), Cline (63k★), n8n (192k★), Dify (145k★), AutoGPT (185k★), CrewAI (53k★), Aider (46k★), Cognee (18k★), Microsoft AutoGen (59k★), Roo-Code/ZooCode, Langflow (150k★), Firecrawl (132k★). Identified stealable patterns: 4-tab skill store, virtualized grids, custom modes, agent SDK library pattern.

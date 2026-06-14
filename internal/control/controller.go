@@ -2021,6 +2021,24 @@ func (c *Controller) snapshot(markActivity bool) error {
 			return err
 		}
 	}
+	// Stamp aggregate statistics from the Agent onto the Session before saving,
+	// so the sidecar .meta file captures accurate cumulative totals.
+	if c.executor != nil {
+		hit, miss := c.executor.SessionCache()
+		curr := "¥"
+		if p := c.executor.Pricing(); p != nil {
+			curr = p.Symbol()
+		}
+		s.SetMeta(
+			c.executor.SessionTokensIn(),
+			c.executor.SessionTokensOut(),
+			c.executor.SessionTurns(),
+			hit,
+			miss,
+			c.executor.SessionCost(),
+			curr,
+		)
+	}
 	if err := s.Save(path); err != nil {
 		return err
 	}
@@ -2174,6 +2192,30 @@ func (c *Controller) SessionCost() float64 {
 		return 0
 	}
 	return c.executor.SessionCost()
+}
+
+// SessionTokensIn returns the cumulative prompt tokens across every API call.
+func (c *Controller) SessionTokensIn() int {
+	if c.executor == nil {
+		return 0
+	}
+	return c.executor.SessionTokensIn()
+}
+
+// SessionTokensOut returns the cumulative completion tokens across every API call.
+func (c *Controller) SessionTokensOut() int {
+	if c.executor == nil {
+		return 0
+	}
+	return c.executor.SessionTokensOut()
+}
+
+// SessionTurns returns the number of completed model turns this session.
+func (c *Controller) SessionTurns() int {
+	if c.executor == nil {
+		return 0
+	}
+	return c.executor.SessionTurns()
 }
 
 // AuxTokens returns tokens routed to auxiliary providers (compression/vision).

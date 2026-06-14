@@ -605,6 +605,12 @@ export interface CacheEconomyView {
   hitRate: number;
 }
 
+export interface SessionTokensView {
+  tokensIn: number;
+  tokensOut: number;
+  turns: number;
+}
+
 export interface TurnUsagePoint {
   turn: number;
   promptTokens: number;

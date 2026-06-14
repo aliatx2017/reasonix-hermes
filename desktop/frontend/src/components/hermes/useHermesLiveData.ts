@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { app } from "../../lib/bridge";
 import type {
   CacheEconomyView,
+  SessionTokensView,
   BotLiveStatusView,
   GoalProgressView,
   MemoryDashboardView,
@@ -17,6 +18,7 @@ interface HermesLiveData {
   goal: GoalProgressView | null;
   memory: MemoryDashboardView | null;
   cost: CostSummaryView | null;
+  tokens: SessionTokensView | null;
   schedule: ScheduleDashboardView | null;
   collab: CollabView | null;
   council: CouncilDashboardView | null;
@@ -28,6 +30,7 @@ interface HermesDashboardPayload {
   bot: BotLiveStatusView | null;
   goal: GoalProgressView | null;
   cost: CostSummaryView | null;
+  tokens: SessionTokensView | null;
   schedule: ScheduleDashboardView | null;
   collab: CollabView | null;
   council: CouncilDashboardView | null;
@@ -38,7 +41,7 @@ const EVENT_CHANNEL = "hermes:dashboard";
 
 export function useHermesLiveData(tabId: string | undefined, enabled: boolean): HermesLiveData {
   const [data, setData] = useState<HermesLiveData>({
-    cache: null, discord: null, goal: null, memory: null, cost: null, schedule: null, collab: null, council: null,
+    cache: null, discord: null, goal: null, memory: null, cost: null, tokens: null, schedule: null, collab: null, council: null,
   });
 
   // Prefer Wails push events; fall back to polling.
@@ -57,6 +60,7 @@ export function useHermesLiveData(tabId: string | undefined, enabled: boolean): 
             goal: payload.goal ?? null,
             memory: payload.memory ?? null,
             cost: (payload as any).cost ?? null,
+            tokens: (payload as any).tokens ?? null,
             schedule: (payload as any).schedule ?? null,
             collab: (payload as any).collab ?? null,
             council: (payload as any).council ?? null,
@@ -80,17 +84,18 @@ export function useHermesLiveData(tabId: string | undefined, enabled: boolean): 
     if (!enabled) return;
     try {
       const tid = tabId ?? "";
-      const [cache, discord, goal, memory, cost, schedule, collab, council] = await Promise.all([
+      const [cache, discord, goal, memory, cost, tokens, schedule, collab, council] = await Promise.all([
         tid ? app.CacheEconomyForTab(tid) : app.CacheEconomy(),
         app.BotLiveStatus(),
         tid ? app.GoalProgressForTab(tid) : app.GoalProgress(),
         app.MemoryDashboard(),
         tid ? app.CostSummaryForTab(tid) : app.CostSummary(),
+        tid ? app.SessionTokensForTab(tid) : app.SessionTokens(),
         app.ScheduleDashboard(),
         app.CollabDashboard(),
         app.CouncilDashboard(),
       ]);
-      setData({ cache, discord, goal, memory, cost, schedule, collab, council });
+      setData({ cache, discord, goal, memory, cost, tokens, schedule, collab, council });
     } catch {
       // silent — bridge may not be ready
     }

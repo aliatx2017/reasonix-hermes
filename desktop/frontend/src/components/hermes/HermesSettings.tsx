@@ -1,5 +1,5 @@
 import { BarChart3, BookOpen, Calendar, Download, FileText, GitBranch, History, Keyboard, Network, Shield, Sliders, ShoppingBag, Zap } from "lucide-react";
-import type { SettingsView, HotbarView, ProfileView, CostSummaryView, ScheduleDashboardView, CollabView, CouncilDashboardView } from "../../lib/types";
+import type { SettingsView, HotbarView, ProfileView, CostSummaryView, SessionTokensView, ScheduleDashboardView, CollabView, CouncilDashboardView } from "../../lib/types";
 import { CacheEconomyGauge } from "./CacheEconomyGauge";
 import { CollabPanel } from "./CollabPanel";
 import { CouncilPanel } from "./CouncilPanel";
@@ -25,6 +25,7 @@ interface HermesSettingsProps {
   discord?: { running: boolean; platform: string; activeSessions: number; status: string } | null;
   goal?: { active: boolean; goal: string; status: string; turns: number; blocks: number } | null;
   cost?: CostSummaryView | null;
+  tokens?: SessionTokensView | null;
   schedule?: ScheduleDashboardView | null;
   collab?: CollabView | null;
   council?: CouncilDashboardView | null;
@@ -51,7 +52,7 @@ const ACTION_LABELS: Record<string, string> = {
   settings: "Settings",
 };
 
-export function HermesSettings({ s, onHotbarChange: _onHotbar, onProfileSelect: _onProfile, cache, discord, goal, cost, schedule, collab, council }: HermesSettingsProps) {
+export function HermesSettings({ s, onHotbarChange: _onHotbar, onProfileSelect: _onProfile, cache, discord, goal, cost, tokens, schedule, collab, council }: HermesSettingsProps) {
   const profiles = Object.entries(s.profiles ?? {}) as [string, ProfileView][];
   const activeProfile = s.activeProfile || "";
 
@@ -69,6 +70,13 @@ export function HermesSettings({ s, onHotbarChange: _onHotbar, onProfileSelect: 
           <div style={{ flex: 1, minWidth: 200 }}>
             <GoalProgressWidget goal={goal ?? null} compact />
           </div>
+          {tokens && (
+            <div style={{ display: "inline-flex", gap: 12, padding: "4px 8px", background: "var(--color-surface)", borderRadius: 6, fontSize: 12, alignItems: "center" }}>
+              <span title="Session turns">{tokens.turns} turns</span>
+              <span title="Prompt tokens">↑{tokens.tokensIn.toLocaleString()}</span>
+              <span title="Completion tokens">↓{tokens.tokensOut.toLocaleString()}</span>
+            </div>
+          )}
         </div>
       </section>
 

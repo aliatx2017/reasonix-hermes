@@ -3,8 +3,14 @@
 package agent
 
 import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
 	"sync"
+	"time"
 
+	"reasonix/internal/fileutil"
 	"reasonix/internal/provider"
 )
 
@@ -13,10 +19,39 @@ import (
 // goroutine while a turn appends, so mu guards Messages. Direct Messages reads on
 // the run-loop goroutine stay lock-free (serial with its own writes); cross-
 // goroutine access goes through Snapshot.
+//
+// Aggregate session statistics (TokensIn, TokensOut, TurnCount, CacheHit,
+// CacheMiss, Cost, Currency) are persisted as a sidecar <path>.sessionstats
+// file so a session started in the CLI shows accurate stats when resumed in
+// the desktop frontend.
 type Session struct {
 	mu             sync.RWMutex
 	Messages       []provider.Message
 	rewriteVersion int // bumped each time the log is rewritten (compact/fold)
+
+	// Aggregate session statistics, persisted as a sidecar .meta file.
+	// Set via SetMeta before Save; loaded via LoadMeta after LoadSession.
+	// These are NOT reset on compaction (compaction reuses the same session
+	// and the aggregate is per-session, not per-message).
+	TokensIn   int     `json:"tokensIn"`
+	TokensOut  int     `json:"tokensOut"`
+	TurnCount  int     `json:"turnCount"`
+	CacheHit   int     `json:"cacheHit"`
+	CacheMiss  int     `json:"cacheMiss"`
+	Cost       float64 `json:"cost"`
+	Currency   string  `json:"currency"`
+}
+
+// SessionMeta is the on-disk format for the .meta sidecar file.
+type SessionMeta struct {
+	TokensIn   int     `json:"tokensIn"`
+	TokensOut  int     `json:"tokensOut"`
+	TurnCount  int     `json:"turnCount"`
+	CacheHit   int     `json:"cacheHit"`
+	CacheMiss  int     `json:"cacheMiss"`
+	Cost       float64 `json:"cost"`
+	Currency   string  `json:"currency"`
+	SavedAt    string  `json:"savedAt"`
 }
 
 // NewSession initializes a session with an optional system prompt.
@@ -70,4 +105,87 @@ func (s *Session) HasContent() bool {
 		}
 	}
 	return false
+}
+
+// SetMeta copies aggregate session statistics from the caller into the Session,
+// typically from Agent atomics before saving. Call once before SaveMeta to
+// record the current cumulative totals.
+func (s *Session) SetMeta(tokensIn, tokensOut, turnCount, cacheHit, cacheMiss int, cost float64, currency string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.TokensIn = tokensIn
+	s.TokensOut = tokensOut
+	s.TurnCount = turnCount
+	s.CacheHit = cacheHit
+	s.CacheMiss = cacheMiss
+	s.Cost = cost
+	s.Currency = currency
+}
+
+// statsPath returns the sidecar aggregate-stats file path for a session JSONL,
+// distinct from the .meta file used for branch navigation.
+func statsPath(sessionPath string) string {
+	return sessionPath + ".sessionstats"
+}
+
+// SaveMeta writes the session's aggregate statistics as a JSON sidecar at
+// <path>.sessionstats. This is called alongside Save() so a session started in
+// the CLI shows accurate cumulative stats when resumed in another frontend.
+func (s *Session) SaveMeta(path string) error {
+	if path == "" {
+		return fmt.Errorf("empty session path for meta")
+	}
+	s.mu.RLock()
+	meta := SessionMeta{
+		TokensIn:  s.TokensIn,
+		TokensOut: s.TokensOut,
+		TurnCount: s.TurnCount,
+		CacheHit:  s.CacheHit,
+		CacheMiss: s.CacheMiss,
+		Cost:      s.Cost,
+		Currency:  s.Currency,
+		SavedAt:   time.Now().UTC().Format(time.RFC3339),
+	}
+	s.mu.RUnlock()
+
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return fmt.Errorf("create meta dir: %w", err)
+	}
+
+	tmp, err := os.CreateTemp(filepath.Dir(path), ".session.*.meta.tmp")
+	if err != nil {
+		return fmt.Errorf("create meta tmp: %w", err)
+	}
+	tmpPath := tmp.Name()
+
+	if err := json.NewEncoder(tmp).Encode(meta); err != nil {
+		tmp.Close()
+		os.Remove(tmpPath)
+		return fmt.Errorf("encode meta: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		os.Remove(tmpPath)
+		return err
+	}
+	return fileutil.ReplaceFile(tmpPath, statsPath(path))
+}
+
+// LoadMeta reads the sidecar .sessionstats file for a session. When the stats
+// file doesn't exist (legacy session), it returns a zero-value SessionMeta with
+// no error — callers merge what they can.
+func LoadMeta(path string) (SessionMeta, error) {
+	f, err := os.Open(statsPath(path))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return SessionMeta{}, nil
+		}
+		return SessionMeta{}, err
+	}
+	defer f.Close()
+
+	var meta SessionMeta
+	if err := json.NewDecoder(f).Decode(&meta); err != nil {
+		return SessionMeta{}, fmt.Errorf("decode stats %s: %w", statsPath(path), err)
+	}
+	return meta, nil
 }

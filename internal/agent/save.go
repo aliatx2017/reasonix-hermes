@@ -46,7 +46,11 @@ func (s *Session) Save(path string) error {
 		os.Remove(tmpPath)
 		return err
 	}
-	return fileutil.ReplaceFile(tmpPath, path)
+	if err := fileutil.ReplaceFile(tmpPath, path); err != nil {
+		return err
+	}
+	// Save the sidecar meta file with aggregate session statistics.
+	return s.SaveMeta(path)
 }
 
 // LoadSession reads a JSONL file written by Save into a fresh Session value.
@@ -74,6 +78,16 @@ func LoadSession(path string) (*Session, error) {
 			return nil, fmt.Errorf("decode %s: %w", path, err)
 		}
 		s.Messages = append(s.Messages, m)
+	}
+	// Load sidecar meta (best-effort; legacy sessions won't have one).
+	if meta, err := LoadMeta(path); err == nil {
+		s.TokensIn = meta.TokensIn
+		s.TokensOut = meta.TokensOut
+		s.TurnCount = meta.TurnCount
+		s.CacheHit = meta.CacheHit
+		s.CacheMiss = meta.CacheMiss
+		s.Cost = meta.Cost
+		s.Currency = meta.Currency
 	}
 	return s, nil
 }
