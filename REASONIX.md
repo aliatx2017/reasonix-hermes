@@ -407,8 +407,7 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 ### Next to build
 - [ ] **npm: publish reasonix-hermes** — pipeline verified; needs npm 2FA-bypass token + tag push
-- [ ] **Upstream the LINE adapter** — open a PR to esengine/deepseek-reasonix with `internal/bot/line/`
-- [ ] **Desktop app distribution** — cut a desktop-vX.Y.Z release tag (release-desktop.yml pipeline is ready)
+- [x] ~~Desktop app distribution~~ — `desktop-v1.8.2` tagged + pushed, release pipeline triggered (h18)
 - [x] ~~Desktop orchestration panel~~ — done
 - [x] ~~LearnedPatterns widget~~ — done
 - [x] ~~Vision pipeline restoration~~ — done (h15)
