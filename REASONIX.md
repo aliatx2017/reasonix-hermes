@@ -37,6 +37,7 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 ## Notes
 
 - **Upstream synced**: `v1.8.x` (commit 8ab6d3b, 2026-07-15). 71 new commits merged (model switcher, math rendering, desktop fixes). Previous tag: desktop-v1.8.1.
+- **Commit**: session 2026-07-15 (h18) — controller decomposition (53% reduction), council judge tool, vision fixes, 13 wedge tests, desktop hotbar/profiles fix, base prompt hardened, desktop-v1.8.2 release, collab+mesh+profiles enabled.
 - **Commit**: session 2026-07-15 (h15) — upstream v1.8.x merge (8ab6d3b, 71 commits), vision pipeline restore, logo fix, 13 test fixes, constitution zero-test-failures rule.
 - **npm**: `npm i -g reasonix-hermes` — one-line install. Pipeline verified; publish pending 2FA-bypass token.
 - **Key v1.6.0 additions**: vision support (image downscaling + detail knob), built-in Time + Context7 MCP servers, configurable shell interpreter (`[tools.shell]`), notification sound system, token economy composer mode, desktop time filter + custom fonts + status bar customization + Windows ARM64, crash capture (Go panics/breadcrumbs/group summaries), lightweight local history + memory retrieval, Traditional Chinese (zh-TW) locale, updater resilience, agent fixes (decline-ask guard, compaction bounds), desktop hooks UI.
@@ -409,9 +410,11 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
   - `internal/control/refs_test.go`: 4 new test cases (quoted-only, mixed quoted+unquoted, quoted-with-unquoted).
 - **Build**: go build/vet clean. All 73 test packages pass. 5 new files (council.go, council_test.go, confine.go +1, refs.go +2, refs_test.go +4).
 
+### Session 2026-07-15 (h18) — Controller decomposition, desktop fix, base prompt, config, wedge tests
+
+See commit notes above. Highlights: controller 53% reduction, base prompt complete_step protocol,
+desktop hotbar/profiles root-cause fix, 13 wedge tests, desktop-v1.8.2, collab+mesh+profiles enabled.
+
 ### Next to build
 - [ ] **npm: publish reasonix-hermes** — pipeline verified; needs npm 2FA-bypass token + tag push
-- [x] ~~Desktop app distribution~~ — `desktop-v1.8.2` tagged + pushed, release pipeline triggered (h18)
-- [x] ~~Desktop orchestration panel~~ — done
-- [x] ~~LearnedPatterns widget~~ — done
-- [x] ~~Vision pipeline restoration~~ — done (h15)
+- [x] ~~Desktop app distribution~~ — `desktop-v1.8.2` tagged + pushed (h18)
