@@ -37,7 +37,7 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 ## Notes
 
 - **Upstream synced**: `v1.8.x` (commit 8ab6d3b, 2026-07-15). 71 new commits merged (model switcher, math rendering, desktop fixes). Previous tag: desktop-v1.8.1.
-- **Commit**: session 2026-07-15 (h18) — controller decomposition (53% reduction), council judge tool, vision fixes, 13 wedge tests, desktop hotbar/profiles fix, base prompt hardened, desktop-v1.8.2 release, collab+mesh+profiles enabled.
+- **Commit**: session 2026-07-15 (h19) — animated logo gradient banner (indigo→cyan→pink), doc sweep (8 files, stale binary names fixed), all prior h18 work.
 - **Commit**: session 2026-07-15 (h15) — upstream v1.8.x merge (8ab6d3b, 71 commits), vision pipeline restore, logo fix, 13 test fixes, constitution zero-test-failures rule.
 - **npm**: `npm i -g reasonix-hermes` — one-line install. Pipeline verified; publish pending 2FA-bypass token.
 - **Key v1.6.0 additions**: vision support (image downscaling + detail knob), built-in Time + Context7 MCP servers, configurable shell interpreter (`[tools.shell]`), notification sound system, token economy composer mode, desktop time filter + custom fonts + status bar customization + Windows ARM64, crash capture (Go panics/breadcrumbs/group summaries), lightweight local history + memory retrieval, Traditional Chinese (zh-TW) locale, updater resilience, agent fixes (decline-ask guard, compaction bounds), desktop hooks UI.
