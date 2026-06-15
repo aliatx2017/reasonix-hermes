@@ -32,8 +32,8 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 ## Notes
 
-- **Upstream synced**: `v1.7.0` (commit b225dd7, 2026-07-15). ~7 new commits merged across sessions. Upstream `v1.8.0` tags exist (desktop-v1.8.0, npm-v1.8.0-rc.1) but no new branch commits yet.
-- **Commit**: session 2026-07-15 (h13) — golang patterns audit, dead code removal, t.Parallel, council judge, docs consolidation, vision aux config.
+- **Upstream synced**: `v1.8.x` (commit 8ab6d3b, 2026-07-15). 71 new commits merged (model switcher, math rendering, desktop fixes). Previous tag: desktop-v1.8.1.
+- **Commit**: session 2026-07-15 (h15) — upstream v1.8.x merge (8ab6d3b, 71 commits), vision pipeline restore, logo fix, 13 test fixes, constitution zero-test-failures rule.
 - **npm**: `npm i -g reasonix-hermes` — one-line install. Pipeline verified; publish pending 2FA-bypass token.
 - **Key v1.6.0 additions**: vision support (image downscaling + detail knob), built-in Time + Context7 MCP servers, configurable shell interpreter (`[tools.shell]`), notification sound system, token economy composer mode, desktop time filter + custom fonts + status bar customization + Windows ARM64, crash capture (Go panics/breadcrumbs/group summaries), lightweight local history + memory retrieval, Traditional Chinese (zh-TW) locale, updater resilience, agent fixes (decline-ask guard, compaction bounds), desktop hooks UI.
 - **Key v1.7.0 additions** (merged 2026-07-14): reasoning language settings (`agent.reasoning_language`), session ownership and state routing integration, checkpoint boundary corrections (optimistic rewind), enriched+memoized shell PATH for MCP stdio subprocesses, dropped phrase-matched approved-plan continuation, desktop golangci-lint CI, `SaveDocForTab` Wails binding.
@@ -378,9 +378,24 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 - **Build**: All 6 binaries compile (reasonix 30MB, bot 16MB, memoryserver 16MB, mcpbridge 9MB, pr-review 9MB, hooks 9MB). `go build ./... && go vet ./...` + `tsc --noEmit` clean. All 72 test packages pass. Fixed 1 pre-existing test: `TestSlashCompletionFilterAndAccept` — `/co` prefix now matches 3 commands (/compact, /cost, /council) vs. the previous 1.
 
+### Session 2026-07-15 (h15) — Screenshot analysis, logo fix, upstream merge, test sweep
+
+- **Vision pipeline restored**: `[agent.auxiliary.vision]` config was missing from `reasonix.toml` — lost via `render.go` data-loss bug on earlier `Config.Save()`. Restored with correct TOML structure (`[agent.auxiliary]` intermediate table required by BurntSushi/toml). `vision = true` + `vision_detail = "high"` on `ollamacloud-vision` provider. Screenshot analyzed end-to-end via `ollamacloud-vision/gemini-3-flash-preview`.
+- **Logo fix**: Removed diamond `◆` from `docs/logo-animated.svg` and `docs/logo.svg` — now reads `Reasonix-Hermes` (no symbol between).
+- **Upstream merge**: 71 new commits from `a029618` → `8ab6d3b` — model switcher with provider grouping + search, desktop Young diagram/Katex rendering, inline math fixes, ⌘W/Ctrl+W tab close, slashed LaTeX forms, history payload perf, crash capture improvements, read-only session guards. 7 conflicts resolved (math/model-switcher TypeScript files accepted upstream).
+- **13 test failures fixed** (all now pass — zero tolerance):
+  - `TestSetEffortRebuildsController`, `TestSetTokenModeRebuildsController`, `TestClearSessionCancelsRunningRuntimeAndKeepsTopic`, `TestModelsForTab*`, `TestSetReasoningLanguageUpdatesLiveTabControllers`: Added `t.Chdir(home)` + explicit test config save to isolate from project `reasonix.toml`
+  - `TestDeleteProviderRejectsAffectedBackgroundJobs`: Was already passing (existing `controllerHasActiveRuntimeWork` guard)
+  - 5 crash pending tests: Added `isolateDesktopUserDirs(t)` for HOME isolation
+  - `TestOfficialMimoAPITemplateIncludesVisionModels`: Updated assertion to match upstream MiMo API template (only `mimo-v2.5-pro` now)
+  - Desktop build errors: Restored Hermes struct fields/methods dropped by merge — `SessionMeta` channel metadata (Kind/Channel/ChannelLabel/RemoteID/etc.), `WorkspaceTab.ReadOnly`, `TabMeta.ReadOnly`, `DesktopLayoutStyle` on SettingsView, `snapshotTab`, `OpenChannelSessionForTab`, `applyReasoningLanguageToLiveControllers`, `channelSessionRoutesForDir` + helpers
+- **Constitution**: Added `zero-test-failures` as ERROR-level constraint + rule in `.reasonix/constitution.json`. Saved `zero-test-failures` memory — hard rule: no test failure tolerated, ever, no "pre-existing" excuse.
+- **Build**: All go build/vet pass. All tests pass (main + desktop). tsc --noEmit 0 errors.
+
 ### Next to build
 - [ ] **npm: publish reasonix-hermes** — pipeline verified; needs npm 2FA-bypass token + tag push
 - [ ] **Upstream the LINE adapter** — open a PR to esengine/deepseek-reasonix with `internal/bot/line/`
 - [ ] **Desktop app distribution** — cut a desktop-vX.Y.Z release tag (release-desktop.yml pipeline is ready)
-- [x] **Desktop orchestration panel** — OrchestratePanel widget done (Chain/Pair/CI-Fix cards)
-- [x] **LearnedPatterns widget** — LearnedPatternsPanel done (patterns + trajectories)
+- [x] ~~Desktop orchestration panel~~ — done
+- [x] ~~LearnedPatterns widget~~ — done
+- [x] ~~Vision pipeline restoration~~ — done (h15)

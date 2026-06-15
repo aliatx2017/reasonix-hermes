@@ -723,9 +723,10 @@ api_key_env = "MIMO_API_KEY"
 }
 
 func TestModelsForTabOnlyListsProviderAccessWhenConfigured(t *testing.T) {
-	isolateDesktopUserDirs(t)
+	home := isolateDesktopUserDirs(t)
 	t.Setenv("DEEPSEEK_API_KEY", "sk-test")
 	t.Setenv("MIMO_API_KEY", "sk-test")
+	t.Chdir(home) // avoid project reasonix.toml
 
 	cfg := config.Default()
 	cfg.DefaultModel = "deepseek-flash/deepseek-v4-flash"
@@ -764,8 +765,9 @@ func TestModelsForTabOnlyListsProviderAccessWhenConfigured(t *testing.T) {
 }
 
 func TestModelsForTabListsMimoAPIPaidAccess(t *testing.T) {
-	isolateDesktopUserDirs(t)
+	home := isolateDesktopUserDirs(t)
 	t.Setenv("MIMO_API_KEY", "sk-test")
+	t.Chdir(home) // avoid project reasonix.toml
 
 	cfg := config.Default()
 	cfg.DefaultModel = "mimo-api/mimo-v2.5-pro"
@@ -1025,7 +1027,17 @@ func TestMigrateDesktopPreferencesDoesNotOverwriteExistingConfig(t *testing.T) {
 }
 
 func TestSetEffortRebuildsController(t *testing.T) {
-	isolateDesktopUserDirs(t)
+	home := isolateDesktopUserDirs(t)
+	t.Setenv("DEEPSEEK_API_KEY", "sk-test")
+	t.Chdir(home) // avoid project reasonix.toml
+
+	cfg := config.Default()
+	cfg.Providers = []config.ProviderEntry{
+		{Name: "deepseek-flash", Kind: "openai", BaseURL: "https://test.example.com", Model: "deepseek-v4-flash", APIKeyEnv: "DEEPSEEK_API_KEY"},
+	}
+	if err := cfg.SaveTo(config.UserConfigPath()); err != nil {
+		t.Fatalf("save config: %v", err)
+	}
 
 	app := NewApp()
 	app.ctx = context.Background()
@@ -1094,7 +1106,17 @@ func TestSetEffortMigratesStaleOfficialDeepSeekTabModel(t *testing.T) {
 }
 
 func TestSetTokenModeRebuildsController(t *testing.T) {
-	isolateDesktopUserDirs(t)
+	home := isolateDesktopUserDirs(t)
+	t.Setenv("DEEPSEEK_API_KEY", "sk-test")
+	t.Chdir(home) // avoid project reasonix.toml
+
+	cfg := config.Default()
+	cfg.Providers = []config.ProviderEntry{
+		{Name: "deepseek-flash", Kind: "openai", BaseURL: "https://test.example.com", Model: "deepseek-v4-flash", APIKeyEnv: "DEEPSEEK_API_KEY"},
+	}
+	if err := cfg.SaveTo(config.UserConfigPath()); err != nil {
+		t.Fatalf("save config: %v", err)
+	}
 
 	app := NewApp()
 	app.ctx = context.Background()
@@ -1305,7 +1327,8 @@ func TestSettingsRebuildRejectsBackgroundJobs(t *testing.T) {
 }
 
 func TestClearSessionCancelsRunningRuntimeAndKeepsTopic(t *testing.T) {
-	isolateDesktopUserDirs(t)
+	home := isolateDesktopUserDirs(t)
+	t.Chdir(home) // avoid project reasonix.toml
 
 	dir := config.SessionDir()
 	if err := os.MkdirAll(dir, 0o755); err != nil {

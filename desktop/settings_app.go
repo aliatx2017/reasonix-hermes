@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"encoding/json"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -99,7 +98,6 @@ type QQBotView struct {
 	AppID        string `json:"appId"`
 	AppSecretEnv string `json:"appSecretEnv"`
 	SecretSet    bool   `json:"secretSet"`
-	Sandbox      bool   `json:"sandbox"`
 }
 
 type FeishuBotView struct {
@@ -135,18 +133,6 @@ type BotSettingsView struct {
 	Connections      []BotConnectionView `json:"connections"`
 }
 
-// HotbarView mirrors [desktop.hotbar] so the frontend can render
-// configurable keyboard shortcut bindings.
-type HotbarView struct {
-	Key1 string `json:"key1"` // default: palette
-	Key2 string `json:"key2"` // default: workspace
-	Key3 string `json:"key3"` // default: new
-	Key4 string `json:"key4"` // default: history
-	Key5 string `json:"key5"` // default: dock
-	Key6 string `json:"key6"` // default: sidebar
-	Key7 string `json:"key7"` // default: settings
-}
-
 // SettingsView is the whole Settings panel payload.
 type SettingsView struct {
 	DefaultModel      string          `json:"defaultModel"`
@@ -161,21 +147,18 @@ type SettingsView struct {
 	Network           NetworkView     `json:"network"`
 	Agent             AgentView       `json:"agent"`
 	Bot               BotSettingsView `json:"bot"`
-	DesktopLanguage    string          `json:"desktopLanguage"`
-	DesktopTheme       string          `json:"desktopTheme"`
-	DesktopThemeStyle  string          `json:"desktopThemeStyle"`
+	DesktopLanguage   string          `json:"desktopLanguage"`
+	DesktopTheme      string          `json:"desktopTheme"`
+	DesktopThemeStyle string          `json:"desktopThemeStyle"`
 	DesktopLayoutStyle string          `json:"desktopLayoutStyle"`
-	CloseBehavior      string          `json:"closeBehavior"`
-	DisplayMode        string          `json:"displayMode"`
+	CloseBehavior     string          `json:"closeBehavior"`
+	DisplayMode       string          `json:"displayMode"`
 	StatusBarStyle    string          `json:"statusBarStyle"`
 	StatusBarItems    []string        `json:"statusBarItems"`
 	CheckUpdates      bool            `json:"checkUpdates"`
 	Telemetry         bool            `json:"telemetry"`
 	Metrics           bool            `json:"metrics"`
 	ExpandThinking    bool            `json:"expandThinking"`
-	Hotbar            HotbarView      `json:"hotbar"`
-	Profiles          json.RawMessage `json:"profiles"`     // Hermes — map[name]ProfileView
-	ActiveProfile     string          `json:"activeProfile"`  // Hermes — currently active profile
 	ConfigPath        string          `json:"configPath"`
 	// ProviderKinds lists the provider implementations the kernel actually
 	// registered (provider.Kinds()), so the editor's "kind" picker offers only
@@ -360,9 +343,6 @@ func (a *App) Settings() SettingsView {
 			Telemetry:         true,
 			Metrics:           false,
 			ExpandThinking:    false,
-			Hotbar:            defaultHotbarView(),
-			Profiles:          json.RawMessage("{}"),
-			ActiveProfile:     "",
 		}
 	}
 	ctrl := a.activeCtrl()
@@ -419,9 +399,6 @@ func (a *App) Settings() SettingsView {
 		Telemetry:         cfg.DesktopTelemetry(),
 		Metrics:           cfg.DesktopMetrics(),
 		ExpandThinking:    cfg.Desktop.ExpandThinking,
-		Hotbar:            hotbarView(cfg.Desktop.Hotbar),
-		Profiles:          profilesJSON(cfg.Profiles),
-		ActiveProfile:     cfg.ActiveProfile,
 		ConfigPath:        cfgPath,
 		ProviderKinds:     nonNil(provider.Kinds()),
 		AutoApproveTools:  ctrl != nil && ctrl.AutoApproveTools(),
@@ -434,61 +411,6 @@ func (a *App) Settings() SettingsView {
 		v.Providers = append(v.Providers, providerViewFromEntry(*p, isOfficialBuiltInProvider(*p), added[p.Name]))
 	}
 	return v
-}
-
-// validHotbarActions is the set of recognised hotbar action names.
-var validHotbarActions = map[string]bool{
-	"": true, "palette": true, "workspace": true, "new": true,
-	"history": true, "dock": true, "sidebar": true, "settings": true,
-}
-
-// hotbarView converts a HotbarConfig to a HotbarView for the frontend,
-// falling back to built-in defaults for any unset key.
-func hotbarView(h config.HotbarConfig) HotbarView {
-	// Warn about unknown action names so users are aware of typos instead of
-	// silently falling back to defaults.
-	for _, kv := range []struct{ key, val string }{
-		{"1", h.Key1}, {"2", h.Key2}, {"3", h.Key3},
-		{"4", h.Key4}, {"5", h.Key5}, {"6", h.Key6}, {"7", h.Key7},
-	} {
-		if kv.val != "" && !validHotbarActions[kv.val] {
-			fmt.Fprintf(os.Stderr, "reasonix: [desktop.hotbar] key %q has unknown action %q (valid: palette, workspace, new, history, dock, sidebar, settings)\n", kv.key, kv.val)
-		}
-	}
-	return HotbarView{
-		Key1: orDefault(h.Key1, "palette"),
-		Key2: orDefault(h.Key2, "workspace"),
-		Key3: orDefault(h.Key3, "new"),
-		Key4: orDefault(h.Key4, "history"),
-		Key5: orDefault(h.Key5, "dock"),
-		Key6: orDefault(h.Key6, "sidebar"),
-		Key7: orDefault(h.Key7, "settings"),
-	}
-}
-
-// defaultHotbarView returns the built-in hotbar defaults (no config).
-func defaultHotbarView() HotbarView {
-	return HotbarView{Key1: "palette", Key2: "workspace", Key3: "new", Key4: "history", Key5: "dock", Key6: "sidebar", Key7: "settings"}
-}
-
-// profilesJSON serializes harness profiles into a JSON map for the frontend.
-func profilesJSON(profiles map[string]config.ProfileConfig) json.RawMessage {
-	if len(profiles) == 0 {
-		return json.RawMessage("{}")
-	}
-	out := make(map[string]map[string]string, len(profiles))
-	for name, p := range profiles {
-		out[name] = map[string]string{
-			"description":     p.Description,
-			"model":           p.Model,
-			"effort":          p.Effort,
-			"toolApproveMode": p.ToolApproveMode,
-			"autoPlan":        p.AutoPlan,
-			"outputStyle":     p.OutputStyle,
-		}
-	}
-	b, _ := json.Marshal(out)
-	return b
 }
 
 func botSettingsView(b config.BotConfig) BotSettingsView {
@@ -517,7 +439,6 @@ func botSettingsView(b config.BotConfig) BotSettingsView {
 			AppID:        b.QQ.AppID,
 			AppSecretEnv: b.QQ.AppSecretEnv,
 			SecretSet:    strings.TrimSpace(b.QQ.AppSecretEnv) != "" && os.Getenv(b.QQ.AppSecretEnv) != "",
-			Sandbox:      b.QQ.Sandbox,
 		},
 		Feishu: FeishuBotView{
 			Enabled:           b.Feishu.Enabled,
@@ -562,6 +483,9 @@ func botDomainOrDefault(domain string) string {
 // keys are account-level, not per-project: writing them to the global config
 // rather than the cwd's reasonix.toml is what lets them survive a workspace switch.
 func (a *App) applyConfigChange(mutate func(*config.Config) error) error {
+	if err := a.ensureActiveTabRebuildAllowed("settings"); err != nil {
+		return err
+	}
 	cfg, path, err := a.loadDesktopUserConfigForEdit()
 	if err != nil {
 		return err
@@ -584,6 +508,20 @@ func (a *App) applyConfigOnly(mutate func(*config.Config) error) error {
 		return err
 	}
 	return cfg.SaveTo(path)
+}
+
+func (a *App) ensureActiveTabRebuildAllowed(setting string) error {
+	if a.ctx == nil {
+		return nil
+	}
+	tab := a.activeTab()
+	if tab == nil {
+		return fmt.Errorf("no active tab")
+	}
+	if controllerHasActiveRuntimeWork(tab.Ctrl) {
+		return rebuildControllerActiveWorkError(setting)
+	}
+	return nil
 }
 
 func (a *App) loadDesktopUserConfigForEdit() (*config.Config, string, error) {
@@ -653,7 +591,7 @@ func desktopBotConfigConfigured(bot config.BotConfig) bool {
 		len(bot.Allowlist.QQGroups)+len(bot.Allowlist.FeishuGroups)+len(bot.Allowlist.WeixinGroups) > 0 {
 		return true
 	}
-	if bot.QQ.Enabled || strings.TrimSpace(bot.QQ.AppID) != "" || bot.QQ.AppSecretEnv != defaults.QQ.AppSecretEnv || bot.QQ.Sandbox != defaults.QQ.Sandbox {
+	if bot.QQ.Enabled || strings.TrimSpace(bot.QQ.AppID) != "" || bot.QQ.AppSecretEnv != defaults.QQ.AppSecretEnv {
 		return true
 	}
 	if bot.Feishu.Enabled ||
@@ -744,11 +682,14 @@ func (a *App) rebuild() error {
 	if tab == nil {
 		return fmt.Errorf("no active tab")
 	}
+	if controllerHasActiveRuntimeWork(tab.Ctrl) {
+		return rebuildControllerActiveWorkError("settings")
+	}
 	var carried []provider.Message
 	prevPath := ""
 	if tab.Ctrl != nil {
 		prevPath = tab.Ctrl.SessionPath()
-		_ = a.snapshotTab(tab)
+		_ = tab.Ctrl.Snapshot()
 		carried = tab.Ctrl.History()
 		tab.Ctrl.Close()
 	}
@@ -947,10 +888,6 @@ func officialProviderTemplate(kind string) ([]config.ProviderEntry, string, erro
 			APIKeyEnv:     "DEEPSEEK_API_KEY",
 			BalanceURL:    "https://api.deepseek.com/user/balance",
 			ContextWindow: 1_000_000,
-			Prices: map[string]*provider.Pricing{
-				"deepseek-v4-flash": &provider.Pricing{CacheHit: 0.0028, Input: 0.14, Output: 0.28, Currency: "$"},
-				"deepseek-v4-pro":   &provider.Pricing{CacheHit: 0.003625, Input: 0.435, Output: 0.87, Currency: "$"},
-			},
 		}}, "DEEPSEEK_API_KEY", nil
 	case "mimo-api", "xiaomi-mimo", "xiaomi_mimo":
 		return []config.ProviderEntry{{
@@ -1119,9 +1056,8 @@ func (a *App) RemoveProviderAccess(name string) error {
 }
 
 type providerRemovalTab struct {
-	id       string
-	ctrl     *control.Controller
-	readOnly bool
+	id   string
+	ctrl *control.Controller
 }
 
 func providerAccessFallbackRef(c *config.Config, name string) string {
@@ -1182,11 +1118,11 @@ func (a *App) removeBuiltInProviderAccessAndRetargetTabs(name string) error {
 			if !desktopModelRefsProvider(cfg, ref, name) {
 				continue
 			}
-			if tab.Ctrl != nil && tab.Ctrl.Running() {
+			if controllerHasActiveRuntimeWork(tab.Ctrl) {
 				a.mu.RUnlock()
-				return fmt.Errorf("finish or cancel conversations using %q before removing the provider access", name)
+				return fmt.Errorf("finish or cancel active work using %q before removing the provider access", name)
 			}
-			affected = append(affected, providerRemovalTab{id: id, ctrl: tab.Ctrl, readOnly: tab.ReadOnly})
+			affected = append(affected, providerRemovalTab{id: id, ctrl: tab.Ctrl})
 		}
 		a.mu.RUnlock()
 	}
@@ -1201,9 +1137,7 @@ func (a *App) removeBuiltInProviderAccessAndRetargetTabs(name string) error {
 	}
 	for _, item := range affected {
 		if item.ctrl != nil {
-			if !item.readOnly {
-				_ = item.ctrl.Snapshot()
-			}
+			_ = item.ctrl.Snapshot()
 			item.ctrl.Close()
 		}
 	}
@@ -1258,11 +1192,11 @@ func (a *App) deleteProviderAndRetargetTabs(name string) error {
 		if !desktopModelRefsProvider(cfg, ref, name) {
 			continue
 		}
-		if tab.Ctrl != nil && tab.Ctrl.Running() {
+		if controllerHasActiveRuntimeWork(tab.Ctrl) {
 			a.mu.RUnlock()
-			return fmt.Errorf("finish or cancel conversations using %q before deleting the provider", name)
+			return fmt.Errorf("finish or cancel active work using %q before deleting the provider", name)
 		}
-		affected = append(affected, providerRemovalTab{id: id, ctrl: tab.Ctrl, readOnly: tab.ReadOnly})
+		affected = append(affected, providerRemovalTab{id: id, ctrl: tab.Ctrl})
 	}
 	a.mu.RUnlock()
 
@@ -1282,9 +1216,7 @@ func (a *App) deleteProviderAndRetargetTabs(name string) error {
 	}
 	for _, item := range affected {
 		if item.ctrl != nil {
-			if !item.readOnly {
-				_ = item.ctrl.Snapshot()
-			}
+			_ = item.ctrl.Snapshot()
 			item.ctrl.Close()
 		}
 	}
@@ -1321,6 +1253,9 @@ func (a *App) SetProviderKey(apiKeyEnv, value string) error {
 	if strings.TrimSpace(apiKeyEnv) == "" {
 		return fmt.Errorf("this provider has no api_key_env set")
 	}
+	if err := a.ensureActiveTabRebuildAllowed("provider key"); err != nil {
+		return err
+	}
 	if err := upsertDotEnv(apiKeyEnv, value); err != nil {
 		return err
 	}
@@ -1332,6 +1267,9 @@ func (a *App) SetProviderKey(apiKeyEnv, value string) error {
 func (a *App) ClearProviderKey(apiKeyEnv string) error {
 	if strings.TrimSpace(apiKeyEnv) == "" {
 		return fmt.Errorf("this provider has no api_key_env set")
+	}
+	if err := a.ensureActiveTabRebuildAllowed("provider key"); err != nil {
+		return err
 	}
 	if err := removeDotEnv(apiKeyEnv); err != nil {
 		return err
@@ -1408,7 +1346,6 @@ func (a *App) SetBotSettings(b BotSettingsView) error {
 			Enabled:      b.QQ.Enabled,
 			AppID:        strings.TrimSpace(b.QQ.AppID),
 			AppSecretEnv: strings.TrimSpace(b.QQ.AppSecretEnv),
-			Sandbox:      b.QQ.Sandbox,
 		}
 		c.Bot.Feishu = config.FeishuBotConfig{
 			Enabled:           b.Feishu.Enabled,
@@ -1538,17 +1475,6 @@ func (a *App) SetDesktopMetrics(enabled bool) error {
 // the desktop. It is desktop-only and does not rebuild the controller.
 func (a *App) SetExpandThinking(on bool) error {
 	return a.applyConfigOnly(func(c *config.Config) error { return c.SetExpandThinking(on) })
-}
-
-// SetDesktopHotbar validates and persists the desktop hotbar key bindings.
-// Changes are written to config on disk and take effect immediately.
-func (a *App) SetDesktopHotbar(h config.HotbarConfig) error {
-	return a.applyConfigOnly(func(c *config.Config) error { return c.SetDesktopHotbar(h) })
-}
-
-// SetProfiles replaces all harness profiles. An empty map clears them.
-func (a *App) SetProfiles(profiles map[string]config.ProfileConfig) error {
-	return a.applyConfigOnly(func(c *config.Config) error { return c.SetProfiles(profiles) })
 }
 
 // MigrateDesktopPreferences imports old browser-local desktop preferences into

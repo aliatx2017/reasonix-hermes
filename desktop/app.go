@@ -461,7 +461,6 @@ func (a *App) restoreOrBuildTabs() {
 				tab.toolApprovalMode = control.ToolApprovalYolo
 			}
 			tab.SessionPath = strings.TrimSpace(entry.SessionPath)
-			tab.ReadOnly = entry.ReadOnly
 			tab.sink = &tabEventSink{tabID: tab.ID, app: a, ctx: ctx}
 			a.mu.Lock()
 			a.tabs[tab.ID] = tab
@@ -520,7 +519,9 @@ func (a *App) snapshotAllTabs() {
 	tabs := a.runtimeTabsLocked()
 	a.mu.RUnlock()
 	for _, t := range tabs {
-		_ = a.snapshotTab(t)
+		if t.Ctrl != nil && !t.ReadOnly {
+			_ = t.Ctrl.Snapshot()
+		}
 	}
 }
 
@@ -537,7 +538,7 @@ func (a *App) shutdown(context.Context) {
 	a.mu.RUnlock()
 	for _, t := range tabs {
 		if t.Ctrl != nil {
-			_ = a.snapshotTab(t)
+			_ = t.Ctrl.Snapshot()
 			t.Ctrl.Close()
 		}
 	}
@@ -600,9 +601,6 @@ func (a *App) Submit(input string) {
 }
 
 func (a *App) SubmitToTab(tabID, input string) {
-	if a.tabReadOnly(tabID) {
-		return
-	}
 	trimmed := strings.TrimSpace(input)
 	if trimmed == "/effort" || strings.HasPrefix(trimmed, "/effort ") {
 		a.runEffortCommandForTab(tabID, trimmed)
@@ -620,9 +618,6 @@ func (a *App) RunShell(command string) {
 }
 
 func (a *App) RunShellForTab(tabID, command string) {
-	if a.tabReadOnly(tabID) {
-		return
-	}
 	if ctrl := a.ctrlByTabID(tabID); ctrl != nil {
 		ctrl.RunShell(command)
 	}
@@ -635,9 +630,6 @@ func (a *App) SubmitDisplay(display, input string) {
 }
 
 func (a *App) SubmitDisplayToTab(tabID, display, input string) {
-	if a.tabReadOnly(tabID) {
-		return
-	}
 	ctrl := a.ctrlByTabID(tabID)
 	if ctrl == nil {
 		return
@@ -676,23 +668,12 @@ func (a *App) Steer(text string) {
 
 // SteerForTab sends mid-turn guidance to a specific tab's agent.
 func (a *App) SteerForTab(tabID, text string) {
-	if a.tabReadOnly(tabID) {
-		return
-	}
 	if ctrl := a.ctrlByTabID(tabID); ctrl != nil {
 		ctrl.Steer(text)
 	}
 }
 
-func (a *App) tabReadOnly(tabID string) bool {
-	tab := a.tabByID(tabID)
-	return tab != nil && tab.ReadOnly
-}
-
-func readOnlyChannelErr() error {
-	return fmt.Errorf("channel session is read-only")
-}
-
+// snapshotTab persists the current session if the tab is writable.
 func (a *App) snapshotTab(tab *WorkspaceTab) error {
 	if tab == nil {
 		return nil
@@ -900,12 +881,8 @@ func (a *App) AnswerQuestionForTab(tabID, id string, answers []QuestionAnswer) {
 // compaction goes through Submit("/compact <focus>") instead.
 func (a *App) Compact() error {
 	a.mu.RLock()
-	tab := a.activeTabLocked()
 	ctrl := a.activeCtrlLocked()
 	a.mu.RUnlock()
-	if tab != nil && tab.ReadOnly {
-		return readOnlyChannelErr()
-	}
 	if ctrl == nil {
 		return nil
 	}
@@ -928,9 +905,6 @@ func (a *App) NewSession() error {
 	tab := a.activeTabLocked()
 	ctrl := a.activeCtrlLocked()
 	a.mu.RUnlock()
-	if tab != nil && tab.ReadOnly {
-		return readOnlyChannelErr()
-	}
 	if ctrl == nil {
 		return workspaceNotReadyErr(tab)
 	}
@@ -963,9 +937,6 @@ func (a *App) ClearSession() error {
 	tab := a.activeTabLocked()
 	ctrl := a.activeCtrlLocked()
 	a.mu.RUnlock()
-	if tab != nil && tab.ReadOnly {
-		return readOnlyChannelErr()
-	}
 	if ctrl == nil {
 		return workspaceNotReadyErr(tab)
 	}
@@ -1149,12 +1120,8 @@ func (a *App) ToolResultForTab(tabID, toolID string) *control.ToolResultData {
 // re-reads History after this resolves.
 func (a *App) Rewind(turn int, scope string) error {
 	a.mu.RLock()
-	tab := a.activeTabLocked()
 	ctrl := a.activeCtrlLocked()
 	a.mu.RUnlock()
-	if tab != nil && tab.ReadOnly {
-		return readOnlyChannelErr()
-	}
 	if ctrl == nil {
 		return nil
 	}
@@ -1177,10 +1144,6 @@ func (a *App) Fork(turn int) (TabMeta, error) {
 	if sourceTab == nil || ctrl == nil {
 		a.mu.RUnlock()
 		return TabMeta{}, nil
-	}
-	if sourceTab.ReadOnly {
-		a.mu.RUnlock()
-		return TabMeta{}, readOnlyChannelErr()
 	}
 	scope := sourceTab.Scope
 	workspaceRoot := sourceTab.WorkspaceRoot
@@ -1250,12 +1213,8 @@ func (a *App) Fork(turn int) (TabMeta, error) {
 // code intact. The frontend re-reads History after this resolves.
 func (a *App) SummarizeFrom(turn int) error {
 	a.mu.RLock()
-	tab := a.activeTabLocked()
 	ctrl := a.activeCtrlLocked()
 	a.mu.RUnlock()
-	if tab != nil && tab.ReadOnly {
-		return readOnlyChannelErr()
-	}
 	if ctrl == nil {
 		return nil
 	}
@@ -1264,12 +1223,8 @@ func (a *App) SummarizeFrom(turn int) error {
 
 func (a *App) SummarizeUpTo(turn int) error {
 	a.mu.RLock()
-	tab := a.activeTabLocked()
 	ctrl := a.activeCtrlLocked()
 	a.mu.RUnlock()
-	if tab != nil && tab.ReadOnly {
-		return readOnlyChannelErr()
-	}
 	if ctrl == nil {
 		return nil
 	}
@@ -1292,16 +1247,23 @@ type SessionMeta struct {
 	WorkspaceRoot  string `json:"workspaceRoot,omitempty"`
 	TopicID        string `json:"topicId,omitempty"`
 	TopicTitle     string `json:"topicTitle,omitempty"`
-	Kind           string `json:"kind,omitempty"` // "channel" for external IM transcripts
-	Channel        string `json:"channel,omitempty"`
-	ChannelLabel   string `json:"channelLabel,omitempty"`
-	RemoteID       string `json:"remoteId,omitempty"`
-	ChatType       string `json:"chatType,omitempty"`
-	UserID         string `json:"userId,omitempty"`
-	ThreadID       string `json:"threadId,omitempty"`
-	SessionSource  string `json:"sessionSource,omitempty"`
+	Kind           string `json:"kind,omitempty"`           // "channel" for external IM transcripts
+	Channel        string `json:"channel,omitempty"`        // provider: "discord"|"weixin"|"telegram"|etc.
+	ChannelLabel   string `json:"channelLabel,omitempty"`   // display name
+	RemoteID       string `json:"remoteId,omitempty"`       // bot session id
+	ChatType       string `json:"chatType,omitempty"`       // "dm"|"group"
+	UserID         string `json:"userId,omitempty"`         // discord user id / wx openid
+	ThreadID       string `json:"threadId,omitempty"`       // discord thread / wx group
+	SessionSource  string `json:"sessionSource,omitempty"`  // "auto"|"manual"
 }
 
+type WorkspaceMeta struct {
+	Path    string `json:"path"`
+	Name    string `json:"name"`
+	Current bool   `json:"current"`
+}
+
+// channelSessionRoute maps bot session-mapping metadata to a transcript file.
 type channelSessionRoute struct {
 	channel       string
 	channelLabel  string
@@ -1312,10 +1274,104 @@ type channelSessionRoute struct {
 	sessionSource string
 }
 
-type WorkspaceMeta struct {
-	Path    string `json:"path"`
-	Name    string `json:"name"`
-	Current bool   `json:"current"`
+// botSessionPathTarget extracts a session file path from a bot session-mapping reference.
+func botSessionPathTarget(sessionID string) string {
+	sessionID = strings.TrimSpace(sessionID)
+	if sessionID == "" {
+		return ""
+	}
+	if strings.HasPrefix(strings.ToLower(sessionID), "path:") {
+		return strings.TrimSpace(sessionID[5:])
+	}
+	if strings.HasSuffix(sessionID, ".jsonl") || strings.Contains(sessionID, "/") || strings.Contains(sessionID, `\`) || strings.HasPrefix(sessionID, "~") {
+		return sessionID
+	}
+	return ""
+}
+
+// channelDisplayName returns a human-readable label for a bot channel.
+func channelDisplayName(provider, domain string) string {
+	provider = strings.TrimSpace(provider)
+	domain = strings.TrimSpace(domain)
+	switch provider {
+	case "feishu":
+		if strings.EqualFold(domain, "lark") {
+			return "Lark"
+		}
+		return "Feishu"
+	case "weixin":
+		return "WeChat"
+	case "qq":
+		return "QQ"
+	default:
+		return provider
+	}
+}
+
+// channelSessionRoutesForDir reads the user config and returns a map from
+// session-runtime key → channel metadata for every auto-mapped bot session.
+func channelSessionRoutesForDir(dir string) map[string]channelSessionRoute {
+	userPath := config.UserConfigPath()
+	if strings.TrimSpace(userPath) == "" {
+		return nil
+	}
+	cfg := config.LoadForEdit(userPath)
+	out := map[string]channelSessionRoute{}
+	for _, conn := range cfg.Bot.Connections {
+		channel := strings.TrimSpace(conn.Provider)
+		if channel == "" {
+			continue
+		}
+		channelLabel := strings.TrimSpace(conn.Label)
+		if channelLabel == "" {
+			channelLabel = channelDisplayName(channel, conn.Domain)
+		}
+		for _, mapping := range conn.SessionMappings {
+			if strings.TrimSpace(mapping.SessionSource) != "auto" {
+				continue
+			}
+			sessionPath := botSessionPathTarget(mapping.SessionID)
+			if sessionPath == "" {
+				continue
+			}
+			validPath, _, err := validateSessionPath(dir, sessionPath)
+			if err != nil {
+				continue
+			}
+			key := sessionRuntimeKey(validPath)
+			if key == "" {
+				continue
+			}
+			out[key] = channelSessionRoute{
+				channel:       channel,
+				channelLabel:  channelLabel,
+				remoteID:      strings.TrimSpace(mapping.RemoteID),
+				chatType:      strings.TrimSpace(mapping.ChatType),
+				userID:        strings.TrimSpace(mapping.UserID),
+				threadID:      strings.TrimSpace(mapping.ThreadID),
+				sessionSource: strings.TrimSpace(mapping.SessionSource),
+			}
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+// applyChannelSessionRoute sets channel metadata on a session meta from a route.
+func applyChannelSessionRoute(meta *SessionMeta, route channelSessionRoute) {
+	if meta == nil {
+		return
+	}
+	meta.Kind = "channel"
+	meta.Channel = route.channel
+	meta.ChannelLabel = route.channelLabel
+	meta.RemoteID = route.remoteID
+	meta.ChatType = route.chatType
+	meta.UserID = route.userID
+	meta.ThreadID = route.threadID
+	meta.SessionSource = route.sessionSource
 }
 
 func controllerSessionDir(ctrl *control.Controller) string {
@@ -1440,101 +1496,6 @@ func sessionMetaFromInfo(s agent.SessionInfo, title string, current, open bool, 
 	}
 }
 
-func applyChannelSessionRoute(meta *SessionMeta, route channelSessionRoute) {
-	if meta == nil {
-		return
-	}
-	meta.Kind = "channel"
-	meta.Channel = route.channel
-	meta.ChannelLabel = route.channelLabel
-	meta.RemoteID = route.remoteID
-	meta.ChatType = route.chatType
-	meta.UserID = route.userID
-	meta.ThreadID = route.threadID
-	meta.SessionSource = route.sessionSource
-}
-
-func channelSessionRoutesForDir(dir string) map[string]channelSessionRoute {
-	userPath := config.UserConfigPath()
-	if strings.TrimSpace(userPath) == "" {
-		return nil
-	}
-	cfg := config.LoadForEdit(userPath)
-	out := map[string]channelSessionRoute{}
-	for _, conn := range cfg.Bot.Connections {
-		channel := strings.TrimSpace(conn.Provider)
-		if channel == "" {
-			continue
-		}
-		channelLabel := strings.TrimSpace(conn.Label)
-		if channelLabel == "" {
-			channelLabel = channelDisplayName(channel, conn.Domain)
-		}
-		for _, mapping := range conn.SessionMappings {
-			if strings.TrimSpace(mapping.SessionSource) != "auto" {
-				continue
-			}
-			sessionPath := botSessionPathTarget(mapping.SessionID)
-			if sessionPath == "" {
-				continue
-			}
-			validPath, _, err := validateSessionPath(dir, sessionPath)
-			if err != nil {
-				continue
-			}
-			key := sessionRuntimeKey(validPath)
-			if key == "" {
-				continue
-			}
-			out[key] = channelSessionRoute{
-				channel:       channel,
-				channelLabel:  channelLabel,
-				remoteID:      strings.TrimSpace(mapping.RemoteID),
-				chatType:      strings.TrimSpace(mapping.ChatType),
-				userID:        strings.TrimSpace(mapping.UserID),
-				threadID:      strings.TrimSpace(mapping.ThreadID),
-				sessionSource: strings.TrimSpace(mapping.SessionSource),
-			}
-		}
-	}
-	if len(out) == 0 {
-		return nil
-	}
-	return out
-}
-
-func botSessionPathTarget(sessionID string) string {
-	sessionID = strings.TrimSpace(sessionID)
-	if sessionID == "" {
-		return ""
-	}
-	if strings.HasPrefix(strings.ToLower(sessionID), "path:") {
-		return strings.TrimSpace(sessionID[5:])
-	}
-	if strings.HasSuffix(sessionID, ".jsonl") || strings.Contains(sessionID, "/") || strings.Contains(sessionID, `\`) || strings.HasPrefix(sessionID, "~") {
-		return sessionID
-	}
-	return ""
-}
-
-func channelDisplayName(provider, domain string) string {
-	provider = strings.TrimSpace(provider)
-	domain = strings.TrimSpace(domain)
-	switch provider {
-	case "feishu":
-		if strings.EqualFold(domain, "lark") {
-			return "Lark"
-		}
-		return "Feishu"
-	case "weixin":
-		return "WeChat"
-	case "qq":
-		return "QQ"
-	default:
-		return provider
-	}
-}
-
 // DeleteSession moves a saved session to the local trash. If the session still
 // has an in-process runtime, the runtime is cancelled and removed first so
 // autosave cannot recreate or append to the deleted file later.
@@ -1581,7 +1542,6 @@ type removedSessionRuntime struct {
 	scope         string
 	workspaceRoot string
 	topicID       string
-	readOnly      bool
 }
 
 type fallbackRuntimeTarget struct {
@@ -1683,7 +1643,6 @@ func removedRuntimeFromTab(tab *WorkspaceTab, dir, sessionPath string) removedSe
 		scope:         tab.Scope,
 		workspaceRoot: tab.WorkspaceRoot,
 		topicID:       tab.TopicID,
-		readOnly:      tab.ReadOnly,
 	}
 }
 
@@ -1708,9 +1667,6 @@ func prepareRemovedSessionRuntimes(removed []removedSessionRuntime) error {
 			if err := waitControllerStopped(item.ctrl); err != nil {
 				return err
 			}
-		}
-		if item.readOnly {
-			continue
 		}
 		if err := item.ctrl.Snapshot(); err != nil {
 			return err
@@ -1926,46 +1882,13 @@ func (a *App) ResumeSessionForTab(tabID, path string) ([]HistoryMessage, error) 
 		return nil, err
 	}
 	if sessionRuntimeKey(tab.currentSessionPath()) == sessionRuntimeKey(sessionPath) {
-		a.setTabReadOnly(tab.ID, false)
 		return a.HistoryForTab(tabID), nil
 	}
 
 	if err := a.rebindTabToSessionPath(tab, sessionPath); err != nil {
 		return nil, err
 	}
-	a.setTabReadOnly(tab.ID, false)
 	return a.HistoryForTab(tab.ID), nil
-}
-
-func (a *App) OpenChannelSessionForTab(tabID, path string) ([]HistoryMessage, error) {
-	tab := a.tabByID(tabID)
-	if tab == nil || tab.Ctrl == nil {
-		return []HistoryMessage{}, fmt.Errorf("tab is not ready")
-	}
-	ctrl := tab.Ctrl
-	sessionPath, _, err := validateSessionPath(controllerSessionDir(ctrl), path)
-	if err != nil {
-		return nil, err
-	}
-	if _, err := agent.LoadSession(sessionPath); err != nil {
-		return nil, err
-	}
-	if sessionRuntimeKey(tab.currentSessionPath()) != sessionRuntimeKey(sessionPath) {
-		if err := a.rebindTabToSessionPath(tab, sessionPath); err != nil {
-			return nil, err
-		}
-	}
-	a.setTabReadOnly(tab.ID, true)
-	return a.HistoryForTab(tab.ID), nil
-}
-
-func (a *App) setTabReadOnly(tabID string, readOnly bool) {
-	a.mu.Lock()
-	if tab := a.tabs[tabID]; tab != nil && tab.ReadOnly != readOnly {
-		tab.ReadOnly = readOnly
-		a.saveTabsLocked()
-	}
-	a.mu.Unlock()
 }
 
 func (a *App) rebindTabToSessionPath(tab *WorkspaceTab, sessionPath string) error {
@@ -2003,7 +1926,7 @@ func (a *App) rebindTabToSessionPath(tab *WorkspaceTab, sessionPath string) erro
 		return nil
 	}
 
-	_ = a.snapshotTab(tab) // persist writable sessions before switching the view.
+	_ = ctrl.Snapshot() // persist the current session before switching the view.
 	if tab.hasActiveRuntimeWork() {
 		if !a.detachRuntimeForReplacement(tab) {
 			return fmt.Errorf("current session runtime cannot be detached")
@@ -2682,32 +2605,24 @@ func (a *App) SwitchWorkspace(dir string) (string, error) {
 // HistoryMessage is one prior turn, for the frontend to repopulate its transcript
 // after a reload.
 type HistoryMessage struct {
-	Role               string            `json:"role"`
-	Content            string            `json:"content"`
-	Reasoning          string            `json:"reasoning,omitempty"`
-	Level              string            `json:"level,omitempty"`
-	ToolCalls          []HistoryToolCall `json:"toolCalls,omitempty"`
-	ToolCallID         string            `json:"toolCallId,omitempty"`
-	ToolName           string            `json:"toolName,omitempty"`
-	ToolResultArchived bool              `json:"toolResultArchived,omitempty"`
-	ToolResultError    string            `json:"toolResultError,omitempty"`
-	Pending            bool              `json:"pending,omitempty"`
-	Trigger            string            `json:"trigger,omitempty"`
-	Messages           int               `json:"messages,omitempty"`
-	Summary            string            `json:"summary,omitempty"`
-	Archive            string            `json:"archive,omitempty"`
+	Role       string            `json:"role"`
+	Content    string            `json:"content"`
+	Reasoning  string            `json:"reasoning,omitempty"`
+	Level      string            `json:"level,omitempty"`
+	ToolCalls  []HistoryToolCall `json:"toolCalls,omitempty"`
+	ToolCallID string            `json:"toolCallId,omitempty"`
+	ToolName   string            `json:"toolName,omitempty"`
+	Pending    bool              `json:"pending,omitempty"`
+	Trigger    string            `json:"trigger,omitempty"`
+	Messages   int               `json:"messages,omitempty"`
+	Summary    string            `json:"summary,omitempty"`
+	Archive    string            `json:"archive,omitempty"`
 }
 
 type HistoryToolCall struct {
-	ID                string `json:"id"`
-	Name              string `json:"name"`
-	Arguments         string `json:"arguments"`
-	Subject           string `json:"subject,omitempty"`
-	Summary           string `json:"summary,omitempty"`
-	Diff              string `json:"diff,omitempty"`
-	Added             int    `json:"added,omitempty"`
-	Removed           int    `json:"removed,omitempty"`
-	ArgumentsArchived bool   `json:"argumentsArchived,omitempty"`
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Arguments string `json:"arguments"`
 }
 
 // History returns the session's message log.
@@ -2727,7 +2642,6 @@ func (a *App) HistoryForTab(tabID string) []HistoryMessage {
 func historyMessages(msgs []provider.Message, resolveUserContent func(string) string) []HistoryMessage {
 	out := make([]HistoryMessage, 0, len(msgs))
 	replayedTodoArgs := historyTodoArgsWithCompleteSteps(msgs)
-	toolResults := historyToolResultsByID(msgs)
 	for _, m := range msgs {
 		content := m.Content
 		if m.Role == provider.RoleUser {
@@ -2760,222 +2674,16 @@ func historyMessages(msgs []provider.Message, resolveUserContent func(string) st
 						args = replayed
 					}
 				}
-				hm.ToolCalls[i] = historyToolCall(tc, args, toolResults[tc.ID])
+				hm.ToolCalls[i] = HistoryToolCall{ID: tc.ID, Name: tc.Name, Arguments: args}
 			}
 		}
 		if m.Role == provider.RoleTool {
 			hm.ToolCallID = m.ToolCallID
 			hm.ToolName = m.Name
-			hm.Content, hm.ToolResultArchived, hm.ToolResultError = historyToolResultContent(m.Content, m.ToolCallID != "")
 		}
 		out = append(out, hm)
 	}
 	return out
-}
-
-const historyToolPreviewLimit = 2_000
-
-func historyToolCall(tc provider.ToolCall, args string, result provider.Message) HistoryToolCall {
-	call := HistoryToolCall{
-		ID:      tc.ID,
-		Name:    tc.Name,
-		Subject: historyToolSubject(tc.Name, args),
-		Summary: historyToolSummary(tc.Name, args, result.Content),
-		Diff:    tc.Diff,
-		Added:   tc.Added,
-		Removed: tc.Removed,
-	}
-	if tc.Name == "todo_write" {
-		call.Arguments = args
-		return call
-	}
-	if tc.ID == "" {
-		call.Arguments = args
-		return call
-	}
-	if args != "" {
-		call.ArgumentsArchived = true
-	}
-	return call
-}
-
-func historyToolResultsByID(msgs []provider.Message) map[string]provider.Message {
-	out := map[string]provider.Message{}
-	for _, msg := range msgs {
-		if msg.Role != provider.RoleTool || msg.ToolCallID == "" {
-			continue
-		}
-		out[msg.ToolCallID] = msg
-	}
-	return out
-}
-
-func historyToolResultContent(content string, canArchive bool) (display string, archived bool, errPreview string) {
-	if content == "" {
-		return "", false, ""
-	}
-	if !canArchive {
-		if historyToolResultFailed(content) {
-			return content, false, content
-		}
-		return content, false, ""
-	}
-	if historyToolResultFailed(content) {
-		display = clipHistoryToolPreview(strings.TrimSpace(content))
-		return display, display != content, display
-	}
-	return "", true, ""
-}
-
-func clipHistoryToolPreview(s string) string {
-	if len(s) <= historyToolPreviewLimit {
-		return s
-	}
-	return strings.TrimSpace(clipStringBytes(s, historyToolPreviewLimit)) + "\n..."
-}
-
-func historyToolSubject(name, args string) string {
-	a := parseHistoryToolArgs(args)
-	var subject string
-	switch name {
-	case "bash":
-		subject = historyArgString(a, "command")
-	case "grep", "glob":
-		subject = firstNonEmpty(historyArgString(a, "pattern"), historyArgString(a, "path"))
-	case "web_fetch":
-		subject = historyArgString(a, "url")
-	case "task":
-		subject = firstNonEmpty(historyArgString(a, "description"), historyArgString(a, "prompt"))
-	case "move_file":
-		src := historyArgString(a, "source_path")
-		dst := historyArgString(a, "destination_path")
-		if src != "" && dst != "" {
-			subject = src + " -> " + dst
-		} else {
-			subject = firstNonEmpty(src, dst)
-		}
-	case "remember":
-		subject = firstNonEmpty(historyArgString(a, "name"), historyArgString(a, "description"))
-	case "todo_write", "exit_plan_mode":
-		subject = ""
-	default:
-		subject = firstNonEmpty(historyArgString(a, "path"), historyArgString(a, "file_path"))
-	}
-	return clipSingleLine(subject, 240)
-}
-
-func historyToolSummary(name, args, output string) string {
-	if historyToolResultFailed(output) {
-		return ""
-	}
-	a := parseHistoryToolArgs(args)
-	switch name {
-	case "write_file":
-		if content := historyArgString(a, "content"); content != "" {
-			return fmt.Sprintf("%d lines", historyLineCount(content))
-		}
-	case "edit_file":
-		oldText := historyArgString(a, "old_string")
-		newText := historyArgString(a, "new_string")
-		if oldText != "" || newText != "" {
-			return fmt.Sprintf("%d -> %d lines", historyLineCount(oldText), historyLineCount(newText))
-		}
-	case "multi_edit":
-		if edits, ok := a["edits"].([]any); ok && len(edits) > 0 {
-			return fmt.Sprintf("%d edits", len(edits))
-		}
-	}
-	if output == "" {
-		return ""
-	}
-	switch name {
-	case "read_file":
-		if strings.HasPrefix(output, "(empty file)") {
-			return "empty file"
-		}
-		if arrows := strings.Count(output, "→"); arrows > 0 {
-			return fmt.Sprintf("%d lines", arrows)
-		}
-		return fmt.Sprintf("%d lines", historyLineCount(output))
-	case "grep":
-		return fmt.Sprintf("%d matches", historyNonEmptyLineCount(output))
-	case "glob":
-		return fmt.Sprintf("%d files", historyNonEmptyLineCount(output))
-	case "ls":
-		return fmt.Sprintf("%d entries", historyNonEmptyLineCount(output))
-	case "web_fetch":
-		return clipSingleLine(strings.SplitN(output, "\n", 2)[0], 80)
-	case "bash":
-		if strings.TrimSpace(output) == "" {
-			return "no output"
-		}
-		return fmt.Sprintf("%d lines", historyLineCount(output))
-	default:
-		return ""
-	}
-}
-
-func parseHistoryToolArgs(args string) map[string]any {
-	if args == "" {
-		return map[string]any{}
-	}
-	var out map[string]any
-	if err := json.Unmarshal([]byte(args), &out); err != nil {
-		return map[string]any{}
-	}
-	return out
-}
-
-func historyArgString(args map[string]any, key string) string {
-	if v, ok := args[key].(string); ok {
-		return v
-	}
-	return ""
-}
-
-func historyLineCount(s string) int {
-	if s == "" {
-		return 0
-	}
-	s = strings.TrimSuffix(s, "\n")
-	if s == "" {
-		return 0
-	}
-	return strings.Count(s, "\n") + 1
-}
-
-func historyNonEmptyLineCount(s string) int {
-	count := 0
-	for _, line := range strings.Split(s, "\n") {
-		if strings.TrimSpace(line) != "" {
-			count++
-		}
-	}
-	return count
-}
-
-func clipSingleLine(s string, max int) string {
-	s = strings.Join(strings.Fields(strings.TrimSpace(s)), " ")
-	if len(s) <= max {
-		return s
-	}
-	if max <= 3 {
-		return clipStringBytes(s, max)
-	}
-	return clipStringBytes(s, max-3) + "..."
-}
-
-func clipStringBytes(s string, max int) string {
-	if max <= 0 {
-		return ""
-	}
-	if len(s) <= max {
-		return s
-	}
-	for max > 0 && !utf8.RuneStart(s[max]) {
-		max--
-	}
-	return s[:max]
 }
 
 func historyTodoArgsWithCompleteSteps(msgs []provider.Message) map[string]string {
@@ -3171,7 +2879,7 @@ func previewEventSessionMessages(path string) ([]HistoryMessage, bool, error) {
 				id := tc.ID
 				name := firstNonEmpty(tc.Name, tc.Function.Name)
 				args := firstNonEmpty(tc.Arguments, tc.Function.Arguments)
-				hm.ToolCalls = append(hm.ToolCalls, historyToolCall(provider.ToolCall{ID: id, Name: name, Arguments: args}, args, provider.Message{}))
+				hm.ToolCalls = append(hm.ToolCalls, HistoryToolCall{ID: id, Name: name, Arguments: args})
 				if id != "" {
 					toolName[id] = name
 				}
@@ -3179,18 +2887,11 @@ func previewEventSessionMessages(path string) ([]HistoryMessage, bool, error) {
 			out = append(out, hm)
 		case "tool.result":
 			callID := firstNonEmpty(rec.CallID, rec.ToolCallID)
-			content := firstNonEmpty(rec.Output, rec.Content)
-			display, archived, errPreview := historyToolResultContent(content, callID != "")
-			if len(out) > 0 && callID != "" {
-				updateHistoryToolCallSummary(out, callID, content)
-			}
 			out = append(out, HistoryMessage{
-				Role:               "tool",
-				ToolCallID:         callID,
-				ToolName:           firstNonEmpty(rec.ToolName, rec.Name, toolName[callID]),
-				Content:            display,
-				ToolResultArchived: archived,
-				ToolResultError:    errPreview,
+				Role:       "tool",
+				ToolCallID: callID,
+				ToolName:   firstNonEmpty(rec.ToolName, rec.Name, toolName[callID]),
+				Content:    firstNonEmpty(rec.Output, rec.Content),
 			})
 		case "phase":
 			out = append(out, HistoryMessage{Role: "phase", Content: firstNonEmpty(rec.Text, rec.Content)})
@@ -3222,24 +2923,6 @@ func (r previewEventRecord) compactionPayload() previewCompaction {
 		return *r.Compaction
 	}
 	return previewCompaction{Trigger: r.Trigger, Messages: r.Messages, Summary: r.Summary, Archive: r.Archive}
-}
-
-func updateHistoryToolCallSummary(out []HistoryMessage, callID, output string) {
-	if callID == "" {
-		return
-	}
-	for i := len(out) - 1; i >= 0; i-- {
-		for j := range out[i].ToolCalls {
-			call := &out[i].ToolCalls[j]
-			if call.ID != callID {
-				continue
-			}
-			if call.Summary == "" {
-				call.Summary = historyToolSummary(call.Name, call.Arguments, output)
-			}
-			return
-		}
-	}
 }
 
 func firstNonEmpty(values ...string) string {
@@ -4968,7 +4651,7 @@ func (a *App) SetModelForTab(tabID, name string) error {
 	prevPath := ""
 	if tab.Ctrl != nil {
 		prevPath = tab.Ctrl.SessionPath()
-		_ = a.snapshotTab(tab)
+		_ = tab.Ctrl.Snapshot()
 		carried = tab.Ctrl.History()
 		tab.Ctrl.Close()
 	}
@@ -5065,7 +4748,7 @@ func (a *App) SetEffortForTab(tabID, level string) error {
 	prevPath := ""
 	if tab.Ctrl != nil {
 		prevPath = tab.Ctrl.SessionPath()
-		_ = a.snapshotTab(tab)
+		_ = tab.Ctrl.Snapshot()
 		carried = tab.Ctrl.History()
 		tab.Ctrl.Close()
 	}
@@ -5138,7 +4821,7 @@ func (a *App) SetTokenModeForTab(tabID, mode string) error {
 	oldCtrl := tab.Ctrl
 	if oldCtrl != nil {
 		prevPath = oldCtrl.SessionPath()
-		_ = a.snapshotTab(tab)
+		_ = oldCtrl.Snapshot()
 		carried = oldCtrl.History()
 	}
 	newCtrl, err := boot.Build(a.bootContext(), boot.Options{
@@ -6070,6 +5753,45 @@ func (a *App) SaveDocForTab(tabID, path, body string) (string, error) {
 		return a.saveDocForCtrl(nil, path, body, true)
 	}
 	return a.saveDocForCtrl(a.ctrlByTabID(tabID), path, body, false)
+}
+
+// tabReadOnly reports whether a tab is open in read-only mode (e.g. a channel transcript).
+func (a *App) tabReadOnly(tabID string) bool {
+	tab := a.tabByID(tabID)
+	return tab != nil && tab.ReadOnly
+}
+
+// setTabReadOnly sets the read-only flag on a tab and persists it.
+func (a *App) setTabReadOnly(tabID string, readOnly bool) {
+	a.mu.Lock()
+	if tab := a.tabs[tabID]; tab != nil && tab.ReadOnly != readOnly {
+		tab.ReadOnly = readOnly
+		a.saveTabsLocked()
+	}
+	a.mu.Unlock()
+}
+
+// OpenChannelSessionForTab loads a channel session transcript into the given tab.
+func (a *App) OpenChannelSessionForTab(tabID, path string) ([]HistoryMessage, error) {
+	tab := a.tabByID(tabID)
+	if tab == nil || tab.Ctrl == nil {
+		return []HistoryMessage{}, fmt.Errorf("tab is not ready")
+	}
+	ctrl := tab.Ctrl
+	sessionPath, _, err := validateSessionPath(controllerSessionDir(ctrl), path)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := agent.LoadSession(sessionPath); err != nil {
+		return nil, err
+	}
+	if sessionRuntimeKey(tab.currentSessionPath()) != sessionRuntimeKey(sessionPath) {
+		if err := a.rebindTabToSessionPath(tab, sessionPath); err != nil {
+			return nil, err
+		}
+	}
+	a.setTabReadOnly(tab.ID, true)
+	return a.HistoryForTab(tab.ID), nil
 }
 
 func (a *App) saveDocForCtrl(ctrl *control.Controller, path, body string, fallback bool) (string, error) {

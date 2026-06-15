@@ -112,10 +112,7 @@
   <g transform="translate(260,100)">
     <!-- Text with rainbow gradient -->
     <text x="0" y="14" font-family="SF Mono, Cascadia Code, Consolas, monospace" font-size="38" font-weight="800" fill="url(#text-grad)" letter-spacing="2">Reasonix</text>
-    <text x="228" y="14" font-family="SF Mono, Cascadia Code, Consolas, monospace" font-size="38" font-weight="600" fill="url(#text-grad)" letter-spacing="2" opacity="0.85">-Hermes</text>
-
-    <!-- Small diamond accent between Reasonix and Hermes -->
-    <rect x="214" y="-8" width="8" height="8" rx="1" fill="url(#rainbow)" transform="rotate(45 218 -4)" opacity="0.8" filter="url(#glow)"/>
+    <text x="194" y="14" font-family="SF Mono, Cascadia Code, Consolas, monospace" font-size="38" font-weight="600" fill="url(#text-grad)" letter-spacing="2" opacity="0.85">-Hermes</text>
 
     <!-- Subtitle line -->
     <text x="0" y="34" font-family="SF Mono, Cascadia Code, Consolas, monospace" font-size="10" font-weight="500" fill="#64748b" letter-spacing="3" opacity="0.7">AI CODING AGENT</text>

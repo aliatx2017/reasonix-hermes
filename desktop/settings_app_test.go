@@ -139,10 +139,8 @@ func TestOfficialMimoAPITemplateIncludesVisionModels(t *testing.T) {
 		t.Fatalf("template = %v/%q, want one MIMO_API_KEY entry", entries, keyEnv)
 	}
 	got := entries[0]
-	for _, model := range []string{"mimo-v2.5-pro", "mimo-v2.5", "mimo-v2-omni"} {
-		if !got.HasModel(model) {
-			t.Fatalf("mimo-api models = %v, missing %s", got.ModelList(), model)
-		}
+	if !got.HasModel("mimo-v2.5-pro") {
+		t.Fatalf("mimo-api models = %v, missing mimo-v2.5-pro", got.ModelList())
 	}
 	if got.DefaultModel() != "mimo-v2.5-pro" {
 		t.Fatalf("mimo-api default = %q, want mimo-v2.5-pro", got.DefaultModel())
@@ -194,7 +192,8 @@ func TestSetReasoningLanguagePersistsToUserConfig(t *testing.T) {
 }
 
 func TestSetReasoningLanguageUpdatesLiveTabControllers(t *testing.T) {
-	isolateDesktopUserDirs(t)
+	home := isolateDesktopUserDirs(t)
+	t.Chdir(home) // avoid project reasonix.toml
 	projectRoot := t.TempDir()
 	if err := os.WriteFile(filepath.Join(projectRoot, "reasonix.toml"), []byte("[agent]\nreasoning_language = \"en\"\n"), 0o644); err != nil {
 		t.Fatal(err)

@@ -19,6 +19,7 @@
     "Never commit secrets or API keys — use api_key_env",
     "Always sync upstream (git fetch upstream) before ending a session",
     "Always run go build ./... && go vet ./... after upstream merges",
+    "Always run the full test suite (go test ./...) before ending a session — zero failures tolerated, no exceptions, 'pre-existing' is not an excuse",
     "Chinese comments in internal/bot/ are upstream-authored — leave them; new code is English-only"
   ],
   "rules": [
@@ -69,6 +70,12 @@
       "description": "Never say 'fixed' — banned word. Use 'try it' / 'should be resolved' instead. Only the user declares something fixed after testing. This is a hard, non-negotiable rule.",
       "severity": "error",
       "scope": "all communication"
+    },
+    {
+      "id": "zero-test-failures",
+      "description": "Zero test failures tolerated — always. 'Pre-existing' is never an excuse. Every failing test must be fixed before merging, committing, or ending a session. Run go test ./... (and desktop tests, and tsc --noEmit) and confirm all pass.",
+      "severity": "error",
+      "scope": "*.go desktop/**/*.go desktop/frontend/src/**/*.tsx desktop/frontend/src/**/*.ts"
     },
     {
       "id": "substantiate-every-claim",

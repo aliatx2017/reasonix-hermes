@@ -1,9 +1,8 @@
 import { Suspense, lazy } from 'react';
 
 export interface DiffProps {
-  original?: string;
-  modified?: string;
-  diff?: string;
+  original: string;
+  modified: string;
   language?: string;
   maxHeight?: number;
 }
@@ -21,7 +20,7 @@ const Impl = lazy(() => import('./editors/HljsDiff'));
 
 export function DiffView(props: DiffProps) {
   return (
-    <Suspense fallback={<pre className="code code--loading">{props.modified ?? props.diff ?? ""}</pre>}>
+    <Suspense fallback={<pre className="code code--loading">{props.modified}</pre>}>
       <Impl {...props} />
     </Suspense>
   );

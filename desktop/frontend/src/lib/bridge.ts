@@ -169,7 +169,6 @@ export interface AppBindings {
   ListTrashedSessions(): Promise<SessionMeta[]>;
   ResumeSession(path: string): Promise<HistoryMessage[]>;
   ResumeSessionForTab(tabID: string, path: string): Promise<HistoryMessage[]>;
-  OpenChannelSessionForTab(tabID: string, path: string): Promise<HistoryMessage[]>;
   PreviewSession(path: string): Promise<HistoryMessage[]>;
   DeleteSession(path: string): Promise<void>;
   RestoreSession(path: string): Promise<void>;
@@ -391,6 +390,7 @@ type AssertNever<T extends never> = T;
 type KnownMissingFromGenerated =
   // Added after wails generate module — regenerate to clear:
   | "TurnTimeline"
+  | "OpenChannelSessionForTab"
   ;
 /**/
 export type _CheckAppToGen = AssertNever<Exclude<Exclude<keyof AppBindings, keyof typeof GeneratedApp>, KnownMissingFromGenerated>>;
@@ -1794,10 +1794,6 @@ function makeMockApp(): AppBindings {
       ];
     },
     async ResumeSessionForTab(_tabID: string, path: string) {
-      return this.ResumeSession(path);
-    },
-    async OpenChannelSessionForTab(tabID: string, path: string) {
-      mockTabs = mockTabs.map((tab) => tab.id === tabID ? { ...tab, sessionPath: path, readOnly: true } : tab);
       return this.ResumeSession(path);
     },
     async PreviewSession(path: string) {

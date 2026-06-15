@@ -24,6 +24,7 @@ func readPending(t *testing.T) (crashReport, bool) {
 }
 
 func TestRecoverToPendingCapturesAndReraises(t *testing.T) {
+	isolateDesktopUserDirs(t)
 	t.Cleanup(func() { os.Remove(pendingCrashPath()) })
 
 	func() {
@@ -56,6 +57,7 @@ func TestRecoverToPendingCapturesAndReraises(t *testing.T) {
 }
 
 func TestWritePendingCrashCaps(t *testing.T) {
+	isolateDesktopUserDirs(t)
 	t.Cleanup(func() { os.Remove(pendingCrashPath()) })
 	writePendingCrash("big", "x", []byte(strings.Repeat("a", 64<<10)))
 	r, ok := readPending(t)
@@ -68,6 +70,7 @@ func TestWritePendingCrashCaps(t *testing.T) {
 }
 
 func TestWritePendingCrashScrubsSensitiveText(t *testing.T) {
+	isolateDesktopUserDirs(t)
 	t.Cleanup(func() { os.Remove(pendingCrashPath()) })
 	apiKey := "sk-proj-" + "abcdefghijklmnopqrstuvwxyz1234567890"
 	bearer := "abcdefghijklmnopqrstuvwxyz1234567890ABCDE"
@@ -87,6 +90,7 @@ func TestWritePendingCrashScrubsSensitiveText(t *testing.T) {
 }
 
 func TestFlushPendingCrashSendsAndClears(t *testing.T) {
+	isolateDesktopUserDirs(t)
 	oldVersion, oldEndpoint := version, crashEndpoint
 	t.Cleanup(func() {
 		version, crashEndpoint = oldVersion, oldEndpoint
@@ -114,6 +118,7 @@ func TestFlushPendingCrashSendsAndClears(t *testing.T) {
 }
 
 func TestFlushPendingCrashDevGuard(t *testing.T) {
+	isolateDesktopUserDirs(t)
 	oldVersion := version
 	t.Cleanup(func() {
 		version = oldVersion

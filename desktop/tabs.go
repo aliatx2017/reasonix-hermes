@@ -826,7 +826,6 @@ type TabMeta struct {
 	TopicID           string `json:"topicId"`
 	TopicTitle        string `json:"topicTitle"`
 	SessionPath       string `json:"sessionPath,omitempty"`
-	ReadOnly          bool   `json:"readOnly,omitempty"`
 	ProjectColor      string `json:"projectColor,omitempty"`
 	Label             string `json:"label"`
 	Ready             bool   `json:"ready"`
@@ -835,6 +834,7 @@ type TabMeta struct {
 	CollaborationMode string `json:"collaborationMode"`
 	ToolApprovalMode  string `json:"toolApprovalMode"`
 	TokenMode         string `json:"tokenMode"`
+	ReadOnly          bool   `json:"readOnly"`
 	Goal              string `json:"goal,omitempty"`
 	GoalStatus        string `json:"goalStatus,omitempty"`
 	StartupErr        string `json:"startupErr,omitempty"`
@@ -851,13 +851,13 @@ func (a *App) tabMeta(tab *WorkspaceTab, active bool) TabMeta {
 		TopicID:           tab.TopicID,
 		TopicTitle:        tab.TopicTitle,
 		SessionPath:       tab.currentSessionPath(),
-		ReadOnly:          tab.ReadOnly,
 		Label:             tab.Label,
 		Ready:             tab.Ready,
 		Mode:              currentTabMode(tab),
 		CollaborationMode: currentTabCollaborationMode(tab),
 		ToolApprovalMode:  currentTabToolApprovalMode(tab),
 		TokenMode:         currentTabTokenMode(tab),
+		ReadOnly:          tab.ReadOnly,
 		Goal:              currentTabGoal(tab),
 		GoalStatus:        currentTabGoalStatus(tab),
 		StartupErr:        tab.StartupErr,
@@ -1350,7 +1350,7 @@ func (a *App) CloseTab(tabID string) error {
 		//       (including the autosave loop) is a no-op;
 		//   (2) drain any in-flight tabSnapshotLoop before returning, so no
 		//       background write can land after the file is trashed.
-		_ = a.snapshotTab(tab)
+		_ = tab.Ctrl.Snapshot()
 		if tab.hasActiveRuntimeWork() && a.detachSessionRuntime(tab) {
 			// Detached runtimes keep running and must keep saving: do not
 			// clear the path or drain for them.
@@ -1671,7 +1671,7 @@ func (a *App) tabSnapshotLoop(tab *WorkspaceTab) {
 		ctrl := tab.Ctrl
 		a.mu.RUnlock()
 		if ctrl != nil {
-			if err := a.snapshotTab(tab); err == nil {
+			if err := ctrl.Snapshot(); err == nil {
 				if !a.maybeAutoTitleTopic(tab) {
 					a.emitProjectTreeChanged()
 				}
@@ -1811,7 +1811,6 @@ type desktopTabEntry struct {
 	WorkspaceRoot    string  `json:"workspaceRoot"`
 	TopicID          string  `json:"topicId"`
 	SessionPath      string  `json:"sessionPath,omitempty"`
-	ReadOnly         bool    `json:"readOnly,omitempty"`
 	Model            string  `json:"model,omitempty"`
 	Effort           *string `json:"effort,omitempty"`
 	TokenMode        string  `json:"tokenMode,omitempty"`
@@ -1854,7 +1853,6 @@ func (a *App) saveTabsCollectLocked() (string, []desktopTabEntry, string, uint64
 				WorkspaceRoot:    tab.WorkspaceRoot,
 				TopicID:          tab.TopicID,
 				SessionPath:      tab.currentSessionPath(),
-				ReadOnly:         tab.ReadOnly,
 				Model:            tab.model,
 				Effort:           cloneStringPtr(tab.effort),
 				TokenMode:        persistedTabTokenMode(currentTabTokenMode(tab)),
