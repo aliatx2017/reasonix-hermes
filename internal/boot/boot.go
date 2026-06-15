@@ -944,6 +944,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 		}
 		if m := mesh.New(mesh.Config{Enabled: true, Peers: meshPeers}); m != nil {
 			ctrl.SetMesh(m)
+			reg.Add(builtin.ConfineCouncil(m))
 		}
 	}
 

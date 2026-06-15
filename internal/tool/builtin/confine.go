@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"reasonix/internal/netclient"
+	"reasonix/internal/mesh"
 	"reasonix/internal/sandbox"
 	"reasonix/internal/tool"
 )
@@ -30,6 +31,13 @@ func ConfineBash(spec sandbox.Spec, timeout ...time.Duration) tool.Tool {
 // settings while preserving its SSRF-guarded dialer.
 func ConfineWebFetch(proxySpec netclient.ProxySpec) tool.Tool {
 	return webFetch{proxySpec: proxySpec}
+}
+
+// ConfineCouncil returns the council_judge built-in bound to the mesh, overriding
+// the nil-mesh fallback registered at init. When the mesh is nil or inactive the
+// tool returns a descriptive error at call time.
+func ConfineCouncil(m *mesh.Mesh) tool.Tool {
+	return councilJudge{m: m}
 }
 
 // ConfineWriters returns the file-writing built-ins (write_file, edit_file,
