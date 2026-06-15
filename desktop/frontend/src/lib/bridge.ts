@@ -391,8 +391,6 @@ type KnownMissingFromGenerated =
   // Added after wails generate module — regenerate to clear:
   | "TurnTimeline"
   | "OpenChannelSessionForTab"
-  | "SetDesktopHotbar"
-  | "SetProfiles"
   | "ConnectDiscordBot"
   ;
 /**/

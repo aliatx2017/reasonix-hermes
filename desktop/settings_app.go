@@ -170,6 +170,33 @@ type SettingsView struct {
 	AutoApproveTools bool `json:"autoApproveTools"`
 	// Bypass is the legacy JSON key for the same live state.
 	Bypass bool `json:"bypass"`
+	// Hermes fields
+	Hotbar        HotbarView                 `json:"hotbar"`
+	Profiles      map[string]ProfileView     `json:"profiles"`
+	ActiveProfile string                     `json:"activeProfile"`
+}
+
+// HotbarView mirrors the frontend HotbarView for desktop hotbar configuration.
+type HotbarView struct {
+	Key1 string `json:"key1"`
+	Key2 string `json:"key2"`
+	Key3 string `json:"key3"`
+	Key4 string `json:"key4"`
+	Key5 string `json:"key5"`
+	Key6 string `json:"key6"`
+	Key7 string `json:"key7"`
+}
+
+// ProfileView mirrors the frontend ProfileView for harness profile display.
+type ProfileView struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Model       string `json:"model"`
+	Effort      string `json:"effort"`
+	ToolApproveMode string `json:"toolApproveMode"`
+	AutoPlan    string `json:"autoPlan"`
+	OutputStyle string `json:"outputStyle"`
+	Yolo        bool   `json:"yolo"`
 }
 
 func nonNil(s []string) []string {
@@ -177,6 +204,46 @@ func nonNil(s []string) []string {
 		return []string{}
 	}
 	return s
+}
+
+func defaultHotbarView() HotbarView {
+	return HotbarView{
+		Key1: "palette", Key2: "workspace", Key3: "new",
+		Key4: "history", Key5: "dock", Key6: "sidebar", Key7: "settings",
+	}
+}
+
+func hotbarView(h config.HotbarConfig) HotbarView {
+	// Use defaults for any empty key.
+	d := defaultHotbarView()
+	if h.Key1 != "" { d.Key1 = h.Key1 }
+	if h.Key2 != "" { d.Key2 = h.Key2 }
+	if h.Key3 != "" { d.Key3 = h.Key3 }
+	if h.Key4 != "" { d.Key4 = h.Key4 }
+	if h.Key5 != "" { d.Key5 = h.Key5 }
+	if h.Key6 != "" { d.Key6 = h.Key6 }
+	if h.Key7 != "" { d.Key7 = h.Key7 }
+	return d
+}
+
+func profileViews(cfg map[string]config.ProfileConfig) map[string]ProfileView {
+	if cfg == nil {
+		return map[string]ProfileView{}
+	}
+	out := make(map[string]ProfileView, len(cfg))
+	for name, p := range cfg {
+		out[name] = ProfileView{
+			Name:            name,
+			Description:     p.Description,
+			Model:           p.Model,
+			Effort:          p.Effort,
+			ToolApproveMode: p.ToolApproveMode,
+			AutoPlan:        p.AutoPlan,
+			OutputStyle:     p.OutputStyle,
+			Yolo:            p.Yolo,
+		}
+	}
+	return out
 }
 
 func providerRemovalFallbackRef(c *config.Config, name string) string {
@@ -343,6 +410,8 @@ func (a *App) Settings() SettingsView {
 			Telemetry:         true,
 			Metrics:           false,
 			ExpandThinking:    false,
+			Hotbar:            defaultHotbarView(),
+			Profiles:          map[string]ProfileView{},
 		}
 	}
 	ctrl := a.activeCtrl()
@@ -403,6 +472,9 @@ func (a *App) Settings() SettingsView {
 		ProviderKinds:     nonNil(provider.Kinds()),
 		AutoApproveTools:  ctrl != nil && ctrl.AutoApproveTools(),
 		Bypass:            ctrl != nil && ctrl.AutoApproveTools(),
+		Hotbar:            hotbarView(cfg.Desktop.Hotbar),
+		Profiles:          profileViews(cfg.Profiles),
+		ActiveProfile:     cfg.ActiveProfile,
 	}
 	added := providerAccessSet(cfg.Desktop.ProviderAccess)
 	v.OfficialProviders = officialProviderViews(officialProviderAddedSet(cfg))
@@ -1558,4 +1630,38 @@ func trimList(in []string) []string {
 		}
 	}
 	return out
+}
+
+// SetDesktopHotbar saves the hotbar configuration.
+func (a *App) SetDesktopHotbar(h HotbarView) error {
+	cfg := config.LoadForEdit(config.UserConfigPath())
+	hc := config.HotbarConfig{
+		Key1: h.Key1, Key2: h.Key2, Key3: h.Key3,
+		Key4: h.Key4, Key5: h.Key5, Key6: h.Key6, Key7: h.Key7,
+	}
+	if err := cfg.SetDesktopHotbar(hc); err != nil {
+		return err
+	}
+	return cfg.SaveTo(config.UserConfigPath())
+}
+
+// SetProfiles saves the profiles configuration.
+func (a *App) SetProfiles(profiles map[string]ProfileView) error {
+	cfg := config.LoadForEdit(config.UserConfigPath())
+	pc := make(map[string]config.ProfileConfig, len(profiles))
+	for name, p := range profiles {
+		pc[name] = config.ProfileConfig{
+			Description:     p.Description,
+			Model:           p.Model,
+			Effort:          p.Effort,
+			ToolApproveMode: p.ToolApproveMode,
+			AutoPlan:        p.AutoPlan,
+			OutputStyle:     p.OutputStyle,
+			Yolo:            p.Yolo,
+		}
+	}
+	if err := cfg.SetProfiles(pc); err != nil {
+		return err
+	}
+	return cfg.SaveTo(config.UserConfigPath())
 }
