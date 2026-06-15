@@ -120,5 +120,5 @@ receives a warning. Error-severity rules will block the tool call.
 ## Related
 
 - `docs/SPEC.md` §5 — constitution as part of project configuration
-- `docs/AGENTS.md` — the project-level agent instructions (complements the constitution)
+- `AGENTS.md` — the project-level agent instructions (complements the constitution)
 - `.reasonix/constitution.json` — the Reasonix-Hermes project's own constitution

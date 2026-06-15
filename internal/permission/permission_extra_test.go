@@ -147,14 +147,14 @@ func TestSubjectMoveFilePaths(t *testing.T) {
 	}
 }
 
-// --- rememberRule ---
+// --- RememberRuleForScope ---
 
 func TestRememberRuleWithBashSubjectUsesPrefixWhenAvailable(t *testing.T) {
 	// Bash commands with a safe prefix prefer the prefix over the exact command
 	// so "always allow" covers similar invocations (e.g. different search terms).
-	got := rememberRule("bash", "go test ./...")
+	got := RememberRuleForScope("bash", "go test ./...")
 	if got != "Bash(go test:*)" {
-		t.Errorf("rememberRule = %q, want Bash(go test:*)", got)
+		t.Errorf("RememberRuleForScope = %q, want Bash(go test:*)", got)
 	}
 	if r, ok := ParseRule(got); !ok || r.Literal || r.Tool != "Bash" || r.Subject != "go test:*" {
 		t.Errorf("ParseRule(%q) = {%q,%q,lit=%v,ok=%v}", got, r.Tool, r.Subject, r.Literal, ok)
@@ -202,9 +202,9 @@ func TestRememberRuleForBashUsesPrefixWhenAvailable(t *testing.T) {
 func TestRememberRuleWithFileSubjectIsToolWide(t *testing.T) {
 	// File mutation tools are remembered tool-wide so "always allow editing"
 	// covers any file, matching the session-grant behaviour.
-	got := rememberRule("edit_file", "src/app.go")
+	got := RememberRuleForScope("edit_file", "src/app.go")
 	if got != "Edit" {
-		t.Errorf("rememberRule = %q, want Edit", got)
+		t.Errorf("RememberRuleForScope = %q, want Edit", got)
 	}
 	if r, ok := ParseRule(got); !ok || r.Literal || r.Tool != "Edit" || r.Subject != "" {
 		t.Errorf("ParseRule(%q) = {%q,%q,lit=%v,ok=%v}", got, r.Tool, r.Subject, r.Literal, ok)
@@ -237,9 +237,9 @@ func TestPersistedEditRuleIsToolWide(t *testing.T) {
 }
 
 func TestRememberRuleWithoutSubject(t *testing.T) {
-	got := rememberRule("ls", "")
+	got := RememberRuleForScope("ls", "")
 	if got != "ls" {
-		t.Errorf("rememberRule = %q", got)
+		t.Errorf("RememberRuleForScope = %q", got)
 	}
 }
 

@@ -431,7 +431,7 @@ is held and focus is not in an input:
 bot, full metapackage), a dev shell with Go + pnpm, and flake apps. Build any binary
 with `nix build .#reasonix-bot`.
 
-**Docker** (`Dockerfile`): multi-stage build (golang:1.24 → distroless/static-debian12),
+**Docker** (`Dockerfile`): multi-stage build (golang:1.25 → distroless/static-debian12),
 all five Hermes binaries. Default entrypoint is the CLI. Mount your workspace at
 `/workspace` and pass `DEEPSEEK_API_KEY` as an env var:
 

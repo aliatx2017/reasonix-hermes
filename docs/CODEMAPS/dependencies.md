@@ -47,7 +47,7 @@
 `vendorHash = null` → proxy vendor mode via go.sum (fully reproducible on nixos-unstable).
 
 ## Docker (Dockerfile)
-- Multi-stage: `golang:1.24` build → `gcr.io/distroless/static` runtime
+- Multi-stage: `golang:1.25` build → `gcr.io/distroless/static` runtime
 - 5 binaries: reasonix, reasonix-mcpbridge, reasonix-memoryserver, reasonix-hooks, reasonix-bot
 
 ## External API Endpoints (reachable at runtime)

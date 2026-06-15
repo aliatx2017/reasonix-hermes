@@ -4,7 +4,7 @@
 # Image
 image:
   repository: ghcr.io/aliatx2017/reasonix-hermes
-  tag: latest
+  tag: "v1.7.0"
   pullPolicy: IfNotPresent
 
 # Which components to run

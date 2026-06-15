@@ -2,7 +2,7 @@
 # Stage 1: build all Hermes binaries from source
 # Stage 2: minimal runtime image with just the binaries + ca-certificates
 
-FROM golang:1.24-bookworm AS builder
+FROM golang:1.25-bookworm AS builder
 
 WORKDIR /src
 

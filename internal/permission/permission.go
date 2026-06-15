@@ -402,14 +402,6 @@ func (g *Gate) Check(ctx context.Context, toolName string, args json.RawMessage,
 	}
 }
 
-// rememberRule builds the rule string persisted when the user picks "always
-// allow". Bash commands prefer a safe command prefix (e.g. go test:*) so
-// "always allow" covers similar invocations with different arguments. File
-// mutation tools are remembered tool-wide ("Edit") so approving one file edit
-// covers all files. Other tools are remembered by tool name. Deny and ask rules keep their higher precedence.
-func rememberRule(toolName, subject string) string {
-	return RememberRuleForScope(toolName, subject)
-}
 
 // RememberRuleForScope builds the rule string persisted when the user chooses
 // an always-allow option. Bash commands prefer a safe prefix (go test:*) so
@@ -439,20 +431,9 @@ func SessionGrantKey(toolName, subject string) string {
 }
 
 // SessionGrantRuleForScope returns the in-memory rule for a session grant.
-// Bash prefers a command prefix when one is available; file mutation tools
-// share a single Edit grant; all other tools return the bare tool name.
+// Delegates to RememberRuleForScope — the logic is identical.
 func SessionGrantRuleForScope(toolName, subject string) string {
-	subject = strings.TrimSpace(subject)
-	if toolName == "bash" && subject != "" {
-		if pattern := BashCommandPrefix(subject); pattern != "" {
-			return "Bash(" + pattern + ")"
-		}
-		return "Bash(" + subject + ")"
-	}
-	if IsFileMutationTool(toolName) {
-		return "Edit"
-	}
-	return toolName
+	return RememberRuleForScope(toolName, subject)
 }
 
 // BashCommandPrefix returns a conservative prefix rule for "similar command"

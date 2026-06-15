@@ -9,7 +9,7 @@
   &nbsp;·&nbsp;
   <a href="./docs/SPEC.md">Spec</a>
   &nbsp;·&nbsp;
-  <a href="./AGENTS.md">Project</a>
+  <a href="./docs/PROJECT.md">Project</a>
 </p>
 
 > **Reasonix Hermes** is an extended fork of
@@ -240,7 +240,7 @@ Full reference: **[Guide](./docs/GUIDE.md)** covers permissions, sandbox, plugin
 | **[Guide](./docs/GUIDE.md)** | Configuration, permissions & sandbox, plugins (MCP), slash commands, two-model collaboration |
 | **[Spec](./docs/SPEC.md)** | Engineering contract — architecture, registries, data types, and design principles |
 | **[Hermes Guide](./docs/HERMES-GUIDE.md)** | Comprehensive Hermes feature guide — 20+ sections covering all extensions |
-| **[Project](./AGENTS.md)** | Hermes fork architecture, commands, customizations, and contributor notes |
+| **[Project](./docs/PROJECT.md)** | Hermes fork architecture, commands, customizations, and contributor notes |
 | **[Desktop App](./docs/DESKTOP.md)** | Wails desktop app — Hermes dashboard, write mode, bot connections, live data |
 | **[Bot Guide](./docs/BOT_GUIDE.md)** | Connect Discord, Telegram, LINE, Slack, Feishu, WeChat, QQ bots |
 | **[Marketplace](./docs/MARKETPLACE.md)** | Community skill registry + LobeHub sync (360k+ skills) |

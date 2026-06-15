@@ -11,7 +11,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"math"
 	"os"
 	"os/signal"
@@ -119,6 +119,9 @@ func cosineSimilarity(a, b map[string]float64) float64 {
 	}
 	return dot / (math.Sqrt(sumSqA) * math.Sqrt(sumSqB))
 }
+
+// logger is the package-level structured logger.
+var logger = slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
 
 var stopWords = map[string]bool{
 	"the": true, "and": true, "for": true, "are": true, "but": true,
@@ -291,7 +294,7 @@ func (ms *MemoryStore) Tidy() {
 	}
 	ms.entries = filtered
 	if err := ms.save(); err != nil {
-		log.Printf("[hindsight] tidy save failed: %v", err)
+		logger.Warn("tidy save failed", "err", err)
 	}
 }
 
@@ -408,7 +411,7 @@ func (ms *MemoryStore) Recall(sessionID, query string, limit int) ([]MemoryEntry
 			}
 		}
 		if err := ms.save(); err != nil {
-			log.Printf("[hindsight] warning: failed to persist access counts: %v", err)
+			logger.Warn("failed to persist access counts", "err", err)
 		}
 	}
 
@@ -679,14 +682,16 @@ func main() {
 		var sErr error
 		ss, sErr = newSQLiteStorage(storeDir)
 		if sErr != nil {
-			log.Fatalf("Failed to create sqlite storage: %v", sErr)
+			logger.Error("failed to create sqlite storage", "err", sErr)
+		os.Exit(1)
 		}
 		store, err = NewMemoryStoreWithStorage(ss, storeDir)
 	default:
 		store, err = NewMemoryStore(storeDir)
 	}
 	if err != nil {
-		log.Fatalf("Failed to create memory store: %v", err)
+		logger.Error("failed to create memory store", "err", err)
+		os.Exit(1)
 	}
 	if ss != nil {
 		defer ss.Close()
@@ -697,9 +702,9 @@ func main() {
 	ec := newEmbeddingClientFromEnv()
 	if ec != nil {
 		store.SetEmbedder(ec, 20)
-		log.Printf("[hindsight] dense embedding configured: %s (%s)", ec.baseURL, ec.model)
+		logger.Info("dense embedding configured", "provider", ec.baseURL, "model", ec.model)
 	} else {
-		log.Printf("[hindsight] dense embedding not configured (set EMBEDDING_PROVIDER to enable)")
+		logger.Info("dense embedding not configured (set EMBEDDING_PROVIDER to enable)")
 	}
 
 	h := &memoryHandler{store: store}
@@ -726,16 +731,17 @@ func main() {
 
 		select {
 		case err := <-errCh:
-			log.Fatal(err)
+			logger.Error("http server error", "err", err)
+			os.Exit(1)
 		case sig := <-sigCh:
-			log.Printf("Received %v, shutting down...", sig)
+			logger.Info("shutting down", "signal", sig)
 		}
 		return
 	}
 
-	log.SetPrefix("[hindsight] ")
-	log.Println("Starting in stdio mode (MCP)...")
+	logger.Info("starting in stdio mode (MCP)")
 	if err := srv.ServeStdio(); err != nil {
-		log.Fatal(err)
+		logger.Error("stdio serve error", "err", err)
+		os.Exit(1)
 	}
 }

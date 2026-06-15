@@ -2,14 +2,6 @@
 
 Customized Reasonix AI coding agent based on upstream [esengine/deepseek-reasonix](https://github.com/esengine/deepseek-reasonix) with added MCP bridges, Discord bot, skills hub, and community tooling.
 
-## Project
-
-- **Repo**: `github.com/aliatx2017/reasonix-hermes` (our fork)
-- **Upstream**: `github.com/esengine/deepseek-reasonix` (tracked as `upstream` remote, branch `main-v2`)
-- **Module**: `reasonix`
-- **Stack**: Go 1.25 (CLI + backend), React 19 + TypeScript (desktop frontend), Wails v2 (desktop shell)
-- **Models**: DeepSeek V4 Flash (default), DeepSeek V4 Pro, MiMo v2.5 Pro (planner)
-
 ## Syncing with Upstream
 
 Automated: `.github/workflows/sync-upstream.yml` runs daily at 20:00 UTC (04:00 CST, when upstream devs are asleep). It fetches upstream `main-v2`, merges cleanly, runs `go build ./...` + `go test ./...`, and pushes. On conflict, it opens a PR for manual resolution.

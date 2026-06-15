@@ -33,7 +33,7 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 ## Notes
 
 - **Upstream synced**: `v1.7.0` (commit 21d77d2, 2026-07-15). ~80 commits merged. No new upstream commits this session.
-- **Commit**: work in progress — session 2026-07-15 (h9+h10) code health + docs sweep + eval tool.
+- **Commit**: work in progress — session 2026-07-15 (h12) code audit fixes + docs cleanup.
 - **npm**: `npm i -g reasonix-hermes` — one-line install. Pipeline verified; publish pending 2FA-bypass token.
 - **Key v1.6.0 additions**: vision support (image downscaling + detail knob), built-in Time + Context7 MCP servers, configurable shell interpreter (`[tools.shell]`), notification sound system, token economy composer mode, desktop time filter + custom fonts + status bar customization + Windows ARM64, crash capture (Go panics/breadcrumbs/group summaries), lightweight local history + memory retrieval, Traditional Chinese (zh-TW) locale, updater resilience, agent fixes (decline-ask guard, compaction bounds), desktop hooks UI.
 - **Key v1.7.0 additions** (merged 2026-07-14): reasoning language settings (`agent.reasoning_language`), session ownership and state routing integration, checkpoint boundary corrections (optimistic rewind), enriched+memoized shell PATH for MCP stdio subprocesses, dropped phrase-matched approved-plan continuation, desktop golangci-lint CI, `SaveDocForTab` Wails binding.
@@ -325,6 +325,24 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 - **Desktop widgets**: `OrchestratePanel` (Chain/Pair/CI-Fix with copyable slash commands) + `LearnedPatternsPanel` (patterns + trajectories from Go binding, confidence badges, draft snippets). Wired into HermesSettings.
 - **Upstream**: No new commits (still at 21d77d2). Up to date.
 - **Build**: All binaries compile. `go build ./... && go vet ./...` pass. `tsc --noEmit` 0 errors. All test packages pass (config, orchestrate, eval, i18n, control).
+
+### Session 2026-07-15 (h12) — Code audit fixes + docs cleanup
+
+- **"Project" link fix**: Created `docs/PROJECT.md` (180-line human-oriented project overview — architecture, customizations, binaries, upstream sync). Retargeted README navbar + docs table from `./AGENTS.md` to `./docs/PROJECT.md`. Trimmed redundant `## Project` section from `AGENTS.md`.
+
+- **Code audit fixes (6 issues)** from an external audit:
+  - **P0**: Dockerfile `golang:1.24-bookworm` → `golang:1.25-bookworm` — matches `go.mod` requirement (go 1.25.0, toolchain go1.26.4)
+  - **P1**: Merged duplicate `[desktop]` sections in `reasonix.example.toml` — `layout_style` moved into first section, second section removed
+  - **P1**: Removed dead `rememberRule` function from `internal/permission/permission.go` — zero callers, one-line wrapper around `RememberRuleForScope`
+  - **P1**: Consolidated `SessionGrantRuleForScope` to delegate to `RememberRuleForScope` — eliminated 13 lines of duplicate bash-prefix/file-mutation logic
+  - **P2**: Migrated memory server from `log.Printf`/`log.Fatalf` to structured `slog` (package-level logger, 10 call sites, removed dead `log.SetPrefix`)
+  - **P2**: Pinned Helm `image.tag` from `latest` to `"v1.7.0"` in `deploy/helm/reasonix/values.yaml`
+
+- **Doc sync**: Updated 4 stale references across docs — `golang:1.24`→`1.25` in `CODEMAPS/dependencies.md` and `GUIDE.md`, `docs/AGENTS.md`→`AGENTS.md` in `CONSTITUTION.md`, `../AGENTS.md`→`./PROJECT.md` in `HERMES-GUIDE.md` navbar.
+
+- **Files**: 14 files changed (+120/-70 across Go, docs, TOML, Helm, Dockerfile).
+
+- **Build**: All binaries compile. `go build ./... && go vet ./...` pass. All affected test packages pass (permission: 24 tests, memoryserver: all tests).
 
 ### Next to build
 - [ ] **npm: publish reasonix-hermes** — pipeline verified; needs npm 2FA-bypass token + tag push

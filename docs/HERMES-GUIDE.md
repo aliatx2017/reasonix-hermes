@@ -6,7 +6,7 @@
 &nbsp;·&nbsp;
 <a href="./SPEC.md">Spec</a>
 &nbsp;·&nbsp;
-<a href="../AGENTS.md">Project</a>
+<a href="./PROJECT.md">Project</a>
 
 > Comprehensive day-to-day configuration and usage for Reasonix Hermes. Covers
 > all upstream features plus Hermes extensions: Discord bot, MCP bridge server,
