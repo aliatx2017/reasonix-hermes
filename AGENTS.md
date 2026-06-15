@@ -71,7 +71,7 @@ internal/              Reasonix engine (75 packages)
   control/             Transport-agnostic Controller
   eval/                Session comparison and evaluation (Jaccard, structural diff)
   learn/               Self-improving skill loops (pattern detection)
-  mesh/                Agent-to-agent MCP mesh (delegate, broadcast, council)
+  mesh/                Agent-to-agent MCP mesh (delegate, broadcast, council, judge)
   orchestrate/         Multi-agent orchestration (chain, pair, CI-fix workflows)
   permission/          Tool-call permission gating
   plugin/              MCP client (stdio, HTTP, SSE)
@@ -109,7 +109,7 @@ skills-hub/            17-skill community registry + static catalog site
 | `cmd/reasonix-hooks/` | Native Go hook runner | Zero-dependency binary for PreToolUse/Stop hooks |
 | `skills-hub/` | 17 community skills + catalog site | Curated skill registry with frontmatter playbooks |
 | `internal/learn/` | Self-improving skill loops | Observes agent patterns, detects repeated sequences, generates skills |
-| `internal/mesh/` | Agent-to-agent MCP mesh | Peer delegation, broadcast, council mode for multi-agent collaboration |
+| `internal/mesh/` | Agent-to-agent MCP mesh | Peer delegation, broadcast, council + judge (structured Fusion Router-inspired analysis) |
 | `internal/collab/` | Live collaboration hub | WebSocket session sharing between Reasonix instances |
 | `internal/compress/` | Tool output token compressor | SHA-256 cache, repeated-line collapsing, JSON minification |
 | `internal/scheduler/` | Cron-driven task scheduler | Automated agent runs at scheduled times |
@@ -137,7 +137,7 @@ skills-hub/            17-skill community registry + static catalog site
 ## Notes
 
 - Upstream remote: `https://github.com/esengine/deepseek-reasonix.git` (branch `main-v2`)
-- **Upstream target**: v1.7.0 (July 2026) — ✅ synced (b225dd7). 71 commits merged.
+- **Upstream target**: v1.7.0 (July 2026) — ✅ synced (b225dd7). 71 commits merged. v1.8.0 tags exist, no branch commits yet.
 - Our fork: `https://github.com/aliatx2017/reasonix-hermes.git` (branch `main`)
 - To pull upstream updates: `git fetch upstream && git merge upstream/main-v2`
 - `reasonix.toml` is gitignored (upstream convention) — never commit secrets

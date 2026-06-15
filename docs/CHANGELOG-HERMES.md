@@ -4,6 +4,13 @@ Key milestones in the Hermes fork since June 2026.
 
 ## v1.7.0+ (July 2026)
 
+### Session 2026-07-15 (h13) — Golang audit, dead code, t.Parallel, council judge, docs
+- Golang patterns audit: `go vet` + `staticcheck` → 5 dead code items removed
+- `t.Parallel()`: 96 test functions across 10 custom packages
+- Council judge: Fusion Router-inspired `Council.Judge()` with structured JSON (Consensus, Contradictions, CoverageGaps, UniqueInsights, BlindSpots), 6 tests
+- Docs: dead link fix, logo concepts removed, 6 stale docs → `CHANGELOG-HERMES.md`
+- Vision aux model: `ollamacloud-vision/gemini-3-flash-preview` configured
+
 ### Session 2026-07-15 (h12) — Code audit fixes + docs cleanup
 - Dockerfile Go 1.24 → 1.25 (matches go.mod)
 - Merged duplicate `[desktop]` config sections

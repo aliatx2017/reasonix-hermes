@@ -32,8 +32,8 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 ## Notes
 
-- **Upstream synced**: `v1.7.0` (commit b225dd7, 2026-07-15). ~7 new commits merged across sessions (tab-close race fix, compaction redaction, pipe handling, config defaults, Windows min-width, model fallback, esbuild version pin).
-- **Commit**: work in progress — session 2026-07-15 (h12) code audit fixes + docs cleanup.
+- **Upstream synced**: `v1.7.0` (commit b225dd7, 2026-07-15). ~7 new commits merged across sessions. Upstream `v1.8.0` tags exist (desktop-v1.8.0, npm-v1.8.0-rc.1) but no new branch commits yet.
+- **Commit**: session 2026-07-15 (h13) — golang patterns audit, dead code removal, t.Parallel, council judge, docs consolidation, vision aux config.
 - **npm**: `npm i -g reasonix-hermes` — one-line install. Pipeline verified; publish pending 2FA-bypass token.
 - **Key v1.6.0 additions**: vision support (image downscaling + detail knob), built-in Time + Context7 MCP servers, configurable shell interpreter (`[tools.shell]`), notification sound system, token economy composer mode, desktop time filter + custom fonts + status bar customization + Windows ARM64, crash capture (Go panics/breadcrumbs/group summaries), lightweight local history + memory retrieval, Traditional Chinese (zh-TW) locale, updater resilience, agent fixes (decline-ask guard, compaction bounds), desktop hooks UI.
 - **Key v1.7.0 additions** (merged 2026-07-14): reasoning language settings (`agent.reasoning_language`), session ownership and state routing integration, checkpoint boundary corrections (optimistic rewind), enriched+memoized shell PATH for MCP stdio subprocesses, dropped phrase-matched approved-plan continuation, desktop golangci-lint CI, `SaveDocForTab` Wails binding.
@@ -149,6 +149,24 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 - [ ] **Desktop app distribution** — .dmg / .exe / .AppImage packaging, auto-update mechanism
 - [ ] **Agent session comparison/diffing** — compare two agent runs for eval-driven development
 
+
+### Session 2026-07-15 (h13) — Golang patterns audit, dead code, council judge, docs consolidation
+
+- **Golang patterns audit** (`/go-review` + `/go-test`): staticcheck found 5 dead code items — removed `embedFacts`, `workshopThreshold`, `batchItem`, `toolsListResult`; fixed unnecessary `fmt.Sprintf` in learn.go. All verified clean.
+- **t.Parallel()**: Added to 96 test functions across 10 custom packages (collab, learn, mesh, publish, scheduler, e2e, eval, orchestrate, marketplace). 2 excluded from lobehub_client_test.go due to shared package-level state.
+- **Council judge** (Fusion Router-inspired): Added `JudgmentFunc`, `CouncilJudgment` struct (Consensus, Contradictions, CoverageGaps, UniqueInsights, BlindSpots), `Council.Judge()` method with structured JSON parsing and markdown-fence extraction, `Council.Judgment()` getter. 6 tests covering valid JSON, fenced output, fallback, error cases. Modeled on OpenRouter Fusion Router's judge output schema.
+- **Docs consolidation**: Fixed dead desktop guide link in `docs/PROJECT.md`. Removed `docs/logo-concepts/` (4 exploration files). Deleted 6 stale assessment/planning docs (1,997 lines) → consolidated into `docs/CHANGELOG-HERMES.md` (112 lines). Updated 9 cross-reference files.
+- **Vision aux config**: Added `[agent.auxiliary.vision]` routing to `ollamacloud-vision/gemini-3-flash-preview` in project `reasonix.toml`. Fixed wrong base_url (was pointing to Mimo).
+- **Upstream**: No new branch commits. Tags `v1.8.0`, `desktop-v1.8.0`, `npm-v1.8.0-rc.1` exist.
+- **Build**: All 6 CLI binaries build + go vet clean. Desktop building. Tests running.
+
+### Next to build
+- [ ] **npm: publish reasonix-hermes** — pipeline verified; needs npm 2FA-bypass token + tag push
+- [ ] **Upstream the LINE adapter** — open a PR to esengine/deepseek-reasonix with `internal/bot/line/`
+- [ ] **Desktop app distribution** — cut a desktop-vX.Y.Z release tag (release-desktop.yml pipeline is ready)
+- [ ] **Merge upstream v1.8.0** when commits land on main-v2
+- [ ] **Fusion Router Tier 2**: expose council judge as built-in tool the agent can invoke mid-turn
+- [ ] **Logo review**: Diamond Wing logo looks good at small sizes but the lockup with "Reasonix-Hermes" text could use tighter integration. Consider a monogram variant for favicon/tray use.
 
 ## Next session — ideas & follow-ups
 
