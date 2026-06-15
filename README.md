@@ -14,7 +14,7 @@
 
 > **Reasonix Hermes** is an extended fork of
 > [esengine/deepseek-reasonix](https://github.com/esengine/deepseek-reasonix)
-> (synced to v1.7.0), the DeepSeek-native AI coding agent. We build on
+> (synced to v1.8.0), the DeepSeek-native AI coding agent. We build on
 > upstream's config-driven, plugin-driven Go core and add a Discord bot,
 > MCP bridge server, Hindsight memory server, curated skill registry,
 > native hook runner, and portable mode — everything an agent ecosystem

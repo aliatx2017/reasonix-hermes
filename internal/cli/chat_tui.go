@@ -4203,7 +4203,7 @@ func (m chatTUI) renderPinnedBanner() string {
 	}
 	ver := BuildVersion
 	if ver == "dev" {
-		ver = "v1.7.0"
+		ver = "v1.8.0"
 	}
 	left := accent("◆") + " " + bold("REASONIX-HERMES")
 	right := fmt.Sprintf("%s · %s", m.label, ver)

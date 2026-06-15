@@ -15,7 +15,7 @@
 </p>
 
 > **Reasonix Hermes** 是 [esengine/deepseek-reasonix](https://github.com/esengine/deepseek-reasonix)
-> 的扩展 fork（已同步至 v1.7.0）—— 一个 DeepSeek 原生的 AI coding agent。
+> 的扩展 fork（已同步至 v1.8.0）—— 一个 DeepSeek 原生的 AI coding agent。
 > 我们在上游的配置驱动、插件驱动 Go 核心之上，增加了 Discord bot、
 > MCP bridge server、Hindsight 记忆服务、社区 skill 仓库、
 > 原生 hook runner 和 portable mode —— 让 agent 生态具备连接、记忆和协作能力。
