@@ -148,8 +148,8 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 - [ ] **Upstream the LINE adapter** — open a PR to esengine/deepseek-reasonix with `internal/bot/line/`
 - [ ] **Desktop app distribution** — cut a desktop-vX.Y.Z release tag (release-desktop.yml pipeline is ready)
 - [x] ~~Merge upstream v1.8.x~~ — merged v1.8.1 (a029618) in h14
-- [ ] **Fusion Router Tier 2**: expose council judge as built-in tool the agent can invoke mid-turn
-- [ ] **Vision pipeline follow-up**: `@path` references with spaces in filenames not parseable by `parseRefTokens` regex `@([^\s]+)`. Need quoted-path support or URI encoding.
+- [x] ~~**Fusion Router Tier 2**~~ — `council_judge` built-in tool (Consensus() synthesis, init-registered fallback, boot-wired via ConfineCouncil). 6 tests.
+- [x] ~~**Vision pipeline follow-up**~~ — `refTokenRe` extended with `@"([^"]+)"` quoted alternation. 4 new test cases.
 
 
 ### Session 2026-07-15 (h13) — Golang patterns audit, dead code, council judge, docs consolidation
@@ -181,8 +181,8 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 - [ ] **Upstream the LINE adapter** — open a PR to esengine/deepseek-reasonix with `internal/bot/line/`
 - [ ] **Desktop app distribution** — cut a desktop-vX.Y.Z release tag (release-desktop.yml pipeline is ready)
 - [x] ~~Merge upstream v1.8.0~~ — merged v1.8.1 (a029618)
-- [ ] **Fusion Router Tier 2**: expose council judge as built-in tool the agent can invoke mid-turn
-- [ ] **Vision pipeline follow-up**: `@path` references with spaces in filenames not parseable by `parseRefTokens` (`@([^\s]+)` stops at whitespace). Need quoted-path support or URI encoding.
+- [x] ~~**Fusion Router Tier 2**~~ — `council_judge` built-in tool (Consensus() synthesis, init-registered fallback, boot-wired via ConfineCouncil). 6 tests.
+- [x] ~~**Vision pipeline `@path` spaces**~~ — `refTokenRe` extended with `@"([^"]+)"` quoted alternation. 4 new test cases.
 
 ## Next session — ideas & follow-ups
 
@@ -391,6 +391,19 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
   - Desktop build errors: Restored Hermes struct fields/methods dropped by merge — `SessionMeta` channel metadata (Kind/Channel/ChannelLabel/RemoteID/etc.), `WorkspaceTab.ReadOnly`, `TabMeta.ReadOnly`, `DesktopLayoutStyle` on SettingsView, `snapshotTab`, `OpenChannelSessionForTab`, `applyReasoningLanguageToLiveControllers`, `channelSessionRoutesForDir` + helpers
 - **Constitution**: Added `zero-test-failures` as ERROR-level constraint + rule in `.reasonix/constitution.json`. Saved `zero-test-failures` memory — hard rule: no test failure tolerated, ever, no "pre-existing" excuse.
 - **Build**: All go build/vet pass. All tests pass (main + desktop). tsc --noEmit 0 errors.
+
+### Session 2026-07-15 (h17) — Council judge tool + vision @path spaces fix
+
+- **Upstream**: Checked — no new commits (still at 8ab6d3b). Already synced.
+- **Fusion Router Tier 2** — `council_judge` built-in tool:
+  - `internal/tool/builtin/council.go`: New `councilJudge` struct with `*mesh.Mesh`. Init-registered fallback returns descriptive error when mesh is disabled. Schema: `task` (required). Execute creates a fresh `mesh.NewCouncil(m)`, calls `Convene(task)` + `Consensus()` and returns the synthesized answer.
+  - `internal/tool/builtin/confine.go`: `ConfineCouncil(m *mesh.Mesh) tool.Tool` — creates the configured tool instance, replaces the fallback in the registry.
+  - `internal/boot/boot.go`: `reg.Add(builtin.ConfineCouncil(m))` wired after `ctrl.SetMesh(m)`.
+  - `internal/tool/builtin/council_test.go`: 6 tests (fallback, missing task, bad args, convene-no-peers, schema validation, ConfineCouncil).
+- **Vision `@path` spaces fix**:
+  - `internal/control/refs.go`: `refTokenRe` extended from `@([^\s]+)` to `@([^\s"]\S*)|@"([^"]+)"`. Quoted alternation matches `@"path with spaces"`. `parseRefTokens` now uses group 2 when group 1 is empty. Comment updated.
+  - `internal/control/refs_test.go`: 4 new test cases (quoted-only, mixed quoted+unquoted, quoted-with-unquoted).
+- **Build**: go build/vet clean. All 73 test packages pass. 5 new files (council.go, council_test.go, confine.go +1, refs.go +2, refs_test.go +4).
 
 ### Next to build
 - [ ] **npm: publish reasonix-hermes** — pipeline verified; needs npm 2FA-bypass token + tag push
