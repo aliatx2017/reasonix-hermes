@@ -4205,7 +4205,7 @@ func (m chatTUI) renderPinnedBanner() string {
 	if ver == "dev" {
 		ver = "v1.8.0"
 	}
-	left := accent("◆") + " " + bold("REASONIX-HERMES")
+	left := logoGradient("◆") + " " + logoGradient("REASONIX-HERMES")
 	right := fmt.Sprintf("%s · %s", m.label, ver)
 	gap := w - lipgloss.Width(left) - lipgloss.Width(right) - 2
 	if gap < 2 {
@@ -4322,7 +4322,7 @@ func formatBytes(n int) string {
 // at the top of the session (kept as fallback for narrow terminals).
 func renderTUIBanner(label, missing string, width int) string {
 	var b strings.Builder
-	b.WriteString(accent("◆") + " " + bold("reasonix chat") + "  " + dim("· "+label) + "\n")
+	b.WriteString(logoGradient("◆") + " " + bold("reasonix chat") + "  " + dim("· "+label) + "\n")
 	b.WriteString(dim("  "+i18n.M.ChatTip) + "\n")
 	if missing != "" {
 		b.WriteString(wrapForViewport("  ! "+missing, width, activeCLITheme.warn) + "\n")

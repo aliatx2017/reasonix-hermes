@@ -1,7 +1,10 @@
 package cli
 
 import (
+	"fmt"
+	"math"
 	"os"
+	"time"
 
 	"golang.org/x/term"
 )
@@ -36,6 +39,11 @@ const (
 	// colour. accent() uses the active CLI theme, but tests and legacy callers can
 	// still refer to this concrete escape sequence.
 	ansiAccent = "\033[38;5;173m"
+
+	// Logo palette — matches the Diamond Wing SVG gradient.
+	ansiLogoIndigo = "\033[38;2;99;102;241m" // #6366f1
+	ansiLogoCyan   = "\033[38;2;6;182;212m"  // #06b6d4
+	ansiLogoPink   = "\033[38;2;217;70;239m"  // #d946ef
 )
 
 func sgr(code, s string) string {
@@ -52,3 +60,42 @@ func red(s string) string     { return themeFg(activeCLITheme.err, s) }
 func yellow(s string) string  { return themeFg(activeCLITheme.warn, s) }
 func accent(s string) string  { return themeFg(activeCLITheme.accent, s) }
 func reverse(s string) string { return sgr(ansiReverse, s) }
+
+// logoGradient renders text in a crossfading cycle through the Diamond Wing logo
+// palette: indigo → cyan → pink → indigo over an 8-second period.
+func logoGradient(s string) string {
+	if !colorEnabled {
+		return s
+	}
+	pos := float64(time.Now().UnixMilli()%8000) / 8000.0
+	r, g, b := logoBlend(pos)
+	return fmt.Sprintf("\033[38;2;%d;%d;%dm%s\033[0m", r, g, b, s)
+}
+
+// logoBlend maps a 0..1 position to an RGB color in the logo cycle.
+func logoBlend(pos float64) (r, g, b int) {
+	type rgb struct{ r, g, b int }
+	indigo := rgb{99, 102, 241}  // #6366f1
+	cyan := rgb{6, 182, 212}     // #06b6d4
+	pink := rgb{217, 70, 239}    // #d946ef
+
+	var a, c rgb
+	var t float64
+	switch {
+	case pos < 1.0/3.0:
+		a, c = indigo, cyan
+		t = pos * 3
+	case pos < 2.0/3.0:
+		a, c = cyan, pink
+		t = (pos - 1.0/3.0) * 3
+	default:
+		a, c = pink, indigo
+		t = (pos - 2.0/3.0) * 3
+	}
+	// Cosine ease in/out for smooth blend.
+	ease := (1 - math.Cos(t*math.Pi)) / 2
+	r = a.r + int(float64(c.r-a.r)*ease)
+	g = a.g + int(float64(c.g-a.g)*ease)
+	b = a.b + int(float64(c.b-a.b)*ease)
+	return
+}
