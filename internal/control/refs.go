@@ -50,8 +50,10 @@ type ref struct {
 	raw    string // the original token after '@', for labelling
 }
 
-// refTokenRe matches an @reference token: '@' then a run of non-space chars.
-var refTokenRe = regexp.MustCompile(`@([^\s]+)`)
+// refTokenRe matches an @reference token: '@' then a run of non-space chars
+// that doesn't start with a quote (unquoted), or '@"' then a quoted path that
+// may contain spaces up to the closing '"'.
+var refTokenRe = regexp.MustCompile(`@([^\s"]\S*)|@"([^"]+)"`)
 var pathLocationSuffixRe = regexp.MustCompile(`:\d+(?::\d+)?:?$`)
 
 // parseRefTokens extracts the deduped, punctuation-trimmed tokens following '@'
@@ -60,7 +62,11 @@ func parseRefTokens(line string) []string {
 	var toks []string
 	seen := map[string]bool{}
 	for _, g := range refTokenRe.FindAllStringSubmatch(line, -1) {
-		t := strings.TrimRight(g[1], ".,;!?)]}")
+		t := g[1]
+		if t == "" {
+			t = g[2] // quoted form: @"path with spaces"
+		}
+		t = strings.TrimRight(t, ".,;!?)]}")
 		if t == "" || seen[t] {
 			continue
 		}

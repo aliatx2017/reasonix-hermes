@@ -43,6 +43,9 @@ func TestParseRefTokens(t *testing.T) {
 		{"dedup @a @a", []string{"a"}},
 		{"no refs here", nil},
 		{"email a@b.com keeps token", []string{"b.com"}},
+		{`@"path with spaces.png"`, []string{"path with spaces.png"}},
+		{`see @"my file.txt" and @normal.go`, []string{"my file.txt", "normal.go"}},
+		{`mixed @"quoted path" and unquoted @file.go`, []string{"quoted path", "file.go"}},
 	}
 	for _, c := range cases {
 		got := parseRefTokens(c.line)
