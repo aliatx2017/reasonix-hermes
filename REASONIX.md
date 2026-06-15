@@ -32,7 +32,7 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 ## Notes
 
-- **Upstream synced**: `v1.7.0` (commit df35995, 2026-07-15). ~6 new commits merged this session (tab-close race fix, compaction redaction, pipe handling, config defaults, Windows min-width, model fallback).
+- **Upstream synced**: `v1.7.0` (commit b225dd7, 2026-07-15). ~7 new commits merged across sessions (tab-close race fix, compaction redaction, pipe handling, config defaults, Windows min-width, model fallback, esbuild version pin).
 - **Commit**: work in progress — session 2026-07-15 (h12) code audit fixes + docs cleanup.
 - **npm**: `npm i -g reasonix-hermes` — one-line install. Pipeline verified; publish pending 2FA-bypass token.
 - **Key v1.6.0 additions**: vision support (image downscaling + detail knob), built-in Time + Context7 MCP servers, configurable shell interpreter (`[tools.shell]`), notification sound system, token economy composer mode, desktop time filter + custom fonts + status bar customization + Windows ARM64, crash capture (Go panics/breadcrumbs/group summaries), lightweight local history + memory retrieval, Traditional Chinese (zh-TW) locale, updater resilience, agent fixes (decline-ask guard, compaction bounds), desktop hooks UI.
