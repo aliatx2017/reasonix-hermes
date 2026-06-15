@@ -61,11 +61,14 @@ reasonix/
     ├── config/             # TOML loading (flag > project > user > defaults)
     ├── constitution/       # [Hermes] structured project invariants from .reasonix/constitution.json
     ├── control/            # transport-agnostic session driver
-    │   ├── controller.go             # Controller struct, Options, New, Send, Compose, session lifecycle (2,670 lines)
+    │   ├── controller.go # Controller struct, Options, New, lifecycle (1,245 lines)
     │   ├── controller_approval.go    # gateApprover, approval helpers, requestApproval, notice/beep/profile
     │   ├── controller_checkpoints.go # RewindScope, Rewind, Fork, Branch, Summarize, ckptDir
     │   ├── controller_memory.go      # QuickAdd, SaveDoc, SaveMemory, ForgetMemory, QueueMemory, Memory
     │   ├── controller_mesh.go        # SetMesh, Council, MeshStatus
+    │   ├── controller_mcp.go         # MCP server add/remove/connect, skills, codegraph, Host
+    │   ├── controller_stats.go       # stats getters, schedule, balance, session metrics
+    │   ├── controller_turn.go        # turn lifecycle, goal loop, Submit, RunShell, Cancel
     │   ├── auto_plan.go              # auto-plan selection logic
     │   ├── attachments.go            # image/file attachment handling
     │   ├── branches.go               # Fork/Branch session operations (moved to controller_checkpoints.go)

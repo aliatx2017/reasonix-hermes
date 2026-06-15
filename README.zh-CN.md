@@ -83,10 +83,10 @@ go build -o bin/reasonix ./cmd/reasonix
 
 # Hermes 服务
 go build -o bin/reasonix-mcpbridge  ./cmd/reasonix-mcpbridge   # MCP bridge（6 个工具）
-go build -o bin/reasonix-memory     ./cmd/reasonix-memoryserver # Hindsight 记忆
+go build -o bin/reasonix-memoryserver     ./cmd/reasonix-memoryserver # Hindsight 记忆
 go build -o bin/reasonix-bot        ./bot                       # Discord、Telegram、LINE bot
 go build -o bin/reasonix-hooks      ./cmd/reasonix-hooks        # Hook runner
-go build -o bin/reasonix-review     ./cmd/reasonix-pr-review    # PR review CLI
+go build -o bin/reasonix-pr-review     ./cmd/reasonix-pr-review    # PR review CLI
 
 # 桌面应用（Wails + React 19）
 cd desktop && wails build -o ../bin/reasonix-desktop
@@ -115,7 +115,7 @@ export DEEPSEEK_API_KEY=sk-...            # 或写入 .env
 ./bin/reasonix-mcpbridge --http --port 9090
 
 # 启动记忆服务
-./bin/reasonix-memory --backend sqlite --http --port 8080
+./bin/reasonix-memoryserver --backend sqlite --http --port 8080
 
 # 运行 Discord/Telegram bot
 export DISCORD_BOT_TOKEN="你的token"

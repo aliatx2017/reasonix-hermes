@@ -339,7 +339,7 @@ export DISCORD_BOT_TOKEN="你的token"
 将 Reasonix 作为 MCP 工具暴露给其他 AI agent（Claude Code、Codex 等）：
 
 ```sh
-./bin/reasonix-bridge --http --port 9090
+./bin/reasonix-mcpbridge --http --port 9090
 ```
 
 提供 6 个工具：`reasonix_run`（执行任务）、`doctor`（诊断）、`plan`（计划）、
@@ -350,7 +350,7 @@ export DISCORD_BOT_TOKEN="你的token"
 跨 session 持久记忆，支持 SQLite + 向量搜索：
 
 ```sh
-./bin/reasonix-memory --backend sqlite --http --port 8080
+./bin/reasonix-memoryserver --backend sqlite --http --port 8080
 ```
 
 3 个工具：`hindsight_retain`（存储）、`hindsight_recall`（检索）、

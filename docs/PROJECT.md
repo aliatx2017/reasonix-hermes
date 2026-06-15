@@ -32,7 +32,7 @@ Binaries are available for macOS (amd64 + arm64), Linux (amd64 + arm64), and Win
 | `reasonix-desktop` | ~34 MB | Wails desktop app |
 | `reasonix-bot` | ~15 MB | Discord, Telegram, LINE, Slack bot gateway |
 | `reasonix-mcpbridge` | ~9 MB | MCP bridge server (6 tools) |
-| `reasonix-memory` | ~14 MB | Hindsight memory server (SQLite + vector search) |
+| `reasonix-memoryserver` | ~14 MB | Hindsight memory server (SQLite + vector search) |
 | `reasonix-hooks` | ~8 MB | Native Go hook runner |
 
 ### Build from source
@@ -46,10 +46,10 @@ go build -o bin/reasonix ./cmd/reasonix
 
 # Hermes services
 go build -o bin/reasonix-mcpbridge  ./cmd/reasonix-mcpbridge
-go build -o bin/reasonix-memory     ./cmd/reasonix-memoryserver
+go build -o bin/reasonix-memoryserver     ./cmd/reasonix-memoryserver
 go build -o bin/reasonix-bot        ./bot
 go build -o bin/reasonix-hooks      ./cmd/reasonix-hooks
-go build -o bin/reasonix-review     ./cmd/reasonix-pr-review
+go build -o bin/reasonix-pr-review     ./cmd/reasonix-pr-review
 
 # Desktop app
 cd desktop && wails build -o ../bin/reasonix-desktop

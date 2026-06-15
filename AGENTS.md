@@ -22,8 +22,8 @@ git push origin main
 go build -o bin/reasonix ./cmd/reasonix
 
 # Build our custom binaries
-go build -o bin/reasonix-bridge ./cmd/reasonix-mcpbridge
-go build -o bin/reasonix-memory ./cmd/reasonix-memoryserver
+go build -o bin/reasonix-mcpbridge ./cmd/reasonix-mcpbridge
+go build -o bin/reasonix-memoryserver ./cmd/reasonix-memoryserver
 go build -o bin/reasonix-bot ./bot
 go build -o bin/reasonix-hooks ./cmd/reasonix-hooks
 

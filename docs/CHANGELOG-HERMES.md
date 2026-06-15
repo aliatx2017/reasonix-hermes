@@ -4,6 +4,15 @@ Key milestones in the Hermes fork since June 2026.
 
 ## v1.8.x (July 2026)
 
+### Session 2026-07-15 (h18) — Controller decomposition, desktop fix, base prompt, wedge tests
+- **Controller decomposition (phase 2)**: controller.go 2,670 → 1,245 lines (53% reduction). Extracted controller_turn.go, controller_mcp.go, controller_stats.go. Now 7 focused sub-files.
+- **Desktop hotbar/profiles fix**: Root cause — Go SettingsView was missing Hotbar, Profiles, ActiveProfile fields. Added types, defaults, SetDesktopHotbar/SetProfiles Wails bindings that persist to reasonix.toml.
+- **Base prompt hardened**: Removed "briefly summarize", added complete_step evidence protocol.
+- **Config**: collab enabled (127.0.0.1:19922), mesh enabled, 5 profiles (daily/review/plan/vision/yolo).
+- **Desktop release**: desktop-v1.8.2 tagged + pushed, 37MB arm64 binary.
+- **Wedge tests**: +13 edge-case tests (compress +4, collab +3, mesh +2, learn +2, publish +2).
+- **Build convention**: "build all binaries = 7 binaries" encoded — user runs ./bin/reasonix chat and open desktop/build/bin/reasonix-desktop.app.
+
 ### Session 2026-07-15 (h15) — Vision restore, logo, upstream v1.8.x merge, 13 test fixes
 - **Vision pipeline**: `[agent.auxiliary.vision]` restored in `reasonix.toml` (lost via render.go data-loss bug). Correct TOML structure: `[agent.auxiliary]` intermediate table required for BurntSushi/toml parsing. Screenshot analyzed end-to-end via `ollamacloud-vision/gemini-3-flash-preview`.
 - **Logo**: Diamond `◆` removed from `docs/logo-animated.svg` and `docs/logo.svg` — now `Reasonix-Hermes`.

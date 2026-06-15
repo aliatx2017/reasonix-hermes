@@ -141,10 +141,10 @@ go build -o bin/reasonix ./cmd/reasonix
 
 # Hermes services
 go build -o bin/reasonix-mcpbridge  ./cmd/reasonix-mcpbridge   # MCP bridge (6 tools)
-go build -o bin/reasonix-memory     ./cmd/reasonix-memoryserver # Hindsight memory
-go build -o bin/reasonix-bot        ./bot                       # Discord, Telegram, LINE bot
+go build -o bin/reasonix-memoryserver     ./cmd/reasonix-memoryserver # Hindsight memory
+go build -o bin/reasonix-bot        ./bot                       # Discord, Telegram, LINE, Slack bot
 go build -o bin/reasonix-hooks      ./cmd/reasonix-hooks        # Hook runner
-go build -o bin/reasonix-review     ./cmd/reasonix-pr-review    # PR review CLI
+go build -o bin/reasonix-pr-review     ./cmd/reasonix-pr-review    # PR review CLI
 
 # Desktop app (Wails + React 19)
 cd desktop && wails build -o ../bin/reasonix-desktop
@@ -173,9 +173,9 @@ export DEEPSEEK_API_KEY=sk-...            # or put it in .env
 ./bin/reasonix-mcpbridge --http --port 9090
 
 # Start the memory server
-./bin/reasonix-memory --backend sqlite --http --port 8080
+./bin/reasonix-memoryserver --backend sqlite --http --port 8080
 
-# Run the Discord/Telegram bot
+# Run the Discord/Telegram/LINE/Slack bot
 export DISCORD_BOT_TOKEN="..."
 ./bin/reasonix-bot
 ```
@@ -206,7 +206,7 @@ written to config files.
 ```toml
 [[plugins]]
 name    = "hindsight"
-command = "./bin/reasonix-memory"
+command = "./bin/reasonix-memoryserver"
 args    = ["--backend", "sqlite"]
 ```
 

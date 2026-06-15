@@ -149,8 +149,8 @@ cd reasonix-hermes
 go build -o bin/reasonix ./cmd/reasonix
 
 # Hermes extras
-go build -o bin/reasonix-bridge ./cmd/reasonix-mcpbridge      # MCP bridge server
-go build -o bin/reasonix-memory  ./cmd/reasonix-memoryserver   # Hindsight memory
+go build -o bin/reasonix-mcpbridge ./cmd/reasonix-mcpbridge      # MCP bridge server
+go build -o bin/reasonix-memoryserver  ./cmd/reasonix-memoryserver   # Hindsight memory
 go build -o bin/reasonix-bot     ./bot                         # Discord bot
 go build -o bin/reasonix-hooks   ./cmd/reasonix-hooks          # Native hook runner
 ```
@@ -345,7 +345,7 @@ headers = { Authorization = "Bearer ${STRIPE_KEY}" }
 # ── Hermes: Hindsight memory as MCP plugin ─────────────────────
 [[plugins]]
 name    = "hindsight"
-command = "./bin/reasonix-memory"
+command = "./bin/reasonix-memoryserver"
 args    = ["--backend", "sqlite"]
 
 # ── Hermes: Hooks ──────────────────────────────────────────────
@@ -965,7 +965,7 @@ semantic search via `hindsight_recall` with `dense=true`:
 EMBEDDING_PROVIDER=https://api.deepseek.com \
 EMBEDDING_MODEL=text-embedding-3-small \
 EMBEDDING_API_KEY=$DEEPSEEK_API_KEY \
-./bin/reasonix-memory --backend sqlite --http
+./bin/reasonix-memoryserver --backend sqlite --http
 ```
 
 In `reasonix.toml`:
@@ -1195,7 +1195,7 @@ MCP client to delegate work to Reasonix/DeepSeek.
 ./bin/reasonix-bridge
 
 # HTTP mode
-./bin/reasonix-bridge --http --port 9090
+./bin/reasonix-mcpbridge --http --port 9090
 ```
 
 **6 MCP tools exposed:**
@@ -1220,7 +1220,7 @@ environment. It shells out to the `reasonix` CLI for task execution.
 {
   "mcpServers": {
     "reasonix": {
-      "command": "/path/to/bin/reasonix-bridge"
+      "command": "/path/to/bin/reasonix-mcpbridge"
     }
   }
 }
@@ -1234,13 +1234,13 @@ Cross-session persistent memory with TTL, importance scoring, and vector search.
 
 ```sh
 # File backend (default)
-./bin/reasonix-memory
+./bin/reasonix-memoryserver
 
 # SQLite backend (recommended for production)
-./bin/reasonix-memory --backend sqlite
+./bin/reasonix-memoryserver --backend sqlite
 
 # HTTP mode
-./bin/reasonix-memory --backend sqlite --http --port 8080
+./bin/reasonix-memoryserver --backend sqlite --http --port 8080
 ```
 
 **3 MCP tools:**
@@ -1270,7 +1270,7 @@ Cross-session persistent memory with TTL, importance scoring, and vector search.
 ```toml
 [[plugins]]
 name    = "hindsight"
-command = "./bin/reasonix-memory"
+command = "./bin/reasonix-memoryserver"
 args    = ["--backend", "sqlite"]
 ```
 
