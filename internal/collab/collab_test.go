@@ -180,3 +180,51 @@ func TestNilHub(t *testing.T) {
 		t.Error("nil hub reports 0 watchers")
 	}
 }
+
+func TestRapidStartStop(t *testing.T) {
+	t.Parallel()
+	cfg := Config{Enabled: true, ListenAddr: "127.0.0.1:0"}
+	h := New(cfg, nil, nil)
+	for i := 0; i < 3; i++ {
+		if err := h.Start(); err != nil {
+			t.Fatalf("Start cycle %d: %v", i, err)
+		}
+		if err := h.Stop(); err != nil {
+			t.Fatalf("Stop cycle %d: %v", i, err)
+		}
+	}
+	// Should still be functional after cycles
+	if err := h.Start(); err != nil {
+		t.Fatalf("final Start: %v", err)
+	}
+	defer h.Stop()
+	if h.SessionWatchers("any") != 0 {
+		t.Error("no watchers expected after fresh start")
+	}
+}
+
+func TestBroadcastNoWatchersNoPanic(t *testing.T) {
+	t.Parallel()
+	cfg := Config{Enabled: true, ListenAddr: "127.0.0.1:0"}
+	h := New(cfg, nil, nil)
+	if err := h.Start(); err != nil {
+		t.Fatal(err)
+	}
+	defer h.Stop()
+	// Broadcast to session with no watchers — must not panic
+	h.Broadcast("no-watchers", Event{Kind: "orphan"})
+}
+
+func TestActiveSessionsEmpty(t *testing.T) {
+	t.Parallel()
+	cfg := Config{Enabled: true, ListenAddr: "127.0.0.1:0"}
+	h := New(cfg, nil, nil)
+	if err := h.Start(); err != nil {
+		t.Fatal(err)
+	}
+	defer h.Stop()
+	sessions := h.ActiveSessions()
+	if len(sessions) != 0 {
+		t.Errorf("expected 0 active sessions, got %d", len(sessions))
+	}
+}

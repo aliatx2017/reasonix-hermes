@@ -491,3 +491,71 @@ func newMockMCPServer(t *testing.T, name string, handler func(method string, par
 		json.NewEncoder(w).Encode(resp)
 	}))
 }
+
+func TestDelegate_PeerUnreachable(t *testing.T) {
+	t.Parallel()
+	m := New(Config{Enabled: true, Peers: []PeerConfig{
+		{Name: "gone", URL: "http://127.0.0.1:19999", Enabled: true},
+	}})
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	result, err := m.Delegate(ctx, "gone", "do something")
+	if err != nil {
+		t.Fatalf("Delegate returned error: %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected non-nil result")
+	}
+	if result.Error == "" {
+		t.Error("expected error in result for unreachable peer")
+	}
+}
+
+func TestBroadcast_PartialFailure(t *testing.T) {
+	t.Parallel()
+	srv1 := newMockMCPServer(t, "peer-ok", func(method string, params json.RawMessage) (json.RawMessage, error) {
+		if method == "initialize" {
+			return json.Marshal(map[string]any{
+				"protocolVersion": "2024-11-05",
+				"serverInfo":      map[string]string{"name": "peer-ok", "version": "1.0"},
+			})
+		}
+		if method == "tools/list" {
+			return json.Marshal(map[string]any{"tools": []map[string]any{
+				{"name": "mesh_delegate", "inputSchema": map[string]any{}},
+			}})
+		}
+		return json.Marshal(map[string]any{
+			"content": []map[string]string{{"type": "text", "text": "ok"}},
+		})
+	})
+	defer srv1.Close()
+
+	m := New(Config{Enabled: true, Peers: []PeerConfig{
+		{Name: "peer-ok", URL: srv1.URL, Enabled: true},
+		{Name: "peer-gone", URL: "http://127.0.0.1:19998", Enabled: true},
+	}})
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	results, err := m.Broadcast(ctx, "my-task")
+	if err != nil {
+		t.Fatalf("Broadcast error: %v", err)
+	}
+	if len(results) != 2 {
+		t.Fatalf("expected 2 results, got %d: %+v", len(results), results)
+	}
+	var successCount, failCount int
+	for _, r := range results {
+		if r.Success {
+			successCount++
+		} else {
+			failCount++
+		}
+	}
+	if successCount == 0 {
+		t.Error("expected at least one successful peer")
+	}
+	if failCount == 0 {
+		t.Error("expected at least one failed peer (unreachable)")
+	}
+}

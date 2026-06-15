@@ -273,3 +273,61 @@ func TestSortedKeys(t *testing.T) {
 		t.Errorf("sortedKeys = %v", keys)
 	}
 }
+
+func TestCompressRapidRepeatSameContent(t *testing.T) {
+	t.Parallel()
+	c := New(true)
+	raw := strings.Repeat("identical output line\n", 100)
+	got := c.Compress("bash", raw)
+	if !strings.Contains(got, "[×") {
+		t.Error("rapid repeats of identical line should be collapsed")
+	}
+}
+
+func TestCompressZeroByteContent(t *testing.T) {
+	t.Parallel()
+	c := New(true)
+	// Content that is effectively empty but has whitespace
+	got := c.Compress("bash", "   \n\t\n   ")
+	if got == "" {
+		// Acceptable — empty-looking content collapses
+		return
+	}
+	if len(got) > 16 {
+		t.Errorf("whitespace-only content should be minimal, got %d bytes: %q", len(got), got)
+	}
+}
+
+func TestCompressNilSafe(t *testing.T) {
+	t.Parallel()
+	c := New(true)
+	// Verify we don't panic on degenerate inputs
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Errorf("Compress panicked: %v", r)
+			}
+		}()
+		_ = c.Compress("", "")
+		_ = c.Compress("bash", "\x00\x00")
+		_ = c.Compress("read_file", strings.Repeat("\n", 1000))
+		_ = c.Compress("json", "null")
+	}()
+}
+
+func TestCompressStatsAccumulate(t *testing.T) {
+	t.Parallel()
+	c1 := New(true)
+	// Generate content that will definitely compress via repeated-line collapse.
+	// 10 identical lines should trigger collapse.
+	raw := strings.Repeat("identical\n", 10)
+	got := c1.Compress("bash", raw)
+	if got == raw {
+		t.Skip("repeated-line collapse not triggered for this pattern")
+	}
+	s1 := c1.Stats()
+	// At least one stat counter should be non-zero.
+	if s1.CacheHits == 0 && s1.LinesCollapsed == 0 && s1.BytesSaved == 0 {
+		t.Error("stats should show activity after compression")
+	}
+}

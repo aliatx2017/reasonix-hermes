@@ -171,3 +171,33 @@ func TestTruncateStr(t *testing.T) {
 		t.Errorf("truncateStr(hi,10) = %q", s)
 	}
 }
+
+func TestToHTMLEmptyMessages(t *testing.T) {
+	t.Parallel()
+	s := Session{
+		Title:    "empty test",
+		Messages: []provider.Message{},
+	}
+	html := ToHTML(s)
+	if !strings.Contains(html, "empty test") {
+		t.Error("HTML should contain title even with empty messages")
+	}
+}
+
+func TestToHTMLSpecialChars(t *testing.T) {
+	t.Parallel()
+	s := Session{
+		Title: "special test",
+		Messages: []provider.Message{
+			{Role: "user", Content: "hello <script>alert('xss')</script>"},
+			{Role: "assistant", Content: "unicode chars"},
+		},
+	}
+	html := ToHTML(s)
+	if strings.Contains(html, "<script>") {
+		t.Error("HTML output should escape script tags")
+	}
+	if !strings.Contains(html, "special test") {
+		t.Error("HTML should contain title")
+	}
+}

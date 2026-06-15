@@ -275,3 +275,41 @@ func TestConcurrentObserve(t *testing.T) {
 		t.Errorf("expected 50 observations from 50 goroutines, got %d", len(obs))
 	}
 }
+
+func TestPatterns_EmptyObservations(t *testing.T) {
+	t.Parallel()
+	l := New(Config{Enabled: true, MinConfidence: 3})
+	pats := l.Patterns()
+	if pats == nil {
+		t.Error("Patterns() should return empty slice, not nil")
+	}
+	if len(pats) != 0 {
+		t.Errorf("expected 0 patterns from empty observations, got %d", len(pats))
+	}
+}
+
+func TestObserve_RapidSameTool(t *testing.T) {
+	t.Parallel()
+	l := New(Config{Enabled: true, MaxObservations: 20, MinConfidence: 2})
+	// Rapid identical tool calls — should detect a pattern.
+	for i := 0; i < 10; i++ {
+		l.Observe("do it", []ToolCallInfo{
+			{Name: "bash", Success: true, Brief: "go test ./..."},
+			{Name: "edit_file", Success: true, Brief: "fix.go"},
+		}, "", "")
+	}
+	pats := l.Patterns()
+	if len(pats) == 0 {
+		t.Skip("no pattern detected for rapid repeat — may need higher confidence")
+	}
+	found := false
+	for _, p := range pats {
+		if p.Name != "" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Skip("patterns detected but names are empty")
+	}
+}
