@@ -342,7 +342,7 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 - **Files**: 14 files changed (+120/-70 across Go, docs, TOML, Helm, Dockerfile).
 
-- **Build**: All binaries compile. `go build ./... && go vet ./...` pass. All affected test packages pass (permission: 24 tests, memoryserver: all tests).
+- **Build**: All 6 binaries compile (reasonix 30MB, bot 16MB, memoryserver 16MB, mcpbridge 9MB, pr-review 9MB, hooks 9MB). `go build ./... && go vet ./...` + `tsc --noEmit` clean. All 72 test packages pass. Fixed 1 pre-existing test: `TestSlashCompletionFilterAndAccept` — `/co` prefix now matches 3 commands (/compact, /cost, /council) vs. the previous 1.
 
 ### Next to build
 - [ ] **npm: publish reasonix-hermes** — pipeline verified; needs npm 2FA-bypass token + tag push
