@@ -2291,6 +2291,9 @@ func (m chatTUI) View() tea.View {
 	data = append(data, dim("turns")+" "+strconv.Itoa(m.sessionTurns))
 	msgs := m.ctrl.History()
 	data = append(data, dim("msgs")+" "+strconv.Itoa(len(msgs)))
+	// Total session time.
+	uptime := time.Since(m.sessionStart).Round(time.Second)
+	data = append(data, dim("up")+" "+uptime.String())
 	// Compressor savings — bytes trimmed from tool output.
 	if cs := m.ctrl.CompressStats(); cs.BytesSaved > 0 {
 		data = append(data, dim("sqz")+" "+formatBytes(cs.BytesSaved))
@@ -2951,6 +2954,12 @@ func (m chatTUI) computeStatusLineCount(width int) int {
 	if m.balance != "" {
 		data = append(data, m.balance)
 	}
+	// Mirror the always-visible session counters from View().
+	data = append(data, dim("turns")+" "+strconv.Itoa(m.sessionTurns))
+	msgs := m.ctrl.History()
+	data = append(data, dim("msgs")+" "+strconv.Itoa(len(msgs)))
+	uptime := time.Since(m.sessionStart).Round(time.Second)
+	data = append(data, dim("up")+" "+uptime.String())
 	dataLine := "  " + strings.Join(data, " · ")
 	if m.statuslineCmd != "" && m.statuslineOut != "" {
 		dataLine = "  " + m.statuslineOut
@@ -4205,7 +4214,7 @@ func (m chatTUI) renderPinnedBanner() string {
 	if ver == "dev" {
 		ver = "v1.8.0"
 	}
-	left := logoGradient("◆") + " " + logoGradient("REASONIX-HERMES")
+	left := logoGradient("◆ REASONIX-HERMES")
 	right := fmt.Sprintf("%s · %s", m.label, ver)
 	gap := w - lipgloss.Width(left) - lipgloss.Width(right) - 2
 	if gap < 2 {
@@ -4322,7 +4331,7 @@ func formatBytes(n int) string {
 // at the top of the session (kept as fallback for narrow terminals).
 func renderTUIBanner(label, missing string, width int) string {
 	var b strings.Builder
-	b.WriteString(logoGradient("◆") + " " + bold("reasonix chat") + "  " + dim("· "+label) + "\n")
+	b.WriteString(logoGradient("◆ reasonix chat") + "  " + dim("· "+label) + "\n")
 	b.WriteString(dim("  "+i18n.M.ChatTip) + "\n")
 	if missing != "" {
 		b.WriteString(wrapForViewport("  ! "+missing, width, activeCLITheme.warn) + "\n")

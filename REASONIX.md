@@ -37,6 +37,7 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 ## Notes
 
 - **Upstream synced**: `v1.8.x` (commit 8ab6d3b, 2026-07-15). 71 new commits merged (model switcher, math rendering, desktop fixes). Previous tag: desktop-v1.8.1.
+- **Commit**: session 2026-07-15 (h20) — gradient banner stability fix (consolidated logoGradient calls), session time on status bar, height budget sync in computeStatusLineCount.
 - **Commit**: session 2026-07-15 (h19) — animated logo gradient banner (indigo→cyan→pink), doc sweep (8 files, stale binary names fixed), all prior h18 work.
 - **Commit**: session 2026-07-15 (h15) — upstream v1.8.x merge (8ab6d3b, 71 commits), vision pipeline restore, logo fix, 13 test fixes, constitution zero-test-failures rule.
 - **npm**: `npm i -g reasonix-hermes` — one-line install. Pipeline verified; publish pending 2FA-bypass token.
@@ -417,4 +418,6 @@ desktop hotbar/profiles root-cause fix, 13 wedge tests, desktop-v1.8.2, collab+m
 
 ### Next to build
 - [ ] **npm: publish reasonix-hermes** — pipeline verified; needs npm 2FA-bypass token + tag push
+- [ ] **logoGradient per-frame caching** — `logoGradient` calls `time.Now()` every invocation; cache the gradient string per render frame so `bottomRows()` and `View()` see identical byte sequences
+- [ ] **computeStatusLineCount full mirror** — still missing conditional data items (sqz, aux, goal, mem); add controller getters to replicate these in the height budget
 - [x] ~~Desktop app distribution~~ — `desktop-v1.8.2` tagged + pushed (h18)
