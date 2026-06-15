@@ -67,6 +67,9 @@ type ToolCall struct {
 	ID        string `json:"id"`
 	Name      string `json:"name"`
 	Arguments string `json:"arguments"`
+	Diff      string `json:"diff,omitempty"`
+	Added     int    `json:"added,omitempty"`
+	Removed   int    `json:"removed,omitempty"`
 }
 
 // ToolSchema is a tool definition exposed to the model. Parameters is JSON Schema.

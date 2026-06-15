@@ -79,5 +79,58 @@ eq(positionalResult.length, 1, "positional tool result is consumed instead of re
 eq(positionalResult[0]?.kind === "tool" && positionalResult[0].status, "done", "empty-id tool call restores from positional result");
 eq(positionalResult[0]?.kind === "tool" && positionalResult[0].output, "Todos updated", "empty-id tool call keeps positional output");
 
+const archivedResult = toolItems([
+  {
+    role: "assistant",
+    content: "",
+    toolCalls: [{
+      id: "archived-bash",
+      name: "bash",
+      arguments: "",
+      argumentsArchived: true,
+      subject: "printf x",
+      summary: "600 lines",
+    }],
+  },
+  {
+    role: "tool",
+    content: "",
+    toolCallId: "archived-bash",
+    toolName: "bash",
+    toolResultArchived: true,
+  },
+] as HistoryMessage[]);
+eq(archivedResult[0]?.kind === "tool" && archivedResult[0].status, "done", "archived successful result restores as done");
+eq(archivedResult[0]?.kind === "tool" && archivedResult[0].dataArchived, true, "archived successful result is marked dataArchived immediately");
+eq(archivedResult[0]?.kind === "tool" && archivedResult[0].output, undefined, "archived successful result has no initial output");
+eq(archivedResult[0]?.kind === "tool" && archivedResult[0].args, "", "archived successful result has no initial args");
+eq(archivedResult[0]?.kind === "tool" && archivedResult[0].subject, "printf x", "archived successful result keeps precomputed subject");
+eq(archivedResult[0]?.kind === "tool" && archivedResult[0].summary, "600 lines", "archived successful result keeps precomputed summary");
+
+const archivedError = toolItems([
+  {
+    role: "assistant",
+    content: "",
+    toolCalls: [{
+      id: "archived-error",
+      name: "bash",
+      arguments: "",
+      argumentsArchived: true,
+      subject: "rm protected",
+    }],
+  },
+  {
+    role: "tool",
+    content: "error: permission denied",
+    toolCallId: "archived-error",
+    toolName: "bash",
+    toolResultArchived: true,
+    toolResultError: "error: permission denied",
+  },
+] as HistoryMessage[]);
+eq(archivedError[0]?.kind === "tool" && archivedError[0].status, "error", "archived failed result restores as error");
+eq(archivedError[0]?.kind === "tool" && archivedError[0].dataArchived, true, "archived failed result is still loadable on demand");
+eq(archivedError[0]?.kind === "tool" && archivedError[0].error, "error: permission denied", "archived failed result keeps bounded error preview");
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

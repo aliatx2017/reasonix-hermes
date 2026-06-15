@@ -1,19 +1,19 @@
-import { diffLines } from '../../lib/diff';
-import { highlightToHtml } from '../../lib/highlight';
-import type { DiffProps } from '../DiffView';
+import type { DiffProps } from "../DiffView";
+import { diffLines, diffRowsFromUnifiedDiff } from "../../lib/diff";
+import { highlightToHtml } from "../../lib/highlight";
 
 // HljsDiff is the syntax-highlighted default behind the diff seam: an LCS line
 // diff with a +/- gutter, each line highlighted in the target language. A real
 // editor (Monaco DiffEditor / CodeMirror merge) would replace this via
 // DiffView.tsx's lazy import.
-const SIGN: Record<'ctx' | 'add' | 'del', string> = { ctx: ' ', add: '+', del: '-' };
+const SIGN: Record<"ctx" | "add" | "del", string> = { ctx: " ", add: "+", del: "-" };
 
 function lineNo(n?: number): string {
   return typeof n === "number" ? String(n) : "";
 }
 
-export default function HljsDiff({ original, modified, language, maxHeight }: DiffProps) {
-  const rows = diffLines(original, modified);
+export default function HljsDiff({ original = "", modified = "", diff = "", language, maxHeight }: DiffProps) {
+  const rows = diff ? diffRowsFromUnifiedDiff(diff) : diffLines(original, modified);
   return (
     <div className="diff hljs" style={maxHeight ? { maxHeight } : undefined}>
       <div className="diff__table">

@@ -108,6 +108,7 @@ import {
 import { applyTextSize, DEFAULT_TEXT_SIZE, getTextSize, nextTextSize } from "./lib/textSize";
 import { useWindowStatePersistence } from "./lib/windowState";
 import { availableWorkspacePanelWidth, resolveWorkspacePanelWidth, workspacePanelAriaMinWidth } from "./lib/workspaceLayout";
+import { isCloseTabShortcut } from "./lib/keyboardShortcuts";
 import logoWordmark from "./assets/logo-wordmark.svg";
 
 const SIDEBAR_COLLAPSED_KEY = "reasonix.sidebar.collapsed";
@@ -161,6 +162,7 @@ type SidebarImConnection = {
   statusLabel: string;
   remoteId: string;
   sessionId: string;
+  sessionSource: string;
   scope: "global" | "project";
   workspaceRoot: string;
   allowAll: boolean;
@@ -311,6 +313,7 @@ function sidebarImQQConnection(bot: BotSettingsView, translate: Translator, runt
     statusLabel,
     remoteId,
     sessionId: "",
+    sessionSource: "",
     scope: "global",
     workspaceRoot: "",
     allowAll: bot.allowlist.allowAll,
@@ -337,6 +340,7 @@ function sidebarImConnectionsFromBot(
       const platformLabel = sidebarImPlatformLabel(platform, translate);
       const remoteId = mapping?.remoteId.trim() ?? "";
       const sessionId = mapping?.sessionId.trim() ?? "";
+      const sessionSource = mapping?.sessionSource.trim() ?? "";
       const scope = botMappingScope(mapping, connection.workspaceRoot);
       const workspaceRoot = botMappingWorkspaceRoot(mapping, connection.workspaceRoot);
       const status = sidebarImStatus(connection, bot.enabled);
@@ -361,6 +365,7 @@ function sidebarImConnectionsFromBot(
         statusLabel: sidebarImStatusLabel(status, translate),
         remoteId,
         sessionId,
+        sessionSource,
         scope,
         workspaceRoot,
         allowAll: bot.allowlist.allowAll,
@@ -391,6 +396,14 @@ function mappedSessionTarget(sessionId: string): { kind: "path" | "topic"; value
     return { kind: "path", value: trimmed };
   }
   return { kind: "topic", value: trimmed };
+}
+
+function sidebarImSessionTarget(connection: SidebarImConnection): { kind: "path" | "topic"; value: string } | null {
+  return mappedSessionTarget(connection.sessionId);
+}
+
+function isChannelSession(session: SessionMeta): boolean {
+  return session.kind === "channel" || session.sessionSource === "auto";
 }
 
 function sidebarImTopicSourcesFromBot(bot: BotSettingsView | null | undefined, translate: Translator): Record<string, SidebarImTopicSource> {
@@ -425,8 +438,11 @@ function sidebarImScopeLabel(connection: SidebarImConnection, translate: Transla
 }
 
 function sidebarImSessionLabel(connection: SidebarImConnection, translate: Translator): string {
-  const target = mappedSessionTarget(connection.sessionId);
-  if (!target) return translate("botDetail.noSession");
+  const target = sidebarImSessionTarget(connection);
+  if (!target) {
+    return connection.remoteId ? translate("botDetail.readOnlyChannel") : translate("botDetail.noSession");
+  }
+  if (connection.sessionSource === "auto") return translate("botDetail.readOnlyChannel");
   if (target.kind === "path") return target.value.split(/[\\/]/).pop() || target.value;
   return target.value;
 }
@@ -451,7 +467,7 @@ function sidebarImAccessStatusClass(connection: SidebarImConnection): string {
 
 function SidebarImConnectionDetail({ connection, onClose, onOpenSession, onOpenSettings, onManageAllowlist }: SidebarImConnectionDetailProps) {
   const translate = useT();
-  const target = mappedSessionTarget(connection.sessionId);
+  const target = sidebarImSessionTarget(connection);
   const accessStatusClass = sidebarImAccessStatusClass(connection);
   return (
     <div className="bot-detail">
@@ -831,6 +847,7 @@ export default function App() {
     listSessions,
     listTrashedSessions,
     resumeSession,
+    openChannelSession,
     previewSession,
     deleteSession,
     restoreSession,
@@ -2051,6 +2068,7 @@ export default function App() {
 
   // send wrapper: commits any pending optimistic rewind before sending.
   const commitThenSend = useCallback(async (displayText: string, submitText?: string) => {
+    if (activeTab?.readOnly) return;
     const rs = rewindStateRef.current;
     if (rs) {
       setRewindState(null);
@@ -2070,9 +2088,10 @@ export default function App() {
       }
     }
     send(displayText, submitText);
-  }, [send, rewind]);
+  }, [activeTab?.readOnly, send, rewind]);
 
   const handleMessageAction = useCallback((turn: number, scope: string) => {
+    if (activeTab?.readOnly) return;
     if (scope === "fork") {
       // Fork still goes through the controller (not optimistic).
       rewind(turn, scope).then(() => {
@@ -2121,7 +2140,7 @@ export default function App() {
     setComposerInsertRequest({ id: insertId, text: userItem?.text ?? "" });
 
     setRewindSignal((v) => v + 1);
-  }, [state.items, rewind, refreshTabMetas, setComposerInsertRequest]);
+  }, [activeTab?.readOnly, state.items, rewind, refreshTabMetas, setComposerInsertRequest]);
 
   const handleOpenTopic = useCallback(async (scope: string, workspaceRoot: string, topicId: string, sessionPath?: string) => {
     closeTransientOverlays();
@@ -2137,14 +2156,17 @@ export default function App() {
   }, [closeTransientOverlays, openGlobalTab, openProjectTab, openTopicSession, refreshTabMetas]);
 
   const openSidebarImConnectionSession = useCallback(async (connection: SidebarImConnection) => {
-    const target = mappedSessionTarget(connection.sessionId);
+    const target = sidebarImSessionTarget(connection);
     if (!target) {
       showToast(t("sidebar.imWaiting", { name: connection.title }));
       return;
     }
     setSidebarImDetailConnectionId("");
     try {
-      if (target.kind === "path") {
+      if (connection.sessionSource === "auto" && target.kind === "path") {
+        const tab = await ensureBlankTab(connection.scope, connection.scope === "project" ? connection.workspaceRoot : "");
+        await openChannelSession(target.value, tab.id);
+      } else if (target.kind === "path") {
         const tab = await ensureBlankTab(connection.scope, connection.scope === "project" ? connection.workspaceRoot : "");
         await resumeSession(target.value, tab.id);
       } else if (connection.scope === "project") {
@@ -2158,7 +2180,7 @@ export default function App() {
       console.warn("bot sidebar open failed", err);
       showToast(t("sidebar.imOpenFailed", { name: connection.title }));
     }
-  }, [ensureBlankTab, openGlobalTab, openProjectTab, refreshTabMetas, resumeSession, showToast, t]);
+  }, [ensureBlankTab, openChannelSession, openGlobalTab, openProjectTab, refreshTabMetas, resumeSession, showToast, t]);
 
   const selectSidebarImConnection = useCallback((connection: SidebarImConnection) => {
     setActiveSidebarImConnectionId(connection.id);
@@ -2202,7 +2224,10 @@ export default function App() {
       const scope = session.scope || (session.workspaceRoot ? "project" : "global");
       try {
         let targetTab: TabMeta;
-        if (scope === "project" && session.workspaceRoot && session.topicId) {
+        if (isChannelSession(session)) {
+          targetTab = await ensureBlankTab(scope === "project" ? "project" : "global", scope === "project" ? session.workspaceRoot || "" : "");
+          await openChannelSession(session.path, targetTab.id);
+        } else if (scope === "project" && session.workspaceRoot && session.topicId) {
           targetTab = await openProjectTab(session.workspaceRoot, session.topicId);
         } else if (scope === "global" && session.topicId) {
           targetTab = await openGlobalTab(session.topicId);
@@ -2212,7 +2237,9 @@ export default function App() {
             : (session.topicId ? "Missing workspaceRoot" : t("history.failedOpenSession")));
         }
         setHistView(null);
-        await resumeSession(session.path, targetTab.id);
+        if (!isChannelSession(session)) {
+          await resumeSession(session.path, targetTab.id);
+        }
         await refreshTabMetas();
       } catch (err: any) {
         setHistView(null);
@@ -2224,7 +2251,7 @@ export default function App() {
         }
       }
     },
-    [openGlobalTab, openProjectTab, refreshTabMetas, state.running, resumeSession, t, showToast],
+    [ensureBlankTab, openChannelSession, openGlobalTab, openProjectTab, refreshTabMetas, state.running, resumeSession, t, showToast],
   );
 
   // Command palette: ⌘K / Ctrl+K opens a fuzzy navigator over commands and
@@ -2250,6 +2277,20 @@ export default function App() {
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [openPalette]);
+
+  // Cmd/Ctrl+W — close the active tab
+  useEffect(() => {
+    if (!activeTabId) return;
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (isCloseTabShortcut(e, desktopPlatform)) {
+        e.preventDefault();
+        handleTabClose(activeTabId);
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [activeTabId, desktopPlatform, handleTabClose]);
+
   const paletteItems = useMemo<PaletteItem[]>(() => {
     const cmds: PaletteItem[] = [
       { id: "cmd-new", group: t("palette.group.commands"), title: t("palette.cmd.newSession"), icon: <SquarePen size={15} />, compact: true, keywords: ["new", "新建"], run: () => void handleNewTab() },
@@ -2866,12 +2907,13 @@ export default function App() {
               <Transcript
                 items={displayItems}
                 live={state.live}
+                tabId={activeTabId}
                 footerHeight={footerHeight}
                 onPrompt={commitThenSend}
                 onRewind={handleMessageAction}
                 checkpoints={state.checkpoints}
                 actionPending={state.messageAction != null}
-                rewindDisabled={state.running || state.messageAction != null || state.approval != null || state.ask != null || clearContextPending}
+                rewindDisabled={Boolean(activeTab?.readOnly) || state.running || state.messageAction != null || state.approval != null || state.ask != null || clearContextPending}
                 running={state.running}
                 rewindSignal={rewindSignal}
               />
@@ -2952,6 +2994,7 @@ export default function App() {
               onSetEffort={setEffort}
               onSetTokenMode={applyTokenMode}
               insertRequest={composerInsertRequest}
+              readOnly={Boolean(activeTab?.readOnly)}
               disabled={state.meta?.ready === false || state.messageAction != null || state.approval != null || state.ask != null || clearContextPending}
               decisionPending={state.messageAction != null || state.approval != null || state.ask != null || clearContextPending}
               ready={state.meta?.ready === true}

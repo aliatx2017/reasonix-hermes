@@ -1730,6 +1730,100 @@ func TestDesktopSessionAPIsUseControllerSessionDir(t *testing.T) {
 	}
 }
 
+func TestListSessionsMarksAutoBotSessionAsChannel(t *testing.T) {
+	isolateDesktopUserDirs(t)
+
+	dir := config.SessionDir()
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("mkdir session dir: %v", err)
+	}
+	path := filepath.Join(dir, "bot-channel.jsonl")
+	if err := os.WriteFile(path, []byte(`{"role":"user","content":"from channel"}`+"\n"), 0o644); err != nil {
+		t.Fatalf("write session: %v", err)
+	}
+	cfg := config.Default()
+	cfg.Bot.Connections = []config.BotConnectionConfig{{
+		ID: "weixin-weixin", Provider: "weixin", Domain: "weixin", Label: "微信", Enabled: true, Status: "connected",
+		SessionMappings: []config.BotConnectionSessionMapping{{
+			RemoteID: "wx-chat-1", SessionID: "path:" + path, SessionSource: "auto",
+		}},
+	}}
+	if err := cfg.SaveTo(config.UserConfigPath()); err != nil {
+		t.Fatalf("save config: %v", err)
+	}
+
+	app := NewApp()
+	app.setTestCtrl(control.New(control.Options{SessionDir: dir, SessionPath: filepath.Join(dir, "active.jsonl"), Label: "test"}), "")
+	defer app.activeCtrl().Close()
+
+	sessions := app.ListSessions()
+	if len(sessions) != 1 {
+		t.Fatalf("ListSessions len = %d, want 1: %+v", len(sessions), sessions)
+	}
+	got := sessions[0]
+	if got.Kind != "channel" || got.Channel != "weixin" || got.ChannelLabel != "微信" || got.RemoteID != "wx-chat-1" || got.SessionSource != "auto" {
+		t.Fatalf("channel session meta = %+v", got)
+	}
+}
+
+func TestOpenChannelSessionForTabIsReadOnly(t *testing.T) {
+	isolateDesktopUserDirs(t)
+
+	dir := config.SessionDir()
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("mkdir session dir: %v", err)
+	}
+	path := filepath.Join(dir, "bot-channel.jsonl")
+	if err := os.WriteFile(path, []byte(`{"role":"user","content":"from channel"}`+"\n"), 0o644); err != nil {
+		t.Fatalf("write session: %v", err)
+	}
+
+	app := NewApp()
+	ctrl := control.New(control.Options{SessionDir: dir, SessionPath: filepath.Join(dir, "active.jsonl"), Label: "test"})
+	app.setTestCtrl(ctrl, "")
+	defer app.activeCtrl().Close()
+
+	if _, err := app.OpenChannelSessionForTab("test", path); err != nil {
+		t.Fatalf("OpenChannelSessionForTab: %v", err)
+	}
+	if meta := app.tabMeta(app.activeTab(), true); !meta.ReadOnly {
+		t.Fatalf("channel tab should be read-only: %+v", meta)
+	}
+	before, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read before: %v", err)
+	}
+	app.SubmitToTab("test", "must not append")
+	app.RunShellForTab("test", "echo must-not-run")
+	after, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read after: %v", err)
+	}
+	if string(after) != string(before) {
+		t.Fatalf("read-only channel transcript changed:\nbefore=%s\nafter=%s", before, after)
+	}
+
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0)
+	if err != nil {
+		t.Fatalf("open append: %v", err)
+	}
+	if _, err := f.WriteString(`{"role":"user","content":"external follow-up"}` + "\n"); err != nil {
+		f.Close()
+		t.Fatalf("append external message: %v", err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatalf("close append: %v", err)
+	}
+	app.snapshotAllTabs()
+	afterSnapshot, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read after snapshot: %v", err)
+	}
+	if !strings.Contains(string(afterSnapshot), "external follow-up") {
+		t.Fatalf("read-only channel snapshot overwrote external append:\n%s", afterSnapshot)
+	}
+}
+
 func TestResumeSessionRejectsPathOutsideControllerSessionDir(t *testing.T) {
 	dirA := t.TempDir()
 	dirB := t.TempDir()

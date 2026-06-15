@@ -748,7 +748,7 @@ func (a *App) rebuild() error {
 	prevPath := ""
 	if tab.Ctrl != nil {
 		prevPath = tab.Ctrl.SessionPath()
-		_ = tab.Ctrl.Snapshot()
+		_ = a.snapshotTab(tab)
 		carried = tab.Ctrl.History()
 		tab.Ctrl.Close()
 	}
@@ -1119,8 +1119,9 @@ func (a *App) RemoveProviderAccess(name string) error {
 }
 
 type providerRemovalTab struct {
-	id   string
-	ctrl *control.Controller
+	id       string
+	ctrl     *control.Controller
+	readOnly bool
 }
 
 func providerAccessFallbackRef(c *config.Config, name string) string {
@@ -1185,7 +1186,7 @@ func (a *App) removeBuiltInProviderAccessAndRetargetTabs(name string) error {
 				a.mu.RUnlock()
 				return fmt.Errorf("finish or cancel conversations using %q before removing the provider access", name)
 			}
-			affected = append(affected, providerRemovalTab{id: id, ctrl: tab.Ctrl})
+			affected = append(affected, providerRemovalTab{id: id, ctrl: tab.Ctrl, readOnly: tab.ReadOnly})
 		}
 		a.mu.RUnlock()
 	}
@@ -1200,7 +1201,9 @@ func (a *App) removeBuiltInProviderAccessAndRetargetTabs(name string) error {
 	}
 	for _, item := range affected {
 		if item.ctrl != nil {
-			_ = item.ctrl.Snapshot()
+			if !item.readOnly {
+				_ = item.ctrl.Snapshot()
+			}
 			item.ctrl.Close()
 		}
 	}
@@ -1259,7 +1262,7 @@ func (a *App) deleteProviderAndRetargetTabs(name string) error {
 			a.mu.RUnlock()
 			return fmt.Errorf("finish or cancel conversations using %q before deleting the provider", name)
 		}
-		affected = append(affected, providerRemovalTab{id: id, ctrl: tab.Ctrl})
+		affected = append(affected, providerRemovalTab{id: id, ctrl: tab.Ctrl, readOnly: tab.ReadOnly})
 	}
 	a.mu.RUnlock()
 
@@ -1279,7 +1282,9 @@ func (a *App) deleteProviderAndRetargetTabs(name string) error {
 	}
 	for _, item := range affected {
 		if item.ctrl != nil {
-			_ = item.ctrl.Snapshot()
+			if !item.readOnly {
+				_ = item.ctrl.Snapshot()
+			}
 			item.ctrl.Close()
 		}
 	}

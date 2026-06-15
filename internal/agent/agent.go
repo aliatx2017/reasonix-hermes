@@ -822,6 +822,7 @@ func (a *Agent) Run(ctx context.Context, input string) error {
 		// archive. It is NOT re-uploaded to the API: the openai provider drops it
 		// when building the request, since re-sent reasoning is billable prompt
 		// input for no cache or coherence gain.
+		calls = a.withPreviewFileDiffs(calls)
 		a.session.Add(provider.Message{
 			Role:               provider.RoleAssistant,
 			Content:            text,
@@ -1379,10 +1380,13 @@ func (a *Agent) executeBatch(ctx context.Context, calls []provider.ToolCall) []s
 	for _, c := range calls {
 		t, ok := a.tools.Get(c.Name)
 		ev := event.Tool{ID: c.ID, Name: c.Name, Args: c.Arguments, ReadOnly: ok && t.ReadOnly()}
-		if ok {
+		ev.FileDiff = event.FileDiff{Diff: c.Diff, Added: c.Added, Removed: c.Removed}
+		if ok && ev.Diff == "" && ev.Added == 0 && ev.Removed == 0 {
 			if ch, ok := tool.PreviewChange(t, json.RawMessage(c.Arguments)); ok {
 				ev.FileDiff = event.FileDiff{Diff: ch.Diff, Added: ch.Added, Removed: ch.Removed}
 			}
+		}
+		if ok {
 			if pr, ok := t.(interface {
 				ResolveProfile(json.RawMessage) *event.Profile
 			}); ok {
@@ -1431,6 +1435,29 @@ func (a *Agent) executeBatch(ctx context.Context, calls []provider.ToolCall) []s
 	}
 	a.applyStormBreaker(calls, outcomes, results)
 	return results
+}
+
+func (a *Agent) withPreviewFileDiffs(calls []provider.ToolCall) []provider.ToolCall {
+	if len(calls) == 0 {
+		return calls
+	}
+	out := make([]provider.ToolCall, len(calls))
+	copy(out, calls)
+	for i := range out {
+		if out[i].Diff != "" || out[i].Added != 0 || out[i].Removed != 0 {
+			continue
+		}
+		t, ok := a.tools.Get(out[i].Name)
+		if !ok {
+			continue
+		}
+		if ch, ok := tool.PreviewChange(t, json.RawMessage(out[i].Arguments)); ok {
+			out[i].Diff = ch.Diff
+			out[i].Added = ch.Added
+			out[i].Removed = ch.Removed
+		}
+	}
+	return out
 }
 
 type toolCallBatch struct {
