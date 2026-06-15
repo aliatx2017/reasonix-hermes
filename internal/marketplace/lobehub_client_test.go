@@ -9,6 +9,7 @@ import (
 )
 
 func TestRegisterClient(t *testing.T) {
+	// Cannot use t.Parallel() — mutates package-level lobeHubBaseURL
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost || r.URL.Path != "/api/v1/clients/register" {
 			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
@@ -43,6 +44,7 @@ func TestRegisterClient(t *testing.T) {
 }
 
 func TestAuthAndFetchSkills(t *testing.T) {
+	// Cannot use t.Parallel() — mutates package-level lobeHubBaseURL
 	page := 0
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -121,6 +123,7 @@ func TestAuthAndFetchSkills(t *testing.T) {
 }
 
 func TestToEntry(t *testing.T) {
+	t.Parallel()
 	s := LobeHubSkillItem{
 		Name:        "My Skill",
 		Description: "A test skill",
@@ -158,6 +161,7 @@ func TestToEntry(t *testing.T) {
 }
 
 func TestMergeFromLobeHub(t *testing.T) {
+	t.Parallel()
 	reg := &Registry{
 		entries: []Entry{
 			{Name: "existing-skill", Description: "already here", Rating: 4.0},

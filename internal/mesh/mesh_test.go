@@ -14,6 +14,7 @@ import (
 // --- Config/New ---
 
 func TestNew_Disabled(t *testing.T) {
+	t.Parallel()
 	m := New(Config{Enabled: false, Peers: []PeerConfig{{Name: "p1", URL: "http://x", Enabled: true}}})
 	if m != nil {
 		t.Error("New() should return nil when disabled")
@@ -21,6 +22,7 @@ func TestNew_Disabled(t *testing.T) {
 }
 
 func TestNew_NoPeers(t *testing.T) {
+	t.Parallel()
 	m := New(Config{Enabled: true})
 	if m != nil {
 		t.Error("New() should return nil with no peers")
@@ -28,6 +30,7 @@ func TestNew_NoPeers(t *testing.T) {
 }
 
 func TestNew_AllPeersDisabled(t *testing.T) {
+	t.Parallel()
 	m := New(Config{Enabled: true, Peers: []PeerConfig{{Name: "p1", URL: "http://x", Enabled: false}}})
 	if m != nil {
 		t.Error("New() should return nil when all peers disabled")
@@ -35,6 +38,7 @@ func TestNew_AllPeersDisabled(t *testing.T) {
 }
 
 func TestNew_ValidPeers(t *testing.T) {
+	t.Parallel()
 	os.Setenv("TEST_MESH_TOKEN", "test-token")
 	defer os.Unsetenv("TEST_MESH_TOKEN")
 
@@ -55,6 +59,7 @@ func TestNew_ValidPeers(t *testing.T) {
 }
 
 func TestNew_SkipsEmptyURL(t *testing.T) {
+	t.Parallel()
 	m := New(Config{Enabled: true, Peers: []PeerConfig{{Name: "p1", URL: "", Enabled: true}}})
 	if m != nil {
 		t.Error("New() should skip peer with empty URL")
@@ -64,6 +69,7 @@ func TestNew_SkipsEmptyURL(t *testing.T) {
 // --- Peers() ---
 
 func TestPeers(t *testing.T) {
+	t.Parallel()
 	m := New(Config{Enabled: true, Peers: []PeerConfig{
 		{Name: "one", URL: "http://one", Enabled: true},
 		{Name: "two", URL: "http://two", Enabled: true},
@@ -80,6 +86,7 @@ func TestPeers(t *testing.T) {
 // --- Delegate with mock server ---
 
 func TestDelegate_Success(t *testing.T) {
+	t.Parallel()
 	srv := newMockMCPServer(t, "peer-test", func(method string, params json.RawMessage) (json.RawMessage, error) {
 		if method == "initialize" {
 			return json.Marshal(map[string]any{
@@ -116,6 +123,7 @@ func TestDelegate_Success(t *testing.T) {
 }
 
 func TestDelegate_PeerNotFound(t *testing.T) {
+	t.Parallel()
 	m := New(Config{Enabled: true, Peers: []PeerConfig{
 		{Name: "alpha", URL: "http://alpha", Enabled: true},
 	}})
@@ -128,6 +136,7 @@ func TestDelegate_PeerNotFound(t *testing.T) {
 // --- Broadcast with mock servers ---
 
 func TestBroadcast(t *testing.T) {
+	t.Parallel()
 	srv1 := newMockMCPServer(t, "p1", func(method string, params json.RawMessage) (json.RawMessage, error) {
 		if method == "initialize" {
 			return json.Marshal(map[string]any{"protocolVersion": "2024-11-05", "serverInfo": map[string]string{}})
@@ -169,6 +178,7 @@ func TestBroadcast(t *testing.T) {
 // --- Status ---
 
 func TestStatus(t *testing.T) {
+	t.Parallel()
 	srv := newMockMCPServer(t, "alive", func(method string, params json.RawMessage) (json.RawMessage, error) {
 		return json.Marshal(map[string]any{"protocolVersion": "2024-11-05", "serverInfo": map[string]string{}})
 	})
@@ -195,6 +205,7 @@ func TestStatus(t *testing.T) {
 // --- Query ---
 
 func TestQuery(t *testing.T) {
+	t.Parallel()
 	srv := newMockMCPServer(t, "peer-qry", func(method string, params json.RawMessage) (json.RawMessage, error) {
 		if method == "initialize" {
 			return json.Marshal(map[string]any{"protocolVersion": "2024-11-05", "serverInfo": map[string]string{}})
@@ -222,6 +233,7 @@ func TestQuery(t *testing.T) {
 // --- Council ---
 
 func TestCouncil_ConveneAndConsensus(t *testing.T) {
+	t.Parallel()
 	srv1 := newMockMCPServer(t, "c1", func(method string, params json.RawMessage) (json.RawMessage, error) {
 		if method == "initialize" {
 			return json.Marshal(map[string]any{"protocolVersion": "2024-11-05", "serverInfo": map[string]string{}})
@@ -266,6 +278,7 @@ func TestCouncil_ConveneAndConsensus(t *testing.T) {
 }
 
 func TestCouncil_Empty(t *testing.T) {
+	t.Parallel()
 	m := New(Config{Enabled: true, Peers: []PeerConfig{
 		{Name: "only", URL: "http://localhost:1", Enabled: true},
 	}})

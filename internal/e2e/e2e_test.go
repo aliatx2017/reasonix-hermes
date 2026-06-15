@@ -27,6 +27,7 @@ func saveFixture(dir, name string, msgs []provider.Message) (string, error) {
 }
 
 func TestSessionInputs(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	path, err := saveFixture(dir, "test.json", []provider.Message{
 		{Role: provider.RoleSystem, Content: "You are a test agent."},
@@ -53,6 +54,7 @@ func TestSessionInputs(t *testing.T) {
 }
 
 func TestSessionTools(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	path, err := saveFixture(dir, "test.json", []provider.Message{
 		{Role: provider.RoleUser, Content: "test"},
@@ -75,6 +77,7 @@ func TestSessionTools(t *testing.T) {
 }
 
 func TestTurnCount(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	path, err := saveFixture(dir, "test.json", []provider.Message{
 		{Role: provider.RoleUser, Content: "first"},
@@ -97,6 +100,7 @@ func TestTurnCount(t *testing.T) {
 }
 
 func TestAnalyze(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	path, err := saveFixture(dir, "test.json", []provider.Message{
 		{Role: provider.RoleUser, Content: "read main.go"},
@@ -125,6 +129,7 @@ func TestAnalyze(t *testing.T) {
 }
 
 func TestAnalyzeFileExtraction(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	path, err := saveFixture(dir, "test.json", []provider.Message{
 		{Role: provider.RoleUser, Content: "test"},
@@ -147,6 +152,7 @@ func TestAnalyzeFileExtraction(t *testing.T) {
 }
 
 func TestHarnessAssertTools(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	path, err := saveFixture(dir, "test.json", []provider.Message{
 		{Role: provider.RoleUser, Content: "test"},
@@ -168,6 +174,7 @@ func TestHarnessAssertTools(t *testing.T) {
 }
 
 func TestListSessions(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	_, _ = saveFixture(dir, "a.json", []provider.Message{{Role: provider.RoleUser, Content: "a"}})
 	_, _ = saveFixture(dir, "b.json", []provider.Message{{Role: provider.RoleUser, Content: "b"}})

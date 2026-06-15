@@ -7,6 +7,7 @@ import (
 )
 
 func TestNew_DefaultConfig(t *testing.T) {
+	t.Parallel()
 	l := New(Config{Enabled: true})
 	if !l.enabled {
 		t.Error("expected enabled by default")
@@ -20,6 +21,7 @@ func TestNew_DefaultConfig(t *testing.T) {
 }
 
 func TestNew_Disabled(t *testing.T) {
+	t.Parallel()
 	l := New(Config{Enabled: false})
 	if l.enabled {
 		t.Error("expected disabled when Enabled=false")
@@ -27,6 +29,7 @@ func TestNew_Disabled(t *testing.T) {
 }
 
 func TestNew_ConfigCaps(t *testing.T) {
+	t.Parallel()
 	l := New(Config{Enabled: true, MaxObservations: 5000, MinConfidence: 0})
 	if l.maxObs != 2000 {
 		t.Errorf("maxObs capped: got %d, want 2000", l.maxObs)
@@ -37,6 +40,7 @@ func TestNew_ConfigCaps(t *testing.T) {
 }
 
 func TestObserve_DisabledNoOp(t *testing.T) {
+	t.Parallel()
 	l := New(Config{Enabled: false})
 	l.Observe("task", []ToolCallInfo{{Name: "bash", Success: true}}, "", "")
 	obs := l.Observations()
@@ -46,6 +50,7 @@ func TestObserve_DisabledNoOp(t *testing.T) {
 }
 
 func TestObserve_AccumulatesObservations(t *testing.T) {
+	t.Parallel()
 	l := New(Config{Enabled: true, MaxObservations: 10})
 	l.Observe("run tests", []ToolCallInfo{{Name: "bash", Success: true, Brief: "go test ./..."}}, "", "")
 	l.Observe("edit file", []ToolCallInfo{{Name: "edit_file", Success: true, Brief: "agent.go"}}, "", "")
@@ -66,6 +71,7 @@ func TestObserve_AccumulatesObservations(t *testing.T) {
 }
 
 func TestObserve_SkillTracking(t *testing.T) {
+	t.Parallel()
 	l := New(Config{Enabled: true})
 	l.Observe("explore code", nil, "explore", "internal/agent/")
 	obs := l.Observations()
@@ -81,6 +87,7 @@ func TestObserve_SkillTracking(t *testing.T) {
 }
 
 func TestObserve_RingBufferEviction(t *testing.T) {
+	t.Parallel()
 	l := New(Config{Enabled: true, MaxObservations: 5})
 	for i := 0; i < 10; i++ {
 		l.Observe("task", nil, "", "")
@@ -99,6 +106,7 @@ func TestObserve_RingBufferEviction(t *testing.T) {
 }
 
 func TestPatterns_NotEnoughConfidence(t *testing.T) {
+	t.Parallel()
 	l := New(Config{Enabled: true, MinConfidence: 5})
 	for i := 0; i < 4; i++ {
 		l.Observe("edit and test", []ToolCallInfo{
@@ -113,6 +121,7 @@ func TestPatterns_NotEnoughConfidence(t *testing.T) {
 }
 
 func TestPatterns_EditThenTestDetected(t *testing.T) {
+	t.Parallel()
 	l := New(Config{Enabled: true, MinConfidence: 3})
 	tc := []ToolCallInfo{
 		{Name: "edit_file", Success: true},
@@ -138,6 +147,7 @@ func TestPatterns_EditThenTestDetected(t *testing.T) {
 }
 
 func TestPatterns_ReadOnlyNoPattern(t *testing.T) {
+	t.Parallel()
 	l := New(Config{Enabled: true, MinConfidence: 2})
 	for i := 0; i < 3; i++ {
 		l.Observe("list files", []ToolCallInfo{
@@ -156,6 +166,7 @@ func TestPatterns_ReadOnlyNoPattern(t *testing.T) {
 }
 
 func TestBuildReflectionPrompt_Empty(t *testing.T) {
+	t.Parallel()
 	l := New(Config{Enabled: true})
 	p := l.BuildReflectionPrompt()
 	if p != "" {
@@ -164,6 +175,7 @@ func TestBuildReflectionPrompt_Empty(t *testing.T) {
 }
 
 func TestBuildReflectionPrompt_WithPatterns(t *testing.T) {
+	t.Parallel()
 	l := New(Config{Enabled: true, MinConfidence: 2})
 	for i := 0; i < 3; i++ {
 		l.Observe("edit and test", []ToolCallInfo{
@@ -187,6 +199,7 @@ func TestBuildReflectionPrompt_WithPatterns(t *testing.T) {
 }
 
 func TestReset(t *testing.T) {
+	t.Parallel()
 	l := New(Config{Enabled: true})
 	l.Observe("task", nil, "", "")
 	l.Observe("task2", nil, "", "")
@@ -204,6 +217,7 @@ func TestReset(t *testing.T) {
 }
 
 func TestTruncate(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		s    string
 		n    int
@@ -222,6 +236,7 @@ func TestTruncate(t *testing.T) {
 }
 
 func TestGeneratePatternName(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		seq      string
 		preEdit  bool
@@ -242,6 +257,7 @@ func TestGeneratePatternName(t *testing.T) {
 }
 
 func TestConcurrentObserve(t *testing.T) {
+	t.Parallel()
 	l := New(Config{Enabled: true, MaxObservations: 100})
 	var wg sync.WaitGroup
 	for i := 0; i < 50; i++ {

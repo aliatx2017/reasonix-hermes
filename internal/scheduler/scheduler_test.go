@@ -7,6 +7,7 @@ import (
 )
 
 func TestParseCronStar(t *testing.T) {
+	t.Parallel()
 	e, err := parseCron("* * * * *")
 	if err != nil {
 		t.Fatal(err)
@@ -26,6 +27,7 @@ func TestParseCronStar(t *testing.T) {
 }
 
 func TestParseCronSpecificValues(t *testing.T) {
+	t.Parallel()
 	// Every day at 02:00
 	e, err := parseCron("0 2 * * *")
 	if err != nil {
@@ -58,6 +60,7 @@ func TestParseCronSpecificValues(t *testing.T) {
 }
 
 func TestParseCronRange(t *testing.T) {
+	t.Parallel()
 	e, err := parseCron("0 9-17 * * 1-5")
 	if err != nil {
 		t.Fatal(err)
@@ -78,6 +81,7 @@ func TestParseCronRange(t *testing.T) {
 }
 
 func TestParseCronStep(t *testing.T) {
+	t.Parallel()
 	e, err := parseCron("*/15 * * * *")
 	if err != nil {
 		t.Fatal(err)
@@ -105,6 +109,7 @@ func TestParseCronStep(t *testing.T) {
 }
 
 func TestParseCronCommaSeparated(t *testing.T) {
+	t.Parallel()
 	e, err := parseCron("0,30 0,12 * * *")
 	if err != nil {
 		t.Fatal(err)
@@ -122,6 +127,7 @@ func TestParseCronCommaSeparated(t *testing.T) {
 }
 
 func TestParseCronRangeWithStep(t *testing.T) {
+	t.Parallel()
 	e, err := parseCron("0 0-23/3 * * *")
 	if err != nil {
 		t.Fatal(err)
@@ -141,6 +147,7 @@ func TestParseCronRangeWithStep(t *testing.T) {
 }
 
 func TestParseCronErrors(t *testing.T) {
+	t.Parallel()
 	tests := []string{
 		"* * *",          // too few fields
 		"* * * * * *",    // too many
@@ -160,6 +167,7 @@ func TestParseCronErrors(t *testing.T) {
 }
 
 func TestNextAfterMidnight(t *testing.T) {
+	t.Parallel()
 	// At 23:59, next "0 0 * * *" should be 00:00.
 	now := time.Date(2026, 6, 13, 23, 59, 0, 0, time.UTC)
 	next, err := NextAfter("0 0 * * *", now)
@@ -173,6 +181,7 @@ func TestNextAfterMidnight(t *testing.T) {
 }
 
 func TestNextAfterMonthBoundary(t *testing.T) {
+	t.Parallel()
 	// On Jan 31, next "0 0 1 * *" should be Feb 1.
 	now := time.Date(2026, 1, 31, 12, 0, 0, 0, time.UTC)
 	next, err := NextAfter("0 0 1 * *", now)
@@ -185,6 +194,7 @@ func TestNextAfterMonthBoundary(t *testing.T) {
 }
 
 func TestSchedulerNewEmpty(t *testing.T) {
+	t.Parallel()
 	s := New(Config{}, nil, nil)
 	if s != nil {
 		t.Error("expected nil scheduler for empty config")
@@ -192,6 +202,7 @@ func TestSchedulerNewEmpty(t *testing.T) {
 }
 
 func TestSchedulerNewDisabled(t *testing.T) {
+	t.Parallel()
 	disabled := false
 	cfg := Config{
 		Tasks: []Task{
@@ -205,6 +216,7 @@ func TestSchedulerNewDisabled(t *testing.T) {
 }
 
 func TestSchedulerNewEnabled(t *testing.T) {
+	t.Parallel()
 	cfg := Config{
 		Tasks: []Task{
 			{Name: "daily", Cron: "0 2 * * *", Prompt: "run tests"},
@@ -220,6 +232,7 @@ func TestSchedulerNewEnabled(t *testing.T) {
 }
 
 func TestSchedulerResults(t *testing.T) {
+	t.Parallel()
 	s := New(Config{
 		Tasks: []Task{{Name: "t", Cron: "* * * * *", Prompt: "x"}},
 	}, &stubSender{}, nil)
@@ -258,6 +271,7 @@ func TestSchedulerResults(t *testing.T) {
 }
 
 func TestSchedulerTaskEnabled(t *testing.T) {
+	t.Parallel()
 	t1 := Task{Name: "a"} // nil = enabled
 	if !t1.isEnabled() {
 		t.Error("nil Enabled should be treated as enabled")
@@ -281,6 +295,7 @@ func (s *stubSender) Send(_ context.Context, text string) error {
 }
 
 func TestSortTasksByName(t *testing.T) {
+	t.Parallel()
 	tasks := []Task{
 		{Name: "z"},
 		{Name: "alpha"},
@@ -301,6 +316,7 @@ func taskNames(tasks []Task) []string {
 }
 
 func TestAddTask(t *testing.T) {
+	t.Parallel()
 	s := New(Config{
 		Tasks: []Task{{Name: "t1", Cron: "* * * * *", Prompt: "hello"}},
 	}, &stubSender{}, nil)
@@ -330,6 +346,7 @@ func TestAddTask(t *testing.T) {
 }
 
 func TestRemoveTask(t *testing.T) {
+	t.Parallel()
 	s := New(Config{
 		Tasks: []Task{
 			{Name: "t1", Cron: "* * * * *", Prompt: "a"},
@@ -364,6 +381,7 @@ func TestRemoveTask(t *testing.T) {
 }
 
 func TestAddRemoveTaskNilScheduler(t *testing.T) {
+	t.Parallel()
 	var s *Scheduler
 	if s.AddTask(Task{Name: "t"}) {
 		t.Error("AddTask on nil scheduler should return false")

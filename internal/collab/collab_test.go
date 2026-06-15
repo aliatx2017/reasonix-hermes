@@ -15,6 +15,7 @@ import (
 // --- Config / New ---
 
 func TestNew_Disabled(t *testing.T) {
+	t.Parallel()
 	h := New(Config{Enabled: false}, nil, nil)
 	if h != nil {
 		t.Error("New() should return nil when disabled")
@@ -22,6 +23,7 @@ func TestNew_Disabled(t *testing.T) {
 }
 
 func TestNew_NoListenAddrDefaults(t *testing.T) {
+	t.Parallel()
 	h := New(Config{Enabled: true, ListenAddr: ""}, nil, nil)
 	if h == nil {
 		t.Fatal("expected non-nil hub")
@@ -32,6 +34,7 @@ func TestNew_NoListenAddrDefaults(t *testing.T) {
 }
 
 func TestNew_UsesGivenAddr(t *testing.T) {
+	t.Parallel()
 	h := New(Config{Enabled: true, ListenAddr: ":9876"}, nil, nil)
 	if h == nil {
 		t.Fatal("expected non-nil hub")
@@ -44,6 +47,7 @@ func TestNew_UsesGivenAddr(t *testing.T) {
 // --- Subscribe + Broadcast ---
 
 func TestSubscribeAndBroadcast(t *testing.T) {
+	t.Parallel()
 	h := &Hub{
 		peers:    make(map[*Peer]bool),
 		sessions: make(map[string]*peerSet),
@@ -91,6 +95,7 @@ func TestSubscribeAndBroadcast(t *testing.T) {
 // --- SessionWatchers ---
 
 func TestSessionWatchers(t *testing.T) {
+	t.Parallel()
 	h := &Hub{
 		peers:    make(map[*Peer]bool),
 		sessions: make(map[string]*peerSet),
@@ -110,6 +115,7 @@ func TestSessionWatchers(t *testing.T) {
 // --- ActiveSessions ---
 
 func TestActiveSessions(t *testing.T) {
+	t.Parallel()
 	h := &Hub{
 		peers:    make(map[*Peer]bool),
 		sessions: make(map[string]*peerSet),
@@ -127,6 +133,7 @@ func TestActiveSessions(t *testing.T) {
 // --- SteerCallback ---
 
 func TestSteerCallback(t *testing.T) {
+	t.Parallel()
 	var steers []string
 	h := New(Config{Enabled: true, ListenAddr: ":0"}, func(sid, text string) {
 		steers = append(steers, sid+":"+text)
@@ -143,6 +150,7 @@ func TestSteerCallback(t *testing.T) {
 // --- Start / Stop ---
 
 func TestStartStop(t *testing.T) {
+	t.Parallel()
 	h := New(Config{Enabled: true, ListenAddr: ":19998"}, nil, nil)
 	if h == nil {
 		t.Fatal("hub is nil")
@@ -159,6 +167,7 @@ func TestStartStop(t *testing.T) {
 // --- Nil hub ---
 
 func TestNilHub(t *testing.T) {
+	t.Parallel()
 	var h *Hub
 	if err := h.Start(); err != nil {
 		t.Errorf("nil.Start: %v", err)

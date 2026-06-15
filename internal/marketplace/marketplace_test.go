@@ -5,6 +5,7 @@ import (
 )
 
 func TestDefaultRegistry(t *testing.T) {
+	t.Parallel()
 	r := DefaultRegistry()
 	if r.Len() == 0 {
 		t.Fatal("default registry is empty")
@@ -13,6 +14,7 @@ func TestDefaultRegistry(t *testing.T) {
 }
 
 func TestSearch(t *testing.T) {
+	t.Parallel()
 	r := DefaultRegistry()
 
 	tests := []struct {
@@ -39,6 +41,7 @@ func TestSearch(t *testing.T) {
 }
 
 func TestByName(t *testing.T) {
+	t.Parallel()
 	r := DefaultRegistry()
 	e := r.ByName("golang-patterns")
 	if e == nil {
@@ -57,6 +60,7 @@ func TestByName(t *testing.T) {
 }
 
 func TestTags(t *testing.T) {
+	t.Parallel()
 	r := DefaultRegistry()
 	tags := r.Tags()
 	if len(tags) == 0 {
@@ -66,6 +70,7 @@ func TestTags(t *testing.T) {
 }
 
 func TestByTag(t *testing.T) {
+	t.Parallel()
 	r := DefaultRegistry()
 	results := r.ByTag("go")
 	if len(results) < 1 {
@@ -86,6 +91,7 @@ func TestByTag(t *testing.T) {
 }
 
 func TestListSorted(t *testing.T) {
+	t.Parallel()
 	r := DefaultRegistry()
 	entries := r.List()
 	if len(entries) == 0 {
@@ -101,6 +107,7 @@ func TestListSorted(t *testing.T) {
 }
 
 func TestNewRegistry(t *testing.T) {
+	t.Parallel()
 	data := []byte(`[{"name":"test-skill","description":"A test skill","url":"https://example.com","author":"test","tags":["test"],"rating":5.0}]`)
 	r, err := NewRegistry(data)
 	if err != nil {
@@ -119,6 +126,7 @@ func TestNewRegistry(t *testing.T) {
 }
 
 func TestNewRegistryInvalidJSON(t *testing.T) {
+	t.Parallel()
 	_, err := NewRegistry([]byte(`not json`))
 	if err == nil {
 		t.Error("expected error for invalid JSON")

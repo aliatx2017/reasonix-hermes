@@ -8,6 +8,7 @@ import (
 )
 
 func TestChain(t *testing.T) {
+	t.Parallel()
 	turn := 0
 	runTurn := func(_ context.Context, prompt string) (string, error) {
 		turn++
@@ -39,6 +40,7 @@ func TestChain(t *testing.T) {
 }
 
 func TestPair(t *testing.T) {
+	t.Parallel()
 	callCount := 0
 	var mu sync.Mutex
 	runTurn := func(_ context.Context, prompt string) (string, error) {
@@ -78,6 +80,7 @@ func TestPair(t *testing.T) {
 }
 
 func TestCIFix(t *testing.T) {
+	t.Parallel()
 	runBash := func(_ context.Context, cmd string) (string, error) {
 		return "--- FAIL: TestFoo\n--- FAIL: TestBar\n", nil
 	}
@@ -103,6 +106,7 @@ func TestCIFix(t *testing.T) {
 }
 
 func TestCIFixNoFailures(t *testing.T) {
+	t.Parallel()
 	runBash := func(_ context.Context, cmd string) (string, error) {
 		return "ok\treasonix/internal/foo\t0.123s\n", nil
 	}
@@ -123,6 +127,7 @@ func TestCIFixNoFailures(t *testing.T) {
 }
 
 func TestParseCIFailures(t *testing.T) {
+	t.Parallel()
 	input := "ok  test1\n--- FAIL: TestFoo (0.00s)\n    foo_test.go:10: expected 1\nFAIL\n--- FAIL: TestBar\n"
 	f := parseCIFailures(input)
 	if len(f) < 2 {
@@ -131,6 +136,7 @@ func TestParseCIFailures(t *testing.T) {
 }
 
 func TestParseCIFailuresEmpty(t *testing.T) {
+	t.Parallel()
 	f := parseCIFailures("")
 	if f != nil {
 		t.Errorf("parseCIFailures('') = %v, want nil", f)

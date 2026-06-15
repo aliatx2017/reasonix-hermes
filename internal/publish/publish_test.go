@@ -9,6 +9,7 @@ import (
 )
 
 func TestToJSON(t *testing.T) {
+	t.Parallel()
 	s := Session{
 		Title: "Test Session",
 		Model: "deepseek-flash",
@@ -31,6 +32,7 @@ func TestToJSON(t *testing.T) {
 }
 
 func TestToHTMLBasic(t *testing.T) {
+	t.Parallel()
 	s := Session{
 		Title: "Test",
 		Model: "deepseek-flash",
@@ -62,6 +64,7 @@ func TestToHTMLBasic(t *testing.T) {
 }
 
 func TestToHTMLCodeBlocks(t *testing.T) {
+	t.Parallel()
 	s := Session{
 		Title: "Code Test",
 		Date:  time.Now(),
@@ -82,6 +85,7 @@ func TestToHTMLCodeBlocks(t *testing.T) {
 }
 
 func TestToHTMLReasoningContent(t *testing.T) {
+	t.Parallel()
 	s := Session{
 		Date: time.Now(),
 		Messages: []provider.Message{
@@ -98,6 +102,7 @@ func TestToHTMLReasoningContent(t *testing.T) {
 }
 
 func TestToHTMLToolCalls(t *testing.T) {
+	t.Parallel()
 	s := Session{
 		Date: time.Now(),
 		Messages: []provider.Message{
@@ -115,6 +120,7 @@ func TestToHTMLToolCalls(t *testing.T) {
 }
 
 func TestToHTMLEmptyTitle(t *testing.T) {
+	t.Parallel()
 	s := Session{
 		Date:     time.Now(),
 		Messages: []provider.Message{},
@@ -126,6 +132,7 @@ func TestToHTMLEmptyTitle(t *testing.T) {
 }
 
 func TestToHTMLSystemMessage(t *testing.T) {
+	t.Parallel()
 	s := Session{
 		Date: time.Now(),
 		Messages: []provider.Message{
@@ -139,6 +146,7 @@ func TestToHTMLSystemMessage(t *testing.T) {
 }
 
 func TestToHTMLXSS(t *testing.T) {
+	t.Parallel()
 	s := Session{
 		Date: time.Now(),
 		Messages: []provider.Message{
@@ -155,6 +163,7 @@ func TestToHTMLXSS(t *testing.T) {
 }
 
 func TestTruncateStr(t *testing.T) {
+	t.Parallel()
 	if s := truncateStr("hello", 3); s != "hel…" {
 		t.Errorf("truncateStr(hello,3) = %q", s)
 	}

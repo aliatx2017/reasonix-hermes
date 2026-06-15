@@ -8,6 +8,7 @@ import (
 )
 
 func TestSetDiff(t *testing.T) {
+	t.Parallel()
 	a, b := setDiff([]string{"read", "write", "read"}, []string{"read", "bash"})
 	if len(a) != 2 {
 		t.Errorf("onlyA len = %d, want 2", len(a))
@@ -28,6 +29,7 @@ func containsString(ss []string, s string) bool {
 }
 
 func TestJaccard(t *testing.T) {
+	t.Parallel()
 	if j := jaccard(nil, nil); j != 1.0 {
 		t.Errorf("empty = %v, want 1.0", j)
 	}
@@ -41,6 +43,7 @@ func TestJaccard(t *testing.T) {
 }
 
 func TestCompareEmpty(t *testing.T) {
+	t.Parallel()
 	a := &SessionSnapshot{Path: "a.json"}
 	b := &SessionSnapshot{Path: "b.json"}
 	r := Compare(a, b)
@@ -50,6 +53,7 @@ func TestCompareEmpty(t *testing.T) {
 }
 
 func TestCompareIdentical(t *testing.T) {
+	t.Parallel()
 	a := &SessionSnapshot{
 		Path:  "a.json",
 		Tools: map[string]int{"read": 2, "write": 1},
@@ -80,6 +84,7 @@ func TestCompareIdentical(t *testing.T) {
 }
 
 func TestCompareDifferent(t *testing.T) {
+	t.Parallel()
 	a := &SessionSnapshot{
 		Path:  "a.json",
 		Tools: map[string]int{"read": 3},
@@ -117,6 +122,7 @@ func TestCompareDifferent(t *testing.T) {
 }
 
 func TestFormatText(t *testing.T) {
+	t.Parallel()
 	a := &SessionSnapshot{
 		Path:  "/Users/test/a.json",
 		Meta:  agent.SessionMeta{TurnCount: 3, TokensIn: 100, TokensOut: 50, Cost: 0.01, Currency: "¥"},
