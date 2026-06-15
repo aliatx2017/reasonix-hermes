@@ -13,7 +13,7 @@ func CanonicalizeSchema(raw json.RawMessage) json.RawMessage {
 		// schema. An empty json.RawMessage makes json.Marshal of the enclosing
 		// request fail ("unexpected end of JSON input") and bricks the whole
 		// provider; emit a valid empty-object schema instead.
-		return json.RawMessage(`{"type":"object"}`)
+		return json.RawMessage(`{"type":"object","properties":{}}`)
 	}
 	var v any
 	if err := json.Unmarshal(raw, &v); err != nil {
@@ -45,6 +45,14 @@ func canonicalizeSchemaValue(v any) any {
 						return schemaJSONString(arr[i]) < schemaJSONString(arr[j])
 					})
 				}
+			}
+		}
+		// Some providers (e.g. Gemini on Ollama Cloud) require "properties" to
+		// be present as an object when "type" is "object". Default to {} when
+		// the schema declares an object without any properties.
+		if val["type"] == "object" {
+			if _, ok := val["properties"]; !ok {
+				val["properties"] = map[string]any{}
 			}
 		}
 		if dr, ok := val["dependentRequired"]; ok {

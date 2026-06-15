@@ -628,7 +628,7 @@ func TestBuildRequestContentNullForAssistantToolCalls(t *testing.T) {
 	if !strings.Contains(s, `"content":"all done"`) {
 		t.Errorf("text assistant turn should keep its string content: %s", s)
 	}
-	if !strings.Contains(s, `"parameters":{"type":"object"}`) {
+	if !strings.Contains(s, `"parameters":{"type":"object","properties":{}}`) && !strings.Contains(s, `"parameters":{"type":"object"}`) {
 		t.Errorf("no-param tool should serialize a valid empty-object schema: %s", s)
 	}
 }

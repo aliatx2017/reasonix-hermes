@@ -85,6 +85,9 @@ func classifyRef(token string, known map[string]bool, exists func(string) bool) 
 		return ref{kind: refFile, path: token, raw: token}, true
 	}
 	if exists(token) {
+		if isImageExtension(token) {
+			return ref{kind: refImage, path: token, raw: token}, true
+		}
 		return ref{kind: refFile, path: token, raw: token}, true
 	}
 	return ref{}, false
@@ -95,7 +98,12 @@ func isAttachmentRef(token string) bool {
 }
 
 func isImageAttachmentRef(token string) bool {
-	switch strings.ToLower(filepath.Ext(token)) {
+	return strings.HasPrefix(filepath.ToSlash(token), ".reasonix/attachments/") && isImageExtension(token)
+}
+
+// isImageExtension reports whether the file extension indicates a vision-capable image format.
+func isImageExtension(path string) bool {
+	switch strings.ToLower(filepath.Ext(path)) {
 	case ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".svg", ".tif", ".tiff":
 		return true
 	}
@@ -129,8 +137,14 @@ func (c *Controller) detectRefsMode(line string, scopedOnly bool) []ref {
 					kind = refImage
 				}
 				refs = append(refs, ref{kind: kind, path: rel, raw: tok})
+				continue
 			}
-			continue
+			// Non-workspace paths: only image refs fall through to classifyRef;
+			// everything else is silently dropped (sandbox: don't leak
+			// non-workspace file paths into the agent's context).
+			if !isImageExtension(tok) {
+				continue
+			}
 		}
 		if scopedOnly {
 			continue
@@ -160,7 +174,14 @@ func (c *Controller) inputImages(line string) []string {
 		if r.kind != refImage {
 			continue
 		}
-		if url, err := visionImageDataURL(r.path); err == nil {
+		var url string
+		var err error
+		if isAttachmentRef(r.path) {
+			url, err = visionImageDataURL(r.path)
+		} else {
+			url, err = visionImageDataURLFromPath(r.path)
+		}
+		if err == nil {
 			urls = append(urls, url)
 		}
 	}

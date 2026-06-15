@@ -144,10 +144,12 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 - **Upstream**: Checked — no new commits (still at 21d77d2). Already synced.
 
 ### Next to build
-- [ ] **npm: publish reasonix-hermes** — set 2FA-bypass granular token, push tag
-- [ ] **Upstream the LINE adapter** — open a PR to esengine/deepseek-reasonix with the line/ package
-- [ ] **Desktop app distribution** — .dmg / .exe / .AppImage packaging, auto-update mechanism
-- [ ] **Agent session comparison/diffing** — compare two agent runs for eval-driven development
+- [ ] **npm: publish reasonix-hermes** — pipeline verified; needs npm 2FA-bypass token + tag push
+- [ ] **Upstream the LINE adapter** — open a PR to esengine/deepseek-reasonix with `internal/bot/line/`
+- [ ] **Desktop app distribution** — cut a desktop-vX.Y.Z release tag (release-desktop.yml pipeline is ready)
+- [x] ~~Merge upstream v1.8.x~~ — merged v1.8.1 (a029618) in h14
+- [ ] **Fusion Router Tier 2**: expose council judge as built-in tool the agent can invoke mid-turn
+- [ ] **Vision pipeline follow-up**: `@path` references with spaces in filenames not parseable by `parseRefTokens` regex `@([^\s]+)`. Need quoted-path support or URI encoding.
 
 
 ### Session 2026-07-15 (h13) — Golang patterns audit, dead code, council judge, docs consolidation
@@ -157,16 +159,30 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 - **Council judge** (Fusion Router-inspired): Added `JudgmentFunc`, `CouncilJudgment` struct (Consensus, Contradictions, CoverageGaps, UniqueInsights, BlindSpots), `Council.Judge()` method with structured JSON parsing and markdown-fence extraction, `Council.Judgment()` getter. 6 tests covering valid JSON, fenced output, fallback, error cases. Modeled on OpenRouter Fusion Router's judge output schema.
 - **Docs consolidation**: Fixed dead desktop guide link in `docs/PROJECT.md`. Removed `docs/logo-concepts/` (4 exploration files). Deleted 6 stale assessment/planning docs (1,997 lines) → consolidated into `docs/CHANGELOG-HERMES.md` (112 lines). Updated 9 cross-reference files.
 - **Vision aux config**: Added `[agent.auxiliary.vision]` routing to `ollamacloud-vision/gemini-3-flash-preview` in project `reasonix.toml`. Fixed wrong base_url (was pointing to Mimo).
-- **Upstream**: No new branch commits. Tags `v1.8.0`, `desktop-v1.8.0`, `npm-v1.8.0-rc.1` exist.
-- **Build**: All 6 CLI binaries build + go vet clean. Desktop building. Tests running.
+- **Upstream**: Merged 5 new commits (b225dd7..a029618): billing source fix, desktop tabbar reservation, chrome tab strip width, performance-pressure idempotency, right dock space for chrome tabs. New tag `desktop-v1.8.1`. 4 conflicts resolved (agent.go, task_test.go, ContextPanel.tsx, reasonix.example.toml).
+- **Build**: All 6 CLI binaries build + go vet clean. Desktop building. All test packages pass.
+
+### Session 2026-07-15 (h14) — Vision pipeline: 6 bug fixes end-to-end
+
+- **Vision pipeline operational**: Successfully described Diamond Wing logo screenshot via `ollamacloud-vision/gemini-3-flash-preview`. 6 bugs found and fixed across the full chain:
+  1. **`classifyRef` blind to non-attachment images**: `@/path/to/screenshot.png` always classified as `refFile`, never `refImage` — `inputImages` never generated data URLs. Added `isImageExtension()` check.
+  2. **`detectRefsMode` dropped non-workspace paths**: When `cpRoot` was set (always, for git repos), `continue` unconditionally skipped `classifyRef` for all non-workspace paths — images silently discarded. Only `continue` for non-image paths now; image paths fall through.
+  3. **`visionImageDataURL` rejected absolute paths**: Required `.reasonix/attachments/` prefix, refused absolute paths. Added `visionImageDataURLFromPath` + `readImageFile` for arbitrary filesystem images.
+  4. **Config: `[agent.auxiliary.vision]` wiped**: Section missing → `visionProv` nil → never routed. Restored.
+  5. **Config: `ollamacloud-vision` missing `vision=true` + wrong base_url**: Had MiMo token-plan URL with Gemini model, `EffectiveVision()` returned false. Fixed to default `ollama.com/v1` with `vision = true`.
+  6. **Gemini/Ollama Cloud rejects `{"type":"object"}` without `properties`**: 400 error on connect stubs and no-param tools. Default `properties` to `{}` in `canonicalizeSchemaValue` and `lazyTool.Schema()`. Updated `TestRegistrySchemasStableAndCanonical` and `TestBuildRequestContentNullForAssistantToolCalls` expectations.
+
+- **Files**: 6 files changed (+83/-6): `internal/control/attachments.go`, `internal/control/refs.go`, `internal/plugin/lazy.go`, `internal/provider/schema_canonicalize.go`, `internal/provider/openai/openai_test.go`, `internal/tool/registry_test.go`. Config: `reasonix.toml`.
+
+- **Upstream**: Merged 5 commits (a029618). Desktop-v1.8.1 tag.
 
 ### Next to build
 - [ ] **npm: publish reasonix-hermes** — pipeline verified; needs npm 2FA-bypass token + tag push
 - [ ] **Upstream the LINE adapter** — open a PR to esengine/deepseek-reasonix with `internal/bot/line/`
 - [ ] **Desktop app distribution** — cut a desktop-vX.Y.Z release tag (release-desktop.yml pipeline is ready)
-- [ ] **Merge upstream v1.8.0** when commits land on main-v2
+- [x] ~~Merge upstream v1.8.0~~ — merged v1.8.1 (a029618)
 - [ ] **Fusion Router Tier 2**: expose council judge as built-in tool the agent can invoke mid-turn
-- [ ] **Logo review**: Diamond Wing logo looks good at small sizes but the lockup with "Reasonix-Hermes" text could use tighter integration. Consider a monogram variant for favicon/tray use.
+- [ ] **Vision pipeline follow-up**: `@path` references with spaces in filenames not parseable by `parseRefTokens` (`@([^\s]+)` stops at whitespace). Need quoted-path support or URI encoding.
 
 ## Next session — ideas & follow-ups
 

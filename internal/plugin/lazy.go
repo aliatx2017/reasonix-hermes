@@ -142,7 +142,7 @@ func (lt *lazyTool) Description() string { return lt.desc }
 func (lt *lazyTool) ReadOnly() bool      { return lt.readOnly }
 func (lt *lazyTool) Schema() json.RawMessage {
 	if len(lt.schema) == 0 {
-		return json.RawMessage(`{"type":"object"}`)
+		return json.RawMessage(`{"type":"object","properties":{}}`)
 	}
 	return canonicalizeSchema(lt.schema)
 }

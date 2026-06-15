@@ -137,7 +137,7 @@ skills-hub/            17-skill community registry + static catalog site
 ## Notes
 
 - Upstream remote: `https://github.com/esengine/deepseek-reasonix.git` (branch `main-v2`)
-- **Upstream target**: v1.7.0 (July 2026) — ✅ synced (b225dd7). 71 commits merged. v1.8.0 tags exist, no branch commits yet.
+- **Upstream target**: v1.8.1 (July 2026) — ✅ synced (a029618). 76 commits merged. New desktop-v1.8.1 tag.
 - Our fork: `https://github.com/aliatx2017/reasonix-hermes.git` (branch `main`)
 - To pull upstream updates: `git fetch upstream && git merge upstream/main-v2`
 - `reasonix.toml` is gitignored (upstream convention) — never commit secrets
@@ -154,7 +154,7 @@ skills-hub/            17-skill community registry + static catalog site
 - **2026-07-12 session** — 13 features shipped: Hermes accent theme, live data push (Wails events), token sparkline chart, compaction timeline, checkpoint file preview, Write Mode (Go fs bindings + React editor), memory fact graph, reasonix.example.toml full update, remote sandbox e2e tests, workspace slug fix ($HOME relativization), CLI TUI enhancements (pinned banner, bottom counters, /stats sparkline+compaction+memory+goal). Built CLI (26MB) + desktop (33MB). VS Code fork removed.
 - **2026-07-14 session** (Ollama Cloud + aux models + 4 features):
   - **Ollama Cloud provider**: New `ollamacloud` provider kind, 42 models, OpenAI-compatible at ollama.com/v1. `reasoning` field name fix in openai provider.
-  - **Auxiliary model routing**: `[agent.auxiliary]` config block — compression/vision/web_extract each take their own provider+model. Agent routes compaction summarizer through compressionProv, vision requests through visionProv when images present. Tested with `deepseek-v4-flash` (compression) + `gemini-3-flash-preview` (vision).
+  - **Auxiliary model routing**: `[agent.auxiliary]` config block — compression/vision/web_extract each take their own provider+model. Agent routes compaction summarizer through compressionProv, vision requests through visionProv when images present. Tested with `deepseek-v4-flash` (compression) + `gemini-3-flash-preview` (vision). **Vision pipeline hardened** (2026-07-15 h14): `classifyRef` now detects arbitrary filesystem images, `visionImageDataURLFromPath` reads non-attachment images, workspace-path fallthrough for images, and `properties` defaulted to `{}` in empty-object schemas for Gemini/Ollama Cloud compatibility.
   - **Desktop collab panel**: Go collab Hub + CollabDashboard binding, React CollabPanel (live badge, watcher count, session list), integrated into live data push + polling.
   - **Multi-model council UI**: Controller mesh integration (SetMesh/Council/MeshStatus), boot.go mesh creation, CLI `/council` command, desktop CouncilPanel.
   - **E2E test harness**: New `internal/e2e/` — Harness, SessionInputs, SessionTools, Analyze, AssertTools/Turns, RunAll. 7 tests.

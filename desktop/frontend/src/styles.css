@@ -14780,6 +14780,16 @@ a[href] {
   min-width: 16px;
 }
 
+.app-chrome__tab-strip {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: stretch;
+  overflow: hidden;
+}
+
 .app-chrome__identity {
   flex: 0 0 auto;
   min-width: 128px;
@@ -14832,6 +14842,14 @@ a[href] {
 }
 
 .app-chrome__command {
+  margin-left: 0;
+}
+
+.app-chrome__tools--fixed {
+  position: absolute;
+  top: 0;
+  right: calc(var(--chrome-toggle-size) + 8px);
+  z-index: var(--z-local-raised);
   margin-left: 0;
 }
 
@@ -14888,7 +14906,7 @@ a[href] {
 
 .app--darwin .app-chrome--tabs {
   align-items: stretch;
-  padding: 0 calc(var(--chrome-right-toggle-offset) + var(--chrome-toggle-size) + 8px) 0 calc(var(--chrome-left-toggle-offset) + var(--chrome-toggle-size) + 8px);
+  padding: 0 calc(var(--chrome-toggle-size) + var(--chrome-toggle-size) + 16px) 0 calc(var(--chrome-left-toggle-offset) + var(--chrome-toggle-size) + 8px);
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--bg-soft) 94%, var(--bg-elev)), var(--bg-soft));
   transition: padding 0.28s cubic-bezier(0.2, 0.72, 0.2, 1);
@@ -14904,7 +14922,7 @@ a[href] {
   position: absolute;
   top: 0;
   left: calc(var(--chrome-left-toggle-offset) + var(--chrome-toggle-size) + 12px);
-  right: calc(var(--chrome-right-toggle-offset) + var(--chrome-toggle-size) + 12px);
+  right: calc(var(--chrome-toggle-size) + var(--chrome-toggle-size) + 20px);
   z-index: var(--z-local-handle);
   height: 10px;
   --wails-draggable: drag;
@@ -14957,7 +14975,7 @@ a[href] {
 }
 
 .app--darwin .app-chrome--tabs .app-chrome__panel-toggle--right {
-  right: var(--chrome-right-toggle-offset);
+  right: 8px;
 }
 
 .app--darwin .app-chrome--tabs .app-chrome__panel-toggle:hover {
@@ -15187,7 +15205,7 @@ a[href] {
 .app--linux .app-chrome--native-tabs {
   align-items: center;
   gap: 12px;
-  padding: 0 calc(var(--chrome-toggle-size) + 10px) 0 calc(var(--chrome-toggle-size) + 10px);
+  padding: 0 calc(var(--chrome-right-toggle-offset) + var(--chrome-toggle-size) + 10px) 0 calc(var(--chrome-toggle-size) + 10px);
   background: var(--bg-soft);
 }
 
@@ -15197,7 +15215,7 @@ a[href] {
 }
 
 .app--browser-preview.app--windows .app-chrome--native-tabs {
-  padding-right: calc(var(--windows-preview-controls-width) + 48px);
+  padding-right: calc(var(--chrome-right-toggle-offset) + var(--windows-preview-controls-width) + 48px);
 }
 
 .app--linux .app-chrome--native-tabs {
@@ -17375,6 +17393,45 @@ a[href] {
   color: var(--err);
 }
 
+.context-panel__source-list {
+  display: grid;
+  gap: 4px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-soft);
+}
+
+.context-panel__source-row {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  color: var(--fg-dim);
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.context-panel__source-row span,
+.context-panel__source-row strong,
+.context-panel__source-row em {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.context-panel__source-row strong {
+  color: var(--fg);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.context-panel__source-row em {
+  color: var(--fg-muted);
+  font-style: normal;
+}
+
 .context-panel__preview {
   display: flex;
   flex-direction: column;
@@ -17760,7 +17817,7 @@ a[href] {
 }
 
 .app--darwin .app-chrome--tabs {
-  padding-right: calc(var(--chrome-right-toggle-offset) + var(--chrome-toggle-size) + 10px);
+  padding-right: calc(var(--chrome-toggle-size) + var(--chrome-toggle-size) + 16px);
   background: color-mix(in srgb, var(--bg-soft) 90%, var(--bg-elev));
 }
 
@@ -18349,7 +18406,7 @@ a[href] {
 
 :root[data-theme-style] .app--darwin .app-chrome--tabs {
   padding-left: calc(var(--chrome-left-safe-offset) + var(--chrome-toggle-size) + 8px);
-  padding-right: calc(var(--chrome-toggle-size) + 12px);
+  padding-right: calc(var(--chrome-toggle-size) + var(--chrome-toggle-size) + 16px);
   background: var(--bg-elev);
   transition: background var(--dur-fast), border-color var(--dur-fast);
 }
@@ -18358,7 +18415,7 @@ a[href] {
 :root[data-theme-style] .app--linux .app-chrome--native-tabs {
   gap: 12px;
   padding-left: 48px;
-  padding-right: 48px;
+  padding-right: calc(var(--chrome-right-toggle-offset) + 48px);
   background: var(--bg-elev);
   transition: background var(--dur-fast), border-color var(--dur-fast);
 }
@@ -18369,7 +18426,7 @@ a[href] {
 }
 
 :root[data-theme-style] .app--browser-preview.app--windows .app-chrome--native-tabs {
-  padding-right: calc(var(--windows-preview-controls-width) + 48px);
+  padding-right: calc(var(--chrome-right-toggle-offset) + var(--windows-preview-controls-width) + 48px);
 }
 
 :root[data-theme-style] .app--linux .app-chrome--native-tabs {
@@ -18517,6 +18574,23 @@ a[href] {
 
 :root[data-theme-style] .tabbar__tabs::-webkit-scrollbar {
   display: none;
+}
+
+:root[data-theme-style] .app-chrome--tabs .tabbar {
+  flex: 1 1 auto;
+  max-width: 100%;
+}
+
+:root[data-theme-style] .app-chrome--tabs .tabbar__tabs {
+  flex: 1 1 auto;
+  max-width: calc(100% - var(--chrome-panel-control-size, 30px) - 10px);
+}
+
+:root[data-theme-style] .app-chrome--tabs .tabbar > .tooltip-trigger:has(.tabbar__new) {
+  flex: 0 0 var(--chrome-panel-control-size, 30px);
+  width: var(--chrome-panel-control-size, 30px);
+  min-width: var(--chrome-panel-control-size, 30px);
+  display: inline-flex;
 }
 
 .app-chrome--workbench .app-chrome__workbench-search {
@@ -20548,11 +20622,15 @@ a[href] {
    new_design comps: panel toggles, run-mode badges, active sessions, and file
    tree folder rows all use each theme's accent + accent-soft pair. */
 :root[data-theme-style] .app--darwin .app-chrome--tabs {
-  padding-right: calc(var(--chrome-toggle-size) + 12px);
+  padding-right: calc(var(--chrome-toggle-size) + var(--chrome-toggle-size) + 16px);
 }
 
 :root[data-theme-style] .app--darwin .app-chrome--tabs .app-chrome__panel-toggle--right {
   right: 8px;
+}
+
+:root[data-theme-style] .app--darwin .app-chrome--tabs .app-chrome__tools--fixed {
+  right: calc(8px + var(--chrome-toggle-size) + 8px);
 }
 
 :root[data-theme-style] .app--darwin .app-chrome--tabs .app-chrome__panel-toggle--left.app-chrome__panel-toggle--active,

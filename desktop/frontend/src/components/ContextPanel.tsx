@@ -1,13 +1,13 @@
-import { FileText } from 'lucide-react';
 // ContextPanel shows the active tab's context gauge, token usage, read files,
 // and workspace changes. All visible text is routed through the i18n dictionary.
-import { useCallback, useEffect, useState } from 'react';
-import { asArray } from '../lib/array';
-import { app } from '../lib/bridge';
-import { type Translator, useT } from '../lib/i18n';
-import { formatMoney } from '../lib/money';
-import type { ContextInfo, ContextPanelInfo, WireUsage } from '../lib/types';
-import type { DictKey } from '../locales/en';
+import { useCallback, useEffect, useState } from "react";
+import { FileText } from "lucide-react";
+import { asArray } from "../lib/array";
+import { app } from "../lib/bridge";
+import { useT, type Translator } from "../lib/i18n";
+import { formatMoney } from "../lib/money";
+import type { DictKey } from "../locales/en";
+import type { ContextInfo, ContextPanelInfo, UsageSourceStats, WireUsage } from "../lib/types";
 
 interface ContextPanelProps {
   tabId?: string;
@@ -185,6 +185,44 @@ function contextHealth(usagePct: number, cachePct: number, readCount: number): H
   };
 }
 
+const SOURCE_ORDER = ["executor", "planner", "subagent", "compaction", "classifier", "title"];
+
+function sourceLabel(source: string, t: Translator): string {
+  switch (source) {
+    case "executor": return t("context.sourceExecutor");
+    case "planner": return t("context.sourcePlanner");
+    case "subagent": return t("context.sourceSubagent");
+    case "compaction": return t("context.sourceCompaction");
+    case "classifier": return t("context.sourceClassifier");
+    case "title": return t("context.sourceTitle");
+    default: return source;
+  }
+}
+
+function sourceCost(stats: UsageSourceStats): number {
+  return stats.sessionCost && stats.sessionCost > 0 ? stats.sessionCost : stats.sessionCostUsd ?? 0;
+}
+
+function sourceRows(info: ContextPanelInfo | null, sessionCurrency?: string): Array<{ source: string; label: string; cost: number; currency?: string; requests: number }> {
+  const entries = Object.entries(info?.sources ?? {});
+  if (entries.length === 0) return [];
+  return entries
+    .filter(([, stats]) => (stats.requestCount ?? 0) > 0 || sourceCost(stats) > 0)
+    .sort(([a], [b]) => {
+      const ia = SOURCE_ORDER.indexOf(a);
+      const ib = SOURCE_ORDER.indexOf(b);
+      if (ia >= 0 || ib >= 0) return (ia >= 0 ? ia : SOURCE_ORDER.length) - (ib >= 0 ? ib : SOURCE_ORDER.length);
+      return a.localeCompare(b);
+    })
+    .map(([source, stats]) => ({
+      source,
+      label: source,
+      cost: sourceCost(stats),
+      currency: stats.sessionCurrency || sessionCurrency || info?.sessionCurrency,
+      requests: stats.requestCount ?? 0,
+    }));
+}
+
 export function ContextPanel({
   tabId,
   context,
@@ -252,6 +290,8 @@ export function ContextPanel({
     ? (info?.cacheMissTokens ?? 0)
     : (usage?.cacheMissTokens ?? 0);
   const cost = contextCostDisplay({ info, sessionCost, sessionCurrency, usage });
+  const costSources = sourceRows(info, sessionCurrency);
+  const showCostSources = costSources.some((row) => row.source !== "executor") || costSources.length > 1;
   const readFiles = asArray(info?.readFiles);
   const changedFiles = asArray(info?.changedFiles);
 
@@ -361,6 +401,17 @@ export function ContextPanel({
                 value={formatMoney(cost.amount, cost.currency, 'dash')}
               />
             </div>
+            {showCostSources && (
+              <div className="context-panel__source-list" aria-label={t("context.costBreakdown")}>
+                {costSources.map((row) => (
+                  <div className="context-panel__source-row" key={row.source}>
+                    <span>{sourceLabel(row.label, t)}</span>
+                    <strong>{formatMoney(row.cost, row.currency, "dash")}</strong>
+                    <em>{t("context.sourceRequests", { count: row.requests })}</em>
+                  </div>
+                ))}
+              </div>
+            )}
           </section>
           <section className="context-panel__section context-panel__section--status">
             <SectionHeading title={t('context.sessionStatus')} />

@@ -125,6 +125,15 @@ function usageTotalTokens(usage?: WireUsage): number {
   return Math.max(0, promptTokens + usage.completionTokens);
 }
 
+function updatesContextGauge(usage?: WireUsage): boolean {
+  const source = usage?.source?.trim();
+  return !source || source === "executor";
+}
+
+function countsTowardCurrentTurn(state: State, usage?: WireUsage): boolean {
+  return updatesContextGauge(usage) || state.turnActive;
+}
+
 export function sameMeta(a?: Meta, b?: Meta): boolean {
   if (a === b) return true;
   if (!a || !b) return false;
@@ -477,7 +486,9 @@ function applyEvent(s: State, e: WireEvent): State {
       return { ...s, items: next };
     }
     case "usage": {
-      const used = e.usage && s.context.window ? e.usage.promptTokens : s.context.used;
+      if (!countsTowardCurrentTurn(s, e.usage)) return s;
+      const updateContextGauge = updatesContextGauge(e.usage);
+      const used = e.usage && s.context.window && updateContextGauge ? e.usage.promptTokens : s.context.used;
       const turnTokens = s.turnTokens + (e.usage?.completionTokens ?? 0);
       const usageTokens = usageTotalTokens(e.usage);
       const turnTotalTokens = s.turnTotalTokens + usageTokens;
@@ -486,7 +497,8 @@ function applyEvent(s: State, e: WireEvent): State {
       const turnCost = s.turnCost + usageCost;
       const sessionCost = s.sessionCost + usageCost;
       const sessionCurrency = e.usage?.currency || s.sessionCurrency || "¥";
-      return { ...s, usage: e.usage, context: { ...s.context, used, sessionTokens }, turnTokens, turnTotalTokens, turnCost, sessionTokens, sessionCost, sessionCurrency };
+      const usage = updateContextGauge ? e.usage : s.usage ?? e.usage;
+      return { ...s, usage, context: { ...s.context, used, sessionTokens }, turnTokens, turnTotalTokens, turnCost, sessionTokens, sessionCost, sessionCurrency };
     }
     case "notice":
       return { ...s, running: s.turnActive ? s.running : false, seq: s.seq + 1, items: [...s.items, { kind: "notice", id: `n${s.seq}`, level: e.level ?? "info", text: e.text ?? "" }] };

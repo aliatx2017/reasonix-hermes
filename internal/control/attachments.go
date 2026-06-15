@@ -286,6 +286,54 @@ func visionImageDataURL(path string) (string, error) {
 	raw, mime = compressForVision(raw, mime)
 	return "data:" + mime + ";base64," + base64.StdEncoding.EncodeToString(raw), nil
 }
+// visionImageDataURLFromPath reads an arbitrary filesystem image and returns a
+// compressed data URL. Unlike visionImageDataURL it does not require the file
+// to be under .reasonix/attachments/.
+func visionImageDataURLFromPath(path string) (string, error) {
+	raw, mime, err := readImageFile(path)
+	if err != nil {
+		return "", err
+	}
+	raw, mime = compressForVision(raw, mime)
+	return "data:" + mime + ";base64," + base64.StdEncoding.EncodeToString(raw), nil
+}
+
+// readImageFile reads an arbitrary image file from disk. Follows symlinks (the
+// user explicitly specified this path).
+func readImageFile(path string) (raw []byte, mime string, err error) {
+	clean := filepath.Clean(path)
+	info, err := os.Stat(clean)
+	if err != nil {
+		return nil, "", err
+	}
+	if info.IsDir() || info.Size() <= 0 || info.Size() > maxImageAttachmentBytes {
+		return nil, "", fmt.Errorf("image file must be between 1 byte and 10 MB")
+	}
+	f, err := os.Open(clean)
+	if err != nil {
+		return nil, "", err
+	}
+	defer f.Close()
+	opened, err := f.Stat()
+	if err != nil {
+		return nil, "", err
+	}
+	if !os.SameFile(info, opened) {
+		return nil, "", fmt.Errorf("image changed while opening")
+	}
+	raw, err = io.ReadAll(io.LimitReader(f, maxImageAttachmentBytes+1))
+	if err != nil {
+		return nil, "", err
+	}
+	if len(raw) == 0 || len(raw) > maxImageAttachmentBytes {
+		return nil, "", fmt.Errorf("image must be between 1 byte and 10 MB")
+	}
+	mime = detectedImageMime(raw)
+	if mime == "" {
+		return nil, "", fmt.Errorf("file is not a recognized image")
+	}
+	return raw, mime, nil
+}
 
 func readAttachmentImage(path string) (raw []byte, mime string, err error) {
 	clean, err := cleanAttachmentPath(path)
