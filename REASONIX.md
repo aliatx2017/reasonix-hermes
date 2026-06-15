@@ -19,6 +19,10 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
   `main`. Resolve conflicts, rebuild all binaries, run `go build ./... && go vet ./...`,
   and update REASONIX.md with the new sync point. Never leave a session without
   checking whether upstream has new commits.
+- **"Build all binaries" means 7 binaries**: When the user says "build all binaries",
+  rebuild all 6 CLI binaries (`go build -o bin/...`) AND the desktop (`cd desktop &&
+  wails build -o ../bin/reasonix-desktop`). The user runs `./bin/reasonix chat` from the
+  project root and opens `desktop/build/bin/reasonix-desktop.app` — both must be fresh.
 
 ## Memory
 
