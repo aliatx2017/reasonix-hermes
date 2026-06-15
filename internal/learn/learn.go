@@ -197,7 +197,7 @@ func (l *Learner) SuggestSkill(p Pattern) string {
 	b.WriteString(fmt.Sprintf("name: %s\n", name))
 	b.WriteString(fmt.Sprintf("description: Auto-detected pattern: %s (confidence=%d)\n", p.Name, p.Confidence))
 	b.WriteString(fmt.Sprintf("trigger: %s\n", p.Trigger))
-	b.WriteString(fmt.Sprintf("runAs: inline\n"))
+	b.WriteString("runAs: inline\n")
 	b.WriteString("---\n\n")
 	b.WriteString(fmt.Sprintf("# %s\n\n", p.Name))
 	b.WriteString(fmt.Sprintf("**Detected by Reasonix learner** (observed %d times).\n\n", p.Confidence))

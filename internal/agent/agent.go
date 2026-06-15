@@ -31,11 +31,6 @@ import (
 // window before the next compaction runs.
 const maxToolOutputBytes = 32 * 1024
 
-// workshopThreshold is the default byte size threshold above which tool results
-// are routed to a background synthesis sub-agent (the "workshop sidecar").
-// 0 or negative disables.
-const workshopThreshold = 12 * 1024 // 12 KB — roughly 3K tokens
-
 const maxFinalReadinessBlocks = 3
 const maxEmptyFinalBlocks = 3
 const maxStreamRecoveries = 1

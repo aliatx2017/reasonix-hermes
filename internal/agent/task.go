@@ -474,13 +474,6 @@ func FormatSubagentResult(answer, ref string, failed bool) string {
 	return "Subagent reference: " + ref + "\n\nFinal answer:\n" + answer
 }
 
-// batchItem is one spec from a task batch call.
-type batchItem struct {
-	Prompt      string
-	Description string
-	MaxSteps    int
-}
-
 // executeBatch spawns multiple concurrent background sub-agents from a single
 // task call and returns a summary of job IDs and refs. Each sub-agent runs as a
 // background job so they progress in parallel across turns; the parent collects

@@ -85,13 +85,6 @@ type initializeResult struct {
 	} `json:"serverInfo"`
 }
 
-type toolsListResult struct {
-	Tools []struct {
-		Name        string `json:"name"`
-		Description string `json:"description"`
-	} `json:"tools"`
-}
-
 type callToolParams struct {
 	Name      string         `json:"name"`
 	Arguments map[string]any `json:"arguments"`

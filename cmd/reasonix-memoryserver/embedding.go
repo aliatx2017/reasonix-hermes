@@ -13,7 +13,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"time"
 
 	"reasonix/internal/netclient"
 )
@@ -179,57 +178,3 @@ func newEmbeddingClientFromEnv() *embeddingClient {
 	return newEmbeddingClient(baseURL, apiKey, model)
 }
 
-// embedFacts embeds a batch of facts that have no dense vector yet. It sends
-// them in groups up to batchSize (default 20) and updates DenseVector in-place.
-// Facts with a non-nil DenseVector are skipped.
-func embedFacts(client *embeddingClient, facts []*MemoryEntry, batchSize int) int {
-	if client == nil {
-		return 0
-	}
-	if batchSize <= 0 {
-		batchSize = 20
-	}
-
-	// Collect facts that need embedding.
-	var needed []*MemoryEntry
-	for _, f := range facts {
-		if len(f.DenseVector) == 0 {
-			needed = append(needed, f)
-		}
-	}
-	if len(needed) == 0 {
-		return 0
-	}
-
-	embedded := 0
-	for i := 0; i < len(needed); i += batchSize {
-		end := i + batchSize
-		if end > len(needed) {
-			end = len(needed)
-		}
-		batch := needed[i:end]
-
-		texts := make([]string, len(batch))
-		for j, f := range batch {
-			texts[j] = f.Content
-		}
-
-		// Rate-limit friendly: small sleep between batches.
-		if i > 0 {
-			time.Sleep(200 * time.Millisecond)
-		}
-
-		vectors, err := client.Embed(texts)
-		if err != nil {
-			log.Printf("[hindsight] embed batch [%d:%d] failed: %v", i, end, err)
-			continue
-		}
-		for j, v := range vectors {
-			if j < len(batch) && len(v) > 0 {
-				batch[j].DenseVector = v
-				embedded++
-			}
-		}
-	}
-	return embedded
-}
