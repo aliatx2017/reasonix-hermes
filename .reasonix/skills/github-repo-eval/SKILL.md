@@ -86,4 +86,4 @@ go test ./... 2>&1 | tail -5
 - Project skill: `intent-gap-analysis` — compare implementation against stated intent
 - Project skill: `upstream-repo-audit` — audit tracked upstream dependencies
 - Project skill: `evidence-first-reasoning` — verify claims with evidence
-- `docs/COMPETITIVE-LANDSCAPE-2026.md` — existing competitive analysis
+- `docs/CHANGELOG-HERMES.md` — existing competitive analysis

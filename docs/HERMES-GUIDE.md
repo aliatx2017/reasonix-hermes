@@ -1705,7 +1705,7 @@ export DEEPSEEK_API_KEY=sk-...
 - **Upstream docs:** [Guide](./GUIDE.md), [Spec](./SPEC.md), [Upstream README](https://github.com/esengine/deepseek-reasonix)
 - **Project memory:** [REASONIX.md](../REASONIX.md), [AGENTS.md](../AGENTS.md)
 - **Ecosystem:** [Ecosystem reference](../reasonix-deepseek-ecosystem-2026.md)
-- **Implementation:** [Implementation plan](./HERMES-IMPLEMENTATION-PLAN.md)
+- **Implementation:** [Changelog](./CHANGELOG-HERMES.md)
 - **Upstream Discord:** [discord.gg/XF78rEME2D](https://discord.gg/XF78rEME2D)
 - **Upstream GitHub:** [esengine/deepseek-reasonix](https://github.com/esengine/deepseek-reasonix)
 

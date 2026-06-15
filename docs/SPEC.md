@@ -94,7 +94,7 @@ reasonix/
     ├── marketplace/        # [Hermes] community skill registry (agentskills.io-compatible) + LobeHub sync
     ├── mcpdiag/            # MCP server connection diagnostics
     ├── memory/             # persistent memory (SQLite, TTL, importance, dense/sparse vector search)
-    ├── mesh/               # [Hermes] agent-to-agent MCP delegation (delegate, broadcast, council)
+    ├── mesh/               # [Hermes] agent-to-agent MCP delegation (delegate, broadcast, council, judge)
     ├── netclient/          # HTTP client builder sharing Reasonix proxy/TLS config
     ├── nilutil/            # nil-slice safety utilities
     ├── notify/             # desktop notification sound system

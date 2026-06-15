@@ -294,6 +294,173 @@ func TestCouncil_Empty(t *testing.T) {
 	}
 }
 
+// --- Council Judge ---
+
+func TestCouncil_Judge_StructuredJSON(t *testing.T) {
+	t.Parallel()
+
+	// Simulate proposals from two "peers".
+	council := &Council{
+		proposals: []DelegationResult{
+			{Peer: "model-a", Success: true, Response: "The answer is 42. Edge case: negative numbers should return 0."},
+			{Peer: "model-b", Success: true, Response: "Result is 42. Also consider overflow for large inputs."},
+		},
+	}
+
+	// Judge function that returns valid JSON.
+	judgeJSON := func(ctx context.Context, prompt string) (string, error) {
+		return `{
+  "consensus": "Both models agree the answer is 42.",
+  "contradictions": ["Model A says negative numbers return 0, Model B focuses on overflow"],
+  "coverage_gaps": ["Model A covered negative numbers, Model B covered overflow"],
+  "unique_insights": ["Model A: detailed edge-case handling for negatives"],
+  "blind_spots": ["Neither model discussed floating-point errors"]
+}`, nil
+	}
+
+	ctx := context.Background()
+	if err := council.Judge(ctx, judgeJSON); err != nil {
+		t.Fatalf("Judge() error: %v", err)
+	}
+
+	j := council.Judgment()
+	if j == nil {
+		t.Fatal("Judgment() returned nil after successful Judge()")
+	}
+	if j.Consensus != "Both models agree the answer is 42." {
+		t.Errorf("Consensus = %q", j.Consensus)
+	}
+	if len(j.Contradictions) != 1 {
+		t.Errorf("Contradictions = %d items, want 1", len(j.Contradictions))
+	}
+	if len(j.CoverageGaps) != 1 {
+		t.Errorf("CoverageGaps = %d items, want 1", len(j.CoverageGaps))
+	}
+	if len(j.UniqueInsights) != 1 {
+		t.Errorf("UniqueInsights = %d items, want 1", len(j.UniqueInsights))
+	}
+	if len(j.BlindSpots) != 1 {
+		t.Errorf("BlindSpots = %d items, want 1", len(j.BlindSpots))
+	}
+	if j.Raw != "" {
+		t.Error("Raw should be empty after successful parse")
+	}
+}
+
+func TestCouncil_Judge_MarkdownWrappedJSON(t *testing.T) {
+	t.Parallel()
+
+	council := &Council{
+		proposals: []DelegationResult{
+			{Peer: "peer-x", Success: true, Response: "Use approach A."},
+		},
+	}
+
+	// Simulate a judge that wraps JSON in ``` fences (common LLM behavior).
+	judgeFenced := func(ctx context.Context, prompt string) (string, error) {
+		return "```json\n{\"consensus\":\"Approach A is recommended.\",\"contradictions\":[],\"coverage_gaps\":[],\"unique_insights\":[],\"blind_spots\":[\"No alternative considered\"]}\n```", nil
+	}
+
+	if err := council.Judge(context.Background(), judgeFenced); err != nil {
+		t.Fatalf("Judge() with fenced JSON: %v", err)
+	}
+
+	j := council.Judgment()
+	if j.Consensus != "Approach A is recommended." {
+		t.Errorf("Consensus = %q", j.Consensus)
+	}
+	if len(j.BlindSpots) != 1 || j.BlindSpots[0] != "No alternative considered" {
+		t.Errorf("BlindSpots = %v", j.BlindSpots)
+	}
+}
+
+func TestCouncil_Judge_InvalidJSON_Fallback(t *testing.T) {
+	t.Parallel()
+
+	council := &Council{
+		proposals: []DelegationResult{
+			{Peer: "p", Success: true, Response: "Raw answer here."},
+		},
+	}
+
+	// Judge returns non-JSON text. Judge() should succeed and store raw.
+	judgeText := func(ctx context.Context, prompt string) (string, error) {
+		return "I compared the proposals and here is my analysis...", nil
+	}
+
+	if err := council.Judge(context.Background(), judgeText); err != nil {
+		t.Fatalf("Judge() should not error on unparseable JSON: %v", err)
+	}
+
+	j := council.Judgment()
+	if j == nil {
+		t.Fatal("Judgment() returned nil")
+	}
+	if j.Raw == "" {
+		t.Error("Raw should be populated when JSON parsing fails")
+	}
+	if j.Consensus != "" {
+		t.Error("Consensus should be empty when parsing fails")
+	}
+}
+
+func TestCouncil_Judge_NoProposals(t *testing.T) {
+	t.Parallel()
+
+	council := &Council{
+		proposals: []DelegationResult{
+			{Peer: "dead", Success: false, Response: "", Error: "timeout"},
+		},
+	}
+
+	judge := func(ctx context.Context, prompt string) (string, error) { return "{}", nil }
+	err := council.Judge(context.Background(), judge)
+	if err == nil {
+		t.Error("expected error for no successful proposals")
+	}
+}
+
+func TestCouncil_Judge_NilFunc(t *testing.T) {
+	t.Parallel()
+
+	council := &Council{
+		proposals: []DelegationResult{
+			{Peer: "p", Success: true, Response: "ok"},
+		},
+	}
+
+	err := council.Judge(context.Background(), nil)
+	if err == nil {
+		t.Error("expected error for nil judge function")
+	}
+}
+
+func TestCouncil_Judge_EmptyResponseSkipped(t *testing.T) {
+	t.Parallel()
+
+	council := &Council{
+		proposals: []DelegationResult{
+			{Peer: "empty", Success: true, Response: ""},
+			{Peer: "good", Success: true, Response: "Valid response."},
+		},
+	}
+
+	judge := func(ctx context.Context, prompt string) (string, error) {
+		// Verify prompt only contains the "good" peer.
+		if !strings.Contains(prompt, "good") {
+			t.Error("judge prompt should contain 'good' peer")
+		}
+		if strings.Contains(prompt, "empty") {
+			t.Error("judge prompt should NOT contain 'empty' peer (response was empty)")
+		}
+		return `{"consensus":"ok","contradictions":[],"coverage_gaps":[],"unique_insights":[],"blind_spots":[]}`, nil
+	}
+
+	if err := council.Judge(context.Background(), judge); err != nil {
+		t.Fatalf("Judge(): %v", err)
+	}
+}
+
 // --- mock MCP server ---
 
 func newMockMCPServer(t *testing.T, name string, handler func(method string, params json.RawMessage) (json.RawMessage, error)) *httptest.Server {

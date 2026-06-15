@@ -117,7 +117,7 @@ Command-line frontends          HTTP frontends            Desktop frontend
 
 The Wails desktop app adds a Hermes dashboard with live data push, token sparkline chart, compaction timeline, checkpoint file preview, Write Mode (split-pane Markdown editor with live preview), memory fact graph, cache economy gauge, hindsight memory dashboard, Discord bot monitor, goal progress widget, skills hub browser, sub-agent task tree, constitution health check, hotbar (Ctrl+1-7 keyboard shortcuts), and named profiles for fast/cheap vs. deep reasoning.
 
-See the [Desktop Guide](./docs/DESKTOP.md) for full details.
+See the [Desktop Guide](./DESKTOP.md) for full details.
 
 ### Community integration
 
@@ -177,4 +177,4 @@ git push origin main
 | **[Constitution](./CONSTITUTION.md)** | Project invariants — principles, constraints, code rules |
 | **[Eval](./EVAL.md)** | Compare two agent sessions for eval-driven development |
 | **[Checkpoints](./CHECKPOINTS.md)** | Snapshot-based edit safety net |
-| **[Implementation Plan](./HERMES-IMPLEMENTATION-PLAN.md)** | Phased roadmap — all 17 items complete |
+| **[Changelog](./CHANGELOG-HERMES.md)** | Hermes fork milestones, expansion packs, bot platforms |

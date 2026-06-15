@@ -18,8 +18,7 @@ Our fork (`aliatx2017/reasonix-hermes`) adds:
 - **Hardened hook scripts** (`scripts/`) — retain-hook.sh, reflect-hook.sh with dep checks, timeout, integration test
 - **Portable mode** — `REASONIX_PORTABLE=1` redirects all data to `<binary_dir>/.reasonix/`
 - **Ecosystem reference** (`reasonix-deepseek-ecosystem-2026.md`) — comprehensive survey
-- **Research findings** (`docs/RESEARCH-FINDINGS-JUNE-2026.md`) — June 2026 deep-web sweep
-- **Implementation plan** (`docs/HERMES-IMPLEMENTATION-PLAN.md`) — phased roadmap
+- **Changelog** (`docs/CHANGELOG-HERMES.md`) — Hermes fork milestones, expansion packs, bot platforms
 
 ### Hermes v1.7.0-h1 (2026-07-15)
 
@@ -191,7 +190,7 @@ Our fork (`aliatx2017/reasonix-hermes`) adds:
 - **PortaKit portability**: `REASONIX_PORTABLE=1` redirects all data (config, sessions, cache, memory, skills, commands) to `<binary_dir>/.reasonix/`. Added `IsPortable()` + `reasonixDir()` to config package. mcpbridge + memoryserver respect portable mode
 
 **Docs:**
-- `docs/HERMES-IMPLEMENTATION-PLAN.md` — P2/P3 statuses updated
+- `docs/CHANGELOG-HERMES.md` — consolidated Hermes fork changelog
 - `REASONIX.md` — Next Session TODOs cleared, key differentiators updated
 - `CHANGELOG.md` — this entry
 - `skills-hub/site/index.html` — static browseable skills catalog (GitHub Pages ready)

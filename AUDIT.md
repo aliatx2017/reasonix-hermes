@@ -1,7 +1,7 @@
 # Reasonix Codebase Audit (Historical — June 2025)
 
 > **Note:** This is a historical audit from June 2025. All 6 bugs documented
-> below have been fixed in subsequent releases. See `docs/AUDIT-REVIEW-2026-07-15.md`
+> below have been fixed in subsequent releases. See `docs/CHANGELOG-HERMES.md`
 > for the most recent audit. The architecture tree below reflects the codebase
 > as of June 2025 (~20 packages). The current codebase has 57 packages (see
 > `docs/SPEC.md` §2 for the full layout).

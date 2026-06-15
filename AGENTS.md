@@ -131,8 +131,7 @@ skills-hub/            17-skill community registry + static catalog site
 
 ## Docs
 
-- **[Implementation Plan](docs/HERMES-IMPLEMENTATION-PLAN.md)** — phased roadmap: 17/17 items complete across P0–P3
-- **[Research Findings](docs/RESEARCH-FINDINGS-JUNE-2026.md)** — June 2026 deep-web sweep: upstream v1.5.0, 4 new MCP bridges, 4 skill packs, 2 domain apps, 4 desktop clients, 4 IDE extensions, 11 undocumented features
+- **[Changelog](docs/CHANGELOG-HERMES.md)** — Hermes fork milestones, expansion packs, bot platforms
 - **[Ecosystem Reference](reasonix-deepseek-ecosystem-2026.md)** — full landscape: MCP bridges, skills, desktop, IDE, forks, cost model, protocols, use cases
 
 ## Notes

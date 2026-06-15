@@ -133,7 +133,7 @@ export DISCORD_BOT_TOKEN="你的token"
 | **[项目](./AGENTS.md)** | Hermes fork 架构、命令、定制说明与贡献者指南 |
 | **[从 0.x 迁移](./docs/MIGRATING.md)** | 从 legacy TypeScript 版本迁到 1.0 Go 重写版 |
 | **[Checkpoints & rewind](./docs/CHECKPOINTS.md)** | 基于快照的编辑安全网（Esc-Esc / `/rewind`） |
-| **[实施计划](./docs/HERMES-IMPLEMENTATION-PLAN.md)** | 分阶段路线图 —— 全部 17 项已完成 |
+| **[更新日志](./docs/CHANGELOG-HERMES.md)** | Hermes 分支里程碑、扩展包、机器人平台 |
 | **[生态参考](./reasonix-deepseek-ecosystem-2026.md)** | 全景调研：MCP bridge、skills、desktop、IDE、fork、协议 |
 
 <br/>

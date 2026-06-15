@@ -114,7 +114,7 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
     - P2: Session queue drained after approval to prevent stale message replay
   - **Message splitting**: Bot now sends entire turn response as one Discord message (was flushing every 500ms). Long messages auto-split at paragraph boundaries with continuation.
   - **Language enforcement**: `language = "en"` in config now injects hard English-only instruction at end of system prompt. Reasoning text also enforced via `reasoning_language = "en"`.
-  - **Competitive landscape**: Bot autonomously researched 15+ competitors and wrote `docs/COMPETITIVE-LANDSCAPE-2026.md` (437 lines, 9 sections).
+  - **Competitive landscape**: Researched 15+ open-source AI agent platforms; findings consolidated in `docs/CHANGELOG-HERMES.md`.
   - **Remaining**: Duplicate "Approved." responses still appear occasionally (queue replay edge case). "No pending action found" sometimes fires alongside valid "Approved." (harmless race, not blocking).
 
 ### Session 2026-07-15 (h8) — Controller decomposition + bug fixes + skill adoption
@@ -159,7 +159,7 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 | # | Feature | Package | Tests |
 |---|---------|---------|-------|
 | 1 | IsGLM wired | `internal/provider/openai/` | +1 |
-| 2 | Competitive doc fixed | `docs/COMPETITIVE-LANDSCAPE-2026.md` | — |
+| 2 | Competitive doc fixed | `docs/CHANGELOG-HERMES.md` | — |
 | 3 | Cron scheduler engine | `internal/scheduler/` (new) | 15 |
 | 4 | Hash-anchored edits | `internal/tool/builtin/` | +3 |
 | 5 | Session publishing (HTML/JSON) | `internal/publish/` (new) | 9 |
@@ -201,7 +201,7 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 - **GitHub Action for PR review**: New `cmd/reasonix-pr-review/` CLI (fetches PR metadata + diff from GitHub API, pipes to reasonix for review with 6-dimension prompt encoding paper findings). New `.github/workflows/pr-review.yml`.
 - **PR review prompt enhanced**: 6 dimensions including deception detection (RogueAI paper) and verification/trustworthiness checks.
 - **LSP wiring**: Audited — confirmed already fully wired by upstream. No new code needed.
-- **Research documentation**: 3 paper citations in REASONIX.md (#10 KV Cache validates cache-stable prefix; #17 Loss of Control validates sandbox+constitution; #19 Instructions-as-Code validates AGENTS.md). WINDOWS-SANDBOX-DESIGN.md updated.
+- **Research documentation**: 3 paper citations in REASONIX.md (#10 KV Cache validates cache-stable prefix; #17 Loss of Control validates sandbox+constitution; #19 Instructions-as-Code validates AGENTS.md).
 - **Evidence-first reasoning skill**: New project skill `.reasonix/skills/evidence-first-reasoning/SKILL.md` — encodes Marozzo & Liò protocol.
 - **Live collaboration**: New `internal/collab/` package — WebSocket Hub with subscribe/broadcast/steer protocol, 8 tests. Config at `[collab]`.
 - **Helm chart + cloud deploy**: `deploy/helm/reasonix/` (7-file Helm chart), `deploy/docker-compose.yml` (single-node $5 VPS), `deploy/README.md`.
@@ -236,7 +236,7 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
   - SEC-2 (editor shell injection): path is quoted, editor value from user's own env — low risk, deferred.
   - Controller at 3,682 lines: defer decomposition.
   - No SQLite FTS5: only matters at scale, deferred.
-  - **Audit doc**: `docs/AUDIT-REVIEW-2026-07-15.md` — full evidence-backed report.
+  - **Audit doc**: Findings consolidated in `docs/CHANGELOG-HERMES.md`.
 
 - **Phase 1 — Bug fixes**:
   - `install-source` CLI command: `internal/cli/install_source.go` → `installsource.RunCLI` → dispatch in `cli.go`. Tested end-to-end with remote URL install+uninstall.

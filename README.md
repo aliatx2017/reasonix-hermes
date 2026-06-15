@@ -248,7 +248,7 @@ Full reference: **[Guide](./docs/GUIDE.md)** covers permissions, sandbox, plugin
 | **[Session Eval](./docs/EVAL.md)** | Compare two agent sessions for eval-driven development |
 | **[Migrating from 0.x](./docs/MIGRATING.md)** | Moving from legacy TypeScript releases to the 1.0 Go rewrite |
 | **[Checkpoints & rewind](./docs/CHECKPOINTS.md)** | Snapshot-based edit safety net (Esc-Esc / `/rewind`) |
-| **[Implementation Plan](./docs/HERMES-IMPLEMENTATION-PLAN.md)** | Phased roadmap — all 17 items complete |
+| **[Changelog](./docs/CHANGELOG-HERMES.md)** | Hermes fork milestones, expansion packs, bot platforms |
 | **[Ecosystem Reference](./reasonix-deepseek-ecosystem-2026.md)** | Full landscape: MCP bridges, skills, desktop, IDE, forks, protocols |
 
 <br/>
