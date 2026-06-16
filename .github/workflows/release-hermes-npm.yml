@@ -12,6 +12,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   npm:
@@ -39,5 +40,3 @@ jobs:
           fi
 
       - run: node npm/build-hermes.mjs "${{ steps.ver.outputs.arg }}" --publish
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
