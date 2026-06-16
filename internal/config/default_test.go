@@ -23,3 +23,15 @@ func TestDefaultDesktopAppearanceAutoGraphite(t *testing.T) {
 		t.Fatalf("default desktop theme style = %q, want empty so frontend resolves graphite", got)
 	}
 }
+
+func TestDefaultDesktopMetricsOn(t *testing.T) {
+	cfg := Default()
+	if !cfg.DesktopMetrics() {
+		t.Fatal("default desktop metrics = false, want true")
+	}
+	disabled := false
+	cfg.Desktop.Metrics = &disabled
+	if cfg.DesktopMetrics() {
+		t.Fatal("desktop metrics explicit false = true, want false")
+	}
+}

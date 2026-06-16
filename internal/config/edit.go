@@ -293,7 +293,7 @@ func (c *Config) SetDesktopTelemetry(enabled bool) error {
 	return nil
 }
 
-// SetDesktopMetrics sets whether the desktop sends opt-in aggregate desktop metrics.
+// SetDesktopMetrics sets whether the desktop sends aggregate desktop metrics.
 func (c *Config) SetDesktopMetrics(enabled bool) error {
 	c.Desktop.Metrics = &enabled
 	return nil

@@ -515,6 +515,29 @@ func TestSetDesktopCheckUpdatesPersistsToUserConfig(t *testing.T) {
 	}
 }
 
+func TestSetDesktopMetricsDefaultsOnAndPersistsOff(t *testing.T) {
+	isolateDesktopUserDirs(t)
+
+	app := NewApp()
+	if !app.Settings().Metrics {
+		t.Fatal("Settings().Metrics default = false, want true")
+	}
+	if err := app.SetDesktopMetrics(false); err != nil {
+		t.Fatalf("SetDesktopMetrics: %v", err)
+	}
+	view := app.Settings()
+	if view.Metrics {
+		t.Fatal("Settings().Metrics = true, want false")
+	}
+	cfg := config.LoadForEdit(config.UserConfigPath())
+	if cfg.Desktop.Metrics == nil || *cfg.Desktop.Metrics {
+		t.Fatalf("desktop.metrics = %+v, want false", cfg.Desktop.Metrics)
+	}
+	if cfg.DesktopMetrics() {
+		t.Fatal("DesktopMetrics() = true, want false")
+	}
+}
+
 func TestSaveHooksSettingsPreservesUnknownSettingsKeys(t *testing.T) {
 	isolateDesktopUserDirs(t)
 	path := hook.GlobalSettingsPath("")

@@ -36,7 +36,7 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 ## Notes
 
-- **Upstream synced**: `v1.8.x` (commit 29ffd31, 2026-06-16). 4 new commits merged (credential source diagnostics). Previous sync: 8ddb46d.
+- **Upstream synced**: `v1.8.x` (commit 94c0fc6, 2026-06-16). 4 new commits merged (default interactive CLI routing, bare reasonix starts interactive sessions). Previous sync: 29ffd31.
 - **Commit**: session 2026-06-16 (h23) — research workflow e2e verified (SearXNG + Crawl4AI + GitHub API → JSON → report.md), DESKTOP.md enriched (149 lines, 25 components + 24 backend files), macOS code-signing investigation (pipeline fully built, needs Apple credentials), upstream merge (8886dcb, 7 commits). Upstream fetch + merge + build/vet/test all green.
 - **Commit**: session 2026-06-?? (h??) — Deep Research workflow adopted (5 skills from Weizhena/Deep-Research-skills), `/eval` slash command (define/check/report/list/clean), crawl4ai/searxng integration in research pipeline, upstream merge (0706284, 10 commits).
 - **Commit**: session 2026-06-15 (h19) — animated logo gradient banner (indigo→cyan→pink), doc sweep (8 files, stale binary names fixed), all prior h18 work.

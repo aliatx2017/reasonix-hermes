@@ -19,7 +19,6 @@ import {
   GitBranch,
   History,
   MessageSquare,
-  Plus,
   Settings as SettingsIcon,
   Pencil,
   Trash2,
@@ -843,7 +842,7 @@ export default function App() {
   const [needsOnboarding, setNeedsOnboarding] = useState<boolean | null>(null);
   const [settingsTarget, setSettingsTarget] = useState<SettingsTab | null>(null);
   const [settingsFocus, setSettingsFocus] = useState<SettingsInitialFocus | null>(null);
-  const [desktopLayoutStyle, setDesktopLayoutStyle] = useState<DesktopLayoutStyle>("classic");
+  const [desktopLayoutStyle, setDesktopLayoutStyle] = useState<DesktopLayoutStyle>("workbench");
   const [startupUpdateChecksEnabled, setStartupUpdateChecksEnabled] = useState<boolean | null>(null);
   const [histView, setHistView] = useState<HistoryViewState | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -852,9 +851,7 @@ export default function App() {
   const { showToast } = useToast();
   const [sidebarImConnections, setSidebarImConnections] = useState<SidebarImConnection[]>([]);
   const [imTopicSources, setImTopicSources] = useState<Record<string, SidebarImTopicSource>>({});
-  const [activeSidebarImConnectionId, setActiveSidebarImConnectionId] = useState("");
   const [sidebarImDetailConnectionId, setSidebarImDetailConnectionId] = useState("");
-  const [sidebarImExpanded, setSidebarImExpanded] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(loadSidebarCollapsed);
   type TimeFilter = "all" | "10" | "20" | "1h" | "3h" | "5h" | "1d";
   const [topicTimeFilter, setTopicTimeFilter] = useState<TimeFilter>(() => {
@@ -908,7 +905,6 @@ export default function App() {
   const appRef = useRef<HTMLDivElement>(null);
   const sidebarTogglePressTimerRef = useRef<number | null>(null);
   const workspaceTogglePressTimerRef = useRef<number | null>(null);
-  const sidebarImRefreshRef = useRef({ last: 0, inFlight: false });
 
   // Persist window geometry across launches.
   useWindowStatePersistence();
@@ -930,21 +926,8 @@ export default function App() {
     setImTopicSources(sidebarImTopicSourcesFromBot(settings.bot, t));
   }, [t]);
 
-  const quietlyRefreshSidebarImConnections = useCallback(() => {
-    const now = Date.now();
-    if (sidebarImRefreshRef.current.inFlight || now - sidebarImRefreshRef.current.last < 1000) return;
-    sidebarImRefreshRef.current.inFlight = true;
-    sidebarImRefreshRef.current.last = now;
-    void reloadSidebarImConnections()
-      .catch((e) => console.warn("bot sidebar refresh failed", e))
-      .finally(() => {
-        sidebarImRefreshRef.current.inFlight = false;
-      });
-  }, [reloadSidebarImConnections]);
-
   const openBotSettings = useCallback(() => {
     closeTransientOverlays();
-    setSidebarImExpanded(false);
     setSidebarImDetailConnectionId("");
     setSettingsFocus(null);
     setSettingsTarget("bots");
@@ -952,7 +935,6 @@ export default function App() {
 
   const openBotAllowlistSettings = useCallback((connectionId: string) => {
     closeTransientOverlays();
-    setSidebarImExpanded(false);
     setSidebarImDetailConnectionId("");
     setSettingsFocus({ target: "bot-allowlist", connectionId });
     setSettingsTarget("bots");
@@ -1070,14 +1052,6 @@ export default function App() {
   }, [applyDesktopPreferences, t]);
 
   useEffect(() => {
-    if (sidebarImConnections.length === 0) {
-      setSidebarImExpanded(false);
-    }
-    setActiveSidebarImConnectionId((current) => {
-      if (sidebarImConnections.length === 0) return "";
-      if (current && sidebarImConnections.some((connection) => connection.id === current)) return current;
-      return sidebarImConnections[0].id;
-    });
     setSidebarImDetailConnectionId((current) => {
       if (!current) return "";
       return sidebarImConnections.some((connection) => connection.id === current) ? current : "";
@@ -2069,22 +2043,6 @@ export default function App() {
     }
   }, [ensureBlankTab, openGlobalTab, openProjectTab, refreshTabMetas, resumeSession, showToast, t]);
 
-  const selectSidebarImConnection = useCallback((connection: SidebarImConnection) => {
-    setActiveSidebarImConnectionId(connection.id);
-    setSidebarImDetailConnectionId(connection.id);
-    setSidebarImExpanded(false);
-    closeTransientOverlays();
-  }, [closeTransientOverlays]);
-
-  const toggleSidebarImPanel = useCallback(() => {
-    if (sidebarImConnections.length === 0) {
-      openBotSettings();
-      return;
-    }
-    if (!sidebarImExpanded) quietlyRefreshSidebarImConnections();
-    setSidebarImExpanded((value) => !value);
-  }, [openBotSettings, quietlyRefreshSidebarImConnections, sidebarImConnections.length, sidebarImExpanded]);
-
   // History drawer: project menus can open a scoped saved-session list. Idle row
   // clicks resume; running row clicks only preview through PreviewSession.
   const openProjectHistory = useCallback(async (scope: "global" | "project", workspaceRoot: string) => {
@@ -2332,94 +2290,12 @@ export default function App() {
   const topicbarSubtitleTitle = sidebarImDetailConnection
     ? [topicbarWorkspaceLabel, topicbarImSourceLabel, sidebarImScopeLabel(sidebarImDetailConnection, t)].filter(Boolean).join(" · ")
     : [topicbarWorkspacePath || topicbarWorkspaceLabel, topicbarImSourceLabel].filter(Boolean).join(" · ");
-  const sidebarImConnectedCount = sidebarImConnections.filter((connection) => connection.status === "connected").length;
-  const sidebarImHasConnections = sidebarImConnections.length > 0;
-  const sidebarImSummaryText = sidebarImHasConnections
-    ? sidebarImConnectedCount > 0
-      ? t("sidebar.imOnlineCount", { n: sidebarImConnectedCount })
-      : t("sidebar.imConnectionCount", { n: sidebarImConnections.length })
-    : "";
-  const sidebarImToggleLabel = !sidebarImHasConnections
-    ? t("sidebar.im")
-    : t(sidebarImExpanded ? "sidebar.imCollapse" : "sidebar.imExpand");
   const sidebarWorkbench = desktopLayoutStyle === "workbench";
   const sidebarClassName = [
     "sidebar",
     sidebarCollapsed ? "sidebar--collapsed" : "",
     sidebarWorkbench ? "sidebar--workbench" : "",
   ].filter(Boolean).join(" ");
-  const sidebarImBlock = (
-    <div className={`sidebar-im${sidebarImExpanded ? " sidebar-im--expanded" : ""}`} aria-label={t("sidebar.im")}>
-      <button
-        className="sidebar-im__summary"
-        type="button"
-        aria-expanded={sidebarImExpanded}
-        aria-label={sidebarImToggleLabel}
-        title={sidebarImToggleLabel}
-        onPointerDown={(event) => {
-          if (event.button !== 0) return;
-          event.preventDefault();
-          toggleSidebarImPanel();
-        }}
-        onKeyDown={(event) => {
-          if (event.key !== "Enter" && event.key !== " ") return;
-          event.preventDefault();
-          toggleSidebarImPanel();
-        }}
-      >
-        <MessageSquare size={15} />
-        <span className="sidebar-im__summary-label">{t("sidebar.im")}</span>
-        {sidebarImSummaryText ? <span className="sidebar-im__summary-status">{sidebarImSummaryText}</span> : null}
-      </button>
-      {sidebarImExpanded && sidebarImConnections.length > 0 && (
-        <div className="sidebar-im__panel" role="dialog" aria-label={t("sidebar.imManage")}>
-          <div className="sidebar-im__panel-head">
-            <span>{t("sidebar.imManage")}</span>
-            <div className="sidebar-im__panel-actions">
-              <Tooltip label={t("sidebar.imAdd")} fill side="right" disabled={sidebarNavTooltipDisabled}>
-                <button
-                  className="sidebar-im__icon-button"
-                  type="button"
-                  onClick={openBotSettings}
-                  aria-label={t("sidebar.imAdd")}
-                >
-                  <Plus size={13} />
-                </button>
-              </Tooltip>
-            </div>
-          </div>
-          <div className="sidebar-im__list">
-            {sidebarImConnections.map((connection) => (
-              <div
-                key={connection.id}
-                className={[
-                  "sidebar-im-row-shell",
-                  activeSidebarImConnectionId === connection.id ? "sidebar-im-row-shell--active" : "",
-                  `sidebar-im-row-shell--${connection.status}`,
-                ].filter(Boolean).join(" ")}
-              >
-                <button
-                  className="sidebar-im-row"
-                  type="button"
-                  title={`${connection.platformLabel} · ${connection.statusLabel}`}
-                  onClick={() => void selectSidebarImConnection(connection)}
-                >
-                  <span className={`sidebar-im-row__platform sidebar-im-row__platform--${connection.platform}`} aria-hidden="true">
-                    {connection.platform === "qq" ? "Q" : connection.platform === "weixin" ? "微" : connection.platform === "lark" ? "L" : "飞"}
-                  </span>
-                  <span className="sidebar-im-row__main">
-                    <strong>{connection.title}</strong>
-                    <span>{connection.subtitle}</span>
-                  </span>
-                  <span className={`sidebar-im-row__status sidebar-im-row__status--${connection.status}`} title={connection.statusLabel} />
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
 
   return (
     <ShellExpandProvider>
@@ -2541,7 +2417,6 @@ export default function App() {
 
           {sidebarWorkbench ? (
             <nav className="sidebar__nav sidebar__nav--footer">
-              {sidebarImBlock}
               <div className="sidebar__utility-row" aria-label={t("sidebar.utilityActions")}>
                 <Tooltip label={t("sidebar.allHistory")} fill side="top">
                   <button
@@ -2580,7 +2455,6 @@ export default function App() {
             </nav>
           ) : (
             <nav className="sidebar__nav">
-              {sidebarImBlock}
               <Tooltip label={t("sidebar.allHistory")} fill side="right" disabled={sidebarNavTooltipDisabled}>
                 <button
                   className="sidebar__navitem"

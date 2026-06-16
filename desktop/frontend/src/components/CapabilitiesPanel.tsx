@@ -3,7 +3,7 @@ import { asArray } from "../lib/array";
 import { app, openExternal } from "../lib/bridge";
 import { useT } from "../lib/i18n";
 import { mcpServerLifecycleActions } from "../lib/mcpServerLifecycle";
-import type { CapabilitiesView, MCPServerInput, ServerView, SkillRootSkillView, SkillRootView, SkillView } from "../lib/types";
+import type { CapabilitiesView, MCPServerInput, ServerView, SkillRootSkillView, SkillRootView, SkillsSettingsView, SkillView, TabMeta } from "../lib/types";
 import { InlineConfirmButton } from "./InlineConfirmButton";
 import { ResizableDrawer } from "./ResizableDrawer";
 import { Tooltip } from "./Tooltip";
@@ -14,6 +14,19 @@ import { ModalCloseButton } from "./ModalCloseButton";
 // each server shows a connected/failed dot, transport, and tool/prompt/resource
 // counts, with add / remove / retry; skills list their scope and run mode.
 type CapTab = "servers" | "skills";
+
+type SettingsSnapshot<T> = { key: string; value: T };
+
+let mcpSettingsSnapshot: SettingsSnapshot<ServerView[]> | null = null;
+let skillsSettingsSnapshot: SettingsSnapshot<SkillsSettingsView> | null = null;
+
+function settingsSnapshotKey(meta: Awaited<ReturnType<typeof app.Meta>> | null | undefined, tabs: TabMeta[] | null | undefined): string {
+  const active = tabs?.find((tab) => tab.active);
+  const tabID = (active?.id || "").trim();
+  const root = (active?.workspaceRoot || active?.workspacePath || active?.cwd || meta?.workspaceRoot || meta?.workspacePath || meta?.cwd || "").trim();
+  const channel = (meta?.eventChannel || "").trim();
+  return `${channel}|${tabID}|${root}`;
+}
 
 export function CapabilitiesPanel({
   onClose,
@@ -285,14 +298,24 @@ export function CapabilitiesPanel({
 
 function normalizeCapabilitiesView(view: CapabilitiesView | null | undefined): CapabilitiesView {
   return {
-    servers: sortServersForDisplay(
-      asArray(view?.servers).map((server) => ({
-        ...server,
-        args: asArray(server.args),
-        envKeys: asArray(server.envKeys),
-        toolList: asArray(server.toolList),
-      })),
-    ),
+    servers: normalizeServerViews(view?.servers),
+    ...normalizeSkillsSettingsView(view),
+  };
+}
+
+function normalizeServerViews(servers: ServerView[] | null | undefined): ServerView[] {
+  return sortServersForDisplay(
+    asArray(servers).map((server) => ({
+      ...server,
+      args: asArray(server.args),
+      envKeys: asArray(server.envKeys),
+      toolList: asArray(server.toolList),
+    })),
+  );
+}
+
+function normalizeSkillsSettingsView(view: SkillsSettingsView | CapabilitiesView | null | undefined): SkillsSettingsView {
+  return {
     skills: asArray(view?.skills),
     skillRoots: asArray(view?.skillRoots).map((root) => ({
       ...root,
@@ -1432,7 +1455,8 @@ function AddServerForm({
 // embedded inside the settings centre.
 export function MCPServersSettingsPage() {
 	const t = useT();
-	const [view, setView] = useState<CapabilitiesView | null>(null);
+	const [snapshotKey, setSnapshotKey] = useState("");
+	const [servers, setServers] = useState<ServerView[] | null>(null);
 	const [busy, setBusy] = useState(false);
 	const [err, setErr] = useState<string | null>(null);
 	const [adding, setAdding] = useState(false);
@@ -1442,14 +1466,28 @@ export function MCPServersSettingsPage() {
 	const [expandedServerTools, setExpandedServerTools] = useState<Set<string>>(() => new Set());
 
 	const reload = useCallback(async () => {
-		setView(normalizeCapabilitiesView(await app.Capabilities().catch(() => ({ servers: [], skills: [], skillRoots: [] }))));
+		const [meta, tabs] = await Promise.all([
+			app.Meta().catch(() => null),
+			app.ListTabs().catch(() => []),
+		]);
+		const key = settingsSnapshotKey(meta, tabs);
+		setSnapshotKey(key);
+		const cached = key ? mcpSettingsSnapshot : null;
+		if (cached?.key === key) {
+			setServers(cached.value);
+		} else {
+			setServers(null);
+		}
+		const next = normalizeServerViews(await app.MCPServers().catch(() => []));
+		mcpSettingsSnapshot = { key, value: next };
+		setServers(next);
 	}, []);
 	useEffect(() => { void reload(); }, [reload]);
 	useEffect(() => {
-		if (!view || !view.servers.some((s) => s.status === "initializing" || s.status === "deferred")) return;
+		if (!servers?.some((s) => s.status === "initializing" || s.status === "deferred")) return;
 		const id = window.setInterval(() => void reload(), 2500);
 		return () => window.clearInterval(id);
-	}, [reload, view]);
+	}, [reload, servers]);
 
 	const mutate = async (fn: () => Promise<unknown>) => {
 		setBusy(true);
@@ -1467,12 +1505,12 @@ export function MCPServersSettingsPage() {
 		}
 	};
 	const serverGroups = useMemo(() => {
-		const servers = sortServersForDisplay(view?.servers ?? []);
+		const sorted = sortServersForDisplay(servers ?? []);
 		return {
-			failed: servers.filter((s) => s.status === "failed"),
-			active: servers.filter((s) => s.status !== "failed"),
+			failed: sorted.filter((s) => s.status === "failed"),
+			active: sorted.filter((s) => s.status !== "failed"),
 		};
-	}, [view]);
+	}, [servers]);
 	const toggleError = useCallback((name: string) => {
 		setExpandedErrors((prev) => { const next = new Set(prev); if (next.has(name)) next.delete(name); else next.add(name); return next; });
 	}, []);
@@ -1484,20 +1522,21 @@ export function MCPServersSettingsPage() {
 	}, []);
 
 	const summary = useMemo(() => {
-		if (!view) return "";
-		return mcpServerSummary(view.servers, t);
-	}, [view, t]);
+		if (!servers) return "";
+		return mcpServerSummary(servers, t);
+	}, [servers, t]);
 
-	if (!view) return <div className="empty">{t("caps.loading")}</div>;
+	const loading = !servers;
+	const actionBusy = busy || !snapshotKey || loading;
 
 		return (
 			<section className="mem-section">
 				{err && serverGroups.failed.length === 0 && <div className="banner banner--error">{err}</div>}
 				<div className="cap-mcp-toolbar">
-				{view.servers.length > 0 ? <div className="drawer__summary">{summary}</div> : <span />}
+				{servers && servers.length > 0 ? <div className="drawer__summary">{summary}</div> : <span />}
 				<div className="cap-mcp-toolbar__actions">
 					{!adding && (
-						<button className="btn btn--small" disabled={busy} onClick={() => setAdding(true)}>
+						<button className="btn btn--small" disabled={actionBusy} onClick={() => setAdding(true)}>
 							{t("caps.addServer")}
 						</button>
 					)}
@@ -1507,23 +1546,26 @@ export function MCPServersSettingsPage() {
 					<FailedServersNotice
 						servers={serverGroups.failed}
 						expanded={expandedErrors}
-						busy={busy}
+						busy={actionBusy}
 						onToggle={toggleError}
 						onRetry={(name) => void mutate(() => app.ReconnectMCPServer(name))}
 						onRetryMany={(names) => void mutate(() => Promise.allSettled(names.map((name) => app.ReconnectMCPServer(name))))}
 					onConfirmClearAuth={(name) => void mutate(() => app.ClearMCPServerAuthentication(name))}
 					onConfirm={(name) => void mutate(() => app.RemoveMCPServer(name))}
 					onConfirmMany={(names) => void mutate(() => Promise.allSettled(names.map((name) => app.RemoveMCPServer(name))))}
-				/>
+					/>
 			)}
-			{view.servers.length === 0 && !adding && (
+			{loading && !adding && (
+				<div className="mem-empty">{t("caps.loading")}</div>
+			)}
+			{!loading && servers.length === 0 && !adding && (
 				<div className="mem-empty">{t("caps.noServers")}</div>
 			)}
 			{serverGroups.active.length > 0 && (
 				<div className="cap-server-section">
 					<div className="cap-server-section__title">{t("caps.availableServers")}</div>
 						<ServerGroup
-							busy={busy}
+							busy={actionBusy}
 							servers={serverGroups.active}
 							expanded={expandedServers}
 						expandedTools={expandedServerTools}
@@ -1556,14 +1598,29 @@ export function MCPServersSettingsPage() {
 // the settings centre.
 export function SkillsSettingsPage() {
 	const t = useT();
-	const [view, setView] = useState<CapabilitiesView | null>(null);
+	const [snapshotKey, setSnapshotKey] = useState("");
+	const [view, setView] = useState<SkillsSettingsView | null>(null);
 	const [busy, setBusy] = useState(false);
 	const [err, setErr] = useState<string | null>(null);
 	const [skillQuery, setSkillQuery] = useState("");
 	const [expandedSkills, setExpandedSkills] = useState<Set<string>>(() => new Set());
 
 	const reload = useCallback(async () => {
-		setView(normalizeCapabilitiesView(await app.Capabilities().catch(() => ({ servers: [], skills: [], skillRoots: [] }))));
+		const [meta, tabs] = await Promise.all([
+			app.Meta().catch(() => null),
+			app.ListTabs().catch(() => []),
+		]);
+		const key = settingsSnapshotKey(meta, tabs);
+		setSnapshotKey(key);
+		const cached = key ? skillsSettingsSnapshot : null;
+		if (cached?.key === key) {
+			setView(cached.value);
+		} else {
+			setView(null);
+		}
+		const next = normalizeSkillsSettingsView(await app.SkillsSettings().catch(() => ({ skills: [], skillRoots: [] })));
+		skillsSettingsSnapshot = { key, value: next };
+		setView(next);
 	}, []);
 	useEffect(() => { void reload(); }, [reload]);
 
@@ -1603,6 +1660,7 @@ export function SkillsSettingsPage() {
 	}, []);
 
 	if (!view) return <div className="empty">{t("caps.loading")}</div>;
+	const actionBusy = busy || !snapshotKey;
 
 	return (
 		<section className="mem-section">
@@ -1618,7 +1676,7 @@ export function SkillsSettingsPage() {
 			</div>
 			<SkillSources
 				roots={view.skillRoots ?? []}
-				busy={busy}
+				busy={actionBusy}
 				onAdd={() => mutate(async () => {
 					const path = await app.PickSkillFolder();
 					if (path) await app.AddSkillPath(path);
@@ -1642,7 +1700,7 @@ export function SkillsSettingsPage() {
 						<SkillRow
 							key={sk.name}
 							skill={sk}
-							busy={busy}
+							busy={actionBusy}
 							expanded={expandedSkills.has(sk.name)}
 							onToggle={() => toggleSkill(sk.name)}
 							onToggleEnabled={(enabled) => void mutate(() => app.SetSkillEnabled(sk.name, enabled))}

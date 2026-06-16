@@ -13056,10 +13056,8 @@ a[href] {
   display: grid;
   grid-template-columns:
     minmax(84px, 0.72fr)
-    minmax(80px, 0.68fr)
-    minmax(170px, 1.18fr)
-    minmax(64px, 0.5fr)
-    minmax(156px, 0.92fr)
+    minmax(260px, 2fr)
+    minmax(156px, 0.9fr)
     minmax(104px, auto);
   align-items: center;
   gap: 8px;
@@ -13100,6 +13098,52 @@ a[href] {
   align-items: center;
   gap: 7px;
   min-width: 0;
+}
+.bot-connection-row__identity-cell {
+  min-width: 0;
+}
+.bot-connection-identity {
+  --wails-draggable: no-drag;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: 6px 8px;
+  text-align: left;
+  transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.bot-connection-identity:hover:not(:disabled),
+.bot-connection-identity:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 34%, var(--border-soft));
+  background: color-mix(in srgb, var(--accent) 6%, var(--bg-elev));
+}
+.bot-connection-identity:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 42%, transparent);
+  outline-offset: 1px;
+}
+.bot-connection-identity:disabled {
+  cursor: not-allowed;
+  opacity: 0.68;
+}
+.bot-connection-identity__main {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.bot-connection-identity__main strong,
+.bot-connection-identity__main code {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bot-connection-identity__main code {
+  width: fit-content;
+  max-width: 100%;
 }
 .bot-connection-row strong,
 .bot-connection-row span,

@@ -104,7 +104,7 @@ type DesktopConfig struct {
 	StatusBarItems []string `toml:"status_bar_items"` // ordered visible desktop status bar items
 	CheckUpdates   *bool    `toml:"check_updates"`    // startup update checks; nil keeps the default enabled
 	Telemetry      *bool    `toml:"telemetry"`        // anonymous launch ping (install id + version + OS); nil keeps the default enabled
-	Metrics        *bool    `toml:"metrics"`          // opt-in aggregate desktop metrics (anonymous signal/bucket counts; no content); nil = disabled
+	Metrics        *bool    `toml:"metrics"`          // aggregate desktop metrics (anonymous signal/bucket counts; no content); nil keeps the default enabled
 	ProviderAccess []string `toml:"provider_access"`  // desktop-only list of provider entries shown in Settings > Model > Access
 	ExpandThinking bool         `toml:"expand_thinking"`  // true = show reasoning text expanded by default; false = collapsed
 	Hotbar         HotbarConfig `toml:"hotbar"`          // keyboard digit keys 1-7 → action mapping
@@ -185,6 +185,17 @@ func normalizeThemeStyle(style string) string {
 	}
 }
 
+func normalizeDesktopLayoutStyle(style string) string {
+	switch strings.ToLower(strings.TrimSpace(style)) {
+	case "classic":
+		return "classic"
+	case "workbench", "workspace":
+		return "workbench"
+	default:
+		return "workbench"
+	}
+}
+
 func normalizeCloseBehavior(mode string) string {
 	switch strings.ToLower(strings.TrimSpace(mode)) {
 	case "quit", "exit":
@@ -227,6 +238,15 @@ func (c *Config) DesktopTheme() string {
 // chooses the default style for the resolved desktop theme.
 func (c *Config) DesktopThemeStyle() string {
 	return normalizeThemeStyle(c.Desktop.ThemeStyle)
+}
+
+// DesktopLayoutStyle normalizes the desktop layout style. New installs default
+// to workbench; explicit classic remains respected.
+func (c *Config) DesktopLayoutStyle() string {
+	if strings.EqualFold(strings.TrimSpace(c.Desktop.ThemeStyle), "workbench") && strings.TrimSpace(c.Desktop.LayoutStyle) == "" {
+		return "workbench"
+	}
+	return normalizeDesktopLayoutStyle(c.Desktop.LayoutStyle)
 }
 
 // DesktopCloseBehavior normalizes the desktop close-window preference. It falls
@@ -380,11 +400,11 @@ func (c *Config) DesktopTelemetry() bool {
 	return *c.Desktop.Telemetry
 }
 
-// DesktopMetrics reports whether the desktop sends opt-in aggregate desktop
-// metrics — anonymous (signal, bucket) counters, never content. Default off.
+// DesktopMetrics reports whether the desktop sends aggregate desktop metrics —
+// anonymous (signal, bucket) counters, never content. Default on.
 func (c *Config) DesktopMetrics() bool {
 	if c == nil || c.Desktop.Metrics == nil {
-		return false
+		return true
 	}
 	return *c.Desktop.Metrics
 }
@@ -3092,22 +3112,6 @@ func (c *Config) providerNames() string {
 		names[i] = p.Name
 	}
 	return strings.Join(names, ", ")
-}
-
-func normalizeDesktopLayoutStyle(style string) string {
-	switch strings.ToLower(strings.TrimSpace(style)) {
-	case "workbench", "workspace":
-		return "workbench"
-	default:
-		return "classic"
-	}
-}
-
-func (c *Config) DesktopLayoutStyle() string {
-	if strings.EqualFold(strings.TrimSpace(c.Desktop.ThemeStyle), "workbench") && strings.TrimSpace(c.Desktop.LayoutStyle) == "" {
-		return "workbench"
-	}
-	return normalizeDesktopLayoutStyle(c.Desktop.LayoutStyle)
 }
 
 const (

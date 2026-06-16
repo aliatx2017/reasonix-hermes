@@ -75,6 +75,7 @@ import type {
   SessionComparisonView,
   SessionTokensView,
   SettingsView,
+  SkillsSettingsView,
   SkillRootView,
   SkillSuggestion,
   SkillView,
@@ -84,6 +85,7 @@ import type {
   TopicMeta,
   TurnUsagePoint,
   TurnTimelinePoint,
+  UpdateDownloadResult,
   UpdateInfo,
   UpdateProgress,
   WireEvent,
@@ -188,6 +190,8 @@ export interface AppBindings {
   MetaForTab(tabID: string): Promise<Meta>;
   Commands(): Promise<CommandInfo[]>;
   Capabilities(): Promise<CapabilitiesView>;
+  MCPServers(): Promise<ServerView[]>;
+  SkillsSettings(): Promise<SkillsSettingsView>;
   AddMCPServer(input: MCPServerInput): Promise<number>;
   UpdateMCPServer(name: string, input: MCPServerInput): Promise<void>;
   RemoveMCPServer(name: string): Promise<void>;
@@ -298,6 +302,8 @@ export interface AppBindings {
   SetBypass(on: boolean): Promise<void>;
   Version(): Promise<string>;
   CheckUpdate(): Promise<UpdateInfo | null>;
+  DownloadUpdate(): Promise<UpdateDownloadResult | null>;
+  InstallUpdate(): Promise<void>;
   ApplyUpdate(): Promise<void>;
   OpenDownloadPage(): Promise<void>;
   NeedsOnboarding(): Promise<boolean>;
@@ -388,6 +394,10 @@ type KnownMissingFromGenerated =
   | "TurnTimeline"
   | "OpenChannelSessionForTab"
   | "ConnectDiscordBot"
+  | "MCPServers"
+  | "SkillsSettings"
+  | "DownloadUpdate"
+  | "InstallUpdate"
   ;
 /**/
 export type _CheckAppToGen = AssertNever<Exclude<Exclude<keyof AppBindings, keyof typeof GeneratedApp>, KnownMissingFromGenerated>>;
@@ -579,7 +589,7 @@ function bridgeBreadcrumb(method: string): string {
     return `settings ${method}`;
   if (/^(SaveProvider|AddOfficialProviderAccess|RemoveProviderAccess|DeleteProvider|SetProviderKey|ClearProviderKey|FetchProviderModels|ConnectKey)/.test(method))
     return `provider ${method}`;
-  if (/^(CheckUpdate|ApplyUpdate|OpenDownloadPage)/.test(method)) return `update ${method}`;
+  if (/^(CheckUpdate|DownloadUpdate|InstallUpdate|ApplyUpdate|OpenDownloadPage)/.test(method)) return `update ${method}`;
   if (/^(AddMCPServer|UpdateMCPServer|RemoveMCPServer|ReconnectMCPServer|ClearMCPServerAuthentication|SetMCPServer)/.test(method))
     return `mcp ${method}`;
   if (/^(AddSkillPath|RemoveSkillPath|RefreshSkills|SetSkillEnabled|AcceptSkillSuggestion)/.test(method))
@@ -653,8 +663,8 @@ async function withMockTabScope<T>(tabId: string, fn: () => Promise<T>): Promise
   }
 }
 
-// Updater progress has its own listener set so the browser dev mock's ApplyUpdate
-// can stream a fake download through onUpdaterProgress.
+// Updater progress has its own listener set so the browser dev mock can stream a
+// fake download/install flow through onUpdaterProgress.
 const updaterListeners = new Set<(p: UpdateProgress) => void>();
 
 function emitUpdater(p: UpdateProgress) {
@@ -962,7 +972,7 @@ function makeMockApp(): AppBindings {
       ],
     },
     desktopLanguage: "",
-    desktopLayoutStyle: "classic",
+    desktopLayoutStyle: "workbench",
     desktopTheme: "auto",
     desktopThemeStyle: "graphite",
     closeBehavior: "background",
@@ -971,7 +981,7 @@ function makeMockApp(): AppBindings {
     statusBarItems: [...DEFAULT_STATUS_BAR_ITEMS],
     checkUpdates: true,
     telemetry: true,
-    metrics: false,
+    metrics: true,
     configPath: "~/projects/reasonix/reasonix.toml",
     providerKinds: ["openai"],
     autoApproveTools: false,
@@ -1974,6 +1984,15 @@ function makeMockApp(): AppBindings {
         skillRoots: capSkillRoots.map((s) => ({ ...s })),
       };
     },
+    async MCPServers() {
+      return capServers.map((s) => ({ ...s }));
+    },
+    async SkillsSettings() {
+      return {
+        skills: capSkills.map((s) => ({ ...s })),
+        skillRoots: capSkillRoots.map((s) => ({ ...s })),
+      };
+    },
     async AddMCPServer(input: MCPServerInput) {
       const tools = input.transport === "stdio" ? 3 : 5;
       capServers.push({
@@ -2790,18 +2809,22 @@ function makeMockApp(): AppBindings {
     },
     async CheckUpdate() {
       // Keep the default browser preview focused on the primary product surface.
-      // ApplyUpdate remains mocked for explicit updater-flow tests.
+      // DownloadUpdate/InstallUpdate remain mocked for explicit updater-flow tests.
       return {
         available: false,
         current: "v1.0.0",
         latest: "v1.0.0",
         notes: "",
+        channel: "stable",
         canSelfUpdate: false,
+        manualOnly: true,
+        manualReason: "browser preview",
+        downloaded: false,
         downloadUrl: "",
         assetSize: 0,
       };
     },
-    async ApplyUpdate() {
+    async DownloadUpdate() {
       const total = 12_345_678;
       for (let r = 0; r <= total; r += 1_800_000) {
         emitUpdater({ phase: "downloading", received: Math.min(r, total), total });
@@ -2809,10 +2832,19 @@ function makeMockApp(): AppBindings {
       }
       emitUpdater({ phase: "verifying", received: total, total });
       await delay(500);
-      emitUpdater({ phase: "applying", received: total, total });
+      emitUpdater({ phase: "downloaded", received: total, total });
+      return { version: "v1.1.0", channel: "stable", path: "/tmp/reasonix-update", size: total, sha256: "mock" };
+    },
+    async InstallUpdate() {
+      const total = 12_345_678;
+      emitUpdater({ phase: "installing", received: total, total });
       await delay(500);
       emitUpdater({ phase: "done", received: total, total });
       // The real shell relaunches here; the mock just stops.
+    },
+    async ApplyUpdate() {
+      await this.DownloadUpdate();
+      await this.InstallUpdate();
     },
     async OpenDownloadPage() {
       if (typeof window !== "undefined") {
