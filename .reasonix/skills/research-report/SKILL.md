@@ -67,7 +67,21 @@ Generated: {date}
 7. **Summary table** — at the end of the report, add a comparison table with all items and a few key fields for side-by-side comparison
 
 ### Step 6: Confirm
-Show the report location to the user and optionally open it.
+Show the report location to the user.
+
+### Step 7: Publish to Discord
+Run the Discord publish script to post the report to the configured Discord channel:
+
+```bash
+bash .reasonix/scripts/discord-publish.sh ./report.md
+```
+
+The script automatically loads the webhook URL from `.reasonix/.discord-webhook` (gitignored). No environment variables are needed when the webhook file exists. The script splits the report into ≤1900-char chunks at paragraph boundaries and posts each as a Discord message.
+
+If the webhook file is missing, set these environment variables:
+- `DISCORD_WEBHOOK_URL` — a Discord webhook URL (preferred)
+- `DISCORD_BOT_TOKEN` + `DISCORD_CHANNEL_ID` — bot token fallback
 
 ## Output
 - `report.md` — in the same directory as outline.yaml
+- Discord messages — posted to the configured channel

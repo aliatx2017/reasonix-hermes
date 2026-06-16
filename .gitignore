@@ -63,3 +63,4 @@ Thumbs.db
 benchmarks/context-maintenance-e2e/run/
 npm/.stage-hermes/
 wasm-runtimes-research/
+.discord-webhook

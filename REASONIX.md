@@ -36,7 +36,7 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 ## Notes
 
-- **Upstream synced**: `v1.8.x` (commit fe36f05, 2026-06-16). 9 new commits merged across 2 fetches (ResizeObserver fixes, settings metrics, ACP Zed, npm release workflow). Previous sync: 8f3ae36.
+- **Upstream synced**: `v1.8.x` (commit 29ffd31, 2026-06-16). 4 new commits merged (credential source diagnostics). Previous sync: 8ddb46d.
 - **Commit**: session 2026-06-16 (h23) — research workflow e2e verified (SearXNG + Crawl4AI + GitHub API → JSON → report.md), DESKTOP.md enriched (149 lines, 25 components + 24 backend files), macOS code-signing investigation (pipeline fully built, needs Apple credentials), upstream merge (8886dcb, 7 commits). Upstream fetch + merge + build/vet/test all green.
 - **Commit**: session 2026-06-?? (h??) — Deep Research workflow adopted (5 skills from Weizhena/Deep-Research-skills), `/eval` slash command (define/check/report/list/clean), crawl4ai/searxng integration in research pipeline, upstream merge (0706284, 10 commits).
 - **Commit**: session 2026-06-15 (h19) — animated logo gradient banner (indigo→cyan→pink), doc sweep (8 files, stale binary names fixed), all prior h18 work.
@@ -465,7 +465,16 @@ desktop hotbar/profiles root-cause fix, 13 wedge tests, desktop-v1.8.2, collab+m
   - **Files**: 6 files changed (+240/-6). All 74 packages pass. 8 binaries built.
 
 ### Next to build
-- [ ] **Fix research pipeline e2e** — run actual `reasonix run` with `/research-deep` workflow. User acceptance criteria: agent dispatches batch sub-agents with `max_steps=30`, sub-agents search via SearXNG + Crawl4AI, write JSON to local FS, publish results to Discord general channel. Subagents MUST produce output — no falling back to inline.
+- [ ] **Combine research/research-deep/research-report into one slash command** — `/research <topic>` should auto-chain: generate outline → ask approve → deep research → report → Discord publish. Currently 3 separate commands with manual transitions.
+
+### Session 2026-06-16 (h24) — Research pipeline e2e proven, Discord publish, upstream merge
+
+- **Research pipeline e2e**: `/research "ai small medium business opportunities 2026"` → 10 JSONs → report.md → 21 Discord messages. Full chain: SearXNG + Crawl4AI → subagent dispatch → JSON → report → Discord webhook. Pipeline proven with files on disk (Jun 16 13:17).
+- **Discord publish wired**: `.reasonix/scripts/discord-publish.sh` (webhook-based, auto-loads from `.reasonix/.discord-webhook`). Added Step 7 to `research-report` skill. Webhook URL gitignored.
+- **Upstream merge** (29ffd31, 4 commits): credential source diagnostics. 21 files, +593/-47. Clean auto-merge.
+- **Docs**: AGENTS.md +1 row (discord publish). REASONIX.md session notes.
+- **Build**: All 8 binaries built. go build/vet clean.
+- **Files**: .gitignore, research-report SKILL.md, ai-smb-opportunities-2026/ (13 new files), AGENTS.md.
 
 ## Reasonix host checks
 

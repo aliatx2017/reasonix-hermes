@@ -124,7 +124,8 @@ skills-hub/            17-skill community registry + static catalog site
 | `npm/hermes/` | npm package | One-line install: `npm i -g reasonix-hermes` (7 sub-packages) |
 | `deploy/` | Helm chart + docker-compose | One-command deploy to K8s or $5 VPS |
 | `desktop/` | Wails v2 desktop app | React 19 frontend + Go kernel; Hermes dashboard; live data push |
-| `.reasonix/skills/research/` (+4 siblings) | 5-skill research workflow | `/research` → `/research-deep` → `/research-report` pipeline with SearXNG (discovery) + Crawl4AI (extraction) |
+| `.reasonix/skills/research/` (+4 siblings) | 5-skill research workflow | `/research` → `/research-deep` → `/research-report` pipeline with SearXNG (discovery) + Crawl4AI (extraction) + Discord auto-publish |
+| `.reasonix/scripts/discord-publish.sh` | Discord publish script | Webhook-based script posts report.md to Discord channel; auto-loaded from `.reasonix/.discord-webhook` |
 | `internal/cli/eval.go` | `/eval` slash command | Eval-driven development: define, check, report, list, clean subcommands |
 | `reasonix-hermes.json` | Install source manifest | `reasonix install-source install --source ...` |
 | `.github/workflows/ci-hermes.yml` | Supplementary CI | Desktop frontend build + Hermes package tests in CI |
@@ -139,7 +140,7 @@ skills-hub/            17-skill community registry + static catalog site
 ## Notes
 
 - Upstream remote: `https://github.com/esengine/deepseek-reasonix.git` (branch `main-v2`)
-- **Upstream target**: v1.8.x (July 2026) — ✅ synced (8ddb46d). 205 commits merged across 9 syncs.
+- **Upstream target**: v1.8.x (July 2026) — ✅ synced (29ffd31). 209 commits merged across 10 syncs.
 - Our fork: `https://github.com/aliatx2017/reasonix-hermes.git` (branch `main`)
 - To pull upstream updates: `git fetch upstream && git merge upstream/main-v2`
 - `reasonix.toml` is gitignored (upstream convention) — never commit secrets

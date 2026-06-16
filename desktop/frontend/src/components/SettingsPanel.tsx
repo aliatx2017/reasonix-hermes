@@ -5414,7 +5414,7 @@ function UpdatesSection({
   );
 }
 
-function HermesLiveSection({ s, apply }: { s: SettingsView; apply: (fn: () => Promise<void>) => Promise<void> }) {
+function HermesLiveSection({ s, apply }: { s: SettingsView; apply: (fn: () => Promise<unknown>) => Promise<void> }) {
   const live = useHermesLiveData(undefined, true);
   return (
     <SettingsPageShell s={s} tab="hermes" busy={false} apply={async (fn) => { await apply(fn); }}>
