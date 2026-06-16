@@ -19,8 +19,8 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
   `main`. Resolve conflicts, rebuild all binaries, run `go build ./... && go vet ./...`,
   and update REASONIX.md with the new sync point. Never leave a session without
   checking whether upstream has new commits.
-- **"Build all binaries" means 7 binaries**: When the user says "build all binaries",
-  rebuild all 6 CLI binaries (`go build -o bin/...`) AND the desktop (`cd desktop &&
+- **"Build all binaries" means 8 binaries**: When the user says "build all binaries",
+  rebuild all 7 CLI binaries (`go build -o bin/...`) AND the desktop (`cd desktop &&
   wails build -o ../bin/reasonix-desktop`). The user runs `./bin/reasonix chat` from the
   project root and opens `desktop/build/bin/reasonix-desktop.app` — both must be fresh.
 
@@ -36,13 +36,14 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 ## Notes
 
-- **Upstream synced**: `v1.8.x` (commit 8f3ae36, 2026-07-16). 18 new commits merged (credential store backends, config path migration, desktop UI overhaul — project tree, keyboard accessibility, visual style). Previous sync: a2709fc.
-- **Commit**: session 2026-07-?? (h??) — Deep Research workflow adopted (5 skills from Weizhena/Deep-Research-skills), `/eval` slash command (define/check/report/list/clean), crawl4ai/searxng integration in research pipeline, upstream merge (0706284, 10 commits).
-- **Commit**: session 2026-07-15 (h19) — animated logo gradient banner (indigo→cyan→pink), doc sweep (8 files, stale binary names fixed), all prior h18 work.
-- **Commit**: session 2026-07-15 (h15) — upstream v1.8.x merge (8ab6d3b, 71 commits), vision pipeline restore, logo fix, 13 test fixes, constitution zero-test-failures rule.
+- **Upstream synced**: `v1.8.x` (commit 8886dcb, 2026-06-16). 7 new commits merged (ResizeObserver fixes, settings preference metrics, ACP Zed integration fix). Previous sync: 8f3ae36.
+- **Commit**: session 2026-06-16 (h23) — research workflow e2e verified (SearXNG + Crawl4AI + GitHub API → JSON → report.md), DESKTOP.md enriched (149 lines, 25 components + 24 backend files), macOS code-signing investigation (pipeline fully built, needs Apple credentials), upstream merge (8886dcb, 7 commits). Upstream fetch + merge + build/vet/test all green.
+- **Commit**: session 2026-06-?? (h??) — Deep Research workflow adopted (5 skills from Weizhena/Deep-Research-skills), `/eval` slash command (define/check/report/list/clean), crawl4ai/searxng integration in research pipeline, upstream merge (0706284, 10 commits).
+- **Commit**: session 2026-06-15 (h19) — animated logo gradient banner (indigo→cyan→pink), doc sweep (8 files, stale binary names fixed), all prior h18 work.
+- **Commit**: session 2026-06-15 (h15) — upstream v1.8.x merge (8ab6d3b, 71 commits), vision pipeline restore, logo fix, 13 test fixes, constitution zero-test-failures rule.
 - **npm**: `npm i -g reasonix-hermes` — one-line install. Pipeline verified; publish pending 2FA-bypass token.
 - **Key v1.6.0 additions**: vision support (image downscaling + detail knob), built-in Time + Context7 MCP servers, configurable shell interpreter (`[tools.shell]`), notification sound system, token economy composer mode, desktop time filter + custom fonts + status bar customization + Windows ARM64, crash capture (Go panics/breadcrumbs/group summaries), lightweight local history + memory retrieval, Traditional Chinese (zh-TW) locale, updater resilience, agent fixes (decline-ask guard, compaction bounds), desktop hooks UI.
-- **Key v1.7.0 additions** (merged 2026-07-14): reasoning language settings (`agent.reasoning_language`), session ownership and state routing integration, checkpoint boundary corrections (optimistic rewind), enriched+memoized shell PATH for MCP stdio subprocesses, dropped phrase-matched approved-plan continuation, desktop golangci-lint CI, `SaveDocForTab` Wails binding.
+- **Key v1.7.0 additions** (merged 2026-06-14): reasoning language settings (`agent.reasoning_language`), session ownership and state routing integration, checkpoint boundary corrections (optimistic rewind), enriched+memoized shell PATH for MCP stdio subprocesses, dropped phrase-matched approved-plan continuation, desktop golangci-lint CI, `SaveDocForTab` Wails binding.
 - **Language policy**: All Chinese comments translated to English in `internal/bot/` and `internal/config/` — SPEC §1 compliance restored. Upstream v1.6.0 still has some Chinese comments in IM bot code; these are upstream-authored and left as-is.
 - **Layout**: Executables moved from `pkg/` to `cmd/`: `pkg/mcpbridge/` → `cmd/reasonix-mcpbridge/`, `pkg/memoryserver/` → `cmd/reasonix-memoryserver/`.
 - **Bug fixes applied** (June 12, 2026):
@@ -66,17 +67,17 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
   - **Cache-stable prefix**: Validated by Zhang, "Can I Buy Your KV Cache?" (2606.13361) — publisher prefill caching is 49.7× cheaper than re-prefill per agent. Our byte-stable system prompt prefix is this exact optimization applied at the session level.
   - **Sandbox + checkpoint + permission gating**: Validated by Carlucci et al., "Loss of Control Risk" (2606.13474) — the constrain/audit/reverse/halt taxonomy maps to our bwrap/Seatbelt + checkpoints + permission architecture. Operational variability erodes safeguards over time → structural invariants (constitution) are the right defense.
   - **AGENTS.md / REASONIX.md**: Validated by Arabat & Sayagh, "Instructions-as-Code" (2606.13449) — well-structured, long instruction files correlate with 20%+ merge-rate improvement in 15,549 agentic PRs across 148 projects.
-- **CodeWhale features** (10/10 done, 2026-07-04): Shell env hooks, parallel sub-agent dispatch (task batch), completion sound (/sound), harness profiles (/profile), constitution system (.reasonix/constitution.json), workshop sidecar (>12KB output synthesis), hotbar (desktop keys 1-7), external sandbox (remote OpenSandbox API), Nix flake, Dockerfile.
+- **CodeWhale features** (10/10 done, 2026-06-04): Shell env hooks, parallel sub-agent dispatch (task batch), completion sound (/sound), harness profiles (/profile), constitution system (.reasonix/constitution.json), workshop sidecar (>12KB output synthesis), hotbar (desktop keys 1-7), external sandbox (remote OpenSandbox API), Nix flake, Dockerfile.
 - **Desktop built**: `bin/reasonix-desktop` (33MB, Wails v2.12.0 + React 19 + Vite 8 + TypeScript 6). Fixed vite.config.ts `manualChunks` for Vite 8/Rolldown compatibility. HotbarConfig restored.
-- **Desktop Hermes enrichment** (12 features across 3 tiers, 2026-07-13):
+- **Desktop Hermes enrichment** (12 features across 3 tiers, 2026-06-13):
   - **Tier 1**: Cache economy gauge (hit-rate badge), Hindsight memory dashboard (facts/docs/scopes), Discord bot live monitor (online/offline + sessions), Goal progress widget (bar + status badges)
   - **Tier 2**: Live data polling (5s refresh), StatusBar compact widgets (cache% + Discord dot), Skills hub browser (17 skills with search+category filter)
   - **Tier 3**: Sub-agent task tree (with status badges), Constitution health check (rules viewer + JSON template), Checkpoint file list (per-turn file tracking)
   - **Go backend**: 3 new files (`desktop/hermes_dashboard.go`, `hermes_tier3.go`), 13 view structs, 20+ Wails bindings, 2 new Controller getters
   - **Frontend**: 7 new components in `components/hermes/`, all null-safe with polling. Settings → Hermes tab has 7 sections total.
 - **CLI TUI Hermes banner**: Custom ╔═╗ double-border header with ⚚ caduceus, "REASONIX-HERMES" branding, compact stats line (model · turns · msgs · tokens · cache% · cost · uptime). `/stats` toggles detailed session statistics panel.
-- **Bug fixes** (2026-07-06): duplicate `price` key in `reasonix.example.toml`, data race in `mockProvider.Stream()` (+`sync.Mutex`), `TestSaveToScopesUserAndProjectFiles` cross-platform fix (`HOME` not `XDG_CONFIG_HOME`).
-- **Session 2026-07-13** (Discord + Write Mode + D3 + accent wave):
+- **Bug fixes** (2026-06-06): duplicate `price` key in `reasonix.example.toml`, data race in `mockProvider.Stream()` (+`sync.Mutex`), `TestSaveToScopesUserAndProjectFiles` cross-platform fix (`HOME` not `XDG_CONFIG_HOME`).
+- **Session 2026-06-13** (Discord + Write Mode + D3 + accent wave):
   - **Write Mode**: Panel integration (Write dock tab), CodeMirror 6 with markdown highlighting, FIM completions (Ctrl+Space → DeepSeek API), Hindsight memory sidebar
   - **Checkpoints**: Diff-vs-current button per file, Myers unified diff via `internal/diff.Build`
   - **Memory graph**: D3 force-directed graph with Badges/Graph toggle, zoom/pan/drag
@@ -96,7 +97,7 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
   - **VS Code extension fork**: Deleted — not pursuing.
 - **VS Code extension fork**: Removed from plans.
 
-- **Session 2026-07-13 (h2)** (tray icon, Write Mode polish, D3 graph enrichments):
+- **Session 2026-06-13 (h2)** (tray icon, Write Mode polish, D3 graph enrichments):
   - **Gold tray icon**: `tray_icon_gold.go` overlays Hermes gold on appicon.png, `UpdateTrayIcon` Wails binding, live-syncs on theme style change
   - **Write Mode split-pane**: 3-way Edit/Split/Preview toggle with editor left/preview right
   - **Write Mode file tabs**: Multi-file open with tab bar, close button, dirty-dot, reopen-to-tab
@@ -107,7 +108,7 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
   - **Upstream**: 2 new commits merged (eb624ee) — legacy migration fixes
   - **7 files changed** (+340/-73). All 6 binaries rebuilt. 2 commits pushed.
 
-- **Session 2026-07-14** (Discord bot e2e test + bug fixes + competitive analysis):
+- **Session 2026-06-14** (Discord bot e2e test + bug fixes + competitive analysis):
   - **Discord bot**: Fully operational — connects via gateway, responds to @mentions and DMs, supports `/model` slash command, approval flow works via plain-text `approve N`/`deny N`. Config in `[bot]` + `[bot.discord]` sections of `reasonix.toml`.
   - **Bug fixes applied** (8 bugs):
     - P0: 14 hardcoded Chinese strings in `internal/bot/gateway.go` translated to English
@@ -123,7 +124,7 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
   - **Competitive landscape**: Researched 15+ open-source AI agent platforms; findings consolidated in `docs/CHANGELOG-HERMES.md`.
   - **Remaining**: Duplicate "Approved." responses still appear occasionally (queue replay edge case). "No pending action found" sometimes fires alongside valid "Approved." (harmless race, not blocking).
 
-### Session 2026-07-15 (h8) — Controller decomposition + bug fixes + skill adoption
+### Session 2026-06-15 (h8) — Controller decomposition + bug fixes + skill adoption
 
 - **Controller decomposition**: `controller.go` reduced from 3,744 to 2,670 lines (29% reduction). Extracted 4 sub-files: `controller_memory.go` (memory CRUD), `controller_mesh.go` (mesh/council), `controller_approval.go` (gateApprover, approval helpers, requestApproval, notice/beep/profile), `controller_checkpoints.go` (RewindScope, Rewind, Fork, Branch, Summarize). SPEC.md §2 updated.
 
@@ -158,7 +159,7 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 - [x] ~~**Vision pipeline follow-up**~~ — `refTokenRe` extended with `@"([^"]+)"` quoted alternation. 4 new test cases.
 
 
-### Session 2026-07-15 (h13) — Golang patterns audit, dead code, council judge, docs consolidation
+### Session 2026-06-15 (h13) — Golang patterns audit, dead code, council judge, docs consolidation
 
 - **Golang patterns audit** (`/go-review` + `/go-test`): staticcheck found 5 dead code items — removed `embedFacts`, `workshopThreshold`, `batchItem`, `toolsListResult`; fixed unnecessary `fmt.Sprintf` in learn.go. All verified clean.
 - **t.Parallel()**: Added to 96 test functions across 10 custom packages (collab, learn, mesh, publish, scheduler, e2e, eval, orchestrate, marketplace). 2 excluded from lobehub_client_test.go due to shared package-level state.
@@ -168,7 +169,7 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 - **Upstream**: Merged 5 new commits (b225dd7..a029618): billing source fix, desktop tabbar reservation, chrome tab strip width, performance-pressure idempotency, right dock space for chrome tabs. New tag `desktop-v1.8.1`. 4 conflicts resolved (agent.go, task_test.go, ContextPanel.tsx, reasonix.example.toml).
 - **Build**: All 6 CLI binaries build + go vet clean. Desktop building. All test packages pass.
 
-### Session 2026-07-15 (h14) — Vision pipeline: 6 bug fixes end-to-end
+### Session 2026-06-15 (h14) — Vision pipeline: 6 bug fixes end-to-end
 
 - **Vision pipeline operational**: Successfully described Diamond Wing logo screenshot via `ollamacloud-vision/gemini-3-flash-preview`. 6 bugs found and fixed across the full chain:
   1. **`classifyRef` blind to non-attachment images**: `@/path/to/screenshot.png` always classified as `refFile`, never `refImage` — `inputImages` never generated data URLs. Added `isImageExtension()` check.
@@ -228,7 +229,7 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 **Total**: 22 files changed, 7 new files, 433 lines modified + ~950 new lines, 49 new tests. All binaries build clean.
 
-**Session 2026-07-14 (h3)** (Telegram bot + learn + mesh):
+**Session 2026-06-14 (h3)** (Telegram bot + learn + mesh):
 - **Telegram bot adapter**: Added `PlatformTelegram`, `TelegramBotConfig`, `internal/bot/telegram/` adapter implementing `bot.Adapter` with long-polling via `go-telegram-bot-api/v5`. 16 tests. Wired into gateway, runtime, CLI, allowlist. Config at `[bot.telegram]`.
 - **Self-improving skill loops**: New `internal/learn/` package — `Learner` struct observes turn patterns, detects repeated tool sequences (edit-then-test, write-then-build), `BuildReflectionPrompt` for post-session synthesis. 16 tests. Config at `[learn]`.
 - **Agent-to-agent MCP mesh**: New `internal/mesh/` package — `Mesh` struct with JSON-RPC/MCP client, `Delegate`/`Broadcast`/`Query`/`Status` operations, `Council` orchestrator with `Convene`/`Consensus`/`Merge`. 13 tests with httptest mock peers. Config at `[mesh]` with `[[mesh.peers]]`.
@@ -236,7 +237,7 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 - **Config additions**: `[bot.telegram]`, `[learn]`, `[mesh]` sections. `PlatformTelegram`, `TelegramBotConfig`, `LearnConfig`, `MeshConfig` types.
 - **Total**: 7 new files, ~12 files modified, 3 new packages, 45 new tests. All binaries build clean.
 
-**Session 2026-07-14 (h4)** (desktop widgets + GitHub Action + LSP audit + docs + collab + deploy):
+**Session 2026-06-14 (h4)** (desktop widgets + GitHub Action + LSP audit + docs + collab + deploy):
 - **Desktop schedule/cost/publish widgets**: Added Go bindings (`ScheduleDashboard`, `CostSummary`, `PublishSessionHTML`/`JSON`, `ExportSession`) to `hermes_dashboard.go`; `Schedule()` and `SessionMessages()` controller methods; `IsEnabled()` export on scheduler.Task. Three new React components: `ScheduleWidget.tsx`, `CostWidget.tsx`, `PublishWidget.tsx`. Extended `useHermesLiveData`, `HermesSettings`, `bridge.ts`, `types.ts`.
 - **GitHub Action for PR review**: New `cmd/reasonix-pr-review/` CLI (fetches PR metadata + diff from GitHub API, pipes to reasonix for review with 6-dimension prompt encoding paper findings). New `.github/workflows/pr-review.yml`.
 - **PR review prompt enhanced**: 6 dimensions including deception detection (RogueAI paper) and verification/trustworthiness checks.
@@ -248,7 +249,7 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 - **Dependencies**: `gorilla/websocket` v1.5.3 added to go.mod.
 - **Total**: 15 new files, ~12 files modified, 2 new packages, 3 new React components, 8 new tests, 1 new skill. All builds clean.
 
-**Session 2026-07-14 (h5)** (logo + branding + README overhaul + npm packaging):
+**Session 2026-06-14 (h5)** (logo + branding + README overhaul + npm packaging):
 - **Animated logo**: Diamond Wing (concentric spinning squares + sparkles + swept wings) — transparent background, 7 initial concepts narrowed to refined animated SVG. Combined lockup with "Reasonix-Hermes" monospace wordmark (rainbow gradient crawl) + "AI CODING AGENT" subtitle.
 - **README overhaul**: Removed upstream prebuilt install (npm/brew), fixed all binary names (`reasonix-bridge` → `reasonix-mcpbridge`), `English` → `中文` link to zh-CN README, updated custom code paths, added expansion packs table. Both English + Chinese READMEs synced.
 - **npm packaging**: `npm i -g reasonix-hermes` — one-line install. `npm/hermes/` package (7 sub-packages across 6 platforms), `bin/reasonix-hermes.js` runner script, `npm/build-hermes.mjs` cross-compile pipeline, `.github/workflows/release-hermes-npm.yml` CI. Pipeline verified (all 6 platforms cross-compile, ~20MB each). Publish pending npm 2FA-bypass token.
@@ -256,7 +257,7 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 - **Build artifacts gitignored**: `npm/.stage-hermes/` added to `.gitignore`.
 - **Total**: 10 new files, ~6 files modified. All binaries build, all tests pass.
 
-**Session 2026-07-14 (h6)** (session stats persistence — CLI → desktop visibility):
+**Session 2026-06-14 (h6)** (session stats persistence — CLI → desktop visibility):
 - **Agent aggregate counters**: Added `sessTokensIn`, `sessTokensOut`, `sessTurns` atomic counters to Agent alongside existing `sessCacheHit`/`sessCacheMiss`/`sessCost`. Incremented from `ChunkUsage` (tokens) and `Run()` start (turns). Getters: `SessionTokensIn()`, `SessionTokensOut()`, `SessionTurns()`.
 - **Sidecar persistence**: New `SessionMeta` struct + `SetMeta`/`SaveMeta`/`LoadMeta` methods on Session. Aggregate stats written to `<session>.sessionstats` sidecar file (atomic via tmp+rename, distinct from branch `.meta`). `Save()` auto-writes sidecar; `LoadSession()` auto-reads it; `SetSession()` seeds atomics from loaded metadata so resumed sessions show accurate cumulative stats.
 - **Controller wiring**: `SessionTokensIn()`/`SessionTokensOut()`/`SessionTurns()` pass-throughs to Agent; `snapshot()` stamps metadata from Agent before every save.
@@ -269,7 +270,7 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 - [ ] **npm: publish reasonix-hermes** — set 2FA-bypass granular token, push tag
 - [ ] **Upstream the LINE adapter** — open a PR to esengine/deepseek-reasonix with the line/ package if they want it
 
-### Session 2026-07-15 (h7) — audit + bug fix + 4-phase expansion
+### Session 2026-06-15 (h7) — audit + bug fix + 4-phase expansion
 
 - **Audit**: Verified 20 claims from an AI-generated deep analysis against actual code at HEAD. 14 false/already-fixed, 4 real issues found — 1 fixed this session.
   - **BUG-6 fixed**: BotGateway session memory leak — added `evictLoop` (5-min ticker, 30-min idle timeout), `evictIdleSessions()`, `ctx/cancel` context, integrated with existing `Stop()`. The `REASONIX.md` P0-1 claim from June 2026 was never actually committed; now it's real.
@@ -308,23 +309,23 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 - **Files**: 24 files changed, ~770 additions across Go + TypeScript. 4 new files.
 
 ### Recently completed
-- [x] **StatusBar sqz/aux compact chips** (✅ 2026-07-15) — `CompressGaugeCompact` chip added to StatusBar hermes group alongside Discord + Cache chips. Shows `sqz↓N` (bytes saved) and `aux↓N` (aux tokens) with Zap icon. Push-event driven with 30s polling fallback.
-- [x] **i18n for LINE adapter** (✅ 2026-07-15) — Resolved as designed: bot adapters are explicitly out of scope for i18n (CLI-surface-only per package doc). No code change needed.
-- [x] **LINE adapter webhook URL discovery** (✅ 2026-07-15) — `WebhookURL()` method on LINE adapter, `AdapterWebhookURL(platform)` on gateway, `WebhookURL` field in `BotLiveStatusView` populated from all adapters. Surfaced in DiscordMonitor tooltip + StatusBar compact chip.
-- [x] **MCP tab live data** (✅ 2026-07-15) — `MCPTab` in SkillStorePanel rewritten to fetch live `Capabilities()` data. Shows per-server status dots (green/yellow/warn), transport URL, tool/prompt counts, built-in badges. Auto-refreshes every 15s.
-- [x] **Upstream sync** (✅ 2026-07-15) — fb0cec2 merged (desktop bot connection diagnostic reporting). Clean merge, build + vet pass.
-- [x] **Session stats persistence: CLI → desktop** (✅ 2026-07-14) — Agent aggregate counters (tokens in/out, turns), sidecar `.sessionstats` persistence, Controller pass-throughs, Wails bindings + frontend widget. 10 files changed (+276/-7). Resolves "why doesn't desktop show session stats for the CLI."
-- [x] **LobeHub marketplace API integration** (✅ 2026-07-14) — Full M2M OAuth2 client (stdlib-only HS256 JWT), auto-registration on first use, paginated skill fetch from 360k+ community skills, `SyncFromLobeHub()` registry merge, Wails binding `SyncLobeHubMarketplace()`, desktop "Sync from LobeHub" button with spin animation, CLI `reasonix marketplace sync` command, 4 httptest-based tests, `[marketplace.lobehub]` config section with 8 fields. Verified end-to-end against live API.
-- [x] **LAN skills** (✅ 2026-07-14) — 4 new project skills: `searxng-local` (private web search via LAN SearXNG), `crawl4ai-local` (web crawler with headless browser), `google-maps-scraper` (business listings scraper), `last30days` (41k★ social research skill from mvanhorn). All LAN services verified operational.
-- [x] **Competitive landscape survey** (✅ 2026-07-14) — Researched 15+ open-source AI agent platforms: LobeHub (78k★), OpenHands (77k★), Cline (63k★), n8n (192k★), Dify (145k★), AutoGPT (185k★), CrewAI (53k★), Aider (46k★), Cognee (18k★), Microsoft AutoGen (59k★), Roo-Code/ZooCode, Langflow (150k★), Firecrawl (132k★). Identified stealable patterns: 4-tab skill store, virtualized grids, custom modes, agent SDK library pattern.
-- [x] **CLI banner + version + savings stats** (✅ 2026-07-14) — Dynamic version from ldflags (v1.7.0 default, no more hardcoded v1.6.0). Diamond Wing ◆ logo replaces caduceus ⚚. Status bar enriched: `aux↓N` (aux provider token savings) + `sqz↓N` (compressor byte savings). Compressor atomic stats wired.
-- [x] **Skill marketplace** (✅ 2026-07-14) — Community registry (12 skills, agentskills.io-compatible), `internal/marketplace/` Go package, CLI `reasonix marketplace` command, desktop MarketplacePanel.
-- [x] **Ollama Cloud provider + auxiliary model routing** (✅ 2026-07-14) — new `ollamacloud` provider kind, 42 models via OpenAI-compatible API at ollama.com/v1. Auxiliary model config: `[agent.auxiliary]` with compression/vision/web_extract overrides. Compaction summarizer + vision requests auto-route to aux providers (cheaper/faster). Tested live: deepseek-v4-flash for compression, gemini-3-flash-preview for vision.
+- [x] **StatusBar sqz/aux compact chips** (✅ 2026-06-15) — `CompressGaugeCompact` chip added to StatusBar hermes group alongside Discord + Cache chips. Shows `sqz↓N` (bytes saved) and `aux↓N` (aux tokens) with Zap icon. Push-event driven with 30s polling fallback.
+- [x] **i18n for LINE adapter** (✅ 2026-06-15) — Resolved as designed: bot adapters are explicitly out of scope for i18n (CLI-surface-only per package doc). No code change needed.
+- [x] **LINE adapter webhook URL discovery** (✅ 2026-06-15) — `WebhookURL()` method on LINE adapter, `AdapterWebhookURL(platform)` on gateway, `WebhookURL` field in `BotLiveStatusView` populated from all adapters. Surfaced in DiscordMonitor tooltip + StatusBar compact chip.
+- [x] **MCP tab live data** (✅ 2026-06-15) — `MCPTab` in SkillStorePanel rewritten to fetch live `Capabilities()` data. Shows per-server status dots (green/yellow/warn), transport URL, tool/prompt counts, built-in badges. Auto-refreshes every 15s.
+- [x] **Upstream sync** (✅ 2026-06-15) — fb0cec2 merged (desktop bot connection diagnostic reporting). Clean merge, build + vet pass.
+- [x] **Session stats persistence: CLI → desktop** (✅ 2026-06-14) — Agent aggregate counters (tokens in/out, turns), sidecar `.sessionstats` persistence, Controller pass-throughs, Wails bindings + frontend widget. 10 files changed (+276/-7). Resolves "why doesn't desktop show session stats for the CLI."
+- [x] **LobeHub marketplace API integration** (✅ 2026-06-14) — Full M2M OAuth2 client (stdlib-only HS256 JWT), auto-registration on first use, paginated skill fetch from 360k+ community skills, `SyncFromLobeHub()` registry merge, Wails binding `SyncLobeHubMarketplace()`, desktop "Sync from LobeHub" button with spin animation, CLI `reasonix marketplace sync` command, 4 httptest-based tests, `[marketplace.lobehub]` config section with 8 fields. Verified end-to-end against live API.
+- [x] **LAN skills** (✅ 2026-06-14) — 4 new project skills: `searxng-local` (private web search via LAN SearXNG), `crawl4ai-local` (web crawler with headless browser), `google-maps-scraper` (business listings scraper), `last30days` (41k★ social research skill from mvanhorn). All LAN services verified operational.
+- [x] **Competitive landscape survey** (✅ 2026-06-14) — Researched 15+ open-source AI agent platforms: LobeHub (78k★), OpenHands (77k★), Cline (63k★), n8n (192k★), Dify (145k★), AutoGPT (185k★), CrewAI (53k★), Aider (46k★), Cognee (18k★), Microsoft AutoGen (59k★), Roo-Code/ZooCode, Langflow (150k★), Firecrawl (132k★). Identified stealable patterns: 4-tab skill store, virtualized grids, custom modes, agent SDK library pattern.
+- [x] **CLI banner + version + savings stats** (✅ 2026-06-14) — Dynamic version from ldflags (v1.7.0 default, no more hardcoded v1.6.0). Diamond Wing ◆ logo replaces caduceus ⚚. Status bar enriched: `aux↓N` (aux provider token savings) + `sqz↓N` (compressor byte savings). Compressor atomic stats wired.
+- [x] **Skill marketplace** (✅ 2026-06-14) — Community registry (12 skills, agentskills.io-compatible), `internal/marketplace/` Go package, CLI `reasonix marketplace` command, desktop MarketplacePanel.
+- [x] **Ollama Cloud provider + auxiliary model routing** (✅ 2026-06-14) — new `ollamacloud` provider kind, 42 models via OpenAI-compatible API at ollama.com/v1. Auxiliary model config: `[agent.auxiliary]` with compression/vision/web_extract overrides. Compaction summarizer + vision requests auto-route to aux providers (cheaper/faster). Tested live: deepseek-v4-flash for compression, gemini-3-flash-preview for vision.
 - [x] **Web UI (serve mode)** (✅ pre-existing, enhanced) — 1160-line SPA at `reasonix serve`, SSE streaming, model switching, approvals. Now works with Ollama Cloud + aux models.
-- [x] **Desktop collab panel** (✅ 2026-07-14) — Go bindings (CollabDashboard, startCollabHub with steer forwarding), React CollabPanel component (live badge, watcher count, session list), integrated into useHermesLiveData push + polling.
-- [x] **Multi-model council UI** (✅ 2026-07-14) — Controller mesh integration (SetMesh/Council/MeshStatus), boot.go mesh creation from [mesh] config, CLI `/council` slash command (status + task dispatch), desktop CouncilPanel widget (peer list + status).
-- [x] **E2E test harness** (✅ 2026-07-14) — New `internal/e2e/` package: Harness struct, SessionInputs, SessionTools, TurnCount, Analyze, AssertTools, AssertTurns, ListSessions, RunAll. 7 tests passing.
-- [x] **6-item follow-up session** (✅ 2026-07-15) — All 6 "Next to build" items completed + upstream merge (40aedfb, 10 commits):
+- [x] **Desktop collab panel** (✅ 2026-06-14) — Go bindings (CollabDashboard, startCollabHub with steer forwarding), React CollabPanel component (live badge, watcher count, session list), integrated into useHermesLiveData push + polling.
+- [x] **Multi-model council UI** (✅ 2026-06-14) — Controller mesh integration (SetMesh/Council/MeshStatus), boot.go mesh creation from [mesh] config, CLI `/council` slash command (status + task dispatch), desktop CouncilPanel widget (peer list + status).
+- [x] **E2E test harness** (✅ 2026-06-14) — New `internal/e2e/` package: Harness struct, SessionInputs, SessionTools, TurnCount, Analyze, AssertTools, AssertTurns, ListSessions, RunAll. 7 tests passing.
+- [x] **6-item follow-up session** (✅ 2026-06-15) — All 6 "Next to build" items completed + upstream merge (40aedfb, 10 commits):
   - StatusBar → backend SessionTokens() binding (turn-complete-only fetch, per-tab)
   - publish.Session gains TokensIn/Out/Turns/Cost fields + HTML stats badge
   - Scheduler CRUD: AddTask/RemoveTask + Controller methods + CreateEditTaskModal + ScheduleWidget ±/✎/✕ buttons
@@ -335,7 +336,7 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
   - Desktop Hermes dashboard now surfaces CompressStatsView (sqz/aux savings) via Wails binding
   - StatusBar fetch optimized: useRef guard skips mount + turn-start, per-tab binding
 
-### Session 2026-07-15 (h9) — Code health + docs audit + session comparison tool
+### Session 2026-06-15 (h9) — Code health + docs audit + session comparison tool
 
 - **Upstream sync**: Checked — no new commits beyond already-merged (86b3c79, aad377b, d22a852). Up to date.
 - **Bridge.ts drift fix**: wailsjs bindings were stale (gitignored, regenerated) — 230 methods in generated bindings, only 39 in AppBindings interface. Flipped `_CheckGenToApp` → `_CheckAppToGen` (verify AppBindings methods exist in Go, not vice versa). Added 37 Hermes method declarations + mock stubs. Fixed 5 type mismatches (HotbarView, DiscordConnectResult, LobeHubSyncMeta, etc.). Added `LobeHubSyncMeta` to types.ts. Regenerated wailsjs via `wails generate module`. Result: tsc --noEmit 0 errors (was 53).
@@ -349,7 +350,7 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 - **Files**: 10 files changed — 2 new (`internal/eval/eval.go`, `internal/eval/eval_test.go`), 2 new (`internal/cli/eval.go`, `desktop/hermes_eval.go`), 5 modified (`docs/SPEC.md`, `AGENTS.md`, `REASONIX.md`, `internal/cli/cli.go`, `desktop/frontend/src/lib/bridge.ts`, `desktop/frontend/src/lib/types.ts`, `desktop/frontend/src/components/SettingsPanel.tsx`, `desktop/frontend/src/components/hermes/MarketplacePanel.tsx`).
 - **Build**: All binaries compile. go build + vet + test all green. tsc clean.
 
-### Session 2026-07-15 (h11) — Completeness sweep + eval GUI + analytics + orchestrate + docs
+### Session 2026-06-15 (h11) — Completeness sweep + eval GUI + analytics + orchestrate + docs
 
 - **Completeness sweep**: Audited 4 surfaces — slash commands, i18n (332 keys × 3 catalogs = zero drift), Wails bindings, config render.go.
   - **Slash commands**: 6 orphan completers added (`/stats`, `/cost`, `/council`, `/learn`, `/publish`, `/todo`)
@@ -366,7 +367,7 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 - **Upstream**: No new commits (still at 21d77d2). Up to date.
 - **Build**: All binaries compile. `go build ./... && go vet ./...` pass. `tsc --noEmit` 0 errors. All test packages pass (config, orchestrate, eval, i18n, control).
 
-### Session 2026-07-15 (h12) — Code audit fixes + docs cleanup
+### Session 2026-06-15 (h12) — Code audit fixes + docs cleanup
 
 - **"Project" link fix**: Created `docs/PROJECT.md` (180-line human-oriented project overview — architecture, customizations, binaries, upstream sync). Retargeted README navbar + docs table from `./AGENTS.md` to `./docs/PROJECT.md`. Trimmed redundant `## Project` section from `AGENTS.md`.
 
@@ -384,7 +385,7 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 - **Build**: All 6 binaries compile (reasonix 30MB, bot 16MB, memoryserver 16MB, mcpbridge 9MB, pr-review 9MB, hooks 9MB). `go build ./... && go vet ./...` + `tsc --noEmit` clean. All 72 test packages pass. Fixed 1 pre-existing test: `TestSlashCompletionFilterAndAccept` — `/co` prefix now matches 3 commands (/compact, /cost, /council) vs. the previous 1.
 
-### Session 2026-07-15 (h15) — Screenshot analysis, logo fix, upstream merge, test sweep
+### Session 2026-06-15 (h15) — Screenshot analysis, logo fix, upstream merge, test sweep
 
 - **Vision pipeline restored**: `[agent.auxiliary.vision]` config was missing from `reasonix.toml` — lost via `render.go` data-loss bug on earlier `Config.Save()`. Restored with correct TOML structure (`[agent.auxiliary]` intermediate table required by BurntSushi/toml). `vision = true` + `vision_detail = "high"` on `ollamacloud-vision` provider. Screenshot analyzed end-to-end via `ollamacloud-vision/gemini-3-flash-preview`.
 - **Logo fix**: Removed diamond `◆` from `docs/logo-animated.svg` and `docs/logo.svg` — now reads `Reasonix-Hermes` (no symbol between).
@@ -398,7 +399,7 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 - **Constitution**: Added `zero-test-failures` as ERROR-level constraint + rule in `.reasonix/constitution.json`. Saved `zero-test-failures` memory — hard rule: no test failure tolerated, ever, no "pre-existing" excuse.
 - **Build**: All go build/vet pass. All tests pass (main + desktop). tsc --noEmit 0 errors.
 
-### Session 2026-07-15 (h17) — Council judge tool + vision @path spaces fix
+### Session 2026-06-15 (h17) — Council judge tool + vision @path spaces fix
 
 - **Upstream**: Checked — no new commits (still at 8ab6d3b). Already synced.
 - **Fusion Router Tier 2** — `council_judge` built-in tool:
@@ -411,12 +412,12 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
   - `internal/control/refs_test.go`: 4 new test cases (quoted-only, mixed quoted+unquoted, quoted-with-unquoted).
 - **Build**: go build/vet clean. All 73 test packages pass. 5 new files (council.go, council_test.go, confine.go +1, refs.go +2, refs_test.go +4).
 
-### Session 2026-07-15 (h18) — Controller decomposition, desktop fix, base prompt, config, wedge tests
+### Session 2026-06-15 (h18) — Controller decomposition, desktop fix, base prompt, config, wedge tests
 
 See commit notes above. Highlights: controller 53% reduction, base prompt complete_step protocol,
 desktop hotbar/profiles root-cause fix, 13 wedge tests, desktop-v1.8.2, collab+mesh+profiles enabled.
 
-### Session 2026-07-15 (h21) — upstream sync (bcd310d), logoGradient caching, /stats inline, version fix, doc sweep
+### Session 2026-06-15 (h21) — upstream sync (bcd310d), logoGradient caching, /stats inline, version fix, doc sweep
 
 - **Upstream merged**: 11 commits from 2b6b130 to bcd310d — model list persistence, background job hardening (stalled warnings, interrupted finalization), subagent tool surface alignment, Mimo provider refactor (official host detection, `mergeCuratedModelsIntoProvider`). 6 conflicts resolved across Go + TypeScript. Removed stale Hermes Mimo backfill in favor of upstream's `isOfficialMimoAPIProvider` guard. Fixed duplicate `isOpenAIProviderKind`.
 - **Version fix**: Replaced hardcoded `"v1.8.0"` in `renderPinnedBanner` with `resolveVersion()` — uses ldflags first, then `git describe --tags --match 'v*'`, falls back to `"v1.8.0"` only as last resort. Pinned banner now shows `v1.8.0-268-g...` in dev builds.
@@ -429,7 +430,7 @@ desktop hotbar/profiles root-cause fix, 13 wedge tests, desktop-v1.8.2, collab+m
 
 - **Commit**: session 2026-06-?? (h??) — session cost in bottom status bar, infrastructure maintenance (Nix flake v1.5→1.8.2 + Go 1.25 + 2 new binaries; Dockerfile pr-review+e2ebench; Helm v1.8.2; RELEASING.md stale version). Upstream merged (dbd15a8, 4 commits — approval keyboard nav).
 
-### Session 2026-07-16 (h22 wrap-up) — npm publish, upstream merges ×2, doc sweep, build all
+### Session 2026-06-16 (h22 wrap-up) — npm publish, upstream merges ×2, doc sweep, build all
 
 - **npm publish**: `npm i -g reasonix-hermes` — 8 packages (1 wrapper + 6 platform binaries + 1 CLI) published to npm. Trusted publishing (OIDC) wired — CI workflow auto-exchanges OIDC token, zero secrets. Runner script detects OS/arch, loads matching binary.
   - Fixed `build-hermes.mjs` semver: strips leading `v` from version. Added `--otp` support via `NPM_OTP` env.
@@ -443,7 +444,7 @@ desktop hotbar/profiles root-cause fix, 13 wedge tests, desktop-v1.8.2, collab+m
 - **How-to doc**: `docs/HOWTO-TOKEN-SAVING.md` — 800-line step-by-step guide for grafting sqz token compressor into any Reasonix fork.
 - **Build**: All 7 binaries build clean. go build + go vet pass. All test packages pass.
 
-- **Deep audit (15 fixes)**: Verified 20+ claims from `AUDIT-2026-07-15.md` against live code. 14 confirmed + fixed across 12 files:
+- **Deep audit (15 fixes)**: Verified 20+ claims from `AUDIT-2026-06-15.md` against live code. 14 confirmed + fixed across 12 files:
   - **STOP SHIP**: hooks `session`→`session_id` (reflect was silently broken), `reasonix.toml` (gitignored, local-only — no committed fix needed)
   - **HIGH (6)**: memory SearchDense Lock→RLock, Tidy() preserves CreatedAt via LastDecayAt, memory server binds 127.0.0.1, collab CheckOrigin restricted to localhost, collab WebSocket write deadlines (5s), mcputil.Server ReadHeaderTimeout (10s), MCP bridge workdir validation + key length fix, bot gateway TOCTOU lock fix
   - **MEDIUM (6)**: compressor SetTurn mutex lock, scheduler parentCtx propagation, byte→rune truncation in publish.go, mesh atomic request IDs + initialize cache, CI test coverage 3→14+ packages, Dockerfile UID claim debunked (not using distroless)
@@ -454,6 +455,4 @@ desktop hotbar/profiles root-cause fix, 13 wedge tests, desktop-v1.8.2, collab+m
 - **Files**: 43 files changed, ~3,974 insertions, 139 deletions. All binaries build. All tests pass.
 
 ### Next to build
-- [ ] **DESKTOP.md** — create English version (zh-CN exists as DESKTOP_HOOKS.zh-CN.md)
-- [ ] **Desktop macOS code-signing** — notarization for distribution outside app store
-- [ ] **Upstream fetch** — check for new commits next session
+- [ ] **Fix research subagent dispatch** — parallel task batch didn't produce output; investigate why subagents fail to write file results

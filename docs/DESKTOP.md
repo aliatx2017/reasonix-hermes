@@ -38,12 +38,20 @@ The desktop app includes a rich monitoring dashboard with live data:
 | **Constitution Health** | Rules viewer with status, JSON template |
 | **Checkpoint File List** | Per-turn file tracking with diff vs. current |
 | **Token Sparkline** | Bar chart of token usage per turn (ring buffer) |
+| **Token Breakdown Chart** | Per-turn token allocation with cache hit/miss stacked bars |
 | **Compaction Timeline** | When and why compaction events occurred |
 | **Collab Panel** | WebSocket watchers, shared sessions |
 | **Council Panel** | Mesh peers and active council status |
 | **Schedule Widget** | Cron tasks with ±/✎/✕ controls |
 | **Cost Widget** | Session cost summary with currency |
 | **Publish Widget** | Export session as HTML or JSON |
+| **Eval Panel** | Session comparison tool (Jaccard similarity, tool usage table) |
+| **Analytics Panel** | Turn-by-turn token charts, top tools ranked, per-turn tool grid |
+| **Learned Patterns** | Detected workflow patterns with confidence scores and draft snippets |
+| **Orchestrate Panel** | Chain/Pair/CI-Fix multi-agent workflow launcher |
+| **Marketplace Panel** | Community skill registry with tag filters and install buttons |
+| **Skill Store Panel** | 4-tab unified skill browser: LobeHub, Marketplace, MCP servers, Custom skills |
+| **Profile Picker** | Switch between configured agent profiles |
 
 ## Key Features
 
@@ -73,16 +81,34 @@ effort toggles, and profile activation.
 desktop/
 ├── app.go              # Wails App struct: 200+ bound methods
 ├── hermes_dashboard.go # Hermes dashboard live data bindings
-├── hermes_tier3.go     # Advanced monitoring (subagents, constitution)
+├── hermes_tier3.go     # Advanced monitoring (subagents, constitution, analytics)
 ├── hermes_eval.go      # Session comparison binding
 ├── settings_app.go     # Config persistence (theme, hotbar, profiles, bots)
+├── hooks_settings_app.go # Hook JSON editor (global + project scopes)
+├── bot_connection_app.go  # Multi-platform bot connect/disconnect/status
+├── bot_runtime_app.go     # Bot runtime lifecycle management
 ├── tabs.go             # Multi-tab session management
-├── updater_app.go      # Auto-update with R2 canary/stable channels
+├── sessions.go         # Session list, channel sessions
+├── workspace.go        # Workspace directory management
+├── write_mode.go       # Write Mode Go filesystem bindings
+├── memory_suggestions.go  # Memory suggestion provider
 ├── crash_app.go        # Crash capture + breadcrumb reporting
+├── crash_pending.go    # Pending crash report storage
+├── menu.go             # Native OS menu bar
+├── tray.go             # System tray icon + menu
+├── tray_icon_gold.go   # Hermes gold tray icon overlay
+├── updater_app.go      # Auto-update with R2 canary/stable channels
+├── updater.go          # Update download/verification engine
+├── window_state.go     # Window size/position persistence
+├── devinfo.go          # Device info collection
+├── dotenv.go           # .env file loading
+├── single_instance.go  # Single-instance lock
+├── telemetry_app.go    # Anonymous telemetry collection
+├── metrics_app.go      # Performance metrics
 ├── frontend/           # React 19 + TypeScript 6 + Vite 8
 │   ├── src/
 │   │   ├── components/       # UI components
-│   │   │   ├── hermes/       # 20+ Hermes dashboard widgets
+│   │   │   ├── hermes/       # 25 Hermes dashboard widgets
 │   │   │   ├── editors/      # CodeMirror 6 integration
 │   │   │   └── ...           # 40+ upstream components
 │   │   └── lib/              # bridge.ts (Go↔React seam), types, i18n
@@ -116,6 +142,7 @@ effort = "high"
 
 ## Related
 
+- `docs/DESKTOP.md` — desktop app guide (this file)
 - `docs/HERMES-GUIDE.md` — full Hermes feature guide
 - `docs/EVAL.md` — session comparison tool
 - `docs/MARKETPLACE.md` — skill marketplace

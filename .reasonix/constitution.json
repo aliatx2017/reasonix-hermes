@@ -82,6 +82,12 @@
       "description": "Never make claims without evidence. Verify first, speak second. Before any factual claim run the verification command and include the evidence with the claim. No assertion without substantiation.",
       "severity": "error",
       "scope": "all communication"
+    },
+    {
+      "id": "never-copy-unverified",
+      "description": "Never copy a verifiable fact (date, version, count, path, URL, status, etc.) from an existing file without running the verification first. If you read a date like '2026-07-15' in a file and need to write a new date, run `date` — don't assume the old one is correct. If you read a memory claiming 'LINE adapter PR' is a todo, verify with the user before carrying it forward. Existing text is input, not truth. This is the #1 recurring failure pattern.",
+      "severity": "error",
+      "scope": "all communication"
     }
   ]
 }
