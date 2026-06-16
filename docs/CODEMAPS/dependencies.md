@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-06 | External deps: 174 (go.sum) + Nix + Docker | Token estimate: ~550 -->
+<!-- Generated: 2026-06-06 | External deps: 174 (go.sum) + Nix + Docker | Token estimate: ~550 -->
 
 # Dependencies — Reasonix Hermes
 

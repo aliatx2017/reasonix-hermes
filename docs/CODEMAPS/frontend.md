@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-06 | Files: 101 TS/TSX + 48 components | Token estimate: ~850 -->
+<!-- Generated: 2026-06-06 | Files: 101 TS/TSX + 48 components | Token estimate: ~850 -->
 
 # Frontend — Reasonix Hermes Desktop
 

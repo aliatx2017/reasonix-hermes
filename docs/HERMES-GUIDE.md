@@ -1568,7 +1568,7 @@ cd desktop && wails dev
 - **Desktop toolchain**: `biome` (TS formatting/linting), `taplo` (TOML
   validation) recommended for development. `wails dev` for hot-reload.
 
-**Hermes enrichment (v1.6.1, 2026-07-12):**
+**Hermes enrichment (v1.6.1, 2026-06-12):**
 - **Hermes accent theme** — 7th theme style "hermes" with caduceus gold accent
   (#d4a853 dark / #b8912e light), warm dark surfaces, and teal highlights.
   Selectable in Settings → Appearance alongside Graphite/Aurora/Slate/Carbon/

@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-06 | Files: 373 (non-test Go) + 101 TS | Token estimate: ~900 -->
+<!-- Generated: 2026-06-06 | Files: 373 (non-test Go) + 101 TS | Token estimate: ~900 -->
 
 # Backend — Reasonix Hermes Engine
 
