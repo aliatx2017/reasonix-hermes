@@ -36,7 +36,7 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 ## Notes
 
-- **Upstream synced**: `v1.8.x` (commit 8886dcb, 2026-06-16). 7 new commits merged (ResizeObserver fixes, settings preference metrics, ACP Zed integration fix). Previous sync: 8f3ae36.
+- **Upstream synced**: `v1.8.x` (commit fe36f05, 2026-06-16). 9 new commits merged across 2 fetches (ResizeObserver fixes, settings metrics, ACP Zed, npm release workflow). Previous sync: 8f3ae36.
 - **Commit**: session 2026-06-16 (h23) — research workflow e2e verified (SearXNG + Crawl4AI + GitHub API → JSON → report.md), DESKTOP.md enriched (149 lines, 25 components + 24 backend files), macOS code-signing investigation (pipeline fully built, needs Apple credentials), upstream merge (8886dcb, 7 commits). Upstream fetch + merge + build/vet/test all green.
 - **Commit**: session 2026-06-?? (h??) — Deep Research workflow adopted (5 skills from Weizhena/Deep-Research-skills), `/eval` slash command (define/check/report/list/clean), crawl4ai/searxng integration in research pipeline, upstream merge (0706284, 10 commits).
 - **Commit**: session 2026-06-15 (h19) — animated logo gradient banner (indigo→cyan→pink), doc sweep (8 files, stale binary names fixed), all prior h18 work.
