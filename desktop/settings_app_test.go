@@ -121,17 +121,36 @@ func TestSaveProviderFiltersNonChatModels(t *testing.T) {
 	if !ok {
 		t.Fatal("saved provider not found")
 	}
-	want := []string{"mimo-v2.5-pro", "mimo-v2.5", "mimo-v2-omni"}
+	want := []string{"mimo-v2.5-pro"}
 	if !reflect.DeepEqual(got.ModelList(), want) {
 		t.Errorf("saved provider models = %v, want %v", got.ModelList(), want)
 	}
 	if got.DefaultModel() != "mimo-v2.5-pro" {
 		t.Errorf("saved provider default = %q, want mimo-v2.5-pro", got.DefaultModel())
 	}
+	raw, err := os.ReadFile(config.UserConfigPath())
+	if err != nil {
+		t.Fatalf("read saved config: %v", err)
+	}
+	saved := string(raw)
+	blockStart := strings.Index(saved, "\n[[providers]]\nname        = \"mimo-api\"")
+	if blockStart < 0 {
+		t.Fatalf("saved config missing mimo-api provider block:\n%s", raw)
+	}
+	block := saved[blockStart:]
+	if next := strings.Index(block[len("\n[[providers]]"):], "\n[[providers]]"); next >= 0 {
+		block = block[:len("\n[[providers]]")+next]
+	}
+	if !strings.Contains(block, `models      = ["mimo-v2.5-pro"]`) {
+		t.Fatalf("saved provider block did not persist single selection as models array:\n%s", block)
+	}
+	if strings.Contains(block, `model       = "mimo-v2.5-pro"`) {
+		t.Fatalf("saved provider block should not persist explicit single selection as legacy model:\n%s", block)
+	}
 }
 
 func TestOfficialMimoAPITemplateIncludesVisionModels(t *testing.T) {
-	entries, keyEnv, err := officialProviderTemplate("mimo-api")
+	entries, keyEnv, err := officialProviderTemplate("mimo-api", "en")
 	if err != nil {
 		t.Fatalf("officialProviderTemplate: %v", err)
 	}
@@ -144,6 +163,32 @@ func TestOfficialMimoAPITemplateIncludesVisionModels(t *testing.T) {
 	}
 	if got.DefaultModel() != "mimo-v2.5-pro" {
 		t.Fatalf("mimo-api default = %q, want mimo-v2.5-pro", got.DefaultModel())
+	}
+	if got.Prices["mimo-v2.5-pro"] == nil || got.Prices["mimo-v2.5-pro"].Currency != "¥" || got.Prices["mimo-v2.5-pro"].Output != 6 {
+		t.Fatalf("mimo-v2.5-pro price = %+v, want RMB domestic pricing", got.Prices["mimo-v2.5-pro"])
+	}
+	if got.Prices["mimo-v2.5"] == nil || got.Prices["mimo-v2.5"].Currency != "¥" || got.Prices["mimo-v2.5"].Output != 2 {
+		t.Fatalf("mimo-v2.5 price = %+v, want RMB domestic pricing", got.Prices["mimo-v2.5"])
+	}
+	if got.Prices["mimo-v2-omni"] == nil || got.Prices["mimo-v2-omni"].Currency != "¥" || got.Prices["mimo-v2-omni"].Output != 2 {
+		t.Fatalf("mimo-v2-omni price = %+v, want RMB domestic pricing", got.Prices["mimo-v2-omni"])
+	}
+}
+
+func TestOfficialDeepSeekTemplateDefaultsToRMBPricing(t *testing.T) {
+	entries, keyEnv, err := officialProviderTemplate("deepseek", "en")
+	if err != nil {
+		t.Fatalf("officialProviderTemplate: %v", err)
+	}
+	if keyEnv != "DEEPSEEK_API_KEY" || len(entries) != 1 {
+		t.Fatalf("template = %v/%q, want one DEEPSEEK_API_KEY entry", entries, keyEnv)
+	}
+	got := entries[0]
+	if got.Prices["deepseek-v4-flash"] == nil || got.Prices["deepseek-v4-flash"].Currency != "¥" || got.Prices["deepseek-v4-flash"].Output != 2 {
+		t.Fatalf("deepseek-v4-flash price = %+v, want RMB pricing", got.Prices["deepseek-v4-flash"])
+	}
+	if got.Prices["deepseek-v4-pro"] == nil || got.Prices["deepseek-v4-pro"].Currency != "¥" || got.Prices["deepseek-v4-pro"].Output != 6 {
+		t.Fatalf("deepseek-v4-pro price = %+v, want RMB pricing", got.Prices["deepseek-v4-pro"])
 	}
 }
 

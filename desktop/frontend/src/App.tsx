@@ -1460,6 +1460,7 @@ export default function App() {
     setClearContextPending(false);
     try {
       await clearSession();
+      setDockRefreshKey((v) => v + 1);
       notice(t("clearContext.done"));
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -2983,6 +2984,9 @@ export default function App() {
               modelLabel={state.meta?.label}
               labelStyle={statusBarStyle}
               items={statusBarItems}
+              workspacePath={state.meta?.workspacePath || state.meta?.workspaceRoot || state.meta?.cwd}
+              workspaceName={state.meta?.workspaceName}
+              gitBranch={state.meta?.gitBranch}
             />
           </footer>
           )}
@@ -3058,6 +3062,7 @@ export default function App() {
                   sessionTokens={state.sessionTokens}
                   sessionCost={state.sessionCost}
                   sessionCurrency={state.sessionCurrency}
+                  sessionGen={state.sessionGen}
                   refreshKey={dockRefreshKey}
                   onOpenWorkspaceMode={openRightDockMode}
                   onOpenWorkspaceFile={openRightDockFile}

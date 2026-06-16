@@ -415,6 +415,8 @@ func (a *Agent) SetSession(s *Session) {
 	a.sessMu.Lock()
 	a.session = s
 	a.sessMu.Unlock()
+	a.sessCacheHit.Store(0)
+	a.sessCacheMiss.Store(0)
 	if s != nil {
 		// Seed aggregate atomics from loaded session metadata so a resumed
 		// session shows accurate cumulative stats from the previous run.
