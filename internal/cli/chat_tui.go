@@ -2716,80 +2716,88 @@ func (m chatTUI) renderStatsPanel() string {
 		w = 40
 	}
 
+	// Row budget: reserve 6 rows for composer+status+pinned banner overhead.
+	// Content beyond this budget is truncated with a "… N more" indicator.
+	maxRows := m.height - 6
+	if maxRows < 5 {
+		maxRows = 5
+	}
 	var b strings.Builder
-	b.WriteString(accent("╔" + strings.Repeat("═", w-2) + "╗") + "\n")
-	b.WriteString(accent("║") + " " + bold("⚚ SESSION STATS") + strings.Repeat(" ", w-2-1-lipgloss.Width("⚚ SESSION STATS")) + accent("║") + "\n")
-	b.WriteString(accent("╠" + strings.Repeat("─", w-2) + "╣") + "\n")
+	row := 0
+	addRow := func(s string) {
+		if row < maxRows {
+			b.WriteString(s)
+		}
+		row++
+	}
+
+	addRow(accent("╠" + strings.Repeat("═", w-2) + "╣") + "\n")
+	addRow(accent("║") + " " + bold("⚚ SESSION STATS") + strings.Repeat(" ", w-2-1-lipgloss.Width("⚚ SESSION STATS")) + accent("║") + "\n")
+	addRow(accent("╠" + strings.Repeat("─", w-2) + "╣") + "\n")
 
 	msgs := m.ctrl.History()
-	row := func(label, value string) {
+	rowf := func(label, value string) {
 		pad := w - 2 - 2 - lipgloss.Width(label) - lipgloss.Width(value)
 		if pad < 1 {
 			pad = 1
 		}
-		b.WriteString(accent("║") + " " + dim(label) + strings.Repeat(" ", pad) + value + " " + accent("║") + "\n")
+		addRow(accent("║") + " " + dim(label) + strings.Repeat(" ", pad) + value + " " + accent("║") + "\n")
 	}
 
-	row("Model", m.label)
-	row("Turns", strconv.Itoa(m.sessionTurns))
-	row("Messages", strconv.Itoa(len(msgs)))
+	rowf("Model", m.label)
+	rowf("Turns", strconv.Itoa(m.sessionTurns))
+	rowf("Messages", strconv.Itoa(len(msgs)))
 
 	uptime := time.Since(m.sessionStart).Round(time.Second)
-	row("Uptime", uptime.String())
+	rowf("Uptime", uptime.String())
 
 	tokTotal := m.sessionTokensIn + m.sessionTokensOut
-	row("Tokens", fmt.Sprintf("↓%s ↑%s = %s",
+	rowf("Tokens", fmt.Sprintf("↓%s ↑%s = %s",
 		formatTokenCount(m.sessionTokensOut),
 		formatTokenCount(m.sessionTokensIn),
 		formatTokenCount(tokTotal)))
 
 	hit, miss := m.ctrl.SessionCache()
 	if hit+miss > 0 {
-		rate := float64(hit) * 100 / float64(hit+miss)
-		row("Cache", fmt.Sprintf("%.1f%% (%s hit / %s miss)",
-			rate, formatTokenCount(hit), formatTokenCount(miss)))
+		rowf("Cache", fmt.Sprintf("%.1f%% (%s hit / %s miss)",
+			float64(hit)*100/float64(hit+miss), formatTokenCount(hit), formatTokenCount(miss)))
 	}
 
-	// Compressor savings — only shown when bytes were actually trimmed.
 	if cs := m.ctrl.CompressStats(); cs.BytesSaved > 0 {
-		row("Compressor", fmt.Sprintf("%s saved (%d hits, %d lines collapsed)",
+		rowf("Compressor", fmt.Sprintf("%s saved (%d hits, %d lines collapsed)",
 			formatBytes(cs.BytesSaved), cs.CacheHits, cs.LinesCollapsed))
 	}
 
-	// Auxiliary provider savings — tokens routed to cheaper models (compression/vision).
 	if aux := m.ctrl.AuxTokens(); aux > 0 {
-		row("Aux savings", formatTokenCount(aux)+" tokens routed to cheaper providers")
+		rowf("Aux savings", formatTokenCount(aux)+" tokens routed to cheaper providers")
 	}
 
 	if m.sessionCost > 0 && m.sessionCostSymbol != "" {
-		row("Cost", m.sessionCostSymbol+fmt.Sprintf("%.4f", m.sessionCost))
+		rowf("Cost", m.sessionCostSymbol+fmt.Sprintf("%.4f", m.sessionCost))
 	}
 
 	if m.balance != "" {
-		row("Balance", m.balance)
+		rowf("Balance", m.balance)
 	}
 
-	// Goal progress.
 	if goal := m.ctrl.Goal(); goal != "" {
-		b.WriteString(accent("╟" + strings.Repeat("─", w-2) + "╢") + "\n")
-		row("Goal", goal)
-		row("  Status", m.ctrl.GoalStatus())
-		row("  Turns", fmt.Sprintf("%d · %d blocks", m.ctrl.GoalTurns(), m.ctrl.GoalBlocks()))
+		addRow(accent("╟" + strings.Repeat("─", w-2) + "╢") + "\n")
+		rowf("Goal", goal)
+		rowf("  Status", m.ctrl.GoalStatus())
+		rowf("  Turns", fmt.Sprintf("%d · %d blocks", m.ctrl.GoalTurns(), m.ctrl.GoalBlocks()))
 	}
 
-	// Per-turn token sparkline.
 	history := m.ctrl.TurnUsageHistory()
 	if len(history) > 0 {
-		b.WriteString(accent("╟" + strings.Repeat("─", w-2) + "╢") + "\n")
+		addRow(accent("╟" + strings.Repeat("─", w-2) + "╢") + "\n")
 		spark := renderTokenSparkline(history, w-4)
-		b.WriteString(accent("║") + " " + dim("tokens/turn") + " " + spark + " " + accent("║") + "\n")
+		addRow(accent("║") + " " + dim("tokens/turn") + " " + spark + " " + accent("║") + "\n")
 	}
 
-	// Compaction log.
 	compactions := m.ctrl.CompactionHistory()
 	if len(compactions) > 0 {
-		b.WriteString(accent("╟" + strings.Repeat("─", w-2) + "╢") + "\n")
-		b.WriteString(accent("║") + " " + dim("compactions (" + strconv.Itoa(len(compactions)) + ")") + strings.Repeat(" ", w-3-lipgloss.Width("compactions ("+strconv.Itoa(len(compactions))+")")) + accent("║") + "\n")
+		addRow(accent("╟" + strings.Repeat("─", w-2) + "╢") + "\n")
+		addRow(accent("║") + " " + dim("compactions (" + strconv.Itoa(len(compactions)) + ")") + strings.Repeat(" ", w-3-lipgloss.Width("compactions ("+strconv.Itoa(len(compactions))+")")) + accent("║") + "\n")
 		for _, c := range compactions {
 			trigger := c.Trigger
 			summary := c.Summary
@@ -2800,27 +2808,31 @@ func (m chatTUI) renderStatsPanel() string {
 				summary = "(aborted)"
 			}
 			line := fmt.Sprintf("  %s · %d msgs · %s", trigger, c.Messages, summary)
-			b.WriteString(accent("║") + dim(line) + strings.Repeat(" ", w-2-lipgloss.Width(line)) + accent("║") + "\n")
+			addRow(accent("║") + dim(line) + strings.Repeat(" ", w-2-lipgloss.Width(line)) + accent("║") + "\n")
 		}
 	}
 
-	// Memory facts.
 	if mv := m.ctrl.Memory(); mv != nil {
 		facts := mv.Store.List()
 		if len(facts) > 0 {
-			b.WriteString(accent("╟" + strings.Repeat("─", w-2) + "╢") + "\n")
-			b.WriteString(accent("║") + " " + dim("memory facts (" + strconv.Itoa(len(facts)) + ")") + strings.Repeat(" ", w-3-lipgloss.Width("memory facts ("+strconv.Itoa(len(facts))+")")) + accent("║") + "\n")
+			addRow(accent("╟" + strings.Repeat("─", w-2) + "╢") + "\n")
+			addRow(accent("║") + " " + dim("memory facts (" + strconv.Itoa(len(facts)) + ")") + strings.Repeat(" ", w-3-lipgloss.Width("memory facts ("+strconv.Itoa(len(facts))+")")) + accent("║") + "\n")
 			for _, f := range facts {
 				line := fmt.Sprintf("  %s · %s", f.Name, f.Title)
 				if len(line) > w-3 {
 					line = line[:w-6] + "…"
 				}
-				b.WriteString(accent("║") + dim(line) + strings.Repeat(" ", w-2-lipgloss.Width(line)) + accent("║") + "\n")
+				addRow(accent("║") + dim(line) + strings.Repeat(" ", w-2-lipgloss.Width(line)) + accent("║") + "\n")
 			}
 		}
 	}
 
-	b.WriteString(accent("╚" + strings.Repeat("═", w-2) + "╝"))
+	// Truncation notice when rows exceed budget.
+	if truncated := row - maxRows; truncated > 0 {
+		msg := fmt.Sprintf("… %d more rows", truncated)
+		b.WriteString(accent("║") + dim(msg) + strings.Repeat(" ", w-2-lipgloss.Width(msg)) + accent("║") + "\n")
+	}
+	addRow(accent("╚" + strings.Repeat("═", w-2) + "╝"))
 
 	return b.String()
 }

@@ -249,7 +249,14 @@ Full reference: **[Guide](./docs/GUIDE.md)** covers permissions, sandbox, plugin
 | **[Migrating from 0.x](./docs/MIGRATING.md)** | Moving from legacy TypeScript releases to the 1.0 Go rewrite |
 | **[Checkpoints & rewind](./docs/CHECKPOINTS.md)** | Snapshot-based edit safety net (Esc-Esc / `/rewind`) |
 | **[Changelog](./docs/CHANGELOG-HERMES.md)** | Hermes fork milestones, expansion packs, bot platforms |
+| **[Releasing](./docs/RELEASING.md)** | Build, tag, and release process for all binaries |
+| **[Session Memory Retrieval](./docs/SESSION_MEMORY_RETRIEVAL.md)** | Lightweight local history + BM25 retrieval |
+| **[Session Reference Architecture](./docs/SESSION_REFERENCE_ARCHITECTURE.md)** | upstream-issue reference for session state routing |
 | **[Ecosystem Reference](./reasonix-deepseek-ecosystem-2026.md)** | Full landscape: MCP bridges, skills, desktop, IDE, forks, protocols |
+| **[Codebase Audit (Historical)](./AUDIT.md)** | June 2025 audit — all bugs resolved, kept for reference |
+| **[协作模式 (中文)](./docs/COLLABORATION_MODES.zh-CN.md)** | 计划模式、目标模式与省 token 模式 |
+| **[桌面端 Hooks (中文)](./docs/DESKTOP_HOOKS.zh-CN.md)** | 桌面端 Hooks 使用说明 |
+| **[工具权限模式 (中文)](./docs/TOOL_APPROVAL_MODES.zh-CN.md)** | 询问、自动与 Yolo 模式 |
 
 <br/>
 

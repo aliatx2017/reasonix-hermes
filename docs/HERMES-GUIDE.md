@@ -409,6 +409,8 @@ resolve to **allow** (no TTY to prompt). Plan mode is skipped.
 
 ### 5.3 Plan mode
 
+> 中文版本：[协作方式：计划模式、目标模式与省 token 模式](./COLLABORATION_MODES.zh-CN.md)
+
 Plan mode is a **coarse gate** that prevents all writer tools (file edits,
 bash) from executing. The agent can only read, search, and think — producing a
 plan for you to review.
@@ -666,6 +668,8 @@ Three interactive postures control how `Ask` decisions are resolved:
 
 In headless mode (`reasonix run`, sub-agents, no TTY), `Ask` resolves to
 **allow** — preserving autonomous behavior.
+
+> 中文版本：[工具权限模式：询问、自动与 Yolo 模式](./TOOL_APPROVAL_MODES.zh-CN.md)
 
 ### 8.3 Rule syntax
 
@@ -1061,6 +1065,8 @@ reasonix install-source uninstall --name my-skill
 
 ## 15. Hooks
 
+> 中文版本：[桌面端 Hooks 使用说明](./DESKTOP_HOOKS.zh-CN.md)
+
 ### 15.1 Upstream hook runner
 
 Reasonix supports hook scripts at three lifecycle points through
@@ -1192,7 +1198,7 @@ MCP client to delegate work to Reasonix/DeepSeek.
 
 ```sh
 # Stdio mode (default)
-./bin/reasonix-bridge
+./bin/reasonix-mcpbridge
 
 # HTTP mode
 ./bin/reasonix-mcpbridge --http --port 9090

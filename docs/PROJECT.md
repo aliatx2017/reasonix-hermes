@@ -178,3 +178,7 @@ git push origin main
 | **[Eval](./EVAL.md)** | Compare two agent sessions for eval-driven development |
 | **[Checkpoints](./CHECKPOINTS.md)** | Snapshot-based edit safety net |
 | **[Changelog](./CHANGELOG-HERMES.md)** | Hermes fork milestones, expansion packs, bot platforms |
+| **[Ecosystem Reference](../reasonix-deepseek-ecosystem-2026.md)** | Full landscape: MCP bridges, skills, desktop, IDE, forks, protocols |
+| **[Releasing](./RELEASING.md)** | Build, tag, and release process |
+| **[Session Memory Retrieval](./SESSION_MEMORY_RETRIEVAL.md)** | Local history + BM25 retrieval |
+| **[Session Reference Architecture](./SESSION_REFERENCE_ARCHITECTURE.md)** | Session state routing reference |
