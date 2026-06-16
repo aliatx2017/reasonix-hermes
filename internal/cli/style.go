@@ -1,9 +1,11 @@
 package cli
 
 import (
+	"bytes"
 	"fmt"
 	"math"
 	"os"
+	"os/exec"
 	"time"
 
 	"golang.org/x/term"
@@ -98,4 +100,22 @@ func logoBlend(pos float64) (r, g, b int) {
 	g = a.g + int(float64(c.g-a.g)*ease)
 	b = a.b + int(float64(c.b-a.b)*ease)
 	return
+}
+
+// resolveVersion returns the current build version. When BuildVersion was set
+// via ldflags (production build), it returns that. Otherwise it tries git
+// describe for a dynamic version tag, falling back to a hardcoded default only
+// when git is unavailable.
+func resolveVersion() string {
+	if BuildVersion != "dev" && BuildVersion != "" {
+		return BuildVersion
+	}
+	cmd := exec.Command("git", "describe", "--tags", "--match", "v*")
+	cmd.Stderr = nil
+	out, err := cmd.Output()
+	if err == nil {
+		return string(bytes.TrimSpace(out))
+	}
+	// Last resort — keep this updated when cutting a new major/minor tag.
+	return "v1.8.0"
 }

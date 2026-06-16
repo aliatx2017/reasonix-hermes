@@ -300,6 +300,11 @@ type chatTUI struct {
 	// height; starts at 2 (unwrapped) until first render.
 	statusLineCount int
 
+	// frameLogo caches the gradient-colored "◆ REASONIX-HERMES" string once
+	// per render frame so bottomRows() and View() see identical byte sequences.
+	// Populated in Update(), consumed in renderPinnedBanner(). See logoGradient.
+	frameLogo string
+
 	// modelSwitchPending is true while an async /model build is in flight.
 	modelSwitchPending bool
 	// pendingModelSwitch holds the tea.Cmd that triggers the async build.
@@ -693,6 +698,7 @@ func (m chatTUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// height for the viewport. Use cm.width (same as boxW in View()) so the
 	// wrapping width matches what View() actually renders.
 	cm.statusLineCount = cm.computeStatusLineCount(cm.width)
+	cm.frameLogo = logoGradient("◆ REASONIX-HERMES")
 	cm.viewport.SetHeight(cm.transcriptHeight())
 	// Re-feed only when the content grew or the width changed (re-wrapping is
 	// the expensive part); a bare scroll or spinner tick keeps the offset.
@@ -2966,6 +2972,30 @@ func (m chatTUI) computeStatusLineCount(width int) int {
 	if m.balance != "" {
 		data = append(data, m.balance)
 	}
+	// Mirror the conditional Hermes data items from View() — sqz, aux, goal, mem.
+	if cs := m.ctrl.CompressStats(); cs.BytesSaved > 0 {
+		data = append(data, dim("sqz")+" "+formatBytes(cs.BytesSaved))
+	}
+	if aux := m.ctrl.AuxTokens(); aux > 0 {
+		data = append(data, dim("aux")+" "+formatTokenCount(aux))
+	}
+	if goal := m.ctrl.Goal(); goal != "" {
+		turns := m.ctrl.GoalTurns()
+		blocks := m.ctrl.GoalBlocks()
+		parts := []string{dim("goal") + " " + dim(goal)}
+		if turns > 0 {
+			parts = append(parts, dim("t"+strconv.Itoa(turns)))
+		}
+		if blocks > 0 {
+			parts = append(parts, dim("⛔"+strconv.Itoa(blocks)))
+		}
+		data = append(data, strings.Join(parts, " "))
+	}
+	if mv := m.ctrl.Memory(); mv != nil {
+		if n := len(mv.Store.List()); n > 0 {
+			data = append(data, dim("mem")+" "+strconv.Itoa(n))
+		}
+	}
 	// Mirror the always-visible session counters from View().
 	data = append(data, dim("turns")+" "+strconv.Itoa(m.sessionTurns))
 	msgs := m.ctrl.History()
@@ -4222,11 +4252,11 @@ func (m chatTUI) renderPinnedBanner() string {
 	if w < 50 {
 		return ""
 	}
-	ver := BuildVersion
-	if ver == "dev" {
-		ver = "v1.8.0"
+	ver := resolveVersion()
+	left := m.frameLogo
+	if left == "" {
+		left = logoGradient("◆ REASONIX-HERMES")
 	}
-	left := logoGradient("◆ REASONIX-HERMES")
 	right := fmt.Sprintf("%s · %s", m.label, ver)
 	gap := w - lipgloss.Width(left) - lipgloss.Width(right) - 2
 	if gap < 2 {
