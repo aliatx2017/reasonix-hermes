@@ -21,7 +21,7 @@ if (!tag) {
   console.error("usage: node npm/build-hermes.mjs <tag>   (e.g. v1.8.0)");
   process.exit(1);
 }
-const version = tag.replace(/^(hermes-)?npm-v/, "");
+const version = tag.replace(/^(hermes-)?npm-v/, "").replace(/^v/, "");
 const publish = process.argv.includes("--publish");
 
 rmSync(STAGE, { recursive: true, force: true });
@@ -99,6 +99,8 @@ if (!publish) {
 }
 
 const publishArgs = ["publish", "--access", "public"];
+const otp = process.env.NPM_OTP;
+if (otp) publishArgs.push("--otp", otp);
 for (const sub of subPackages) {
   console.log(`publish ${sub.name}@${version}`);
   execFileSync("npm", publishArgs, { cwd: sub.dir, stdio: "inherit" });
