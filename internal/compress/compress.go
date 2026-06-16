@@ -168,18 +168,19 @@ func sha256Hex(s string) string {
 }
 
 func firstLine(s string, maxLen int) string {
-	// Take the first non-empty line, trimmed.
+	// Take the first non-empty line, trimmed. Uses rune-aware truncation to
+	// avoid cutting multi-byte UTF-8 characters in half.
 	for _, line := range strings.SplitN(s, "\n", 10) {
 		line = strings.TrimSpace(line)
 		if line != "" {
-			if len(line) > maxLen {
-				return line[:maxLen] + "…"
+			if r := []rune(line); len(r) > maxLen {
+				return string(r[:maxLen]) + "…"
 			}
 			return line
 		}
 	}
-	if len(s) > maxLen {
-		return s[:maxLen] + "…"
+	if r := []rune(s); len(r) > maxLen {
+		return string(r[:maxLen]) + "…"
 	}
 	return s
 }
