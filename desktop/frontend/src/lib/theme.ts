@@ -138,6 +138,7 @@ export function applyTheme(
     } else if (theme === 'dark') {
       WindowSetDarkTheme();
     }
+    syncNativeWindowBackground(theme);
   }
 
   void options;
@@ -185,20 +186,22 @@ export function clearLegacyThemePreference(): void {
 // a white (or wrong-colour) flash while the webview paints its first frame.
 export function initTheme(): void {
   const theme = getTheme();
-  const style = getThemeStyle(theme);
-  applyTheme(theme, style, { persist: false });
+  applyTheme(theme, getThemeStyle(theme), { persist: false });
+  syncNativeWindowBackground(theme);
+}
 
-  if (typeof window !== 'undefined' && window.runtime) {
-    const resolved = getResolvedTheme(theme);
-    if (style === 'hermes') {
-      // Hermes accent: gold-tinted shell (dark: #1e1c13, light: #faf7ef).
-      WindowSetBackgroundColour(resolved === 'light' ? 250 : 30, resolved === 'light' ? 247 : 28, resolved === 'light' ? 239 : 19, 255);
-    } else if (resolved === 'light') {
-      // Light shell: matches graphite --bg (#f4f3ef).
-      WindowSetBackgroundColour(244, 243, 239, 255);
-    } else {
-      // Dark shell: matches :root --bg (#090a0c).
-      WindowSetBackgroundColour(9, 10, 12, 255);
-    }
+function syncNativeWindowBackground(theme: Theme): void {
+  if (typeof window === 'undefined' || !window.runtime) return;
+  const resolved = getResolvedTheme(theme);
+  const style = getThemeStyle(theme);
+  if (style === 'hermes') {
+    // Hermes accent: gold-tinted shell (dark: #1e1c13, light: #faf7ef).
+    WindowSetBackgroundColour(resolved === 'light' ? 250 : 30, resolved === 'light' ? 247 : 28, resolved === 'light' ? 239 : 19, 255);
+  } else if (resolved === "light") {
+    // Light shell: matches graphite --bg (#f4f3ef).
+    WindowSetBackgroundColour(244, 243, 239, 255);
+  } else {
+    // Dark shell: matches :root --bg (#090a0c).
+    WindowSetBackgroundColour(9, 10, 12, 255);
   }
 }
