@@ -8,7 +8,7 @@ var Chinese = Messages{
 	WelcomeTitleFmt: "欢迎使用 %s",
 	NoConfigYet:     "还没有配置 — 现在来设置一下吧。",
 	StartingChatFmt: "正在启动 %s…",
-	SetKeyHint:      "设置好 API key 后运行 `reasonix chat`。",
+	SetKeyHint:      "设置好 API key 后运行 `reasonix`。",
 	ConfigLabel:     "配置",
 	ModelsLabel:     "模型",
 	ConfigNotFound:  "未找到 — 使用内置默认值",
@@ -19,7 +19,7 @@ var Chinese = Messages{
 	StepScaffold:    "生成 reasonix.toml",
 	StepSetKey:      "设置 API key",
 
-	InitHint:       "项目记忆（AGENTS.md）在会话内由模型生成：运行 `reasonix chat`，然后 `/init` —— 模型会分析代码库并写入。配置请用 `reasonix setup`。",
+	InitHint:       "项目记忆（AGENTS.md）在会话内由模型生成：运行 `reasonix`，然后 `/init` —— 模型会分析代码库并写入。配置请用 `reasonix setup`。",
 	StepSetKeyHint: "运行 `reasonix setup`，或 export DEEPSEEK_API_KEY=…",
 	StepChatDesc:   "交互式会话",
 	StepRunDesc:    "执行单次任务",
@@ -27,7 +27,7 @@ var Chinese = Messages{
 
 	ChatTip:           "对话上下文将跨轮保留。输入 'exit' 或按 Ctrl-D 退出。",
 	TurnCancelled:     "已取消 — 回到提示符",
-	NoSessionToResume: "没有可恢复的会话 — 用 `reasonix chat` 开一个新的",
+	NoSessionToResume: "没有可恢复的会话 — 用 `reasonix` 开一个新的",
 	ResumeRequiresTTY: "--resume 需要交互式终端；用 --continue 直接恢复最近一次",
 	PickSessionLabel:  "恢复哪个会话？",
 
@@ -367,7 +367,7 @@ var Chinese = Messages{
 	UsageBody: `reasonix — 由配置和插件驱动的 coding agent（多模型）
 
 用法：
-  reasonix chat [--model NAME] [-c|--continue] [--resume]   交互式会话（多轮；-c 恢复最近一次，--resume 选择一个）
+  reasonix [--model NAME] [-c|--continue] [--resume]        交互式会话（多轮；-c 恢复最近一次，--resume 选择一个）
   reasonix run  [--model NAME] [--max-steps N] [-c|--continue] [--resume PATH] <task>   执行单次任务后退出
   reasonix serve [--model NAME] [--addr HOST:PORT]      通过 HTTP+SSE 提供会话（浏览器客户端在 /）
   reasonix acp [--model NAME]                           通过 stdio 提供 Agent Client Protocol（也可用：reasonix --acp）
@@ -382,8 +382,8 @@ var Chinese = Messages{
   reasonix help
 
 示例：
-  reasonix chat
-  reasonix chat --continue
+  reasonix
+  reasonix --continue
   reasonix run "把 main.go 里的 TODO 实现掉"
   reasonix run --model mimo-pro "给这个函数补单元测试"
   echo "解释这段代码" | reasonix run

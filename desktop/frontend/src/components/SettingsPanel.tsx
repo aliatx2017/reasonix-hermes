@@ -241,7 +241,7 @@ export function SettingsPanel({
                       configPath={s.configPath}
                       checkUpdates={s.checkUpdates}
                       telemetry={s.telemetry !== false}
-                      metrics={s.metrics === true}
+                      metrics={s.metrics !== false}
                       settingsBusy={busy}
                       applySettings={apply}
                     />
@@ -838,7 +838,7 @@ function normalizeDisplayMode(mode: string | undefined): DisplayMode {
 type DesktopLayoutStyle = "classic" | "workbench";
 
 function normalizeDesktopLayoutStyle(style: string | undefined): DesktopLayoutStyle {
-  return style === "workbench" ? "workbench" : "classic";
+  return style === "classic" ? "classic" : "workbench";
 }
 
 function desktopLayoutStyleLabel(style: DesktopLayoutStyle, t: ReturnType<typeof useT>): string {
@@ -2047,8 +2047,6 @@ function BotsSection({ s, busy, apply, initialFocus }: BotsSectionProps) {
               <div className="bot-connection-table__header" role="row">
                 <span>{t("settings.botConnectionColumnChannel")}</span>
                 <span>{t("settings.botConnectionColumnName")}</span>
-                <span>{t("settings.botConnectionColumnRemote")}</span>
-                <span>{t("settings.botConnectionColumnScope")}</span>
                 <span>{t("settings.botConnectionColumnStatus")}</span>
                 <span>{t("settings.botConnectionColumnActions")}</span>
               </div>
@@ -2066,14 +2064,25 @@ function BotsSection({ s, busy, apply, initialFocus }: BotsSectionProps) {
                   return (
                     <div key={QQ_CONNECTION_ID} className="bot-connection-row" role="rowgroup">
                       <div className="bot-connection-row__grid" role="row">
-                        <div className="bot-connection-row__channel" role="cell">
-                          <span>QQ</span>
-                        </div>
-                        <strong className="bot-connection-row__name" role="cell">QQ Bot</strong>
-                        <code className="bot-connection-row__remote" role="cell" title={appID || undefined}>{appID || "—"}</code>
-                        <span className="bot-connection-row__scope" role="cell">{t("settings.botScopeGlobal")}</span>
-                        <div className="bot-connection-row__state" role="cell">
-                          <span className={`bot-connection-row__status bot-connection-row__status--${qqOnline ? "connected" : qqConfigured ? "configured" : "disconnected"}`}>
+                      <div className="bot-connection-row__channel" role="cell">
+                        <span>QQ</span>
+                      </div>
+                      <div className="bot-connection-row__identity-cell" role="cell">
+                        <button
+                          type="button"
+                          className="bot-connection-identity"
+                          disabled={busy}
+                          onClick={() => setExpandedConnectionId((current) => current === QQ_CONNECTION_ID ? "" : QQ_CONNECTION_ID)}
+                          title={appID || "QQ Bot"}
+                        >
+                          <span className="bot-connection-identity__main">
+                            <strong>QQ Bot</strong>
+                            <code>{appID || "—"}</code>
+                          </span>
+                        </button>
+                      </div>
+                      <div className="bot-connection-row__state" role="cell">
+                        <span className={`bot-connection-row__status bot-connection-row__status--${qqOnline ? "connected" : qqConfigured ? "configured" : "disconnected"}`}>
                             {statusText}
                           </span>
                           <ToggleSegment
@@ -2107,17 +2116,29 @@ function BotsSection({ s, busy, apply, initialFocus }: BotsSectionProps) {
                 const connection = item.connection;
                 const sessionID = firstConnectionRemote(connection);
                 const diagMessage = diagnosticMessage(diagnostics[connection.id]);
+                const connectionStatusClass = connection.status === "connected" ? "connected" : "disconnected";
                 return (
                   <div key={connection.id} className="bot-connection-row" role="rowgroup">
                     <div className="bot-connection-row__grid" role="row">
                       <div className="bot-connection-row__channel" role="cell">
                         <span>{botConnectionLabel(connection, t)}</span>
                       </div>
-                      <strong className="bot-connection-row__name" role="cell">{connection.label || botConnectionLabel(connection, t)}</strong>
-                      <code className="bot-connection-row__remote" role="cell" title={sessionID || undefined}>{sessionID || "—"}</code>
-                      <span className="bot-connection-row__scope" role="cell">{botConnectionScopeLabel(connection, t)}</span>
+                      <div className="bot-connection-row__identity-cell" role="cell">
+                        <button
+                          type="button"
+                          className="bot-connection-identity"
+                          disabled={busy}
+                          onClick={() => setExpandedConnectionId((current) => current === connection.id ? "" : connection.id)}
+                          title={sessionID || connection.label || botConnectionLabel(connection, t)}
+                        >
+                          <span className="bot-connection-identity__main">
+                            <strong>{connection.label || botConnectionLabel(connection, t)}</strong>
+                            <code>{sessionID || "—"}</code>
+                          </span>
+                        </button>
+                      </div>
                       <div className="bot-connection-row__state" role="cell">
-                        <span className={`bot-connection-row__status bot-connection-row__status--${connection.status === "connected" ? "connected" : "disconnected"}`}>
+                        <span className={`bot-connection-row__status bot-connection-row__status--${connectionStatusClass}`}>
                           {connection.status === "connected" ? t("settings.botConnectionConnected") : connection.status || t("settings.botConnectionDisconnected")}
                         </span>
                         <ToggleSegment
@@ -5314,7 +5335,7 @@ const mb = (n: number) => (n / MB).toFixed(1);
 
 // UpdatesSection is the manual side of the auto-updater: it shows the startup
 // check preference, running version, and a Check button, then the same state
-// machine the top banner uses (useUpdater) — available → install/download, with
+// machine the top banner uses (useUpdater) — available → download → install, with
 // progress and errors inline.
 function UpdatesSection({
   configPath,
@@ -5332,14 +5353,14 @@ function UpdatesSection({
   applySettings: (fn: () => Promise<void>) => Promise<void>;
 }) {
   const t = useT();
-  const { status, check, apply: applyUpdate } = useUpdater();
+  const { status, check, download: downloadUpdate, install: installUpdate } = useUpdater();
   const [version, setVersion] = useState("");
   useEffect(() => {
     app.Version().then(setVersion).catch(() => {});
   }, []);
 
   const updaterBusy =
-    status.kind === "checking" || status.kind === "downloading" || status.kind === "verifying" || status.kind === "applying";
+    status.kind === "checking" || status.kind === "downloading" || status.kind === "verifying" || status.kind === "installing";
 
   return (
     <SettingsSection title={t("updater.title")}>
@@ -5381,15 +5402,18 @@ function UpdatesSection({
           {status.kind === "checking" ? t("updater.checking") : t("updater.checkButton")}
         </button>
       </SettingsField>
+      {status.kind === "available" && (
+        <div className="mem-hint">{t("updater.channelLabel", { channel: status.info.channel || "stable" })}</div>
+      )}
       {status.kind === "upToDate" && <div className="mem-hint">{t("updater.upToDate")}</div>}
       {status.kind === "available" && (
         <>
           <SettingsField label={t("updater.available", { v: status.info.latest })}>
-            <button className="btn btn--primary btn--small" onClick={() => applyUpdate(status.info)}>
-              {status.info.canSelfUpdate ? t("updater.installNow") : t("updater.goToDownload")}
+            <button className="btn btn--primary btn--small" onClick={() => downloadUpdate(status.info)}>
+              {status.info.canSelfUpdate ? t("updater.downloadUpdate") : t("updater.goToDownload")}
             </button>
           </SettingsField>
-          {!status.info.canSelfUpdate && <div className="mem-hint">{t("updater.macHint")}</div>}
+          {!status.info.canSelfUpdate && <div className="mem-hint">{status.info.manualReason || t("updater.macHint")}</div>}
         </>
       )}
       {status.kind === "downloading" && (
@@ -5402,7 +5426,14 @@ function UpdatesSection({
         </div>
       )}
       {status.kind === "verifying" && <div className="mem-hint">{t("updater.verifying")}</div>}
-      {status.kind === "applying" && <div className="mem-hint">{t("updater.applying")}</div>}
+      {status.kind === "downloaded" && (
+        <SettingsField label={t("updater.downloaded", { v: status.info.latest })}>
+          <button className="btn btn--primary btn--small" onClick={installUpdate}>
+            {t("updater.restartInstall")}
+          </button>
+        </SettingsField>
+      )}
+      {status.kind === "installing" && <div className="mem-hint">{t("updater.installing")}</div>}
       {status.kind === "done" && <div className="mem-hint">{t("updater.done")}</div>}
       {status.kind === "error" && <div className="banner banner--error">{t("updater.failed", { msg: status.message })}</div>}
       {configPath && (

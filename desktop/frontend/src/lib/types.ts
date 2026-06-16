@@ -517,6 +517,10 @@ export interface CapabilitiesView {
   skills: SkillView[];
   skillRoots: SkillRootView[];
 }
+export interface SkillsSettingsView {
+  skills: SkillView[];
+  skillRoots: SkillRootView[];
+}
 export interface MCPServerInput {
   name: string;
   transport: string; // stdio | http | sse
@@ -1144,10 +1148,14 @@ export interface SettingsView {
   statusBarItems: string[]; // ordered visible status bar item ids
   checkUpdates: boolean; // check for new versions on startup
   telemetry: boolean; // anonymous launch ping (install id + version + OS)
+<<<<<<< HEAD
   metrics: boolean; // opt-in aggregate desktop metrics (anonymous signal/bucket counts)
   hotbar: HotbarView; // Hermes — configurable keyboard digit-key shortcuts
   profiles: Record<string, ProfileView>; // Hermes — named harness profiles
   activeProfile: string; // Hermes — currently active profile name ("" = none)
+=======
+  metrics: boolean; // aggregate desktop metrics (anonymous signal/bucket counts)
+>>>>>>> upstream/main-v2
   configPath: string;
   providerKinds: string[]; // provider implementations the kernel registered (for the kind picker)
   autoApproveTools: boolean;
@@ -1155,20 +1163,32 @@ export interface SettingsView {
 }
 
 // Auto-updater payloads (desktop/updater.go). UpdateInfo drives the update banner;
-// UpdateProgress streams on the "updater:progress" event during ApplyUpdate.
+// UpdateProgress streams on the "updater:progress" event during download/install.
 export interface UpdateInfo {
   available: boolean;
   current: string;
   latest: string;
   notes: string;
-  canSelfUpdate: boolean; // win/linux true; macOS false (no cert → manual download)
+  channel: string;
+  canSelfUpdate: boolean; // macOS true only for signed/notarized builds
+  manualOnly?: boolean;
+  manualReason?: string;
+  downloaded: boolean;
   downloadUrl: string; // human-facing releases page (macOS path / fallback link)
   assetSize: number; // running platform's artifact size, for the progress bar
   err?: string; // set when the check itself failed (both endpoints down)
 }
 
+export interface UpdateDownloadResult {
+  version: string;
+  channel: string;
+  path: string;
+  size: number;
+  sha256: string;
+}
+
 export interface UpdateProgress {
-  phase: "downloading" | "verifying" | "applying" | "done" | "error";
+  phase: "downloading" | "verifying" | "downloaded" | "installing" | "done" | "error";
   received: number;
   total: number;
   err?: string;

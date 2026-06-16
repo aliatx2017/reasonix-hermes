@@ -179,7 +179,7 @@ reasonix-memoryserver --backend sqlite --http --port 8080
 export DISCORD_BOT_TOKEN="..."
 reasonix-bot
 export DEEPSEEK_API_KEY=sk-...      # or let setup save it to the credential store
-reasonix chat                       # then run /init to generate AGENTS.md (project memory)
+reasonix                            # then run /init to generate AGENTS.md (project memory)
 reasonix run "implement the TODOs in main.go"
 reasonix run --model mimo-pro "add unit tests for this function"
 echo "explain this code" | reasonix run

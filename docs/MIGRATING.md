@@ -30,7 +30,7 @@ without asking. v1.x (Go) ships under the `next` tag; opt in explicitly:
 
 ```sh
 npm i -g reasonix@next     # or pin a version: reasonix@1.1.0
-reasonix chat
+reasonix
 ```
 
 `latest` will stay on `0.x` for the foreseeable future, so installing or

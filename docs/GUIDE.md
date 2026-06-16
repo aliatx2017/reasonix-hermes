@@ -205,7 +205,7 @@ Permissions gate each tool call: `deny` > `ask` > `allow` > fallback. Bash and
 file mutation tools require approval by default; read-only tools generally do
 not. Approvals are stored and matched as permission rules, not button labels:
 for example `Bash(npm run build)`, `Bash(npm run test:*)`, and `Edit(docs/**)`.
-`reasonix chat` can grant Bash as an exact command or as a conservative command
+`reasonix` can grant Bash as an exact command or as a conservative command
 prefix (for example `Bash(go test:*)`), while file-editing tools share session
 edit grants and persist path-scoped rules such as `Edit(src/app.go)`.
 `reasonix run` stays autonomous but still honours `deny`.
@@ -276,7 +276,7 @@ convenient.
 
 ## Slash commands
 
-In `reasonix chat`, built-in commands (`/compact`, `/new`, `/clear`, `/rewind`,
+In an interactive `reasonix` session, built-in commands (`/compact`, `/new`, `/clear`, `/rewind`,
 `/tree`, `/branch`, `/switch`, `/todo`, `/model`, `/mcp`, `/skills`, `/hooks`,
 `/memory`, `/output-style`, `/sandbox`, `/language`, `/auto-plan`, `/goal`,
 `/effort`, `/diff-fold`, `/reasoning-language`, `/help`) run
@@ -363,9 +363,9 @@ automatically: Reasonix first drafts a read-only plan, then waits for approval
 before editing or running side-effecting commands. `auto_plan_classifier` can
 name a cheap provider such as `deepseek-flash`; it is only called for borderline
 inputs and falls back to the heuristic if classification fails. Use
-`/auto-plan off|on` in `reasonix chat` to change the user-level setting, or
+`/auto-plan off|on` inside `reasonix` to change the user-level setting, or
 `reasonix config auto-plan off|on` from a shell/script. The visible reasoning
-language uses the same shape: `/reasoning-language auto|zh|en` in chat, or
+language uses the same shape: `/reasoning-language auto|zh|en` in the session, or
 `reasonix config reasoning-language auto|zh|en` in a shell/script. Pass
 `--local` to the shell command only when you intentionally want a project-local
 override.

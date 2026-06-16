@@ -7,7 +7,7 @@ var English = Messages{
 	WelcomeTitleFmt: "Welcome to %s",
 	NoConfigYet:     "No configuration found yet — let's set it up.",
 	StartingChatFmt: "Starting %s…",
-	SetKeyHint:      "Set your API key, then run `reasonix chat`.",
+	SetKeyHint:      "Set your API key, then run `reasonix`.",
 	ConfigLabel:     "config",
 	ModelsLabel:     "models",
 	ConfigNotFound:  "not found — using built-in defaults",
@@ -18,7 +18,7 @@ var English = Messages{
 	StepScaffold:    "scaffold reasonix.toml",
 	StepSetKey:      "set API key",
 
-	InitHint:       "Project memory (AGENTS.md) is generated in-session: run `reasonix chat`, then `/init` — the model analyzes the codebase and writes it. For configuration, use `reasonix setup`.",
+	InitHint:       "Project memory (AGENTS.md) is generated in-session: run `reasonix`, then `/init` — the model analyzes the codebase and writes it. For configuration, use `reasonix setup`.",
 	StepSetKeyHint: "run `reasonix setup`, or export DEEPSEEK_API_KEY=…",
 	StepChatDesc:   "interactive session",
 	StepRunDesc:    "one-shot task",
@@ -26,7 +26,7 @@ var English = Messages{
 
 	ChatTip:           "Context is kept across turns. Type 'exit' or Ctrl-D to quit.",
 	TurnCancelled:     "cancelled — back to prompt",
-	NoSessionToResume: "no saved session to resume — start a new one with `reasonix chat`",
+	NoSessionToResume: "no saved session to resume — start a new one with `reasonix`",
 	ResumeRequiresTTY: "--resume needs an interactive terminal; pass --continue for the most recent session",
 	PickSessionLabel:  "Resume which session?",
 
@@ -366,7 +366,7 @@ var English = Messages{
 	UsageBody: `reasonix — a config- and plugin-driven coding agent (multi-model)
 
 Usage:
-  reasonix chat [--model NAME] [-c|--continue] [--resume]   interactive session (multi-turn; -c resumes the latest, --resume picks one)
+  reasonix [--model NAME] [-c|--continue] [--resume]        interactive session (multi-turn; -c resumes the latest, --resume picks one)
   reasonix run  [--model NAME] [--max-steps N] [-c|--continue] [--resume PATH] <task>   run one task and exit
   reasonix serve [--model NAME] [--addr HOST:PORT]      serve the session over HTTP+SSE (browser client at /)
   reasonix acp [--model NAME]                           serve Agent Client Protocol over stdio (also: reasonix --acp)
@@ -381,8 +381,8 @@ Usage:
   reasonix help
 
 Examples:
-  reasonix chat
-  reasonix chat --continue
+  reasonix
+  reasonix --continue
   reasonix run "implement the TODOs in main.go"
   reasonix run --model mimo-pro "add unit tests for this function"
   echo "explain this code" | reasonix run

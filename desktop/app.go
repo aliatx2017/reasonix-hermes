@@ -118,6 +118,15 @@ type App struct {
 	// reached by ↑ navigation. See ScanPromptHistory.
 	promptHistoryMu   sync.Mutex
 	promptHistoryTape *promptHistoryTape
+
+	skillRootsMu    sync.Mutex
+	skillRootsCache skillRootsCache
+}
+
+type skillRootsCache struct {
+	key   string
+	at    time.Time
+	roots []SkillRootView
 }
 
 // mediaTokenEntry holds metadata for a workspace media file served via temporary URL.
@@ -3306,6 +3315,13 @@ type CapabilitiesView struct {
 	SkillRoots []SkillRootView `json:"skillRoots"`
 }
 
+// SkillsSettingsView is the skills management page's data, split from MCP
+// status so opening MCP settings does not scan skill roots.
+type SkillsSettingsView struct {
+	Skills     []SkillView     `json:"skills"`
+	SkillRoots []SkillRootView `json:"skillRoots"`
+}
+
 // ServerView is one MCP server for the drawer. Status is "connected" (with
 // tool/prompt/resource counts), "deferred" (lazy/on-demand startup enabled),
 // "failed" (with the connection error), "initializing" (background startup in
@@ -3369,11 +3385,59 @@ type SkillRootView struct {
 // Capabilities projects the session's MCP servers (connected + failed) and skills
 // for the MCP & Skills drawer. Non-nil slices so the frontend can map over them.
 func (a *App) Capabilities() CapabilitiesView {
-	out := CapabilitiesView{Servers: []ServerView{}, Skills: []SkillView{}, SkillRoots: []SkillRootView{}}
+	skills := a.SkillsSettings()
+	return CapabilitiesView{
+		Servers:    a.MCPServers(),
+		Skills:     skills.Skills,
+		SkillRoots: skills.SkillRoots,
+	}
+}
+
+// MCPServers returns only MCP server status for settings pages that do not need
+// skill discovery.
+func (a *App) MCPServers() []ServerView {
+	return a.mcpServersView()
+}
+
+// SkillsSettings returns the skills management snapshot without MCP status.
+func (a *App) SkillsSettings() SkillsSettingsView {
+	out := SkillsSettingsView{Skills: []SkillView{}, SkillRoots: []SkillRootView{}}
 	a.mu.RLock()
 	tab := a.activeTabLocked()
+	var ctrl *control.Controller
+	if tab != nil {
+		ctrl = tab.Ctrl
+	}
 	a.mu.RUnlock()
+	if ctrl == nil {
+		return out
+	}
+
+	disabled := map[string]bool{}
+	if cfg, err := config.Load(); err == nil {
+		for _, name := range cfg.Skills.DisabledSkills {
+			if key := config.SkillNameKey(name); key != "" {
+				disabled[key] = true
+			}
+		}
+	}
+	for _, s := range ctrl.AllSkills() {
+		out.Skills = append(out.Skills, SkillView{
+			Name: s.Name, Description: s.Description,
+			Scope: string(s.Scope), RunAs: string(s.RunAs),
+			Enabled: !disabled[config.SkillNameKey(s.Name)],
+		})
+	}
+	out.SkillRoots = a.cachedSkillRootsView()
+	return out
+}
+
+func (a *App) mcpServersView() []ServerView {
+	out := []ServerView{}
+	a.mu.RLock()
+	tab := a.activeTabLocked()
 	if tab == nil {
+		a.mu.RUnlock()
 		return out
 	}
 	ctrl := tab.Ctrl
@@ -3382,6 +3446,9 @@ func (a *App) Capabilities() CapabilitiesView {
 		disabled[name] = s
 	}
 	order := append([]string(nil), tab.mcpOrder...)
+	workspaceRoot := tab.WorkspaceRoot
+	tabID := tab.ID
+	a.mu.RUnlock()
 	if ctrl == nil {
 		return out
 	}
@@ -3390,7 +3457,7 @@ func (a *App) Capabilities() CapabilitiesView {
 	retainedDisabled := map[string]ServerView{}
 	configured := map[string]config.PluginEntry{}
 	var configuredEntries []config.PluginEntry
-	if cfg, err := config.LoadForRoot(tab.WorkspaceRoot); err == nil {
+	if cfg, err := config.LoadForRoot(workspaceRoot); err == nil {
 		configuredEntries = append(configuredEntries, cfg.Plugins...)
 		for _, p := range configuredEntries {
 			configured[p.Name] = p
@@ -3408,7 +3475,7 @@ func (a *App) Capabilities() CapabilitiesView {
 			if p, ok := configured[s.Name]; ok {
 				view = withPluginConfig(view, p)
 			}
-			out.Servers = append(out.Servers, view)
+			out = append(out, view)
 		}
 		for _, f := range h.Failures() {
 			seen[f.Name] = true
@@ -3418,7 +3485,7 @@ func (a *App) Capabilities() CapabilitiesView {
 			if p, ok := configured[f.Name]; ok {
 				view = withPluginConfig(view, p)
 			}
-			out.Servers = append(out.Servers, view)
+			out = append(out, view)
 		}
 	}
 	// Configured servers that are neither connected nor failed are either lazy
@@ -3432,7 +3499,7 @@ func (a *App) Capabilities() CapabilitiesView {
 				s.Status = "disabled"
 				s = withPluginConfig(s, p)
 				s.Error = ""
-				out.Servers = append(out.Servers, s)
+				out = append(out, s)
 				retainedDisabled[p.Name] = s
 				seen[p.Name] = true
 				delete(disabled, p.Name)
@@ -3447,28 +3514,21 @@ func (a *App) Capabilities() CapabilitiesView {
 					status = "deferred"
 				}
 			}
-			out.Servers = append(out.Servers, withPluginConfig(ServerView{Name: p.Name, Status: status}, p))
+			out = append(out, withPluginConfig(ServerView{Name: p.Name, Status: status}, p))
 			seen[p.Name] = true
 		}
 	}
-	out.Servers = orderServerViews(out.Servers, order)
+	out = orderServerViews(out, order)
 
 	a.mu.Lock()
-	for name := range connected {
-		delete(retainedDisabled, name)
+	if tab, ok := a.tabs[tabID]; ok {
+		for name := range connected {
+			delete(retainedDisabled, name)
+		}
+		tab.disabledMCP = retainedDisabled
+		tab.mcpOrder = mergeServerOrder(tab.mcpOrder, out)
 	}
-	tab.disabledMCP = retainedDisabled
-	tab.mcpOrder = mergeServerOrder(tab.mcpOrder, out.Servers)
 	a.mu.Unlock()
-
-	for _, s := range ctrl.AllSkills() {
-		out.Skills = append(out.Skills, SkillView{
-			Name: s.Name, Description: s.Description,
-			Scope: string(s.Scope), RunAs: string(s.RunAs),
-			Enabled: ctrl.SkillEnabled(s.Name),
-		})
-	}
-	out.SkillRoots = skillRootsView()
 	return out
 }
 
@@ -3498,10 +3558,49 @@ func withPluginConfig(v ServerView, p config.PluginEntry) ServerView {
 	return v
 }
 
+const skillRootsCacheTTL = 10 * time.Second
+
+func (a *App) cachedSkillRootsView() []SkillRootView {
+	cwd, _ := os.Getwd()
+	cfg, _ := config.Load()
+	userCfg := config.LoadForEdit(config.UserConfigPath())
+	key := skillRootsCacheKey(cwd, cfg, userCfg)
+
+	now := time.Now()
+	a.skillRootsMu.Lock()
+	if a.skillRootsCache.key == key && now.Sub(a.skillRootsCache.at) < skillRootsCacheTTL {
+		roots := cloneSkillRootViews(a.skillRootsCache.roots)
+		a.skillRootsMu.Unlock()
+		return roots
+	}
+	a.skillRootsMu.Unlock()
+
+	roots := skillRootsViewFrom(cwd, cfg, userCfg)
+
+	a.skillRootsMu.Lock()
+	a.skillRootsCache = skillRootsCache{
+		key:   key,
+		at:    now,
+		roots: cloneSkillRootViews(roots),
+	}
+	a.skillRootsMu.Unlock()
+	return roots
+}
+
+func (a *App) invalidateSkillRootsCache() {
+	a.skillRootsMu.Lock()
+	a.skillRootsCache = skillRootsCache{}
+	a.skillRootsMu.Unlock()
+}
+
 func skillRootsView() []SkillRootView {
 	cwd, _ := os.Getwd()
 	cfg, _ := config.Load()
 	userCfg := config.LoadForEdit(config.UserConfigPath())
+	return skillRootsViewFrom(cwd, cfg, userCfg)
+}
+
+func skillRootsViewFrom(cwd string, cfg, userCfg *config.Config) []SkillRootView {
 	var custom []string
 	var excluded []string
 	maxDepth := 3
@@ -3568,6 +3667,48 @@ func skillRootsView() []SkillRootView {
 	return out
 }
 
+func skillRootsCacheKey(cwd string, cfg, userCfg *config.Config) string {
+	type cacheKey struct {
+		CWD       string   `json:"cwd"`
+		Custom    []string `json:"custom"`
+		Excluded  []string `json:"excluded"`
+		MaxDepth  int      `json:"maxDepth"`
+		UserPaths []string `json:"userPaths"`
+	}
+	key := cacheKey{CWD: config.CanonicalSkillPath(cwd), MaxDepth: 3}
+	if cfg != nil {
+		key.Custom = canonicalSkillPaths(cfg.SkillCustomPaths())
+		key.Excluded = canonicalSkillPaths(cfg.SkillExcludedPaths())
+		key.MaxDepth = cfg.SkillMaxDepth()
+	}
+	if userCfg != nil {
+		key.UserPaths = canonicalSkillPaths(userCfg.Skills.Paths)
+	}
+	b, err := json.Marshal(key)
+	if err != nil {
+		return fmt.Sprintf("%s|%v|%v|%d|%v", key.CWD, key.Custom, key.Excluded, key.MaxDepth, key.UserPaths)
+	}
+	return string(b)
+}
+
+func canonicalSkillPaths(paths []string) []string {
+	out := make([]string, 0, len(paths))
+	for _, p := range paths {
+		out = append(out, config.CanonicalSkillPath(p))
+	}
+	sort.Strings(out)
+	return out
+}
+
+func cloneSkillRootViews(in []SkillRootView) []SkillRootView {
+	out := make([]SkillRootView, len(in))
+	for i, r := range in {
+		out[i] = r
+		out[i].SkillItems = append([]SkillRootSkillView(nil), r.SkillItems...)
+	}
+	return out
+}
+
 func rootActive(roots []SkillRootView, path string) bool {
 	want := config.CanonicalSkillPath(path)
 	for _, r := range roots {
@@ -3600,39 +3741,52 @@ func (a *App) PickSkillFolder() (string, error) {
 func (a *App) AddSkillPath(path string) error {
 	path = normalizeSkillPath(path)
 	workspaceRoot := a.activeWorkspaceRoot()
-	return a.applyConfigChange(func(c *config.Config) error {
+	err := a.applyConfigChange(func(c *config.Config) error {
 		if isConventionSkillRoot(path, workspaceRoot) {
 			return c.RestoreSkillPath(path)
 		}
 		return c.AddSkillPath(path)
 	})
+	if err == nil {
+		a.invalidateSkillRootsCache()
+	}
+	return err
 }
 
 // RemoveSkillPath removes a skill source from the user config and rebuilds. For
 // convention roots, it records a pseudo-delete in excluded_paths.
 func (a *App) RemoveSkillPath(path string) error {
 	path = normalizeSkillPath(path)
-	return a.applyConfigChange(func(c *config.Config) error {
+	err := a.applyConfigChange(func(c *config.Config) error {
 		removed, err := c.RemoveSkillPath(path)
 		if err != nil || removed {
 			return err
 		}
 		return c.ExcludeSkillPath(path)
 	})
+	if err == nil {
+		a.invalidateSkillRootsCache()
+	}
+	return err
 }
 
 // RefreshSkills rebuilds the controller without changing config, reloading skill
 // discovery, the system prompt index, and slash completions.
 func (a *App) RefreshSkills() error {
+	a.invalidateSkillRootsCache()
 	return a.rebuild()
 }
 
 // SetSkillEnabled persists a skill toggle and rebuilds the controller so the
 // prompt index, slash menu, and skill tools reflect it immediately.
 func (a *App) SetSkillEnabled(name string, enabled bool) error {
-	return a.applyConfigChange(func(c *config.Config) error {
+	err := a.applyConfigChange(func(c *config.Config) error {
 		return c.SetSkillEnabled(name, enabled)
 	})
+	if err == nil {
+		a.invalidateSkillRootsCache()
+	}
+	return err
 }
 
 func normalizeSkillPath(path string) string {

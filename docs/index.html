@@ -170,9 +170,15 @@
   </div>
 
   <div class="term">
+<<<<<<< HEAD
     <div class="tbar"><i></i><i></i><i></i><span>~/app — reasonix chat</span></div>
     <div class="tbody"><span class="u">$</span> reasonix chat
 <span class="i">reasonix v1.8.x · model deepseek-v4-flash · ~/app</span>
+=======
+    <div class="tbar"><i></i><i></i><i></i><span>~/app — reasonix</span></div>
+    <div class="tbody"><span class="u">$</span> reasonix
+<span class="i">reasonix v1.0.0 · model deepseek-v4-flash · ~/app</span>
+>>>>>>> upstream/main-v2
 <span class="d">cache 94.2% hit · session 18m · cost $0.043</span>
 <span class="u">›</span> add retry with backoff to the http client
 <span class="e">edit</span>  internal/net/client.go        <span class="c">+24 −3</span>
@@ -193,10 +199,23 @@
     <button class="tab" data-tab="desk"><span data-en>Desktop</span><span data-zh>桌面端</span></button>
   </div>
   <div class="panel on" data-panel="npm">
+<<<<<<< HEAD
     <div class="block"><button class="cp" data-copy="npm i -g reasonix-hermes"><span data-en>Copy</span><span data-zh>复制</span></button><pre><span class="p">$</span> npm i -g reasonix-hermes
 <span class="p">$</span> reasonix setup        <span class="c"># config wizard → ./reasonix.toml</span>
 <span class="p">$</span> reasonix chat         <span class="c"># or: reasonix run "implement the TODOs"</span></pre></div>
     <p class="undertext"><span data-en>Any OS · macOS, Linux, Windows × amd64/arm64. Ships Hermes bots + MCP bridges + desktop.</span><span data-zh>任意系统 · macOS、Linux、Windows × amd64/arm64。附带 Hermes 机器人 + MCP 桥接 + 桌面端。</span></p>
+=======
+    <div class="block"><button class="cp" data-copy="npm i -g reasonix
+reasonix setup
+reasonix"><span data-en>Copy</span><span data-zh>复制</span></button><pre><span class="p">$</span> npm i -g reasonix
+<span class="p">$</span> reasonix setup        <span class="c"># config wizard → ./reasonix.toml</span>
+<span class="p">$</span> reasonix         <span class="c"># or: reasonix run "implement the TODOs"</span></pre></div>
+    <p class="undertext"><span data-en>Any OS · macOS, Linux, Windows × amd64/arm64. Short alias <code>dsnix</code> too.</span><span data-zh>任意系统 · macOS、Linux、Windows × amd64/arm64。</span></p>
+  </div>
+  <div class="panel" data-panel="brew">
+    <div class="block"><button class="cp" data-copy="brew install esengine/reasonix/reasonix"><span data-en>Copy</span><span data-zh>复制</span></button><pre><span class="p">$</span> brew install esengine/reasonix/reasonix</pre></div>
+    <p class="undertext"><span data-en>macOS. The cask pulls the archive from the latest release.</span><span data-zh>macOS。cask 从最新 release 拉取归档。</span></p>
+>>>>>>> upstream/main-v2
   </div>
   <div class="panel" data-panel="desk">
     <div class="dls">

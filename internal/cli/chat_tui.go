@@ -4375,7 +4375,11 @@ func formatBytes(n int) string {
 // at the top of the session (kept as fallback for narrow terminals).
 func renderTUIBanner(label, missing string, width int) string {
 	var b strings.Builder
+<<<<<<< HEAD
 	b.WriteString(logoGradient("◆ reasonix chat") + "  " + dim("· "+label) + "\n")
+=======
+	b.WriteString(accent("◆") + " " + bold("reasonix") + "  " + dim("· "+label) + "\n")
+>>>>>>> upstream/main-v2
 	b.WriteString(dim("  "+i18n.M.ChatTip) + "\n")
 	if missing != "" {
 		b.WriteString(wrapForViewport("  ! "+missing, width, activeCLITheme.warn) + "\n")

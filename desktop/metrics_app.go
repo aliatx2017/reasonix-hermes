@@ -17,12 +17,11 @@ import (
 	"reasonix/internal/event"
 )
 
-// metrics_app.go is the opt-in aggregate desktop-metrics flush: anonymous
-// (signal, bucket) counters observed from the event stream and safe desktop
-// preference snapshots, POSTed once per launch. Never carries content, keys,
-// prompts, paths, or base URLs; custom provider/model identifiers are normalized
-// into bounded buckets. Gated on config desktop.metrics (default off),
-// dev-skipped.
+// metrics_app.go is the aggregate desktop-metrics flush: anonymous (signal,
+// bucket) counters observed from the event stream and safe desktop preference
+// snapshots, POSTed once per launch. Never carries content, keys, prompts, paths,
+// or base URLs; custom provider/model identifiers are normalized into bounded
+// buckets. Gated on config desktop.metrics (default on), dev-skipped.
 
 var metricsEndpoint = "https://crash.reasonix.io/v1/metrics"
 

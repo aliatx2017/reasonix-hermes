@@ -416,10 +416,18 @@ func (a *App) Settings() SettingsView {
 				Ask:   []string{},
 				Deny:  []string{},
 			},
+<<<<<<< HEAD
 			Sandbox:           SandboxView{Bash: "enforce", AllowWrite: []string{}, Shell: "auto"},
 			Agent:             AgentView{PlannerMaxSteps: 12, ColdResumePrune: true, ReasoningLanguage: "auto"},
 			Bot:               botSettingsView(config.BotConfig{}),
 			AutoPlan:          "off",
+=======
+			Sandbox:            SandboxView{Bash: "enforce", AllowWrite: []string{}, Shell: "auto"},
+			Agent:              AgentView{PlannerMaxSteps: 12, ColdResumePrune: true, ReasoningLanguage: "auto"},
+			Bot:                botSettingsView(config.BotConfig{}),
+			AutoPlan:           "off",
+			DesktopLayoutStyle: "workbench",
+>>>>>>> upstream/main-v2
 			DesktopTheme:       "auto",
 			DesktopThemeStyle:  "graphite",
 			DesktopLayoutStyle: "classic",
@@ -429,7 +437,7 @@ func (a *App) Settings() SettingsView {
 			StatusBarItems:     config.DefaultDesktopStatusBarItems(),
 			CheckUpdates:       true,
 			Telemetry:          true,
-			Metrics:            false,
+			Metrics:            true,
 			ExpandThinking:     false,
 			Hotbar:             defaultHotbarView(),
 			Profiles:           map[string]ProfileView{},
@@ -1629,7 +1637,7 @@ func (a *App) SetDesktopTelemetry(enabled bool) error {
 	return a.applyConfigOnly(func(c *config.Config) error { return c.SetDesktopTelemetry(enabled) })
 }
 
-// SetDesktopMetrics sets whether the desktop sends opt-in aggregate desktop metrics,
+// SetDesktopMetrics sets whether the desktop sends aggregate desktop metrics,
 // starting or stopping the live aggregator so the toggle takes effect immediately.
 func (a *App) SetDesktopMetrics(enabled bool) error {
 	if err := a.applyConfigOnly(func(c *config.Config) error { return c.SetDesktopMetrics(enabled) }); err != nil {

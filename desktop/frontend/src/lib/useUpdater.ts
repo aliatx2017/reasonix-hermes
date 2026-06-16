@@ -2,13 +2,11 @@ import { useCallback, useEffect, useState } from 'react';
 import { app, onUpdaterProgress } from './bridge';
 import type { UpdateInfo } from './types';
 
-// useUpdater drives the auto-update state machine shared by the top banner (auto
-// check on startup) and the Settings panel (manual check): a manifest check, then
-// either an in-place apply (win/linux, streaming progress on the "updater:progress"
-// event) or the macOS manual-download fallback. The progress subscription lives for
-// the hook's lifetime so it unsubscribes on unmount.
+// useUpdater drives the auto-update state machine shared by the top banner and the
+// Settings panel: check, download/verify, then a separate restart/install action.
 
 export type UpdateStatus =
+<<<<<<< HEAD
   | { kind: 'idle' }
   | { kind: 'checking' }
   | { kind: 'upToDate'; current: string }
@@ -18,11 +16,24 @@ export type UpdateStatus =
   | { kind: 'applying'; info: UpdateInfo }
   | { kind: 'done' }
   | { kind: 'error'; message: string };
+=======
+  | { kind: "idle" }
+  | { kind: "checking" }
+  | { kind: "upToDate"; current: string }
+  | { kind: "available"; info: UpdateInfo }
+  | { kind: "downloading"; received: number; total: number; info: UpdateInfo }
+  | { kind: "verifying"; info: UpdateInfo }
+  | { kind: "downloaded"; info: UpdateInfo }
+  | { kind: "installing"; info?: UpdateInfo }
+  | { kind: "done" }
+  | { kind: "error"; message: string };
+>>>>>>> upstream/main-v2
 
 export interface Updater {
   status: UpdateStatus;
   check: () => Promise<void>;
-  apply: (info: UpdateInfo) => void;
+  download: (info: UpdateInfo) => void;
+  install: () => void;
   openDownload: () => void;
   reset: () => void;
 }
@@ -42,6 +53,7 @@ export function useUpdater(): Updater {
       setStatus((cur) => {
         const info = 'info' in cur ? cur.info : undefined;
         switch (p.phase) {
+<<<<<<< HEAD
           case 'downloading':
             return info ? { kind: 'downloading', received: p.received, total: p.total, info } : cur;
           case 'verifying':
@@ -52,6 +64,20 @@ export function useUpdater(): Updater {
             return { kind: 'done' };
           case 'error':
             return { kind: 'error', message: p.err ?? 'update failed' };
+=======
+          case "downloading":
+            return info ? { kind: "downloading", received: p.received, total: p.total, info } : cur;
+          case "verifying":
+            return info ? { kind: "verifying", info } : cur;
+          case "downloaded":
+            return info ? { kind: "downloaded", info: { ...info, downloaded: true } } : cur;
+          case "installing":
+            return { kind: "installing", info };
+          case "done":
+            return { kind: "done" };
+          case "error":
+            return { kind: "error", message: p.err ?? "update failed" };
+>>>>>>> upstream/main-v2
           default:
             return cur;
         }
@@ -71,25 +97,45 @@ export function useUpdater(): Updater {
         setStatus({ kind: 'error', message: info.err });
         return;
       }
+<<<<<<< HEAD
       setStatus(
         info.available ? { kind: 'available', info } : { kind: 'upToDate', current: info.current },
       );
+=======
+      if (!info.available) {
+        setStatus({ kind: "upToDate", current: info.current });
+        return;
+      }
+      setStatus(info.downloaded ? { kind: "downloaded", info } : { kind: "available", info });
+>>>>>>> upstream/main-v2
     } catch (e) {
       setStatus({ kind: 'error', message: errMsg(e) });
     }
   }, []);
 
-  // apply takes the already-fetched info (rather than reading state) so there's no
-  // side effect inside a state updater. macOS can't self-update → open the page.
-  const apply = useCallback((info: UpdateInfo) => {
+  const download = useCallback((info: UpdateInfo) => {
     if (!info.canSelfUpdate) {
       void app.OpenDownloadPage();
       return;
     }
+<<<<<<< HEAD
     setStatus({ kind: 'downloading', received: 0, total: info.assetSize, info });
     // On success the process exits/relaunches and this never resolves; a failure
     // surfaces here (the "updater:progress" error event also covers backend faults).
     void app.ApplyUpdate().catch((e) => setStatus({ kind: 'error', message: errMsg(e) }));
+=======
+    setStatus({ kind: "downloading", received: 0, total: info.assetSize, info });
+    void app.DownloadUpdate()
+      .then((result) => {
+        if (result) setStatus({ kind: "downloaded", info: { ...info, downloaded: true } });
+      })
+      .catch((e) => setStatus({ kind: "error", message: errMsg(e) }));
+  }, []);
+
+  const install = useCallback(() => {
+    setStatus((cur) => ("info" in cur ? { kind: "installing", info: cur.info } : { kind: "installing" }));
+    void app.InstallUpdate().catch((e) => setStatus({ kind: "error", message: errMsg(e) }));
+>>>>>>> upstream/main-v2
   }, []);
 
   const openDownload = useCallback(() => {
@@ -98,5 +144,5 @@ export function useUpdater(): Updater {
 
   const reset = useCallback(() => setStatus({ kind: 'idle' }), []);
 
-  return { status, check, apply, openDownload, reset };
+  return { status, check, download, install, openDownload, reset };
 }
