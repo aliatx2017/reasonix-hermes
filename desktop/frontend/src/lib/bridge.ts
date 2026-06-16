@@ -414,6 +414,9 @@ declare global {
 
 // Must match desktop/app.go's eventChannel constant.
 const EVENT_CHANNEL = "agent:event";
+const RECENT_NATIVE_FILE_DRAG_MS = 2000;
+const WAILS_NON_FILE_DRAG_MESSAGE = "additional File object is not a file on the disk";
+const UNCAUGHT_ERROR_PREFIX_RE = /^Uncaught(?:\s+\(in promise\))?(?:\s+\w*Error)?:\s*/i;
 
 // Resolve the Wails binding at CALL time, not module-load time: in dev the Wails
 // runtime can inject window.go AFTER this module first evaluates, so snapshotting
@@ -457,6 +460,85 @@ export function onBuiltInMCPUpdate(cb: (status: BuiltInMCPUpdateStatus) => void)
   return () => {};
 }
 
+function errorMessage(err: unknown): string {
+  if (err && typeof err === "object" && "message" in err) {
+    const msg = (err as { message?: unknown }).message;
+    if (typeof msg === "string") return msg;
+  }
+  return String(err);
+}
+
+export function isWailsNonFileDragError(err: unknown, recentNativeFileDrag = false): boolean {
+  const msg = errorMessage(err).trim().replace(UNCAUGHT_ERROR_PREFIX_RE, "");
+  if (msg.includes(WAILS_NON_FILE_DRAG_MESSAGE)) return true;
+  return recentNativeFileDrag && msg.toLowerCase() === "invalid argument";
+}
+
+export function isWailsNonFileDragErrorEvent(
+  event: Pick<ErrorEvent, "error" | "message">,
+  recentNativeFileDrag = false,
+): boolean {
+  if (isWailsNonFileDragError(event.error ?? event.message, recentNativeFileDrag)) return true;
+  return event.error != null && isWailsNonFileDragError(event.message, recentNativeFileDrag);
+}
+
+function dataTransferLooksLikeFileDrag(dt: DataTransfer | null): boolean {
+  if (!dt) return false;
+  if (dt.files?.length > 0) return true;
+  return Array.from(dt.types ?? []).includes("Files");
+}
+
+let wailsDragSuppressionRefs = 0;
+let wailsDragSuppressionUninstall: (() => void) | null = null;
+let lastNativeFileDragAt = 0;
+
+export function installWailsNonFileDragErrorSuppression(): () => void {
+  if (typeof window === "undefined") return () => {};
+
+  wailsDragSuppressionRefs += 1;
+  if (!wailsDragSuppressionUninstall) {
+    const markNativeFileDrag = (e: DragEvent) => {
+      if (dataTransferLooksLikeFileDrag(e.dataTransfer)) lastNativeFileDragAt = Date.now();
+    };
+    const hasRecentNativeFileDrag = () => Date.now() - lastNativeFileDragAt <= RECENT_NATIVE_FILE_DRAG_MS;
+    const suppressNonFileDragError = (e: ErrorEvent) => {
+      if (isWailsNonFileDragErrorEvent(e, hasRecentNativeFileDrag())) {
+        e.preventDefault();
+      }
+    };
+    const suppressNonFileDragRejection = (e: PromiseRejectionEvent) => {
+      if (isWailsNonFileDragError(e.reason, hasRecentNativeFileDrag())) {
+        e.preventDefault();
+      }
+    };
+
+    window.addEventListener("dragenter", markNativeFileDrag, true);
+    window.addEventListener("dragover", markNativeFileDrag, true);
+    window.addEventListener("drop", markNativeFileDrag, true);
+    window.addEventListener("error", suppressNonFileDragError);
+    window.addEventListener("unhandledrejection", suppressNonFileDragRejection);
+    wailsDragSuppressionUninstall = () => {
+      window.removeEventListener("dragenter", markNativeFileDrag, true);
+      window.removeEventListener("dragover", markNativeFileDrag, true);
+      window.removeEventListener("drop", markNativeFileDrag, true);
+      window.removeEventListener("error", suppressNonFileDragError);
+      window.removeEventListener("unhandledrejection", suppressNonFileDragRejection);
+      lastNativeFileDragAt = 0;
+    };
+  }
+
+  let disposed = false;
+  return () => {
+    if (disposed) return;
+    disposed = true;
+    wailsDragSuppressionRefs = Math.max(0, wailsDragSuppressionRefs - 1);
+    if (wailsDragSuppressionRefs === 0 && wailsDragSuppressionUninstall) {
+      wailsDragSuppressionUninstall();
+      wailsDragSuppressionUninstall = null;
+    }
+  };
+}
+
 // onFilesDropped subscribes to native OS file drops landing on the composer (the
 // --wails-drop-target element); the callback gets the dropped files' absolute
 // paths. No-op in the browser dev mock, where the runtime is absent.
@@ -467,27 +549,14 @@ export function onFilesDropped(cb: (paths: string[]) => void): () => void {
   // Wails' internal ResolveFilePaths throws when a non-file object (e.g. the
   // window icon) is dragged onto the webview. The error is uncaught and crashes
   // the app. Intercept it here so only real file drops reach the callback.
-  const suppressNonFileDragError = (e: ErrorEvent) => {
-    if (e.message?.includes("additional File object is not a file on the disk")) {
-      e.preventDefault();
-    }
-  };
-  const suppressNonFileDragRejection = (e: PromiseRejectionEvent) => {
-    const msg = e.reason?.message ?? String(e.reason);
-    if (msg.includes("additional File object is not a file on the disk")) {
-      e.preventDefault();
-    }
-  };
-  window.addEventListener("error", suppressNonFileDragError);
-  window.addEventListener("unhandledrejection", suppressNonFileDragRejection);
+  const uninstallDragSuppression = installWailsNonFileDragErrorSuppression();
 
   rt.OnFileDrop((_x, _y, paths) => {
     if (Array.isArray(paths) && paths.length > 0) cb(paths);
   }, true);
   return () => {
     rt.OnFileDropOff?.();
-    window.removeEventListener("error", suppressNonFileDragError);
-    window.removeEventListener("unhandledrejection", suppressNonFileDragRejection);
+    uninstallDragSuppression();
   };
 }
 

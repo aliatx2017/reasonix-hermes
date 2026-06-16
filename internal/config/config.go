@@ -960,6 +960,11 @@ type AgentConfig struct {
 	SoftCompactRatio  float64 `toml:"soft_compact_ratio"`
 	CompactRatio      float64 `toml:"compact_ratio"`
 	CompactForceRatio float64 `toml:"compact_force_ratio"`
+	// Keep controls which compactable messages stay verbatim beyond the current
+	// user-fact/digest floor and recent tail. Empty uses the conservative default
+	// of keeping error tool results.
+	Keep       []string `toml:"keep"`
+	RecentKeep int      `toml:"recent_keep"`
 	// ColdResumePrune elides stale tool results when a session reopens past the
 	// provider cache window. nil = default enabled.
 	ColdResumePrune *bool `toml:"cold_resume_prune"`

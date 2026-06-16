@@ -88,6 +88,13 @@ function keepDistPlaceholder(): Plugin {
 const commit = buildCommit();
 const channel = buildChannel();
 
+const nodeModulePath = String.raw`[\\/]node_modules[\\/](?:\.pnpm[\\/][^\\/]+[\\/]node_modules[\\/])?`;
+const vendorReact = new RegExp(`${nodeModulePath}(?:react|react-dom)(?:[\\/]|$)`);
+const vendorMarkdown = new RegExp(
+  `${nodeModulePath}(?:react-markdown|remark-gfm|remark-math|rehype-katex|katex)(?:[\\/]|$)`,
+);
+const vendorHighlight = new RegExp(`${nodeModulePath}highlight\\.js(?:[\\/]|$)`);
+
 // base: "./" so built asset URLs are relative. Wails serves the embedded dist from
 // the app root over the wails:// scheme, where absolute "/assets/..." URLs 404.
 export default defineConfig({
@@ -112,28 +119,18 @@ export default defineConfig({
       keep_classnames: true,
       keep_fnames: true,
     },
-    rollupOptions: {
+    rolldownOptions: {
       output: {
         // Manual chunk splitting: keep the heavy markdown/math/code pipeline
         // in a separate chunk so it can be cached independently from the
         // app shell. The vendor chunk splits react+react-dom (stable, rarely
         // changes) from the markdown stack (changes more often).
-        manualChunks(id: string) {
-          if (id.includes("node_modules/react/") || id.includes("node_modules/react-dom/") || id.includes("node_modules/scheduler/")) {
-            return "vendor-react";
-          }
-          if (
-            id.includes("node_modules/react-markdown/") ||
-            id.includes("node_modules/remark-gfm/") ||
-            id.includes("node_modules/remark-math/") ||
-            id.includes("node_modules/rehype-katex/") ||
-            id.includes("node_modules/katex/")
-          ) {
-            return "vendor-markdown";
-          }
-          if (id.includes("node_modules/highlight.js/")) {
-            return "vendor-highlight";
-          }
+        codeSplitting: {
+          groups: [
+            { name: "vendor-react", test: vendorReact },
+            { name: "vendor-markdown", test: vendorMarkdown },
+            { name: "vendor-highlight", test: vendorHighlight },
+          ],
         },
       },
     },

@@ -52,6 +52,22 @@ import (
 // removed provider. Callers can detect it (errors.Is) to re-run setup.
 var ErrUnknownModel = errors.New("unknown model")
 
+func agentKeepPolicy(keep []string) agent.KeepPolicy {
+	if keep == nil {
+		return agent.KeepErrors
+	}
+	var p agent.KeepPolicy
+	for _, k := range keep {
+		switch strings.TrimSpace(k) {
+		case "errors":
+			p |= agent.KeepErrors
+		case "user_marked":
+			p |= agent.KeepUserMarked
+		}
+	}
+	return p
+}
+
 // Options carries the per-run knobs a frontend chooses; everything else is read
 // from configuration. Model "" falls back to the configured default_model;
 // MaxSteps 0 uses the config/default. RequireKey forces the executor's API key to
@@ -115,6 +131,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	}
 	tokenMode := NormalizeTokenMode(opts.TokenMode)
 	tokenEconomy := tokenMode == TokenModeEconomy
+	keepPolicy := agentKeepPolicy(cfg.Agent.Keep)
 	entry, ok := cfg.ResolveModel(modelName)
 	if !ok {
 		return nil, fmt.Errorf("%w %q (configured: %s); note: defining [[providers]] replaces the built-in presets, so add a [[providers]] entry for it or use a configured name, or run `reasonix setup` to reconfigure", ErrUnknownModel, modelName, providerNames(cfg))
@@ -520,8 +537,9 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 		}
 		taskToolAdded = true
 		reg.Add(agent.NewTaskTool(execProv, entry.Price, reg, maxSteps,
-			entry.ContextWindow, cfg.Agent.SoftCompactRatio, cfg.Agent.CompactRatio, cfg.Agent.CompactForceRatio,
+			entry.ContextWindow, cfg.Agent.RecentKeep, cfg.Agent.SoftCompactRatio, cfg.Agent.CompactRatio, cfg.Agent.CompactForceRatio,
 			cfg.Agent.Temperature, config.ArchiveDir(), "", headlessGate,
+			keepPolicy,
 			taskModel, taskEffort, resolveSubagentProvider).
 			WithTranscripts(subagentStore, root, modelName, entry.Effort).
 			WithTranscriptIdentityResolver(subagentIdentity))
@@ -619,7 +637,9 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 			UsageSource:       event.UsageSourceSubagent,
 			Gate:              headlessGate,
 			ContextWindow:     ctxWin,
+			RecentKeep:        cfg.Agent.RecentKeep,
 			ArchiveDir:        config.ArchiveDir(),
+			KeepPolicy:        keepPolicy,
 			ReasoningLanguage: agent.ReasoningLanguageFromContext(sctx),
 		}, agent.NestedSink(sctx, event.Discard))
 		if err != nil {
@@ -839,6 +859,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 		SoftCompactRatio:  cfg.Agent.SoftCompactRatio,
 		CompactRatio:      cfg.Agent.CompactRatio,
 		CompactForceRatio: cfg.Agent.CompactForceRatio,
+		RecentKeep:        cfg.Agent.RecentKeep,
 		ArchiveDir:        config.ArchiveDir(),
 		WorkshopThreshold: workshopThreshold,
 		Workshop:          workshopSynthesizer(jm, execProv, reg, entry, cfg.Agent),
@@ -846,6 +867,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 		CompressionProv:   compressionProv,
 		VisionProv:        visionProv,
 		WebExtractProv:    webExtractProv,
+		KeepPolicy:        keepPolicy,
 		ReasoningLanguage: cfg.ReasoningLanguage(),
 	}, sink)
 
@@ -877,7 +899,9 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 				SoftCompactRatio:  cfg.Agent.SoftCompactRatio,
 				CompactRatio:      cfg.Agent.CompactRatio,
 				CompactForceRatio: cfg.Agent.CompactForceRatio,
+				RecentKeep:        cfg.Agent.RecentKeep,
 				ArchiveDir:        config.ArchiveDir(),
+				KeepPolicy:        keepPolicy,
 				ReasoningLanguage: cfg.ReasoningLanguage(),
 			}, executor, cfg.Agent.Temperature, sink, control.TaskWarrantsPlanner)
 			label = entry.Model + " + planner " + pe.Model
