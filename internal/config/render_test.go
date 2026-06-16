@@ -524,6 +524,64 @@ func TestRenderTOMLRoundTripsPerModelPrices(t *testing.T) {
 	}
 }
 
+func TestRenderTOMLRoundTripsVisionModels(t *testing.T) {
+	orig := Default()
+	orig.Providers = []ProviderEntry{
+		{
+			Name:         "custom",
+			Kind:         "openai",
+			BaseURL:      "https://proxy.example.com/v1",
+			Models:       []string{"text-only", "qwen-vl-plus"},
+			Default:      "text-only",
+			APIKeyEnv:    "CUSTOM_API_KEY",
+			VisionModels: []string{"qwen-vl-plus"},
+			VisionDetail: "low",
+		},
+		{
+			Name:         "disabled-vision",
+			Kind:         "openai",
+			BaseURL:      "https://proxy.example.com/v1",
+			Models:       []string{"qwen-vl-plus"},
+			Default:      "qwen-vl-plus",
+			APIKeyEnv:    "CUSTOM_API_KEY",
+			VisionModels: []string{},
+		},
+	}
+
+	rendered := RenderTOML(orig)
+	if !strings.Contains(rendered, `vision_models = ["qwen-vl-plus"]`) {
+		t.Fatalf("rendered TOML missing vision_models:\n%s", rendered)
+	}
+	if !strings.Contains(rendered, `vision_models = []`) {
+		t.Fatalf("rendered TOML missing explicit empty vision_models:\n%s", rendered)
+	}
+	if !strings.Contains(rendered, `vision_detail = "low"`) {
+		t.Fatalf("rendered TOML missing vision_detail:\n%s", rendered)
+	}
+
+	var got Config
+	if _, err := toml.Decode(rendered, &got); err != nil {
+		t.Fatalf("rendered TOML does not parse: %v", err)
+	}
+	p, ok := got.Provider("custom")
+	if !ok {
+		t.Fatal("custom provider missing after round trip")
+	}
+	if !reflect.DeepEqual(p.VisionModels, []string{"qwen-vl-plus"}) {
+		t.Fatalf("vision_models after round trip = %v, want [qwen-vl-plus]", p.VisionModels)
+	}
+	if p.VisionDetail != "low" {
+		t.Fatalf("vision_detail after round trip = %q, want low", p.VisionDetail)
+	}
+	disabled, ok := got.Provider("disabled-vision")
+	if !ok {
+		t.Fatal("disabled-vision provider missing after round trip")
+	}
+	if disabled.VisionModels == nil || len(disabled.VisionModels) != 0 {
+		t.Fatalf("disabled-vision vision_models after round trip = %#v, want explicit empty list", disabled.VisionModels)
+	}
+}
+
 func boolPtr(v bool) *bool { return &v }
 
 func intPtr(v int) *int { return &v }

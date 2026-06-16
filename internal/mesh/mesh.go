@@ -20,6 +20,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"reasonix/internal/netclient"
@@ -102,7 +103,11 @@ type Mesh struct {
 	mu     sync.RWMutex
 	peers  []*Peer
 	active bool
+	reqID  atomic.Int64
 }
+
+// initializedPeers tracks which peer URLs have completed MCP initialization.
+var initializedPeers sync.Map
 
 // New creates a Mesh from config. Returns nil when no peers are configured
 // or the mesh is disabled.
@@ -325,6 +330,11 @@ func (m *Mesh) executeQuery(ctx context.Context, peer *Peer, question string) (*
 }
 
 func (m *Mesh) initialize(ctx context.Context, peer *Peer) error {
+	// Skip re-initialization if this peer was recently initialized.
+	if _, ok := initializedPeers.Load(peer.URL); ok {
+		return nil
+	}
+
 	initParams, _ := json.Marshal(map[string]any{
 		"protocolVersion": "2024-11-05",
 		"capabilities":    map[string]any{},
@@ -346,6 +356,7 @@ func (m *Mesh) initialize(ctx context.Context, peer *Peer) error {
 
 	// Send initialized notification (fire-and-forget)
 	_ = m.notify(ctx, peer, "notifications/initialized", nil)
+	initializedPeers.Store(peer.URL, true)
 	return nil
 }
 
@@ -365,7 +376,7 @@ func (m *Mesh) ping(ctx context.Context, peer *Peer) bool {
 func (m *Mesh) call(ctx context.Context, peer *Peer, method string, params json.RawMessage) (json.RawMessage, error) {
 	reqBody := jsonrpcRequest{
 		JSONRPC: "2.0",
-		ID:      1,
+		ID:      int(m.reqID.Add(1)),
 		Method:  method,
 		Params:  params,
 	}

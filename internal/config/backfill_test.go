@@ -2,6 +2,7 @@ package config
 
 import (
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	"github.com/BurntSushi/toml"
@@ -453,6 +454,9 @@ func TestNormalizeDesktopOfficialProviderAccessBackfillsExistingMimoAPIModels(t 
 	if p.Default != "mimo-v2.5-pro" {
 		t.Fatalf("mimo-api default = %q, want mimo-v2.5-pro", p.Default)
 	}
+	if want := []string{"mimo-v2.5", "mimo-v2-omni"}; !reflect.DeepEqual(p.VisionModels, want) {
+		t.Fatalf("mimo-api vision_models = %v, want %v", p.VisionModels, want)
+	}
 }
 
 func TestNormalizeDesktopOfficialProviderAccessDoesNotBackfillCustomNamedMimoAPI(t *testing.T) {
@@ -508,6 +512,9 @@ func TestNormalizeDesktopOfficialProviderAccessBackfillsExistingMimoTokenPlanAnd
 	if p.Prices["mimo-v2.5"] == nil || p.Prices["mimo-v2.5"].Currency != "¥" || p.Prices["mimo-v2.5"].Output != 2 {
 		t.Fatalf("mimo-v2.5 price = %+v, want RMB domestic pricing", p.Prices["mimo-v2.5"])
 	}
+	if want := []string{"mimo-v2.5"}; !reflect.DeepEqual(p.VisionModels, want) {
+		t.Fatalf("mimo-token-plan vision_models = %v, want %v", p.VisionModels, want)
+	}
 }
 
 // ── Explicit model list: normalization must not override user selection ───────
@@ -557,6 +564,55 @@ func TestMergeCuratedModelsIntoProviderSkipsWhenExplicitModelList(t *testing.T) 
 	}
 	if len(p.Models) != 2 {
 		t.Fatalf("models = %v, want 2 selected models", p.Models)
+	}
+}
+
+func TestNormalizeOfficialMimoVisionModelsSkipsExplicitModelList(t *testing.T) {
+	// User saved with only pro via Settings → Models = ["mimo-v2.5-pro"].
+	c := &Config{
+		Desktop: DesktopConfig{ProviderAccess: []string{"mimo-api"}},
+		Providers: []ProviderEntry{{
+			Name:      "mimo-api",
+			Kind:      "openai",
+			BaseURL:   "https://api.xiaomimimo.com/v1",
+			Models:    []string{"mimo-v2.5-pro"},
+			Default:   "mimo-v2.5-pro",
+			APIKeyEnv: "MIMO_API_KEY",
+		}},
+	}
+	normalizeDesktopOfficialProviderAccess(c)
+	p, ok := c.Provider("mimo-api")
+	if !ok {
+		t.Fatal("mimo-api provider missing")
+	}
+	if p.HasModel("mimo-v2.5") || p.HasModel("mimo-v2-omni") {
+		t.Fatalf("mimo-api models = %v, want only explicitly selected pro model", p.ModelList())
+	}
+	if len(p.VisionModels) != 0 {
+		t.Fatalf("mimo-api vision_models = %v, want empty for pro-only explicit model list", p.VisionModels)
+	}
+}
+
+func TestNormalizeOfficialMimoVisionModelsPreservesExplicitEmptyList(t *testing.T) {
+	c := &Config{
+		Desktop: DesktopConfig{ProviderAccess: []string{"mimo-api"}},
+		Providers: []ProviderEntry{{
+			Name:         "mimo-api",
+			Kind:         "openai",
+			BaseURL:      "https://api.xiaomimimo.com/v1",
+			Models:       []string{"mimo-v2.5-pro", "mimo-v2.5", "mimo-v2-omni"},
+			Default:      "mimo-v2.5-pro",
+			APIKeyEnv:    "MIMO_API_KEY",
+			VisionModels: []string{},
+		}},
+	}
+	normalizeDesktopOfficialProviderAccess(c)
+	p, ok := c.Provider("mimo-api")
+	if !ok {
+		t.Fatal("mimo-api provider missing")
+	}
+	if p.VisionModels == nil || len(p.VisionModels) != 0 {
+		t.Fatalf("mimo-api vision_models = %#v, want explicit empty list", p.VisionModels)
 	}
 }
 

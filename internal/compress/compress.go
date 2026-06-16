@@ -70,7 +70,9 @@ func New(enabled bool) *Compressor {
 // SetTurn updates the current turn number. The agent calls this once per turn
 // so cache references can name the turn where content first appeared.
 func (c *Compressor) SetTurn(turn int) {
+	c.mu.Lock()
 	c.turn = turn
+	c.mu.Unlock()
 }
 
 // Stats returns a snapshot of compression statistics.

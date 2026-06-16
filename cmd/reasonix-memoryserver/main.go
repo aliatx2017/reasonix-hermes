@@ -50,6 +50,7 @@ type MemoryEntry struct {
 	Content     string    `json:"content"`
 	Tags        []string  `json:"tags,omitempty"`
 	CreatedAt   time.Time `json:"created_at"`
+	LastDecayAt time.Time `json:"last_decay_at"` // last time importance decay was applied
 	AccessCount int       `json:"access_count"`
 	TTL         time.Duration `json:"ttl_ns"`       // nanoseconds; 0 = use default
 	ExpiresAt   time.Time     `json:"expires_at"`   // computed as CreatedAt + TTL
@@ -205,8 +206,8 @@ func (ms *MemoryStore) SearchDense(query, sessionID string, limit int) ([]Memory
 		return nil, fmt.Errorf("failed to embed query")
 	}
 
-	ms.mu.Lock()
-	defer ms.mu.Unlock()
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
 
 	type scored struct {
 		entry MemoryEntry
@@ -282,12 +283,17 @@ func (ms *MemoryStore) Tidy() {
 		if e.Expired() && e.Importance <= minImportanceToKeep {
 			continue // purge
 		}
-		// Apply daily decay to importance
-		if !e.CreatedAt.IsZero() {
-			days := now.Sub(e.CreatedAt).Hours() / 24
+		// Apply daily decay to importance, using LastDecayAt to avoid
+		// double-decay and preserving CreatedAt for display.
+		decayAnchor := e.LastDecayAt
+		if decayAnchor.IsZero() {
+			decayAnchor = e.CreatedAt
+		}
+		if !decayAnchor.IsZero() {
+			days := now.Sub(decayAnchor).Hours() / 24
 			if days > 0 {
 				e.Importance = max(0, e.Importance-importanceDecayPerDay*days)
-				e.CreatedAt = now // reset anchor so we don't double-decay
+				e.LastDecayAt = now
 			}
 		}
 		filtered = append(filtered, *e)
@@ -724,7 +730,7 @@ func main() {
 
 		// Run HTTP server in a goroutine so we can listen for signals.
 		errCh := make(chan error, 1)
-		go func() { errCh <- srv.ServeHTTP(":"+port, "MEMORY_API_KEY") }()
+		go func() { errCh <- srv.ServeHTTP("127.0.0.1:"+port, "MEMORY_API_KEY") }()
 
 		sigCh := make(chan os.Signal, 1)
 		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)

@@ -60,12 +60,13 @@ func (f SenderFunc) Send(ctx context.Context, text string) error { return f(ctx,
 
 // Scheduler manages cron-driven agent tasks.
 type Scheduler struct {
-	config  Config
-	sender  Sender
-	logger  *slog.Logger
-	results []Result
-	mu      sync.Mutex
-	nextRun map[string]time.Time // task name → next scheduled run
+	config    Config
+	sender    Sender
+	logger    *slog.Logger
+	results   []Result
+	mu        sync.Mutex
+	nextRun   map[string]time.Time // task name → next scheduled run
+	parentCtx context.Context      // set by Start, used as parent for task contexts
 }
 
 // New creates a scheduler. It returns nil if no tasks are configured.
@@ -97,6 +98,7 @@ func (s *Scheduler) Start(ctx context.Context) {
 		return
 	}
 	s.logger.Info("scheduler: starting", "tasks", len(s.config.Tasks))
+	s.parentCtx = ctx
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
 
@@ -137,7 +139,11 @@ func (s *Scheduler) fireDue(now time.Time) {
 // runTask executes one task and records the result.
 func (s *Scheduler) runTask(t *Task) {
 	start := time.Now()
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	parent := s.parentCtx
+	if parent == nil {
+		parent = context.Background()
+	}
+	ctx, cancel := context.WithTimeout(parent, 10*time.Minute)
 	defer cancel()
 
 	result := Result{

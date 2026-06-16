@@ -19,6 +19,7 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"net"
 	"net/http"
 	"strings"
 	"sync"
@@ -108,7 +109,13 @@ func New(cfg Config, onSteer SteerCallback, logger *slog.Logger) *Hub {
 		onSteer:  onSteer,
 		logger:   logger.With("component", "collab"),
 		upgrader: websocket.Upgrader{
-			CheckOrigin: func(r *http.Request) bool { return true },
+			CheckOrigin: func(r *http.Request) bool {
+				host := r.Host
+				if h, _, err := net.SplitHostPort(host); err == nil {
+					host = h
+				}
+				return host == "127.0.0.1" || host == "localhost" || host == "::1"
+			},
 		},
 	}
 	mux := http.NewServeMux()
@@ -175,6 +182,7 @@ func (h *Hub) Broadcast(sessionID string, ev Event) {
 	for _, p := range targets {
 		p.mu.Lock()
 		if p.conn != nil {
+			p.conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
 			_ = p.conn.WriteMessage(websocket.TextMessage, raw)
 		}
 		p.mu.Unlock()

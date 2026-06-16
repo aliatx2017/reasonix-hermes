@@ -285,5 +285,10 @@ func truncateStr(s string, n int) string {
 	if len(s) <= n {
 		return s
 	}
-	return s[:n] + "…"
+	// Truncate by runes, not bytes, to avoid breaking multi-byte characters.
+	runes := []rune(s)
+	if len(runes) <= n {
+		return s
+	}
+	return string(runes[:n]) + "…"
 }

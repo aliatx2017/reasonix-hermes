@@ -127,8 +127,9 @@ func (s *Server) ServeHTTP(addr, authKeyEnv string) error {
 	handler := auth.Wrap(mux)
 
 	srv := &http.Server{
-		Addr:    addr,
-		Handler: handler,
+		Addr:              addr,
+		Handler:           handler,
+		ReadHeaderTimeout: 10 * time.Second,
 	}
 
 	go func() {

@@ -1044,6 +1044,12 @@ type ProviderEntry struct {
 	// (the field is omitted). "low" caps an image to a fixed ~85 tokens for cheap
 	// coarse reads; ignored by providers without the knob (e.g. anthropic).
 	VisionDetail string `toml:"vision_detail"`
+	// VisionModels is a curated list of model IDs that support image input. It
+	// supplements auto-detection via name heuristics and can be used when the
+	// provider offers multiple vision-capable models that don't follow naming
+	// conventions. Models listed here are automatically marked as vision-capable
+	// and surfaced in the model selector as image-input candidates.
+	VisionModels []string `toml:"vision_models"`
 	// ReasoningProtocol selects the request shape for OpenAI-compatible reasoning
 	// models. Empty/auto uses the model capability registry plus endpoint
 	// heuristics; none disables automatic reasoning controls for this provider.
@@ -2298,10 +2304,21 @@ func ensureDeepSeekOfficialProvider(c *Config) {
 
 func ensureMimoAPIProvider(c *Config) {
 	models := []string{"mimo-v2.5-pro", "mimo-v2.5", "mimo-v2-omni"}
+	visionModels := []string{"mimo-v2.5", "mimo-v2-omni"}
 	if p, ok := c.Provider("mimo-api"); ok {
 		if isOfficialMimoAPIProvider(p) {
 			mergeCuratedModelsIntoProvider(p, models, "mimo-v2.5-pro")
 			backfillMimoDomesticPrices(p)
+			if p.VisionModels == nil {
+				// Only include vision models that are actually in the model list.
+				var filtered []string
+				for _, vm := range visionModels {
+					if p.HasModel(vm) {
+						filtered = append(filtered, vm)
+					}
+				}
+				p.VisionModels = filtered
+			}
 		}
 		return
 	}
@@ -2310,6 +2327,7 @@ func ensureMimoAPIProvider(c *Config) {
 		Kind:          "openai",
 		BaseURL:       "https://api.xiaomimimo.com/v1",
 		Models:        []string{"mimo-v2.5-pro", "mimo-v2.5", "mimo-v2-omni"},
+		VisionModels:  visionModels,
 		Default:       "mimo-v2.5-pro",
 		APIKeyEnv:     "MIMO_API_KEY",
 		ContextWindow: 1_048_576,
@@ -2320,11 +2338,21 @@ func ensureMimoAPIProvider(c *Config) {
 
 func ensureMimoTokenPlanProvider(c *Config, includeMimoFlash bool) {
 	models := []string{"mimo-v2.5-pro", "mimo-v2.5"}
+	visionModels := []string{"mimo-v2.5"}
 	if p, ok := c.Provider("mimo-token-plan"); ok {
 		if isOfficialMimoTokenPlanProvider(p) {
 			mergeCuratedModelsIntoProvider(p, models, "mimo-v2.5-pro")
 			clearMixedMimoTokenPlanPrice(p)
 			backfillMimoDomesticPrices(p)
+			if p.VisionModels == nil {
+				var filtered []string
+				for _, vm := range visionModels {
+					if p.HasModel(vm) {
+						filtered = append(filtered, vm)
+					}
+				}
+				p.VisionModels = filtered
+			}
 		}
 		return
 	}
@@ -2333,6 +2361,7 @@ func ensureMimoTokenPlanProvider(c *Config, includeMimoFlash bool) {
 		Kind:          "openai",
 		BaseURL:       "https://token-plan-cn.xiaomimimo.com/v1",
 		Models:        []string{"mimo-v2.5-pro", "mimo-v2.5"},
+		VisionModels:  visionModels,
 		Default:       "mimo-v2.5-pro",
 		APIKeyEnv:     "MIMO_API_KEY",
 		ContextWindow: 1_048_576,

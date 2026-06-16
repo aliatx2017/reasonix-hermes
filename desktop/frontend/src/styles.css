@@ -11815,10 +11815,9 @@ a[href] {
 }
 .provider-model-draft__option {
   min-width: 0;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 7px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
   min-height: 32px;
   padding: 5px 7px;
   border: 1px solid var(--border-soft);
@@ -11827,6 +11826,19 @@ a[href] {
   color: var(--fg);
   font-family: var(--mono);
   font-size: var(--text-2xs);
+}
+.provider-model-draft__model,
+.provider-model-draft__vision {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+}
+.provider-model-draft__vision {
+  color: var(--fg-muted);
+  font-family: var(--font-sans);
+  font-size: var(--font-control-small);
 }
 .provider-model-draft__option input {
   margin: 0;

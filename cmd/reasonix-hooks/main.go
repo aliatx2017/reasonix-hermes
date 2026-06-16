@@ -116,8 +116,8 @@ func doReflect(url, key string, timeout time.Duration, p hookPayload) {
 	}
 
 	req := jsonrpcRequest("hindsight_reflect", map[string]any{
-		"session": session,
-		"query":   "session summary",
+		"session_id": session,
+		"query":      "session summary",
 	})
 
 	body, _ := json.Marshal(req)

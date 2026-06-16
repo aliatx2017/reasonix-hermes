@@ -1,11 +1,13 @@
 // Run: tsx src/__tests__/provider-model-refresh.test.ts
 
 import {
+  inferredVisionModels,
   isLikelyChatModel,
+  isLikelyVisionModel,
   mergedFetchedProviderModels,
   providerDefaultModel,
   providerModelCandidates,
-} from '../lib/providerModels';
+} from "../lib/providerModels";
 
 let passed = 0;
 let failed = 0;
@@ -15,87 +17,105 @@ function eq(a: unknown, b: unknown, label: string) {
     process.stdout.write(`  PASS  ${label}\n`);
     passed += 1;
   } else {
-    process.stdout.write(
-      `  FAIL  ${label}: expected ${JSON.stringify(b)}, got ${JSON.stringify(a)}\n`,
-    );
+    process.stdout.write(`  FAIL  ${label}: expected ${JSON.stringify(b)}, got ${JSON.stringify(a)}\n`);
     failed += 1;
   }
 }
 
-console.log('\nprovider model refresh');
+console.log("\nprovider model refresh");
 
 eq(
-  mergedFetchedProviderModels(['coding-pro'], ['coding-pro', 'chat', 'vision']),
-  ['coding-pro', 'chat', 'vision'],
-  'appends discovered models without removing curated ones',
+  mergedFetchedProviderModels(["coding-pro"], ["coding-pro", "chat", "vision"]),
+  ["coding-pro", "chat", "vision"],
+  "appends discovered models without removing curated ones",
 );
 
 eq(
-  mergedFetchedProviderModels(['coding-pro'], ['coding-pro', 'chat', 'vision'], {
-    preserveCurated: true,
-  }),
-  ['coding-pro'],
-  'background refresh preserves manually curated model list',
+  mergedFetchedProviderModels(["coding-pro"], ["coding-pro", "chat", "vision"], { preserveCurated: true }),
+  ["coding-pro"],
+  "background refresh preserves manually curated model list",
 );
 
 eq(
-  mergedFetchedProviderModels(['coding-pro'], ['chat', 'vision'], { preserveCurated: true }),
-  ['coding-pro'],
-  'background refresh does not re-add deleted models',
+  mergedFetchedProviderModels(["coding-pro"], ["chat", "vision"], { preserveCurated: true }),
+  ["coding-pro"],
+  "background refresh does not re-add deleted models",
 );
 
 eq(
-  mergedFetchedProviderModels(
-    ['mimo-v2.5-pro'],
-    ['mimo-v2-flash', 'mimo-v2-omni', 'mimo-v2.5-pro'],
-    { preserveCurated: true },
-  ),
-  ['mimo-v2.5-pro'],
-  'manual access refresh preserves selected MiMo model instead of importing provider catalog',
+  mergedFetchedProviderModels(["mimo-v2.5-pro"], ["mimo-v2-flash", "mimo-v2-omni", "mimo-v2.5-pro"], { preserveCurated: true }),
+  ["mimo-v2.5-pro"],
+  "manual access refresh preserves selected MiMo model instead of importing provider catalog",
 );
 
 eq(
-  providerModelCandidates(['mimo-v2.5-pro'], ['mimo-v2-flash', 'mimo-v2-omni', 'mimo-v2.5-pro']),
-  ['mimo-v2.5-pro', 'mimo-v2-flash', 'mimo-v2-omni'],
-  'manual access refresh can show provider catalog as unsaved candidates',
+  providerModelCandidates(["mimo-v2.5-pro"], ["mimo-v2-flash", "mimo-v2-omni", "mimo-v2.5-pro"]),
+  ["mimo-v2.5-pro", "mimo-v2-flash", "mimo-v2-omni"],
+  "manual access refresh can show provider catalog as unsaved candidates",
 );
 
 eq(
-  providerModelCandidates(
-    ['mimo-v2.5-pro'],
-    ['mimo-v2.5-asr', 'mimo-v2.5-tts', 'mimo-v2.5', 'mimo-v2.5-pro'],
-  ),
-  ['mimo-v2.5-pro', 'mimo-v2.5'],
-  'manual access refresh filters non-chat candidates before saving',
+  providerModelCandidates(["mimo-v2.5-pro"], ["mimo-v2.5-asr", "mimo-v2.5-tts", "mimo-v2.5", "mimo-v2.5-pro"]),
+  ["mimo-v2.5-pro", "mimo-v2.5"],
+  "manual access refresh filters non-chat candidates before saving",
 );
 
 eq(
   [
-    isLikelyChatModel('mimo-v2.5-pro'),
-    isLikelyChatModel('mimo-v2.5-asr'),
-    isLikelyChatModel('mimo-v2.5-tts'),
-    isLikelyChatModel('text-embedding-3-small'),
+    isLikelyChatModel("mimo-v2.5-pro"),
+    isLikelyChatModel("mimo-v2.5-asr"),
+    isLikelyChatModel("mimo-v2.5-tts"),
+    isLikelyChatModel("text-embedding-3-small"),
   ],
   [true, false, false, false],
-  'matches backend non-chat model heuristic',
+  "matches backend non-chat model heuristic",
 );
 
 eq(
-  mergedFetchedProviderModels([], ['coding-pro', 'chat'], { preserveCurated: true }),
-  ['coding-pro', 'chat'],
-  'background refresh can populate an empty model list',
+  [
+    isLikelyVisionModel("gpt-4o"),
+    isLikelyVisionModel("gpt-4o-audio-preview"),
+    isLikelyVisionModel("gpt-4o-mini-audio-preview"),
+    isLikelyVisionModel("mimo-v2.5"),
+    isLikelyVisionModel("mimo-v2-omni"),
+    isLikelyVisionModel("qwen2.5-vl-72b-instruct"),
+    isLikelyVisionModel("mimo-v2.5-asr"),
+  ],
+  [true, false, false, true, true, true, false],
+  "detects likely image-capable chat model IDs",
 );
 
 eq(
-  providerDefaultModel('coding-pro', ['coding-pro', 'chat']),
-  'coding-pro',
-  'preserves current default when it remains available',
+  inferredVisionModels([
+    "mimo-v2.5-pro",
+    "mimo-v2.5",
+    "mimo-v2-omni",
+    "qwen-vl-plus",
+    "mimo-v2.5-asr",
+    "audio-omni-tts",
+    "gpt-4o-audio-preview",
+    "gpt-4o-mini-audio-preview",
+  ]),
+  ["mimo-v2.5", "mimo-v2-omni", "qwen-vl-plus"],
+  "infers image-capable models without importing audio models",
 );
 
 eq(
-  providerDefaultModel('deleted', ['coding-pro', 'chat']),
-  'coding-pro',
-  'falls back to first saved model when default is unavailable',
+  mergedFetchedProviderModels([], ["coding-pro", "chat"], { preserveCurated: true }),
+  ["coding-pro", "chat"],
+  "background refresh can populate an empty model list",
+);
+
+eq(
+  providerDefaultModel("coding-pro", ["coding-pro", "chat"]),
+  "coding-pro",
+  "preserves current default when it remains available",
+);
+
+eq(
+  providerDefaultModel("deleted", ["coding-pro", "chat"]),
+  "coding-pro",
+  "falls back to first saved model when default is unavailable",
 );
 
 console.log(`\n${passed} passed, ${failed} failed, ${passed + failed} total`);

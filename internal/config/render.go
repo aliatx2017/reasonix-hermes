@@ -304,6 +304,15 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 			if p.Effort != "" {
 				fmt.Fprintf(&b, "effort      = %q\n", p.Effort)
 			}
+			if p.Vision {
+				b.WriteString("vision      = true   # provider accepts image input for all listed models\n")
+			}
+			if p.VisionModels != nil {
+				fmt.Fprintf(&b, "vision_models = %s   # models in this provider that accept image input\n", renderStringArray(p.VisionModels))
+			}
+			if p.VisionDetail != "" {
+				fmt.Fprintf(&b, "vision_detail = %q   # openai image detail hint: low|high; empty = auto\n", p.VisionDetail)
+			}
 			if p.ReasoningProtocol != "" {
 				fmt.Fprintf(&b, "reasoning_protocol = %q   # auto|deepseek|openai|none; overrides model/endpoint reasoning detection\n", p.ReasoningProtocol)
 			}

@@ -589,21 +589,21 @@ func (gw *BotGateway) handleSlashCommand(ctx context.Context, adapter Adapter, k
 		approvalID := parts[1]
 		gw.mu.Lock()
 		state, ok := gw.controllers[key]
-		// Verify the approval is still pending — duplicate approve messages
-		// can arrive (user double-click, network retry) and the first one
-		// already resolved it.
 		stillPending := ok && state.pendingApprovals != nil && state.pendingApprovals[approvalID].ID != ""
-		gw.mu.Unlock()
 		if !ok || state.ctrl == nil {
+			gw.mu.Unlock()
 			_ = gw.sendText(ctx, adapter, msg, "No pending approval in the current session. Trigger an action first.")
 			return
 		}
 		if !stillPending {
-			_ = gw.sendText(ctx, adapter, msg, "No pending action found. Trigger an action first, then reply with the number, or use /approve, /deny, or /answer with the message ID.")
+			gw.mu.Unlock()
+			_ = gw.sendText(ctx, adapter, msg, "No pending action found.")
 			return
 		}
+		// Hold lock through Approve to prevent TOCTOU with concurrent resolution.
 		state.ctrl.Approve(approvalID, true, false, false)
 		gw.forgetPendingApproval(key, approvalID)
+		gw.mu.Unlock()
 		gw.sessions.ForceRelease(key) // drain queued messages so they don't replay
 		_ = gw.sendText(ctx, adapter, msg, "Approved.")
 

@@ -156,6 +156,20 @@ func (b *Bridge) handle(name string, args map[string]any) (string, error) {
 }
 
 func (b *Bridge) runReasonix(workdir, model, task string) (string, error) {
+	// Validate workdir: must be an existing directory.
+	if workdir == "" {
+		workdir = "."
+	}
+	if info, err := os.Stat(workdir); err != nil {
+		return "", fmt.Errorf("workdir %q does not exist: %w", workdir, err)
+	} else if !info.IsDir() {
+		return "", fmt.Errorf("workdir %q is not a directory", workdir)
+	}
+	// Resolve to absolute path to avoid confusion.
+	if abs, err := filepath.Abs(workdir); err == nil {
+		workdir = abs
+	}
+
 	args := []string{"run", task}
 	if model != "" {
 		args = append(args, "--model", model)
@@ -190,7 +204,7 @@ func (b *Bridge) doctorCheck() (string, error) {
 	}
 
 	if key := os.Getenv("DEEPSEEK_API_KEY"); key != "" {
-		report.WriteString("✅ **DEEPSEEK_API_KEY**: Set (length: " + fmt.Sprintf("%d", len(key)) + " chars)\n")
+		report.WriteString("✅ **DEEPSEEK_API_KEY**: Set\n")
 	} else {
 		report.WriteString("⚠️  **DEEPSEEK_API_KEY**: Not set\n")
 	}

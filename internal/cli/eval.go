@@ -8,414 +8,121 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"reasonix/internal/eval"
 )
 
+// ── Output abstraction ───────────────────────────────────────────────────────
+
+// evalOutput abstracts the two output channels shared by CLI and TUI eval code:
+// lines (transcript/output) and notices (errors/alerts).
+type evalOutput struct {
+	line   func(string)
+	notice func(string)
+}
+
+// cliOutput writes lines to stdout and notices to stderr.
+func cliOutput() evalOutput {
+	return evalOutput{
+		line:   func(s string) { fmt.Println(s) },
+		notice: func(s string) { fmt.Fprintln(os.Stderr, s) },
+	}
+}
+
+// tuiOutput writes lines to the transcript (commitLine) and notices via notice.
+func (m *chatTUI) tuiOutput() evalOutput {
+	return evalOutput{
+		line:   m.commitLine,
+		notice: m.notice,
+	}
+}
+
+// ── CLI entry point ──────────────────────────────────────────────────────────
+
 // evalCommand handles the CLI-level "reasonix eval ..." subcommand.
-// It reuses the same file operations as the TUI /eval slash command.
+// Every subcommand delegates to a shared function; the CLI wrappers are
+// thin adapters that supply a cliOutput and convert errors to exit codes.
 func evalCommand(args []string) int {
 	if len(args) == 0 {
-		evalCLIUsage()
+		evalPrintUsage(cliOutput())
 		return 2
 	}
 
 	sub := args[0]
+	out := cliOutput()
+
 	switch sub {
+	case "compare":
+		if len(args) < 3 {
+			out.notice("usage: reasonix eval compare <session-a> <session-b>")
+			return 2
+		}
+		return evalCompare(args[1], args[2], out)
 	case "define":
 		if len(args) < 2 {
-			fmt.Fprintln(os.Stderr, "usage: reasonix eval define <name>")
+			out.notice("usage: reasonix eval define <name>")
 			return 2
 		}
-		return evalCLIDefine(args[1])
+		if err := evalSharedDefine(evalCLIRoot, args[1], out); err != nil {
+			return 1
+		}
+		return 0
 	case "check":
 		if len(args) < 2 {
-			fmt.Fprintln(os.Stderr, "usage: reasonix eval check <name>")
+			out.notice("usage: reasonix eval check <name>")
 			return 2
 		}
-		return evalCLICheck(args[1])
+		if err := evalSharedCheck(evalCLIRoot, args[1], out); err != nil {
+			return 1
+		}
+		return 0
 	case "report":
 		if len(args) < 2 {
-			fmt.Fprintln(os.Stderr, "usage: reasonix eval report <name>")
+			out.notice("usage: reasonix eval report <name>")
 			return 2
 		}
-		return evalCLIReport(args[1])
+		if err := evalSharedReport(evalCLIRoot, args[1], out); err != nil {
+			return 1
+		}
+		return 0
 	case "list":
-		return evalCLIList()
+		if err := evalSharedList(evalCLIRoot, out); err != nil {
+			// Non-fatal: treat as informational.
+		}
+		return 0
 	case "clean":
-		return evalCLIClean()
+		if err := evalSharedClean(evalCLIRoot, out); err != nil {
+			return 1
+		}
+		return 0
 	default:
-		fmt.Fprintf(os.Stderr, "unknown eval subcommand: %s\n", sub)
-		evalCLIUsage()
+		out.notice(fmt.Sprintf("unknown eval subcommand: %s", sub))
+		evalPrintUsage(out)
 		return 2
 	}
 }
 
-func evalCLIUsage() {
-	fmt.Fprintln(os.Stderr, `Eval Command — manage eval-driven development workflow
+func evalPrintUsage(out evalOutput) {
+	out.notice(`Eval Command — manage eval-driven development workflow
 
 Usage:
-  reasonix eval define <name>   create a new eval definition
-  reasonix eval check <name>    run and check evals
-  reasonix eval report <name>   generate full eval report
-  reasonix eval list            show all eval definitions
-  reasonix eval clean           remove old logs (keeps last 10 runs)`)
+  reasonix eval compare <a> <b>  compare two saved session files
+  reasonix eval define <name>    create a new eval definition
+  reasonix eval check <name>     run and check evals
+  reasonix eval report <name>    generate full eval report
+  reasonix eval list             show all eval definitions
+  reasonix eval clean            remove old logs (keeps last 10 runs)`)
 }
 
-// evalCLIRoot returns the evals directory, preferring .claude/evals in the
-// current working directory.
+// ── Shared logic: root directory ─────────────────────────────────────────────
+
+// evalCLIRoot returns the evals directory used by the CLI (relative to cwd).
 func evalCLIRoot() string {
 	return filepath.Join(".claude", "evals")
 }
 
-func evalCLIDefine(name string) int {
-	name = strings.TrimSpace(name)
-	if name == "" {
-		fmt.Fprintln(os.Stderr, "eval name cannot be empty")
-		return 2
-	}
-
-	defDir := filepath.Join(evalCLIRoot(), name)
-	if err := os.MkdirAll(defDir, 0o755); err != nil {
-		fmt.Fprintf(os.Stderr, "error: cannot create directory: %v\n", err)
-		return 1
-	}
-
-	defPath := filepath.Join(defDir, "definition.md")
-	if _, err := os.Stat(defPath); err == nil {
-		fmt.Fprintf(os.Stderr, "eval definition already exists at %s\n", defPath)
-		return 1
-	}
-
-	now := time.Now().Format(time.RFC3339)
-	template := fmt.Sprintf(strings.Join([]string{
-		"## EVAL: %s",
-		"Created: %s",
-		"",
-		"### Capability Evals",
-		"- [ ] [description of capability 1]",
-		"- [ ] [description of capability 2]",
-		"",
-		"### Regression Evals",
-		"- [ ] [existing behavior 1 still works]",
-		"- [ ] [existing behavior 2 still works]",
-		"",
-		"### Success Criteria",
-		"- pass@3 > 90%%%% for capability evals",
-		"- pass^3 = 100%%%% for regression evals",
-		"",
-	}, "\n"), name, now)
-
-	if err := os.WriteFile(defPath, []byte(template), 0o644); err != nil {
-		fmt.Fprintf(os.Stderr, "error: cannot write definition: %v\n", err)
-		return 1
-	}
-
-	fmt.Printf("eval definition created at %s\n", defPath)
-	fmt.Println("edit the definition file with capability and regression eval criteria")
-	return 0
-}
-
-func evalCLICheck(name string) int {
-	name = strings.TrimSpace(name)
-	if name == "" {
-		fmt.Fprintln(os.Stderr, "eval name cannot be empty")
-		return 2
-	}
-
-	defPath := filepath.Join(evalCLIRoot(), name, "definition.md")
-	data, err := os.ReadFile(defPath)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: cannot read definition at %s — create it with 'reasonix eval define %s' first\n", defPath, name)
-		return 1
-	}
-
-	content := string(data)
-	capabilities := evalExtractCheckboxes(content, "### Capability Evals", "### Regression Evals")
-	regressions := evalExtractCheckboxes(content, "### Regression Evals", "### Success Criteria")
-
-	if len(capabilities) == 0 && len(regressions) == 0 {
-		fmt.Fprintln(os.Stderr, "eval: no capability or regression criteria found in definition — fill in the criteria first")
-		return 1
-	}
-
-	logPath := filepath.Join(evalCLIRoot(), name, "results.log")
-	logDir := filepath.Dir(logPath)
-	os.MkdirAll(logDir, 0o755)
-
-	f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: cannot open log: %v\n", err)
-		return 1
-	}
-	defer f.Close()
-
-	now := time.Now().Format(time.RFC3339)
-	fmt.Fprintf(f, "\n=== CHECK at %s ===\n", now)
-
-	var capPass, capTotal, regPass, regTotal int
-
-	fmt.Printf("EVAL CHECK: %s\n", name)
-	fmt.Println("========================")
-
-	fmt.Println("\nCapability Evals:")
-	for _, c := range capabilities {
-		capTotal++
-		result := evalCLIVerify(c)
-		if result == "PASS" {
-			capPass++
-		}
-		fmt.Printf("  [%s] %s\n", result, c)
-		fmt.Fprintf(f, "%s: %s\n", c, result)
-	}
-
-	fmt.Println("\nRegression Evals:")
-	for _, r := range regressions {
-		regTotal++
-		result := evalCLIVerify(r)
-		if result == "PASS" {
-			regPass++
-		}
-		fmt.Printf("  [%s] %s\n", result, r)
-		fmt.Fprintf(f, "%s: %s\n", r, result)
-	}
-
-	status := "IN PROGRESS"
-	if capTotal > 0 && capPass == capTotal && regTotal > 0 && regPass == regTotal {
-		status = "READY"
-	} else if capTotal == 0 && regTotal > 0 && regPass == regTotal {
-		status = "READY"
-	}
-
-	fmt.Printf("\nCapability: %d/%d passing\n", capPass, capTotal)
-	fmt.Printf("Regression: %d/%d passing\n", regPass, regTotal)
-	fmt.Printf("Status: %s\n", status)
-	fmt.Printf("eval check results appended to %s\n", logPath)
-	return 0
-}
-
-func evalCLIVerify(criterion string) string {
-	lower := strings.ToLower(criterion)
-
-	switch {
-	case strings.Contains(lower, "build"):
-		return evalCLIRunBuildCheck()
-	case strings.Contains(lower, "vet"):
-		return evalCLIRunBuildCheck()
-	default:
-		return "MANUAL"
-	}
-}
-
-func evalCLIRunBuildCheck() string {
-	out, err := exec.Command("sh", "-c", "go build ./... 2>&1").CombinedOutput()
-	if err != nil {
-		return "FAIL"
-	}
-	_ = out
-	return "PASS"
-}
-
-func evalCLIReport(name string) int {
-	name = strings.TrimSpace(name)
-	if name == "" {
-		fmt.Fprintln(os.Stderr, "eval name cannot be empty")
-		return 2
-	}
-
-	defPath := filepath.Join(evalCLIRoot(), name, "definition.md")
-	defData, err := os.ReadFile(defPath)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: no definition at %s — create it with 'reasonix eval define %s' first\n", defPath, name)
-		return 1
-	}
-
-	logData := ""
-	logPath := filepath.Join(evalCLIRoot(), name, "results.log")
-	if raw, err := os.ReadFile(logPath); err == nil {
-		logData = string(raw)
-	}
-
-	content := string(defData)
-	capabilities := evalExtractCheckboxes(content, "### Capability Evals", "### Regression Evals")
-	regressions := evalExtractCheckboxes(content, "### Regression Evals", "### Success Criteria")
-
-	capPass, capTotal := evalCountResults(logData, capabilities)
-	regPass, regTotal := evalCountResults(logData, regressions)
-
-	fmt.Printf("EVAL REPORT: %s\n", name)
-	fmt.Println("=========================")
-	fmt.Printf("Generated: %s\n\n", time.Now().Format(time.RFC3339))
-
-	fmt.Println("CAPABILITY EVALS")
-	fmt.Println("----------------")
-	if len(capabilities) == 0 {
-		fmt.Println("(none defined)")
-	} else {
-		for _, c := range capabilities {
-			status := evalLatestStatus(logData, c)
-			fmt.Printf("  [%s] %s\n", status, c)
-		}
-	}
-
-	fmt.Println("\nREGRESSION EVALS")
-	fmt.Println("----------------")
-	if len(regressions) == 0 {
-		fmt.Println("(none defined)")
-	} else {
-		for _, r := range regressions {
-			status := evalLatestStatus(logData, r)
-			fmt.Printf("  [%s] %s\n", status, r)
-		}
-	}
-
-	capPass1 := 0
-	if capTotal > 0 {
-		capPass1 = capPass * 100 / capTotal
-	}
-	capPass3 := 0
-	if capTotal > 0 && capPass >= capTotal {
-		capPass3 = 100
-	} else if capTotal > 0 {
-		capPass3 = capPass * 100 / capTotal
-	}
-	regPass3 := 0
-	if regTotal > 0 {
-		regPass3 = regPass * 100 / regTotal
-	}
-
-	fmt.Printf("\nMETRICS\n")
-	fmt.Println("-------")
-	fmt.Printf("Capability pass@1: %d%%\n", capPass1)
-	fmt.Printf("Capability pass@3: %d%%\n", capPass3)
-	fmt.Printf("Regression pass^3: %d%%\n", regPass3)
-
-	fmt.Println("\nNOTES")
-	fmt.Println("-----")
-	if evalLatestStatus(logData, "implicit") == "" {
-		fmt.Println("(no manual notes recorded)")
-	} else {
-		fmt.Print(evalExtractNotes(logData))
-	}
-
-	fmt.Println("\nRECOMMENDATION")
-	fmt.Println("--------------")
-	rec := "BLOCKED"
-	if capTotal > 0 && regTotal > 0 && capPass >= capTotal && regPass >= regTotal {
-		rec = "SHIP"
-	} else if capTotal > 0 && capPass >= capTotal {
-		rec = "SHIP (no regressions defined)"
-	} else if capTotal == 0 && regTotal > 0 && regPass >= regTotal {
-		rec = "SHIP (no capabilities defined)"
-	} else if capTotal > 0 && regTotal > 0 && float64(capPass)/float64(capTotal) >= 0.9 {
-		rec = "NEEDS WORK (capability pass@3 < 100%)"
-	}
-	fmt.Println(rec)
-	return 0
-}
-
-func evalCLIList() int {
-	dir := evalCLIRoot()
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "no eval definitions found — create one with 'reasonix eval define <name>'")
-		return 0
-	}
-
-	var names []string
-	for _, e := range entries {
-		if e.IsDir() {
-			names = append(names, e.Name())
-		}
-	}
-	sort.Strings(names)
-
-	if len(names) == 0 {
-		fmt.Fprintln(os.Stderr, "no eval definitions found — create one with 'reasonix eval define <name>'")
-		return 0
-	}
-
-	fmt.Println("EVAL DEFINITIONS")
-	fmt.Println("================")
-
-	for _, name := range names {
-		defPath := filepath.Join(dir, name, "definition.md")
-		logPath := filepath.Join(dir, name, "results.log")
-
-		defData, _ := os.ReadFile(defPath)
-		logData, _ := os.ReadFile(logPath)
-
-		capabilities := evalExtractCheckboxes(string(defData), "### Capability Evals", "### Regression Evals")
-		regressions := evalExtractCheckboxes(string(defData), "### Regression Evals", "### Success Criteria")
-
-		capPass, capTotal := evalCountResults(string(logData), capabilities)
-		regPass, regTotal := evalCountResults(string(logData), regressions)
-
-		totalEvals := capTotal + regTotal
-		totalPass := capPass + regPass
-
-		status := "NOT STARTED"
-		if totalEvals > 0 {
-			status = fmt.Sprintf("%d/%d passing", totalPass, totalEvals)
-			if totalPass == totalEvals {
-				status = "READY"
-			} else if totalPass > 0 {
-				status += " IN PROGRESS"
-			}
-		}
-
-		fmt.Printf("  %-20s [%s]\n", name, status)
-	}
-	return 0
-}
-
-func evalCLIClean() int {
-	dir := evalCLIRoot()
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "no eval definitions to clean")
-		return 0
-	}
-
-	cleaned := 0
-	for _, e := range entries {
-		if !e.IsDir() {
-			continue
-		}
-		logPath := filepath.Join(dir, e.Name(), "results.log")
-		data, err := os.ReadFile(logPath)
-		if err != nil {
-			continue
-		}
-
-		lines := strings.Split(string(data), "\n")
-		var checkIndices []int
-		for i, line := range lines {
-			if strings.HasPrefix(line, "=== CHECK at ") {
-				checkIndices = append(checkIndices, i)
-			}
-		}
-
-		if len(checkIndices) <= 10 {
-			continue
-		}
-
-		keepFrom := checkIndices[len(checkIndices)-10]
-		trimmed := strings.Join(lines[keepFrom:], "\n")
-		if err := os.WriteFile(logPath, []byte(trimmed), 0o644); err == nil {
-			cleaned++
-		}
-	}
-
-	if cleaned == 0 {
-		fmt.Println("eval: no logs needed trimming (all have ≤10 runs)")
-	} else {
-		fmt.Printf("eval: trimmed old runs from %d eval(s) (kept last 10 each)\n", cleaned)
-	}
-	return 0
-}
-
-// evalDir returns the evals directory root (".claude/evals") under the workspace
-// root, falling back to the current working directory when no workspace is set.
-func (m *chatTUI) evalDir() string {
+// evalTUIDir returns the evals directory for the TUI (under workspace root).
+func (m *chatTUI) evalTUIDir() string {
 	root := m.ctrl.WorkspaceRoot()
 	if root == "" {
 		root = "."
@@ -423,87 +130,26 @@ func (m *chatTUI) evalDir() string {
 	return filepath.Join(root, ".claude", "evals")
 }
 
-// evalDefPath returns the definition file path for the named eval.
-func (m *chatTUI) evalDefPath(name string) string {
-	return filepath.Join(m.evalDir(), name, "definition.md")
-}
+// ── Shared logic: define ─────────────────────────────────────────────────────
 
-// evalLogPath returns the results log path for the named eval.
-func (m *chatTUI) evalLogPath(name string) string {
-	return filepath.Join(m.evalDir(), name, "results.log")
-}
-
-// runEvalSubcommand dispatches /eval subcommands.
-func (m *chatTUI) runEvalSubcommand(input string) {
-	m.echoLocalCommand(input)
-
-	parts := strings.Fields(strings.TrimSpace(strings.TrimPrefix(input, "/eval")))
-	if len(parts) == 0 {
-		m.evalShowHelp()
-		return
-	}
-
-	sub := parts[0]
-	switch sub {
-	case "define":
-		if len(parts) < 2 {
-			m.notice("usage: /eval define <name>")
-			return
-		}
-		m.evalDefine(parts[1])
-	case "check":
-		if len(parts) < 2 {
-			m.notice("usage: /eval check <name>")
-			return
-		}
-		m.evalCheck(parts[1])
-	case "report":
-		if len(parts) < 2 {
-			m.notice("usage: /eval report <name>")
-			return
-		}
-		m.evalReport(parts[1])
-	case "list":
-		m.evalList()
-	case "clean":
-		m.evalClean()
-	default:
-		m.notice(fmt.Sprintf("unknown eval subcommand: %s — try one of: define, check, report, list, clean", sub))
-	}
-}
-
-// evalShowHelp prints the /eval usage summary.
-func (m *chatTUI) evalShowHelp() {
-	help := strings.Join([]string{
-		"Eval Command — manage eval-driven development workflow",
-		"",
-		"  /eval define <name>   create a new eval definition",
-		"  /eval check <name>    run and check evals",
-		"  /eval report <name>   generate full eval report",
-		"  /eval list            show all eval definitions and status",
-		"  /eval clean           remove old eval logs (keeps last 10 runs)",
-	}, "\n")
-	m.commitLine(help)
-}
-
-// evalDefine creates a new eval definition template for the named feature.
-func (m *chatTUI) evalDefine(name string) {
+// evalSharedDefine creates a new eval definition directory and template.
+func evalSharedDefine(rootDir func() string, name string, out evalOutput) error {
 	name = strings.TrimSpace(name)
 	if name == "" {
-		m.notice("eval name cannot be empty")
-		return
+		out.notice("eval name cannot be empty")
+		return errEvalInvalid
 	}
 
-	defDir := filepath.Join(m.evalDir(), name)
+	defDir := filepath.Join(rootDir(), name)
 	if err := os.MkdirAll(defDir, 0o755); err != nil {
-		m.notice(fmt.Sprintf("eval: cannot create directory: %v", err))
-		return
+		out.notice(fmt.Sprintf("eval: cannot create directory: %v", err))
+		return err
 	}
 
 	defPath := filepath.Join(defDir, "definition.md")
 	if _, err := os.Stat(defPath); err == nil {
-		m.notice(fmt.Sprintf("eval definition already exists at %s", defPath))
-		return
+		out.notice(fmt.Sprintf("eval definition already exists at %s", defPath))
+		return errEvalExists
 	}
 
 	now := time.Now().Format(time.RFC3339)
@@ -520,54 +166,55 @@ func (m *chatTUI) evalDefine(name string) {
 		"- [ ] [existing behavior 2 still works]",
 		"",
 		"### Success Criteria",
-		"- pass@3 > 90%% for capability evals",
-		"- pass^3 = 100%% for regression evals",
+		"- pass@1 > 90%% for capability evals",
+		"- pass@3 = 100%% for regression evals",
 		"",
 	}, "\n"), name, now)
 
 	if err := os.WriteFile(defPath, []byte(template), 0o644); err != nil {
-		m.notice(fmt.Sprintf("eval: cannot write definition: %v", err))
-		return
+		out.notice(fmt.Sprintf("eval: cannot write definition: %v", err))
+		return err
 	}
 
-	m.notice(fmt.Sprintf("eval definition created at %s", defPath))
-	m.notice("edit the definition file with capability and regression eval criteria")
+	out.line(fmt.Sprintf("eval definition created at %s", defPath))
+	out.line("edit the definition file with capability and regression eval criteria")
+	return nil
 }
 
-// evalCheck runs the evals for a named feature, recording results.
-func (m *chatTUI) evalCheck(name string) {
+// ── Shared logic: check ──────────────────────────────────────────────────────
+
+// evalSharedCheck runs the evals for a named feature, recording results.
+func evalSharedCheck(rootDir func() string, name string, out evalOutput) error {
 	name = strings.TrimSpace(name)
 	if name == "" {
-		m.notice("eval name cannot be empty")
-		return
+		out.notice("eval name cannot be empty")
+		return errEvalInvalid
 	}
 
-	defPath := m.evalDefPath(name)
+	defPath := filepath.Join(rootDir(), name, "definition.md")
 	data, err := os.ReadFile(defPath)
 	if err != nil {
-		m.notice(fmt.Sprintf("eval: cannot read definition at %s — create it with /eval define %s first", defPath, name))
-		return
+		out.notice(fmt.Sprintf("eval: cannot read definition at %s — create it with 'eval define %s' first", defPath, name))
+		return err
 	}
 
 	content := string(data)
-
-	// Parse capability and regression checkboxes.
 	capabilities := evalExtractCheckboxes(content, "### Capability Evals", "### Regression Evals")
 	regressions := evalExtractCheckboxes(content, "### Regression Evals", "### Success Criteria")
 
 	if len(capabilities) == 0 && len(regressions) == 0 {
-		m.notice("eval: no capability or regression criteria found in definition — fill in the criteria first")
-		return
+		out.notice("eval: no capability or regression criteria found in definition — fill in the criteria first")
+		return errEvalNoCriteria
 	}
 
-	logPath := m.evalLogPath(name)
+	logPath := filepath.Join(rootDir(), name, "results.log")
 	logDir := filepath.Dir(logPath)
 	os.MkdirAll(logDir, 0o755)
 
 	f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
-		m.notice(fmt.Sprintf("eval: cannot open log: %v", err))
-		return
+		out.notice(fmt.Sprintf("eval: cannot open log: %v", err))
+		return err
 	}
 	defer f.Close()
 
@@ -576,32 +223,30 @@ func (m *chatTUI) evalCheck(name string) {
 
 	var capPass, capTotal, regPass, regTotal int
 
-	m.commitLine(fmt.Sprintf("EVAL CHECK: %s", name))
-	m.commitLine("========================")
+	out.line(fmt.Sprintf("EVAL CHECK: %s", name))
+	out.line("========================")
+	out.line("")
 
-	m.commitLine("")
-	m.commitLine("Capability Evals:")
+	out.line("Capability Evals:")
 	for _, c := range capabilities {
 		capTotal++
-		result := m.evalVerify(c)
+		result := evalRunVerify(c)
 		if result == "PASS" {
 			capPass++
 		}
-		line := fmt.Sprintf("  [%s] %s", result, c)
-		m.commitLine(line)
+		out.line(fmt.Sprintf("  [%s] %s", result, c))
 		fmt.Fprintf(f, "%s: %s\n", c, result)
 	}
 
-	m.commitLine("")
-	m.commitLine("Regression Evals:")
+	out.line("")
+	out.line("Regression Evals:")
 	for _, r := range regressions {
 		regTotal++
-		result := m.evalVerify(r)
+		result := evalRunVerify(r)
 		if result == "PASS" {
 			regPass++
 		}
-		line := fmt.Sprintf("  [%s] %s", result, r)
-		m.commitLine(line)
+		out.line(fmt.Sprintf("  [%s] %s", result, r))
 		fmt.Fprintf(f, "%s: %s\n", r, result)
 	}
 
@@ -612,84 +257,72 @@ func (m *chatTUI) evalCheck(name string) {
 		status = "READY"
 	}
 
-	m.commitLine("")
-	m.commitLine(fmt.Sprintf("Capability: %d/%d passing", capPass, capTotal))
-	m.commitLine(fmt.Sprintf("Regression: %d/%d passing", regPass, regTotal))
-	m.commitLine(fmt.Sprintf("Status: %s", status))
-	m.notice(fmt.Sprintf("eval check results appended to %s", logPath))
+	out.line("")
+	out.line(fmt.Sprintf("Capability: %d/%d passing", capPass, capTotal))
+	out.line(fmt.Sprintf("Regression: %d/%d passing", regPass, regTotal))
+	out.line(fmt.Sprintf("Status: %s", status))
+	out.line(fmt.Sprintf("eval check results appended to %s", logPath))
+	return nil
 }
 
-// evalVerify attempts to verify a single eval criterion by running the relevant
-// test suite. Returns PASS or FAIL. This is a best-effort heuristic — it runs
-// smoke checks like the test suite and reports PASS if they succeed.
-func (m *chatTUI) evalVerify(criterion string) string {
-	// For criterion strings that mention a specific package, test command, or
-	// test name, try to run it.
-	// This is intentionally simple: it matches common patterns and runs the
-	// go test suite as a baseline. Users can override by editing results.log.
+// ── Shared verify ────────────────────────────────────────────────────────────
+
+// evalRunVerify attempts to verify a single criterion by running the relevant
+// shell check. Returns PASS, FAIL, or MANUAL (when no automated check applies).
+func evalRunVerify(criterion string) string {
 	lower := strings.ToLower(criterion)
 
 	switch {
-	case strings.Contains(lower, "test") && strings.Contains(lower, "build"):
-		// "go build ./... still works" etc.
-		return m.evalRunBuildCheck()
-	case strings.Contains(lower, "test") && strings.Contains(lower, "./..."):
-		return m.evalRunTestCheck("go test ./... 2>&1")
+	case strings.Contains(lower, "build") && !strings.Contains(lower, "vet"):
+		return evalRunCommandCheck("go build ./... 2>&1",
+			func(out string) string { return fmt.Sprintf("FAIL (build output):\n%s", out) })
 	case strings.Contains(lower, "vet"):
-		return m.evalRunBuildCheck()
+		return evalRunCommandCheck("go vet ./... 2>&1",
+			func(out string) string { return fmt.Sprintf("FAIL (vet output):\n%s", out) })
+	case strings.Contains(lower, "go test") || (strings.Contains(lower, "test") && strings.Contains(lower, "./...")):
+		return evalRunCommandCheck("go test ./... 2>&1",
+			func(out string) string { return fmt.Sprintf("FAIL (test output):\n%s", out) })
+	case strings.Contains(lower, "test") && strings.Contains(lower, "pass"):
+		return evalRunCommandCheck("go test ./... 2>&1",
+			func(out string) string { return fmt.Sprintf("FAIL (test output):\n%s", out) })
 	default:
-		// For arbitrary criteria, run a quick test suite smoke check.
-		// Mark as MANUAL so the user doesn't get a false sense of automation.
 		return "MANUAL"
 	}
 }
 
-// evalRunBuildCheck runs go build ./... and returns PASS or FAIL.
-func (m *chatTUI) evalRunBuildCheck() string {
-	// Run the check in a simple blocking call.
-	// We use bash directly since the TUI already has the build environment.
-	result := m.evalRunCommand("go build ./... 2>&1")
-	if result == "" {
-		return "PASS"
-	}
-	return "FAIL"
-}
-
-// evalRunTestCheck runs a test command and returns PASS/FAIL based on exit code.
-func (m *chatTUI) evalRunTestCheck(cmd string) string {
-	result := m.evalRunCommand(cmd)
-	if result == "" {
-		return "PASS"
-	}
-	return "FAIL"
-}
-
-// evalRunCommand runs a shell command and returns stderr on failure, empty on success.
-func (m *chatTUI) evalRunCommand(cmd string) string {
+// evalRunCommandCheck runs cmd via sh -c and returns PASS on success or a
+// detailed FAIL message (via failMsg) that includes the error output.
+func evalRunCommandCheck(cmd string, failMsg func(string) string) string {
 	out, err := exec.Command("sh", "-c", cmd).CombinedOutput()
 	if err != nil {
-		return strings.TrimSpace(string(out))
+		trimmed := strings.TrimSpace(string(out))
+		if trimmed == "" {
+			return "FAIL"
+		}
+		return failMsg(trimmed)
 	}
-	return ""
+	return "PASS"
 }
 
-// evalReport generates a comprehensive eval report for the named feature.
-func (m *chatTUI) evalReport(name string) {
+// ── Shared logic: report ─────────────────────────────────────────────────────
+
+// evalSharedReport generates a comprehensive eval report for the named feature.
+func evalSharedReport(rootDir func() string, name string, out evalOutput) error {
 	name = strings.TrimSpace(name)
 	if name == "" {
-		m.notice("eval name cannot be empty")
-		return
+		out.notice("eval name cannot be empty")
+		return errEvalInvalid
 	}
 
-	defPath := m.evalDefPath(name)
+	defPath := filepath.Join(rootDir(), name, "definition.md")
 	defData, err := os.ReadFile(defPath)
 	if err != nil {
-		m.notice(fmt.Sprintf("eval: no definition at %s — create it with /eval define %s first", defPath, name))
-		return
+		out.notice(fmt.Sprintf("eval: no definition at %s — create it with 'eval define %s' first", defPath, name))
+		return err
 	}
 
 	logData := ""
-	logPath := m.evalLogPath(name)
+	logPath := filepath.Join(rootDir(), name, "results.log")
 	if raw, err := os.ReadFile(logPath); err == nil {
 		logData = string(raw)
 	}
@@ -698,7 +331,6 @@ func (m *chatTUI) evalReport(name string) {
 	capabilities := evalExtractCheckboxes(content, "### Capability Evals", "### Regression Evals")
 	regressions := evalExtractCheckboxes(content, "### Regression Evals", "### Success Criteria")
 
-	// Parse log entries for pass/fail counts.
 	capPass, capTotal := evalCountResults(logData, capabilities)
 	regPass, regTotal := evalCountResults(logData, regressions)
 
@@ -729,27 +361,26 @@ func (m *chatTUI) evalReport(name string) {
 		}
 	}
 
-	// Compute pass@1, pass@3, regression pass^3.
-	capPass1 := 0
+	// Compute pass@1 (percentage of checks passing in latest run).
+	passAt1 := 0
 	if capTotal > 0 {
-		capPass1 = capPass * 100 / capTotal
-	}
-	capPass3 := 0
-	if capTotal > 0 && capPass >= capTotal {
-		capPass3 = 100
-	} else if capTotal > 0 {
-		capPass3 = capPass * 100 / capTotal
-	}
-	regPass3 := 0
-	if regTotal > 0 {
-		regPass3 = regPass * 100 / regTotal
+		passAt1 = capPass * 100 / capTotal
 	}
 
-	b.WriteString(fmt.Sprintf("\nMETRICS\n"))
+	// pass@3: count how many of the last 3 runs fully passed (all criteria green).
+	// This is not a simple percentage — it measures run-level reliability.
+	passAt3 := evalComputePassAtN(logData, 3, capabilities)
+
+	regPassAt3 := 0
+	if regTotal > 0 {
+		regPassAt3 = regPass * 100 / regTotal
+	}
+
+	b.WriteString("\nMETRICS\n")
 	b.WriteString("-------\n")
-	b.WriteString(fmt.Sprintf("Capability pass@1: %d%%\n", capPass1))
-	b.WriteString(fmt.Sprintf("Capability pass@3: %d%%\n", capPass3))
-	b.WriteString(fmt.Sprintf("Regression pass^3: %d%%\n", regPass3))
+	b.WriteString(fmt.Sprintf("Capability pass@1: %d%%\n", passAt1))
+	b.WriteString(fmt.Sprintf("Capability pass@3: %d/%d runs all-green\n", passAt3, min(3, evalCountCheckRuns(logData))))
+	b.WriteString(fmt.Sprintf("Regression pass@1: %d%%\n", regPassAt3))
 
 	b.WriteString("\nNOTES\n")
 	b.WriteString("-----\n")
@@ -759,23 +390,30 @@ func (m *chatTUI) evalReport(name string) {
 		b.WriteString(evalExtractNotes(logData))
 	}
 
-	// Recommendation.
 	b.WriteString("\nRECOMMENDATION\n")
 	b.WriteString("--------------\n")
-	rec := "BLOCKED"
-	if capTotal > 0 && regTotal > 0 && capPass >= capTotal && regPass >= regTotal {
-		rec = "SHIP"
-	} else if capTotal > 0 && capPass >= capTotal {
-		rec = "SHIP (no regressions defined)"
-	} else if capTotal == 0 && regTotal > 0 && regPass >= regTotal {
-		rec = "SHIP (no capabilities defined)"
-	} else if capTotal > 0 && regTotal > 0 && float64(capPass)/float64(capTotal) >= 0.9 {
-		rec = "NEEDS WORK (capability pass@3 < 100%)"
-	}
+	rec := evalBuildRecommendation(capTotal, regTotal, capPass, regPass)
 	b.WriteString(rec + "\n")
 
-	m.commitLine(b.String())
+	out.line(b.String())
+	return nil
 }
+
+// evalBuildRecommendation returns a human-readable ship/block recommendation.
+func evalBuildRecommendation(capTotal, regTotal, capPass, regPass int) string {
+	switch {
+	case capTotal > 0 && regTotal > 0 && capPass >= capTotal && regPass >= regTotal:
+		return "SHIP"
+	case capTotal > 0 && capPass >= capTotal && regTotal == 0:
+		return "SHIP (no regressions defined)"
+	case capTotal == 0 && regTotal > 0 && regPass >= regTotal:
+		return "SHIP (no capabilities defined)"
+	default:
+		return "BLOCKED"
+	}
+}
+
+// ── Log helpers ──────────────────────────────────────────────────────────────
 
 // evalCountResults counts how many of the given criteria have a PASS in the log.
 func evalCountResults(logData string, criteria []string) (pass, total int) {
@@ -788,13 +426,14 @@ func evalCountResults(logData string, criteria []string) (pass, total int) {
 	return
 }
 
-// evalLatestStatus returns the most recent PASS/FAIL/... status for a criterion.
+// evalLatestStatus returns the most recent PASS/FAIL/… status for a criterion.
 func evalLatestStatus(logData, criterion string) string {
 	lines := strings.Split(logData, "\n")
 	status := ""
+	prefix := criterion + ":"
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, criterion+":") {
+		if strings.HasPrefix(line, prefix) {
 			parts := strings.SplitN(line, ":", 2)
 			if len(parts) == 2 {
 				status = strings.TrimSpace(parts[1])
@@ -807,15 +446,70 @@ func evalLatestStatus(logData, criterion string) string {
 	return status
 }
 
+// evalCountCheckRuns returns the number of "=== CHECK at" markers in the log.
+func evalCountCheckRuns(logData string) int {
+	n := 0
+	for _, line := range strings.Split(logData, "\n") {
+		if strings.HasPrefix(line, "=== CHECK at ") {
+			n++
+		}
+	}
+	return n
+}
+
+// evalComputePassAtN returns how many of the last N full check runs had all
+// criteria passing. If there are fewer than N runs, uses the available count.
+func evalComputePassAtN(logData string, n int, criteria []string) int {
+	blocks := strings.Split(logData, "=== CHECK at ")
+	if len(blocks) <= 1 {
+		return 0
+	}
+
+	// Blocks[1:] are the check runs. Take the last N.
+	start := len(blocks) - n
+	if start < 1 {
+		start = 1
+	}
+
+	allPassCount := 0
+	for i := start; i < len(blocks); i++ {
+		block := blocks[i]
+		allPass := true
+		for _, c := range criteria {
+			if evalStatusInBlock(block, c) != "PASS" {
+				allPass = false
+				break
+			}
+		}
+		if allPass && len(criteria) > 0 {
+			allPassCount++
+		}
+	}
+	return allPassCount
+}
+
+// evalStatusInBlock returns the status of a criterion within a single check block.
+func evalStatusInBlock(block, criterion string) string {
+	prefix := criterion + ":"
+	for _, line := range strings.Split(block, "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, prefix) {
+			parts := strings.SplitN(line, ":", 2)
+			if len(parts) == 2 {
+				return strings.TrimSpace(parts[1])
+			}
+		}
+	}
+	return "NOT RUN"
+}
+
 // evalExtractNotes extracts free-form notes from the latest check run.
 func evalExtractNotes(logData string) string {
-	// Simple heuristic: return everything after the last "=== CHECK at".
 	parts := strings.Split(logData, "=== CHECK at ")
 	if len(parts) <= 1 {
 		return ""
 	}
 	last := parts[len(parts)-1]
-	// Remove the timestamp line.
 	lines := strings.SplitN(last, "\n", 2)
 	if len(lines) < 2 {
 		return ""
@@ -823,13 +517,15 @@ func evalExtractNotes(logData string) string {
 	return strings.TrimSpace(lines[1])
 }
 
-// evalList shows all eval definitions with their current status.
-func (m *chatTUI) evalList() {
-	dir := m.evalDir()
+// ── Shared logic: list ───────────────────────────────────────────────────────
+
+// evalSharedList shows all eval definitions with their current status.
+func evalSharedList(rootDir func() string, out evalOutput) error {
+	dir := rootDir()
 	entries, err := os.ReadDir(dir)
 	if err != nil {
-		m.notice("no eval definitions found — create one with /eval define <name>")
-		return
+		out.notice("no eval definitions found — create one with 'eval define <name>'")
+		return nil
 	}
 
 	var names []string
@@ -841,8 +537,8 @@ func (m *chatTUI) evalList() {
 	sort.Strings(names)
 
 	if len(names) == 0 {
-		m.notice("no eval definitions found — create one with /eval define <name>")
-		return
+		out.notice("no eval definitions found — create one with 'eval define <name>'")
+		return nil
 	}
 
 	var b strings.Builder
@@ -853,14 +549,21 @@ func (m *chatTUI) evalList() {
 		defPath := filepath.Join(dir, name, "definition.md")
 		logPath := filepath.Join(dir, name, "results.log")
 
-		defData, _ := os.ReadFile(defPath)
-		logData, _ := os.ReadFile(logPath)
+		defData, err := os.ReadFile(defPath)
+		if err != nil {
+			b.WriteString(fmt.Sprintf("  %-20s [ERROR: cannot read definition]\n", name))
+			continue
+		}
+		logData := ""
+		if raw, err := os.ReadFile(logPath); err == nil {
+			logData = string(raw)
+		}
 
 		capabilities := evalExtractCheckboxes(string(defData), "### Capability Evals", "### Regression Evals")
 		regressions := evalExtractCheckboxes(string(defData), "### Regression Evals", "### Success Criteria")
 
-		capPass, capTotal := evalCountResults(string(logData), capabilities)
-		regPass, regTotal := evalCountResults(string(logData), regressions)
+		capPass, capTotal := evalCountResults(logData, capabilities)
+		regPass, regTotal := evalCountResults(logData, regressions)
 
 		totalEvals := capTotal + regTotal
 		totalPass := capPass + regPass
@@ -878,16 +581,19 @@ func (m *chatTUI) evalList() {
 		b.WriteString(fmt.Sprintf("  %-20s [%s]\n", name, status))
 	}
 
-	m.commitLine(b.String())
+	out.line(b.String())
+	return nil
 }
 
-// evalClean removes old result logs, keeping the last 10 runs per eval.
-func (m *chatTUI) evalClean() {
-	dir := m.evalDir()
+// ── Shared logic: clean ──────────────────────────────────────────────────────
+
+// evalSharedClean removes old result logs, keeping the last 10 runs per eval.
+func evalSharedClean(rootDir func() string, out evalOutput) error {
+	dir := rootDir()
 	entries, err := os.ReadDir(dir)
 	if err != nil {
-		m.notice("no eval definitions to clean")
-		return
+		out.notice("no eval definitions to clean")
+		return nil
 	}
 
 	cleaned := 0
@@ -902,7 +608,6 @@ func (m *chatTUI) evalClean() {
 		}
 
 		lines := strings.Split(string(data), "\n")
-		// Find CHECK markers and keep only the last 10.
 		var checkIndices []int
 		for i, line := range lines {
 			if strings.HasPrefix(line, "=== CHECK at ") {
@@ -914,7 +619,6 @@ func (m *chatTUI) evalClean() {
 			continue
 		}
 
-		// Keep lines from the 10th-from-last check onward.
 		keepFrom := checkIndices[len(checkIndices)-10]
 		trimmed := strings.Join(lines[keepFrom:], "\n")
 		if err := os.WriteFile(logPath, []byte(trimmed), 0o644); err == nil {
@@ -923,11 +627,34 @@ func (m *chatTUI) evalClean() {
 	}
 
 	if cleaned == 0 {
-		m.notice("eval: no logs needed trimming (all have ≤10 runs)")
+		out.line("eval: no logs needed trimming (all have ≤10 runs)")
 	} else {
-		m.notice(fmt.Sprintf("eval: trimmed old runs from %d eval(s) (kept last 10 each)", cleaned))
+		out.line(fmt.Sprintf("eval: trimmed old runs from %d eval(s) (kept last 10 each)", cleaned))
 	}
+	return nil
 }
+
+// ── eval compare (restored) ──────────────────────────────────────────────────
+
+// evalCompare compares two saved session files using the internal/eval package.
+func evalCompare(sessionA, sessionB string, out evalOutput) int {
+	a, err := eval.LoadSessionSnapshot(sessionA)
+	if err != nil {
+		out.notice(fmt.Sprintf("error loading %s: %v", sessionA, err))
+		return 1
+	}
+	b, err := eval.LoadSessionSnapshot(sessionB)
+	if err != nil {
+		out.notice(fmt.Sprintf("error loading %s: %v", sessionB, err))
+		return 1
+	}
+
+	result := eval.Compare(a, b)
+	out.line(result.FormatText())
+	return 0
+}
+
+// ── Markdown checkbox extraction ─────────────────────────────────────────────
 
 // evalExtractCheckboxes extracts markdown checklist items between two section
 // headers. Each item is the text after "- [ ] " or "- [x] ".
@@ -939,7 +666,6 @@ func evalExtractCheckboxes(content, startSection, endSection string) []string {
 		return nil
 	}
 
-	// Find end bound.
 	endIdx := len(content)
 	if endSection != "" {
 		if idx := strings.Index(content[startIdx+len(startSection):], endSection); idx >= 0 {
@@ -950,7 +676,6 @@ func evalExtractCheckboxes(content, startSection, endSection string) []string {
 	section := content[startIdx:endIdx]
 	for _, line := range strings.Split(section, "\n") {
 		trimmed := strings.TrimSpace(line)
-		// Match "- [ ] ..." or "- [x] ..."
 		if strings.HasPrefix(trimmed, "- [ ] ") {
 			items = append(items, strings.TrimPrefix(trimmed, "- [ ] "))
 		} else if strings.HasPrefix(trimmed, "- [x] ") {
@@ -960,3 +685,68 @@ func evalExtractCheckboxes(content, startSection, endSection string) []string {
 
 	return items
 }
+
+// ── TUI integration ──────────────────────────────────────────────────────────
+
+// runEvalSubcommand dispatches /eval subcommands in the TUI.
+func (m *chatTUI) runEvalSubcommand(input string) {
+	m.echoLocalCommand(input)
+
+	parts := strings.Fields(strings.TrimSpace(strings.TrimPrefix(input, "/eval")))
+	if len(parts) == 0 {
+		m.evalShowHelp()
+		return
+	}
+
+	sub := parts[0]
+	out := m.tuiOutput()
+
+	switch sub {
+	case "define":
+		if len(parts) < 2 {
+			out.notice("usage: /eval define <name>")
+			return
+		}
+		evalSharedDefine(m.evalTUIDir, parts[1], out)
+	case "check":
+		if len(parts) < 2 {
+			out.notice("usage: /eval check <name>")
+			return
+		}
+		evalSharedCheck(m.evalTUIDir, parts[1], out)
+	case "report":
+		if len(parts) < 2 {
+			out.notice("usage: /eval report <name>")
+			return
+		}
+		evalSharedReport(m.evalTUIDir, parts[1], out)
+	case "list":
+		evalSharedList(m.evalTUIDir, out)
+	case "clean":
+		evalSharedClean(m.evalTUIDir, out)
+	default:
+		out.notice(fmt.Sprintf("unknown eval subcommand: %s — try one of: define, check, report, list, clean", sub))
+	}
+}
+
+// evalShowHelp prints the /eval usage summary.
+func (m *chatTUI) evalShowHelp() {
+	help := strings.Join([]string{
+		"Eval Command — manage eval-driven development workflow",
+		"",
+		"  /eval define <name>   create a new eval definition",
+		"  /eval check <name>    run and check evals",
+		"  /eval report <name>   generate full eval report",
+		"  /eval list            show all eval definitions and status",
+		"  /eval clean           remove old eval logs (keeps last 10 runs)",
+	}, "\n")
+	m.commitLine(help)
+}
+
+// ── Sentinel errors ──────────────────────────────────────────────────────────
+
+var (
+	errEvalInvalid    = fmt.Errorf("invalid eval name")
+	errEvalExists     = fmt.Errorf("eval definition already exists")
+	errEvalNoCriteria = fmt.Errorf("no criteria in eval definition")
+)
