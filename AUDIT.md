@@ -23,7 +23,7 @@ Reasonix is a well-structured, production-grade Go project. The architecture fol
 
 1. **Two confirmed bugs** — `MemoryStore.mu` race on concurrent access; `sqliteStorage.Save` does full DELETE+INSERT under a transaction without row-level locking, risking data loss under concurrent writes.
 2. **One data-corruption risk** — `MemoryStore` file persistence (`memories.json`) has no atomic write; crash mid-write = zero-length file.
-3. **One security gap** — `http.DefaultClient` used in `pkg/mcpbridge/main.go:325` and `cmd/reasonix-hooks/main.go:153` with no timeout on transport; also no TLS certificate verification customization.
+3. **One security gap** — `http.DefaultClient` used in `cmd/reasonix-mcpbridge/main.go:325` and `cmd/reasonix-hooks/main.go:153` with no timeout on transport; also no TLS certificate verification customization.
 4. **One injection vector** — `sqliteStorage.Search` builds LIKE patterns from user input; parameterized queries prevent SQL injection, but LIKE wildcards (`%`, `_`) in user queries are not escaped, allowing wildcard injection.
 5. **One resource leak** — `sqliteStorage` `db.Close()` is never called in `main()`; the SQLite connection leaks on shutdown.
 6. **Architecture smells** — `internal/bot/gateway.go` (592 lines, 16K) and `internal/control/controller.go` (2,722 lines) are god objects. `internal/cli/` has 49 source files with no cohesive boundary.
@@ -231,7 +231,7 @@ bot/
 - **Cohesive:** Yes.
 - **Issues:** None.
 
-### `pkg/mcpbridge/main.go` (18.3K chars)
+### `cmd/reasonix-mcpbridge/main.go` (18.3K chars)
 - **Purpose:** Standalone MCP bridge — exposes Reasonix as an MCP tool server.
 - **API surface:** `Bridge` struct, MCP tool handlers, doctor check, skill listing, orchestration.
 - **Cohesive:** Reasonable but large for a single file.
@@ -289,7 +289,7 @@ bot/
 - **Fix:** Escape LIKE wildcards before building the pattern, or use FTS5 full-text search instead of LIKE.
 
 ### BUG-4: http.DefaultClient with no timeout
-- **File:** `pkg/mcpbridge/main.go:325`, `cmd/reasonix-hooks/main.go:153`
+- **File:** `cmd/reasonix-mcpbridge/main.go:325`, `cmd/reasonix-hooks/main.go:153`
 - **Severity:** Medium
 - **Description:** `http.DefaultClient.Do(req)` has no transport timeout. While the request context has a 60s deadline in mcpbridge, the transport itself has no idle connection timeout, connection pool limits, or TLS handshake timeout. A hung server could leak connections.
 - **Fix:** Create a custom `http.Client` with `Transport` configured for timeouts.
@@ -332,7 +332,7 @@ bot/
 - **Problem:** `pkg/memoryserver/main.go` has a `MemoryStore` (JSON file) and `sqliteStorage` (SQLite), with different APIs (`Load/Save` vs `Search`). The `Storage` interface bridges them but `MemoryStore` duplicates search logic that `sqliteStorage.Search` already implements.
 - **Recommendation:** Make `Storage` interface the primary API; `MemoryStore` should delegate to it entirely. Remove JSON-file search path when SQLite backend is used.
 
-### REF-5: `pkg/mcpbridge/main.go` is 548 lines
+### REF-5: `cmd/reasonix-mcpbridge/main.go` is 548 lines
 - **Problem:** Single file handles doctor, skills, planning, orchestration, and tool dispatch.
 - **Recommendation:** Extract `doctor.go`, `skills.go`, `orchestrator.go` in the same package.
 
@@ -356,7 +356,7 @@ bot/
 - Neither `bot/main.go` nor `pkg/memoryserver/main.go` handle SIGTERM/SIGINT for graceful shutdown. The bot gateway has no `Shutdown()` method.
 
 ### ENH-6: Rate-limit MCP bridge API calls
-- `pkg/mcpbridge/main.go` calls the DeepSeek API with no rate limiting. A runaway agent could exhaust API quota. Add per-session rate limiting.
+- `cmd/reasonix-mcpbridge/main.go` calls the DeepSeek API with no rate limiting. A runaway agent could exhaust API quota. Add per-session rate limiting.
 
 ### ENH-7: Add context cancellation propagation in bot gateway
 - `internal/bot/gateway.go` creates controllers with `context.Background()` and doesn't propagate cancellation from the parent context. Long-running sessions may leak goroutines.
@@ -381,7 +381,7 @@ bot/
 - **Mitigation:** Use `crypto/subtle.ConstantTimeCompare`.
 
 ### SEC-4: No TLS certificate pinning for LLM API calls (Info)
-- **File:** `pkg/mcpbridge/main.go:325`, `internal/provider/`
+- **File:** `cmd/reasonix-mcpbridge/main.go:325`, `internal/provider/`
 - **Detail:** HTTP clients use default TLS verification. No certificate pinning. Standard for most deployments but worth noting for high-security environments.
 
 ### SEC-5: Sandbox only on macOS (Medium)
@@ -390,7 +390,7 @@ bot/
 - **Mitigation:** Implement Linux sandboxing (namespace/seccomp) as ENH-4.
 
 ### SEC-6: Unbounded HTTP response body reads (Low)
-- **File:** `pkg/mcpbridge/main.go:331`, `pkg/memoryserver/main_test.go:838,850`
+- **File:** `cmd/reasonix-mcpbridge/main.go:331`, `pkg/memoryserver/main_test.go:838,850`
 - **Detail:** `io.ReadAll(resp.Body)` with no size limit. A malicious API server could send an enormous response.
 - **Mitigation:** Use `io.LimitReader(resp.Body, maxResponseSize)`.
 
@@ -427,7 +427,7 @@ bot/
 | `internal/sandbox` | 4 | 2 | Moderate |
 | `internal/skill` | 4 | 3 | Good |
 | `internal/tool` | 26 | 36 | Excellent |
-| `pkg/mcpbridge` | 1 | 1 (937 lines) | Good |
+| `cmd/reasonix-mcpbridge` | 1 | 1 (937 lines) | Good |
 | `pkg/memoryserver` | 2 | 1 (1,568 lines) | Good |
 | `pkg/mcputil` | 1 | 0 | **None** |
 | `pkg/httputil` | 1 | 0 | **None** |

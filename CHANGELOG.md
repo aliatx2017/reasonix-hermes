@@ -20,7 +20,7 @@ Our fork (`aliatx2017/reasonix-hermes`) adds:
 - **Ecosystem reference** (`reasonix-deepseek-ecosystem-2026.md`) — comprehensive survey
 - **Changelog** (`docs/CHANGELOG-HERMES.md`) — Hermes fork milestones, expansion packs, bot platforms
 
-### Hermes v1.7.0-h1 (2026-07-15)
+### Hermes v1.7.0-h1 (2026-06-15)
 
 **New bot platforms:**
 - **LINE adapter** (`internal/bot/line/`): Webhook server via line-bot-sdk-go/v8, 11 tests, wired into gateway/runtime/allowlist
@@ -60,7 +60,7 @@ Our fork (`aliatx2017/reasonix-hermes`) adds:
 - StatusBar compact chips: cache%, Discord dot, sqz/aux savings
 - Controller decomposition: `controller.go` 3,744 → 2,670 lines (4 sub-files)
 
-### Hermes v1.6.1-h2 (2026-07-13)
+### Hermes v1.6.1-h2 (2026-06-13)
 
 **Write Mode (4 features):**
 - **Panel integration**: Write Mode is now a "Write" tab in the desktop right dock (alongside Overview/Files/Changed), with i18n in en/zh/zh-TW
@@ -99,7 +99,7 @@ Our fork (`aliatx2017/reasonix-hermes`) adds:
 - **D3 click-to-inspect**: Click any graph node → detail panel with title, description, type, close button. Selected node gets white stroke highlight
 - **D3 vector similarity links**: TF-IDF cosine similarity between fact descriptions; cross-type edges added for sim > 0.3, rendered as dashed accent lines
 
-### Hermes v1.7.0-h1 (2026-07-15) — Controller Decomposition + Skill Adoption + Bug Fixes
+### Hermes v1.7.0-h1 (2026-06-15) — Controller Decomposition + Skill Adoption + Bug Fixes
 
 **Controller decomposition:**
 - `internal/control/controller.go` reduced from 3,744 to 2,670 lines (29% reduction)
@@ -129,7 +129,7 @@ Our fork (`aliatx2017/reasonix-hermes`) adds:
 **Verification:** `go build ./...` + `go vet ./...` pass. All 66 test packages pass (`go test ./internal/...`).
 
 
-### Hermes v1.6.1-h3 (2026-07-14) — Windows Sandbox + Multi-Provider + Bot Fixes
+### Hermes v1.6.1-h3 (2026-06-14) — Windows Sandbox + Multi-Provider + Bot Fixes
 
 **Windows AppContainer sandbox** (`internal/sandbox/appcontainer_windows.go`, ~360 lines):
 - OS-level process isolation via CreateProcess with SECURITY_CAPABILITIES — available since Win8+, no external dependencies

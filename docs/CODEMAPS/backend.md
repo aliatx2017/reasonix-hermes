@@ -20,7 +20,7 @@
 | `agent/` | 5,153 | Agent loop, subagents, compaction, goal mode, workshop |
 | `config/` | 5,046 | TOML loader, edit, migrate, legacy config |
 | `tool/builtin/` | 4,185 | 17 built-in tools (bash, read, write, edit, grep, glob…) |
-| `bot/` | 3,732 | Multi-platform IM gateway + Discord/Feishu/QQ/WeChat adapters |
+| `bot/` | 3,732 | Multi-platform IM gateway + Discord/Telegram/LINE/Slack/Feishu/QQ/WeChat adapters |
 | `plugin/` | 2,647 | MCP client: stdio, HTTP, SSE transports |
 | `provider/` | 2,127 | LLM providers: OpenAI-compatible (DeepSeek, MiMo), Anthropic |
 | `skill/` | 1,448 | Built-in skills registry, explore/research/review subagents |

@@ -52,9 +52,9 @@ the `release` environment deployment.
 4. **Fix** on `main-v2` via PRs; re-cut the canary as needed (`canary.N` bumps).
 5. **Ship stable** when the canary is clean — push the three tags:
    ```sh
-   git tag v1.8.0         && git push origin v1.4.0          # CLI binaries + Homebrew
-   git tag hermes-npm-v1.8.0     && git push origin npm-v1.4.0      # npm -> next
-   git tag desktop-v1.8.0 && git push origin desktop-v1.4.0  # desktop -> R2 latest/
+   git tag v1.8.0         && git push origin v1.8.0          # CLI binaries + Homebrew
+   git tag hermes-npm-v1.8.0     && git push origin hermes-npm-v1.8.0      # npm -> next
+   git tag desktop-v1.8.0 && git push origin desktop-v1.8.0  # desktop -> R2 latest/
    ```
    Each stable run **waits for esengine to approve the `release` environment** before publishing.
 6. **Promote to default install** (optional, when 1.x should become the bare `npm i` target):
