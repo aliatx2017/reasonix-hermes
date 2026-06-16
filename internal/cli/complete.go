@@ -98,6 +98,7 @@ func (m *chatTUI) slashItems() []compItem {
 		{label: "/learn", insert: "/learn", hint: "suggest skills from detected patterns"},
 		{label: "/publish", insert: "/publish", hint: "export session as HTML/JSON"},
 		{label: "/todo", insert: "/todo", hint: "show or update task list"},
+		{label: "/eval", insert: "/eval ", hint: "manage eval-driven development workflow"},
 		{label: "/chain", insert: "/chain ", hint: "run analyze-then-implement"},
 		{label: "/pair", insert: "/pair ", hint: "run review + implement + merge"},
 		{label: "/ci-fix", insert: "/ci-fix ", hint: "run tests and auto-fix failures"},

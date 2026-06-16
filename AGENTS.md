@@ -124,6 +124,8 @@ skills-hub/            17-skill community registry + static catalog site
 | `npm/hermes/` | npm package | One-line install: `npm i -g reasonix-hermes` (7 sub-packages) |
 | `deploy/` | Helm chart + docker-compose | One-command deploy to K8s or $5 VPS |
 | `desktop/` | Wails v2 desktop app | React 19 frontend + Go kernel; Hermes dashboard; live data push |
+| `.reasonix/skills/research/` (+4 siblings) | 5-skill research workflow | `/research` → `/research-deep` → `/research-report` pipeline with SearXNG (discovery) + Crawl4AI (extraction) |
+| `internal/cli/eval.go` | `/eval` slash command | Eval-driven development: define, check, report, list, clean subcommands |
 | `reasonix-hermes.json` | Install source manifest | `reasonix install-source install --source ...` |
 | `.github/workflows/ci-hermes.yml` | Supplementary CI | Desktop frontend build + Hermes package tests in CI |
 | `.github/workflows/pr-review.yml` | PR review action | Auto-reviews PRs with Reasonix |

@@ -36,8 +36,8 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 ## Notes
 
-- **Upstream synced**: `v1.8.x` (commit dbd15a8, 2026-??-??). 4 new commits merged (approval keyboard nav). Previous sync: bcd310d.
-- **Commit**: session 2026-07-15 (h20) — gradient banner stability fix (consolidated logoGradient calls), session time on status bar, height budget sync in computeStatusLineCount.
+- **Upstream synced**: `v1.8.x` (commit 0706284, 2026-??-??). 10 new commits merged (compaction retention policy, Wails drag rejection). Previous sync: dbd15a8.
+- **Commit**: session 2026-07-?? (h??) — Deep Research workflow adopted (5 skills from Weizhena/Deep-Research-skills), `/eval` slash command (define/check/report/list/clean), crawl4ai/searxng integration in research pipeline, upstream merge (0706284, 10 commits).
 - **Commit**: session 2026-07-15 (h19) — animated logo gradient banner (indigo→cyan→pink), doc sweep (8 files, stale binary names fixed), all prior h18 work.
 - **Commit**: session 2026-07-15 (h15) — upstream v1.8.x merge (8ab6d3b, 71 commits), vision pipeline restore, logo fix, 13 test fixes, constitution zero-test-failures rule.
 - **npm**: `npm i -g reasonix-hermes` — one-line install. Pipeline verified; publish pending 2FA-bypass token.

@@ -3868,6 +3868,8 @@ func (m *chatTUI) runSlashCommand(input string) tea.Cmd {
 				}
 			}()
 		}
+	case "/eval":
+		m.runEvalSubcommand(input)
 	case "/chain":
 		m.echoLocalCommand(input)
 		task := strings.TrimSpace(strings.TrimPrefix(input, cmd))
