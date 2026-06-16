@@ -532,8 +532,34 @@ export function reportCrash(label: string, err: unknown, extra?: string) {
   paint(buildCrashPayload(label, err, extra));
 }
 
-export function shouldReportGlobalCrashEvent(e: Pick<Event, "defaultPrevented">): boolean {
-  return !e.defaultPrevented;
+type GlobalCrashEventLike = Pick<Event, "defaultPrevented"> & {
+  message?: unknown;
+  error?: unknown;
+};
+
+const RESIZE_OBSERVER_LOOP_MESSAGE_RE =
+  /^ResizeObserver loop (?:limit exceeded|completed with undelivered notifications\.?)$/;
+
+function globalCrashEventMessages(e: GlobalCrashEventLike): string[] {
+  const messages: string[] = [];
+  const pushMessage = (message: string) => {
+    const trimmed = message.trim();
+    if (trimmed) messages.push(trimmed);
+  };
+  if (typeof e.message === "string") pushMessage(e.message);
+  const error = e.error;
+  if (typeof error === "string") pushMessage(error);
+  if (error && typeof error === "object" && "message" in error) {
+    const msg = (error as { message?: unknown }).message;
+    if (typeof msg === "string") pushMessage(msg);
+  }
+  return messages;
+}
+
+export function shouldReportGlobalCrashEvent(e: GlobalCrashEventLike): boolean {
+  if (e.defaultPrevented) return false;
+  if (globalCrashEventMessages(e).some((message) => RESIZE_OBSERVER_LOOP_MESSAGE_RE.test(message))) return false;
+  return true;
 }
 
 export function shouldPromptForPerformanceLabel(

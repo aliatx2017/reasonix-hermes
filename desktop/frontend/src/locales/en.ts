@@ -1419,7 +1419,7 @@ export const en = {
   "settings.telemetryLabel": "Anonymous usage ping",
   "settings.telemetryHint": "On launch, send a random install id plus version and OS to count active installs, and — if the app crashed on a previous run — resend that crash report. Never includes conversations, keys, or file contents.",
   "settings.metricsLabel": "Share aggregate quality metrics",
-  "settings.metricsHint": "Off by default. When on, send anonymous counts of how turns end (finish reason, cache-hit rate, error and tool-failure categories) so issues can be spotted across versions. Only enumerated counters — never conversations, prompts, keys, paths, or any text.",
+  "settings.metricsHint": "Off by default. When on, send anonymous turn-end counts and settings preference snapshots (such as desktop style, theme, provider/model identifiers, client version, and bot toggles) plus the random install id used to de-duplicate DAU. Buckets may include normalized custom provider and model names — never conversations, prompts, keys, paths, base URLs, or file contents.",
   "updater.currentVersion": "Current version: {v}",
   "updater.checkButton": "Check for updates",
   "updater.checking": "Checking for updates…",

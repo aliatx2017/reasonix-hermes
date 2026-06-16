@@ -1577,7 +1577,7 @@ func (a *App) SetDesktopTelemetry(enabled bool) error {
 	return a.applyConfigOnly(func(c *config.Config) error { return c.SetDesktopTelemetry(enabled) })
 }
 
-// SetDesktopMetrics sets whether the desktop sends opt-in aggregate agent metrics,
+// SetDesktopMetrics sets whether the desktop sends opt-in aggregate desktop metrics,
 // starting or stopping the live aggregator so the toggle takes effect immediately.
 func (a *App) SetDesktopMetrics(enabled bool) error {
 	if err := a.applyConfigOnly(func(c *config.Config) error { return c.SetDesktopMetrics(enabled) }); err != nil {
@@ -1586,6 +1586,9 @@ func (a *App) SetDesktopMetrics(enabled bool) error {
 	switch {
 	case enabled && a.metrics.Load() == nil && version != "dev":
 		a.metrics.Store(newMetricsAggregator(config.MemoryUserDir()))
+		if cfg, err := config.Load(); err == nil {
+			a.recordSettingsMetricsSnapshot(cfg)
+		}
 	case !enabled:
 		a.metrics.Store(nil)
 	}

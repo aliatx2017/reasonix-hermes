@@ -1536,7 +1536,7 @@ export const zhTW: Record<DictKey, string> = {
   "settings.telemetryLabel": "匿名啟動統計",
   "settings.telemetryHint": "啟動時傳送隨機安裝 ID、版本號和作業系統用於統計活躍安裝量；若上次執行發生崩潰，則在本次啟動補發該崩潰報告。絕不包含對話、金鑰或檔案內容。",
   "settings.metricsLabel": "共享聚合品質指標",
-  "settings.metricsHint": "預設關閉。開啟後傳送匿名的輪次結束統計（結束原因、快取命中率、錯誤與工具失敗的類別），用於跨版本發現問題。只含列舉化計數——絕不包含對話、提示詞、金鑰、路徑或任何文字。",
+  "settings.metricsHint": "預設關閉。開啟後傳送匿名的輪次結束統計和設定偏好快照（如桌面風格、主題、Provider/模型標識、客戶端版本與機器人開關），以及用於 DAU 去重的隨機安裝 ID。Bucket 可能包含正規化後的自訂 Provider 名和模型名——絕不包含對話、提示詞、金鑰、路徑、base URL 或檔案內容。",
   "context.windowTitle": "上下文視窗",
   "context.windowSubtitle": "當前上下文視窗佔用",
   "context.runtimeMetrics": "執行指標",

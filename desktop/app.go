@@ -318,6 +318,7 @@ func (a *App) startup(ctx context.Context) {
 
 	if cfg, err := config.Load(); err == nil && cfg.DesktopMetrics() && version != "dev" {
 		a.metrics.Store(newMetricsAggregator(config.MemoryUserDir()))
+		a.recordSettingsMetricsSnapshot(cfg)
 	}
 
 	go a.restoreOrBuildTabs()
