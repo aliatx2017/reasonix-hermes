@@ -30,8 +30,6 @@ import (
 	"reasonix/internal/agent"
 	"reasonix/internal/billing"
 	"reasonix/internal/boot"
-	"reasonix/internal/builtinmcp"
-	"reasonix/internal/codegraph"
 	"reasonix/internal/config"
 	"reasonix/internal/control"
 	"reasonix/internal/event"
@@ -41,7 +39,6 @@ import (
 	"reasonix/internal/i18n"
 	"reasonix/internal/mcpdiag"
 	"reasonix/internal/memory"
-	"reasonix/internal/netclient"
 	"reasonix/internal/plugin"
 	"reasonix/internal/provider"
 	"reasonix/internal/skill"
@@ -57,8 +54,6 @@ const eventChannel = "agent:event"
 // running instance. Keep it stable across releases so launcher/Dock/taskbar
 // reopen behavior remains predictable on every platform.
 const singleInstanceID = "com.reasonix.desktop"
-
-var updateBuiltInCodegraph = codegraph.UpdateWithClient
 
 // PromptHistoryEntry is one user prompt extracted from a session JSONL file.
 // The frontend uses these for ↑/↓ prompt-history navigation.
@@ -113,9 +108,6 @@ type App struct {
 	mediaTokens *mediaTokenStore
 	botInstalls map[string]*botInstallSession
 	botRuntime  *desktopBotRuntime
-
-	builtInMCPUpdatesMu sync.RWMutex
-	builtInMCPUpdates   map[string]BuiltInMCPUpdateStatus
 
 	metrics atomic.Pointer[metricsAggregator] // non-nil only when desktop.metrics is opted in; swapped live by SetDesktopMetrics
 
@@ -330,7 +322,6 @@ func (a *App) startup(ctx context.Context) {
 
 	go a.restoreOrBuildTabs()
 	a.goSafe("refreshBotRuntime", a.refreshBotRuntime)
-	a.goSafe("checkBuiltInMCPUpdates", a.checkBuiltInMCPUpdates)
 	a.goSafe("sendStartupPing", a.sendStartupPing)
 	a.goSafe("flushMetrics", a.flushMetrics)
 	a.goSafe("flushPendingCrash", a.flushPendingCrash)
@@ -910,7 +901,7 @@ func (a *App) NewSession() error {
 		return workspaceNotReadyErr(tab)
 	}
 	// Tab is already blank — just persist and skip the new-session dance.
-	if !ctrl.Running() && !messagesHaveConversationContent(ctrl.History()) {
+	if !controllerHasActiveRuntimeWork(ctrl) && !messagesHaveConversationContent(ctrl.History()) {
 		a.persistTabSessionPath(tab, ctrl.SessionPath())
 		return nil
 	}
@@ -963,7 +954,7 @@ func (a *App) clearActiveSessionRuntime(tab *WorkspaceTab, oldCtrl *control.Cont
 		oldSink.tabID = detachedRuntimeTabID(oldPath)
 		oldSink.ctx = nil
 	}
-	if oldCtrl.Running() {
+	if oldCtrl.RuntimeStatus().Cancellable {
 		oldCtrl.Cancel()
 		if err := waitControllerStopped(oldCtrl); err != nil {
 			return err
@@ -2626,6 +2617,21 @@ type HistoryMessage struct {
 	Messages   int               `json:"messages,omitempty"`
 	Summary    string            `json:"summary,omitempty"`
 	Archive    string            `json:"archive,omitempty"`
+	Role               string            `json:"role"`
+	Content            string            `json:"content"`
+	SubmitText         string            `json:"submitText,omitempty"`
+	Reasoning          string            `json:"reasoning,omitempty"`
+	Level              string            `json:"level,omitempty"`
+	ToolCalls          []HistoryToolCall `json:"toolCalls,omitempty"`
+	ToolCallID         string            `json:"toolCallId,omitempty"`
+	ToolName           string            `json:"toolName,omitempty"`
+	ToolResultArchived bool              `json:"toolResultArchived,omitempty"`
+	ToolResultError    string            `json:"toolResultError,omitempty"`
+	Pending            bool              `json:"pending,omitempty"`
+	Trigger            string            `json:"trigger,omitempty"`
+	Messages           int               `json:"messages,omitempty"`
+	Summary            string            `json:"summary,omitempty"`
+	Archive            string            `json:"archive,omitempty"`
 }
 
 type HistoryToolCall struct {
@@ -2674,6 +2680,9 @@ func historyMessages(msgs []provider.Message, resolveUserContent func(string) st
 			reasoning = m.ReasoningContent
 		}
 		hm := HistoryMessage{Role: string(m.Role), Content: content, Reasoning: reasoning}
+		if m.Role == provider.RoleUser && content != m.Content {
+			hm.SubmitText = m.Content
+		}
 		if m.Role == provider.RoleAssistant && len(m.ToolCalls) > 0 {
 			hm.ToolCalls = make([]HistoryToolCall, len(m.ToolCalls))
 			for i, tc := range m.ToolCalls {
@@ -3338,12 +3347,6 @@ type ToolView struct {
 	Description string `json:"description"`
 }
 
-type BuiltInMCPUpdateResult struct {
-	Name    string `json:"name"`
-	Version string `json:"version"`
-	Path    string `json:"path"`
-}
-
 // SkillView is one discoverable skill for the drawer.
 type SkillView struct {
 	Name        string `json:"name"`
@@ -3395,11 +3398,9 @@ func (a *App) Capabilities() CapabilitiesView {
 	seen := map[string]bool{}
 	connected := map[string]bool{}
 	retainedDisabled := map[string]ServerView{}
-	var loadedCfg *config.Config
 	configured := map[string]config.PluginEntry{}
 	var configuredEntries []config.PluginEntry
 	if cfg, err := config.LoadForRoot(tab.WorkspaceRoot); err == nil {
-		loadedCfg = cfg
 		configuredEntries = append(configuredEntries, cfg.Plugins...)
 		for _, p := range configuredEntries {
 			configured[p.Name] = p
@@ -3416,10 +3417,6 @@ func (a *App) Capabilities() CapabilitiesView {
 			}
 			if p, ok := configured[s.Name]; ok {
 				view = withPluginConfig(view, p)
-			} else if s.Name == "codegraph" && loadedCfg != nil {
-				view = withCodegraphConfig(view, loadedCfg.Codegraph)
-			} else if p, ok := builtinmcp.Entry(s.Name); ok {
-				view = withBuiltInMCPConfig(view, p, builtInMCPEnabled(loadedCfg, p.Name))
 			}
 			out.Servers = append(out.Servers, view)
 		}
@@ -3430,17 +3427,13 @@ func (a *App) Capabilities() CapabilitiesView {
 			}
 			if p, ok := configured[f.Name]; ok {
 				view = withPluginConfig(view, p)
-			} else if f.Name == "codegraph" && loadedCfg != nil {
-				view = withCodegraphConfig(view, loadedCfg.Codegraph)
-			} else if p, ok := builtinmcp.Entry(f.Name); ok {
-				view = withBuiltInMCPConfig(view, p, builtInMCPEnabled(loadedCfg, p.Name))
 			}
 			out.Servers = append(out.Servers, view)
 		}
 	}
 	// Configured servers that are neither connected nor failed are either lazy
 	// (deferred), background/eager (initializing), or toggled off this session.
-	if len(configuredEntries) > 0 || loadedCfg != nil {
+	if len(configuredEntries) > 0 {
 		for _, p := range configuredEntries {
 			if seen[p.Name] {
 				continue
@@ -3465,44 +3458,6 @@ func (a *App) Capabilities() CapabilitiesView {
 				}
 			}
 			out.Servers = append(out.Servers, withPluginConfig(ServerView{Name: p.Name, Status: status}, p))
-			seen[p.Name] = true
-		}
-		if loadedCfg != nil && !seen["codegraph"] {
-			status := "disabled"
-			if loadedCfg.Codegraph.Enabled {
-				status = "initializing"
-			}
-			if s, ok := disabled["codegraph"]; ok {
-				s.Status = "disabled"
-				s.Transport = "stdio"
-				s.BuiltIn = true
-				s = withCodegraphConfig(s, loadedCfg.Codegraph)
-				s.Error = ""
-				out.Servers = append(out.Servers, s)
-				retainedDisabled["codegraph"] = s
-				delete(disabled, "codegraph")
-			} else {
-				out.Servers = append(out.Servers, withCodegraphConfig(ServerView{Name: "codegraph", Status: status}, loadedCfg.Codegraph))
-			}
-			seen["codegraph"] = true
-		}
-		for _, p := range builtinmcp.Entries() {
-			if configured[p.Name].Name != "" || seen[p.Name] {
-				continue
-			}
-			enabled := builtInMCPEnabled(loadedCfg, p.Name)
-			if s, ok := disabled[p.Name]; ok {
-				s.Status = "disabled"
-				s = withBuiltInMCPConfig(s, p, enabled)
-				s.Error = ""
-				out.Servers = append(out.Servers, s)
-				retainedDisabled[p.Name] = s
-				delete(disabled, p.Name)
-			} else if enabled {
-				out.Servers = append(out.Servers, withBuiltInMCPConfig(ServerView{Name: p.Name, Status: "deferred"}, p, true))
-			} else {
-				out.Servers = append(out.Servers, withBuiltInMCPConfig(ServerView{Name: p.Name, Status: "disabled"}, p, false))
-			}
 			seen[p.Name] = true
 		}
 	}
@@ -3551,37 +3506,6 @@ func withPluginConfig(v ServerView, p config.PluginEntry) ServerView {
 	v.AuthStatus = auth.Status
 	v.AuthURL = auth.URL
 	return v
-}
-
-func withCodegraphConfig(v ServerView, c config.CodegraphConfig) ServerView {
-	v.Name = "codegraph"
-	v.Transport = "stdio"
-	v.BuiltIn = true
-	v.Configured = true
-	v.AutoStart = c.ShouldAutoStart()
-	v.Tier = c.ResolvedTier()
-	v.Command = strings.TrimSpace(c.Path)
-	if v.Command == "" {
-		v.Command = "codegraph"
-	}
-	v.Args = []string{"serve", "--mcp"}
-	v.AuthStatus = mcpdiag.AuthNone
-	return v
-}
-
-func withBuiltInMCPConfig(v ServerView, p config.PluginEntry, enabled bool) ServerView {
-	v = withPluginConfig(v, p)
-	v.Name = p.Name
-	v.BuiltIn = true
-	v.Configured = true
-	v.AutoStart = enabled
-	v.AuthStatus = mcpdiag.AuthNone
-	v.AuthURL = ""
-	return v
-}
-
-func builtInMCPEnabled(cfg *config.Config, name string) bool {
-	return cfg != nil && cfg.BuiltInMCP.Enabled(name)
 }
 
 func skillRootsView() []SkillRootView {
@@ -3819,9 +3743,6 @@ func (a *App) AddMCPServer(in MCPServerInput) (int, error) {
 	if ctrl == nil {
 		return 0, fmt.Errorf("no active session")
 	}
-	if builtinmcp.IsBuiltIn(strings.TrimSpace(in.Name)) {
-		return 0, fmt.Errorf("%s is built in; no configuration is required", strings.TrimSpace(in.Name))
-	}
 	entry := config.PluginEntry{
 		Name:    in.Name,
 		Type:    normalizeMCPTransport(in.Transport),
@@ -3840,9 +3761,6 @@ func (a *App) AddMCPServer(in MCPServerInput) (int, error) {
 // UpdateMCPServer edits a persisted external MCP server. The name is the stable
 // identity; callers must remove + add if they want to rename a server.
 func (a *App) UpdateMCPServer(name string, in MCPServerInput) error {
-	if name == "codegraph" {
-		return fmt.Errorf("codegraph is built in; configure it with [codegraph]")
-	}
 	ctrl := a.activeCtrl()
 	if ctrl == nil {
 		return fmt.Errorf("no active session")
@@ -3855,9 +3773,6 @@ func (a *App) UpdateMCPServer(name string, in MCPServerInput) error {
 		return err
 	}
 	if !found {
-		if builtinmcp.IsBuiltIn(name) {
-			return fmt.Errorf("%s is built in; it cannot be edited", name)
-		}
 		return fmt.Errorf("no configured MCP server named %q", name)
 	}
 	updated.Type = normalizeMCPTransport(in.Transport)
@@ -3902,16 +3817,6 @@ func (a *App) UpdateMCPServer(name string, in MCPServerInput) error {
 
 // RemoveMCPServer disconnects a live server and drops it from config (the row's ✕).
 func (a *App) RemoveMCPServer(name string) error {
-	if name == "codegraph" {
-		return fmt.Errorf("codegraph is built in; it cannot be removed")
-	}
-	if builtinmcp.IsBuiltIn(name) {
-		if _, found, err := a.desktopMCPServerForEdit(name); err != nil {
-			return err
-		} else if !found {
-			return fmt.Errorf("%s is built in; it cannot be removed", name)
-		}
-	}
 	tab := a.activeTab()
 	if tab == nil || tab.Ctrl == nil {
 		return fmt.Errorf("no active session")
@@ -3947,8 +3852,6 @@ func (a *App) ReconnectMCPServer(name string) error {
 		entry := config.PluginEntry{Name: name}
 		if p, found, cfgErr := a.desktopMCPServerForEdit(name); cfgErr == nil && found {
 			entry = p
-		} else if p, ok := builtinmcp.Entry(name); ok {
-			entry = p
 		}
 		recordMCPFailure(tab.Ctrl, entry, err)
 		return err
@@ -3959,71 +3862,10 @@ func (a *App) ReconnectMCPServer(name string) error {
 	return nil
 }
 
-// UpdateBuiltInMCPServer downloads and activates the latest runtime for a
-// bundled MCP. It is intentionally explicit because newer MCP releases can
-// change tool schemas and prompt-cache shape.
-func (a *App) UpdateBuiltInMCPServer(name string) (BuiltInMCPUpdateResult, error) {
-	name = strings.TrimSpace(name)
-	if name != "codegraph" {
-		return BuiltInMCPUpdateResult{}, fmt.Errorf("%s is not an updatable built-in MCP server", name)
-	}
-	tab := a.activeTab()
-	if tab == nil || tab.Ctrl == nil {
-		return BuiltInMCPUpdateResult{}, fmt.Errorf("no active session")
-	}
-	cfg, err := config.LoadForRoot(tab.WorkspaceRoot)
-	if err != nil {
-		return BuiltInMCPUpdateResult{}, err
-	}
-	client, err := netclient.NewHTTPClient(cfg.NetworkProxySpec(), netclient.TransportOptions{})
-	if err != nil {
-		return BuiltInMCPUpdateResult{}, err
-	}
-	updated, err := updateBuiltInCodegraph(a.bootContext(), client, nil)
-	if err != nil {
-		return BuiltInMCPUpdateResult{}, err
-	}
-	result := BuiltInMCPUpdateResult{Name: name, Version: updated.Version, Path: updated.Path}
-	a.recordBuiltInMCPUpdateStatus(BuiltInMCPUpdateStatus{
-		Name:    name,
-		Mode:    "manual",
-		Current: codegraph.ActiveVersion(),
-		Latest:  updated.Version,
-		Phase:   "activated",
-		Path:    updated.Path,
-	})
-
-	a.mu.RLock()
-	_, sessionDisabled := tab.disabledMCP[name]
-	a.mu.RUnlock()
-	if cfg.Codegraph.Enabled && !sessionDisabled {
-		if mcpConnected(tab.Ctrl, name) {
-			tab.Ctrl.DisconnectMCPServer(name)
-		}
-		if h := tab.Ctrl.Host(); h != nil {
-			h.ClearFailure(name)
-		}
-		if _, err := tab.Ctrl.ConnectCodegraphMCPServerForRoot(cfg, tab.WorkspaceRoot); err != nil {
-			recordCodegraphFailure(tab.Ctrl, cfg.Codegraph, err)
-		}
-	}
-	return result, nil
-}
-
 // ClearMCPServerAuthentication removes local auth-like config for one MCP and
 // clears the current session's cached connection failure. It does not remove the
 // server itself or try to sign the user out of the third-party browser session.
 func (a *App) ClearMCPServerAuthentication(name string) error {
-	if name == "codegraph" {
-		return fmt.Errorf("codegraph is built in; it has no stored MCP authentication")
-	}
-	if builtinmcp.IsBuiltIn(name) {
-		if _, found, err := a.desktopMCPServerForEdit(name); err != nil {
-			return err
-		} else if !found {
-			return fmt.Errorf("%s is built in; it has no stored MCP authentication", name)
-		}
-	}
 	ctrl := a.activeCtrl()
 	if ctrl == nil {
 		return fmt.Errorf("no active session")
@@ -4046,15 +3888,9 @@ func (a *App) SetMCPServerEnabled(name string, enabled bool) error {
 	if tab == nil || tab.Ctrl == nil {
 		return fmt.Errorf("no active session")
 	}
-	if name == "codegraph" {
-		return a.setCodegraphEnabled(enabled)
-	}
 	configuredEntry, hasConfiguredEntry, err := a.desktopMCPServerForEdit(name)
 	if err != nil {
 		return err
-	}
-	if builtinmcp.IsBuiltIn(name) && !hasConfiguredEntry {
-		return a.setBuiltInMCPEnabled(name, enabled)
 	}
 	if enabled {
 		_, err := a.connectConfiguredMCPServerForTab(tab, name)
@@ -4102,31 +3938,18 @@ func (a *App) connectConfiguredMCPServerForTab(tab *WorkspaceTab, name string) (
 			return tab.Ctrl.ConnectMCPServer(p)
 		}
 	}
-	if name == "codegraph" {
-		return tab.Ctrl.ConnectCodegraphMCPServerForRoot(cfg, tab.WorkspaceRoot)
-	}
-	if p, ok := builtinmcp.Entry(name); ok {
-		return tab.Ctrl.ConnectMCPServer(p)
-	}
 	return 0, fmt.Errorf("no configured MCP server named %q", name)
 }
 
 // SetMCPServerTier is kept for old desktop bindings. New config writes drop the
-// retired tier field; for CodeGraph this now means "enable and start in the
-// background".
+// retired tier field.
 func (a *App) SetMCPServerTier(name, tier string) error {
-	if name == "codegraph" {
-		return a.setCodegraphTier(tier)
-	}
 	tier = normalizeMCPTier(tier)
 	updated, found, err := a.desktopMCPServerForEdit(name)
 	if err != nil {
 		return err
 	}
 	if !found {
-		if builtinmcp.IsBuiltIn(name) {
-			return fmt.Errorf("%s is built in; it always uses lazy startup", name)
-		}
 		return fmt.Errorf("no configured MCP server named %q", name)
 	}
 	updated.Tier = tier
@@ -4146,124 +3969,6 @@ func (a *App) SetMCPServerTier(name, tier string) error {
 		a.mu.Lock()
 		delete(tab.disabledMCP, name)
 		a.mu.Unlock()
-	}
-	return nil
-}
-
-func (a *App) setBuiltInMCPEnabled(name string, enabled bool) error {
-	entry, ok := builtinmcp.Entry(name)
-	if !ok {
-		return fmt.Errorf("no built-in MCP server named %q", name)
-	}
-	cfg, path, err := a.loadDesktopUserConfigForEdit()
-	if err != nil {
-		return err
-	}
-	if !cfg.BuiltInMCP.SetEnabled(name, enabled) {
-		return fmt.Errorf("no built-in MCP server named %q", name)
-	}
-	tab := a.activeTab()
-	if tab == nil || tab.Ctrl == nil {
-		return fmt.Errorf("no active session")
-	}
-	if err := cfg.SaveTo(path); err != nil {
-		return err
-	}
-	if err := a.syncProjectBuiltInMCPOverride(cfg.BuiltInMCP); err != nil {
-		return err
-	}
-	if enabled {
-		a.mu.Lock()
-		delete(tab.disabledMCP, name)
-		a.mu.Unlock()
-		_, err := tab.Ctrl.ConnectMCPServer(entry)
-		if err != nil {
-			recordMCPFailure(tab.Ctrl, entry, err)
-			return nil
-		}
-		return nil
-	}
-	if h := tab.Ctrl.Host(); h != nil {
-		h.ClearFailure(name)
-	}
-	tab.Ctrl.DisconnectMCPServer(name)
-	s := withBuiltInMCPConfig(ServerView{Name: name, Status: "disabled"}, entry, false)
-	a.mu.Lock()
-	if tab.disabledMCP == nil {
-		tab.disabledMCP = map[string]ServerView{}
-	}
-	tab.disabledMCP[name] = s
-	tab.mcpOrder = mergeServerOrder(tab.mcpOrder, []ServerView{s})
-	a.mu.Unlock()
-	return nil
-}
-
-func (a *App) setCodegraphEnabled(enabled bool) error {
-	cfg, path, err := a.loadDesktopUserConfigForEdit()
-	if err != nil {
-		return err
-	}
-	tab := a.activeTab()
-	if tab == nil || tab.Ctrl == nil {
-		return fmt.Errorf("no active session")
-	}
-	cfg.Codegraph.Enabled = enabled
-	if err := cfg.SaveTo(path); err != nil {
-		return err
-	}
-	if err := a.syncProjectCodegraphOverride(cfg.Codegraph); err != nil {
-		return err
-	}
-	if enabled {
-		a.mu.Lock()
-		delete(tab.disabledMCP, "codegraph")
-		a.mu.Unlock()
-		if _, err := tab.Ctrl.ConnectCodegraphMCPServerForRoot(cfg, tab.WorkspaceRoot); err != nil {
-			recordCodegraphFailure(tab.Ctrl, cfg.Codegraph, err)
-			return nil
-		}
-		return nil
-	}
-	if h := tab.Ctrl.Host(); h != nil {
-		h.ClearFailure("codegraph")
-	}
-	tab.Ctrl.DisconnectMCPServer("codegraph")
-	s := withCodegraphConfig(ServerView{Name: "codegraph", Status: "disabled"}, cfg.Codegraph)
-	a.mu.Lock()
-	if tab.disabledMCP == nil {
-		tab.disabledMCP = map[string]ServerView{}
-	}
-	tab.disabledMCP["codegraph"] = s
-	tab.mcpOrder = mergeServerOrder(tab.mcpOrder, []ServerView{s})
-	a.mu.Unlock()
-	return nil
-}
-
-func (a *App) setCodegraphTier(_ string) error {
-	cfg, path, err := a.loadDesktopUserConfigForEdit()
-	if err != nil {
-		return err
-	}
-	cfg.Codegraph.Enabled = true
-	cfg.Codegraph.Tier = ""
-	if err := cfg.SaveTo(path); err != nil {
-		return err
-	}
-	if err := a.syncProjectCodegraphOverride(cfg.Codegraph); err != nil {
-		return err
-	}
-	tab := a.activeTab()
-	if tab == nil || tab.Ctrl == nil {
-		return nil
-	}
-	a.mu.Lock()
-	delete(tab.disabledMCP, "codegraph")
-	a.mu.Unlock()
-	if !mcpConnected(tab.Ctrl, "codegraph") {
-		if _, err := tab.Ctrl.ConnectCodegraphMCPServerForRoot(cfg, tab.WorkspaceRoot); err != nil {
-			recordCodegraphFailure(tab.Ctrl, cfg.Codegraph, err)
-			return nil
-		}
 	}
 	return nil
 }
@@ -4340,40 +4045,6 @@ func (a *App) removeProjectMCPOverride(name string) (bool, error) {
 	return true, nil
 }
 
-func (a *App) syncProjectCodegraphOverride(c config.CodegraphConfig) error {
-	path := projectConfigPathForRoot(a.activeWorkspaceRoot())
-	userPath := config.UserConfigPath()
-	if path == "" || sameConfigPath(path, userPath) {
-		return nil
-	}
-	if _, err := os.Stat(path); err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
-		return err
-	}
-	cfg := config.LoadForEdit(path)
-	cfg.Codegraph = c
-	return cfg.SaveTo(path)
-}
-
-func (a *App) syncProjectBuiltInMCPOverride(c config.BuiltInMCPConfig) error {
-	path := projectConfigPathForRoot(a.activeWorkspaceRoot())
-	userPath := config.UserConfigPath()
-	if path == "" || sameConfigPath(path, userPath) {
-		return nil
-	}
-	if _, err := os.Stat(path); err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
-		return err
-	}
-	cfg := config.LoadForEdit(path)
-	cfg.BuiltInMCP = c
-	return cfg.SaveTo(path)
-}
-
 func findPluginEntry(entries []config.PluginEntry, name string) (config.PluginEntry, bool) {
 	for _, p := range entries {
 		if p.Name == name {
@@ -4444,22 +4115,6 @@ func recordMCPFailure(ctrl *control.Controller, e config.PluginEntry, err error)
 		Env:     exp.Env,
 		URL:     exp.URL,
 		Headers: exp.Headers,
-	}, err)
-}
-
-func recordCodegraphFailure(ctrl *control.Controller, c config.CodegraphConfig, err error) {
-	if ctrl == nil || ctrl.Host() == nil || err == nil {
-		return
-	}
-	cmd := strings.TrimSpace(c.Path)
-	if cmd == "" {
-		cmd = "codegraph"
-	}
-	ctrl.Host().RecordFailure(plugin.Spec{
-		Name:    "codegraph",
-		Type:    "stdio",
-		Command: cmd,
-		Args:    []string{"serve", "--mcp"},
 	}, err)
 }
 
@@ -4614,7 +4269,11 @@ func modelProviderAccessAllowed(access map[string]bool, name string) bool {
 }
 
 func controllerHasActiveRuntimeWork(ctrl *control.Controller) bool {
-	return ctrl != nil && (ctrl.Running() || ctrl.PendingPrompt() || len(ctrl.Jobs()) > 0)
+	if ctrl == nil {
+		return false
+	}
+	status := ctrl.RuntimeStatus()
+	return status.Running || status.PendingPrompt || status.BackgroundJobs > 0
 }
 
 func rebuildControllerActiveWorkError(setting string) error {
@@ -4974,7 +4633,6 @@ type WorkspaceChangesView struct {
 // and "@" menu regardless of where they appear.
 var workspaceNoiseNames = map[string]bool{
 	".codex":       true,
-	".codegraph":   true,
 	".DS_Store":    true,
 	".git":         true,
 	".npm":         true,

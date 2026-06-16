@@ -2,81 +2,19 @@
 package control
 
 import (
-	"context"
-	"strings"
 	"time"
 
-	"reasonix/internal/agent"
-	"reasonix/internal/billing"
 	"reasonix/internal/compress"
 	"reasonix/internal/event"
 	"reasonix/internal/provider"
 	"reasonix/internal/scheduler"
 )
 
-func (c *Controller) SessionDir() string { return c.sessionDir }
 
-// SessionPath reports the file the current conversation auto-saves to ("" when
-// persistence is disabled), so a history view can mark the active session.
-func (c *Controller) SessionPath() string {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return c.sessionPath
-}
 
-func (c *Controller) parentSessionID() string {
-	return agent.BranchID(c.SessionPath())
-}
 
-// History returns the executor's current message log (for repopulating a
-// resumed frontend's view).
-func (c *Controller) History() []provider.Message {
-	if c.executor == nil {
-		return nil
-	}
-	return c.executor.Session().Snapshot() // copy — a turn may be appending concurrently
-}
 
-// ContextSnapshot returns (promptTokens, contextWindow) from the most recent
-// turn. Both zero means no data yet — a gauge hides itself.
-func (c *Controller) ContextSnapshot() (int, int) {
-	if c.executor == nil {
-		return 0, 0
-	}
-	u := c.executor.LastUsage()
-	if u == nil {
-		return 0, c.executor.ContextWindow()
-	}
-	return u.PromptTokens, c.executor.ContextWindow()
-}
 
-// CompactRatio returns the auto-compaction threshold as a fraction of the window
-// (0 when the executor is unset). The status line shows headroom against it.
-func (c *Controller) CompactRatio() float64 {
-	if c.executor == nil {
-		return 0
-	}
-	return c.executor.CompactRatio()
-}
-
-// LastUsage returns the most recent turn's token telemetry (nil before the first
-// turn), so frontends can derive the prompt cache-hit rate for the status line.
-func (c *Controller) LastUsage() *provider.Usage {
-	if c.executor == nil {
-		return nil
-	}
-	return c.executor.LastUsage()
-}
-
-// SessionCache returns cumulative cache hit/miss prompt tokens for the session,
-// so a frontend can render the aggregate (session-wide) cache-hit rate — steadier
-// than the single-turn rate and unaffected by compaction.
-func (c *Controller) SessionCache() (hit, miss int) {
-	if c.executor == nil {
-		return 0, 0
-	}
-	return c.executor.SessionCache()
-}
 
 // SessionCost returns the estimated total spend this session.
 func (c *Controller) SessionCost() float64 {
@@ -200,57 +138,5 @@ func (c *Controller) CompactionHistory() []event.Compaction {
 	return c.executor.CompactionHistory()
 }
 
-// ToolResultData holds the full arguments and output for one tool call, loaded
-// on demand when a frontend expands a collapsed tool card.
-type ToolResultData struct {
-	Args   string `json:"args"`
-	Output string `json:"output"`
-}
 
-// ToolResult looks up a tool call by its ID in the session history and returns
-// the full arguments + output that were elided from the frontend's items[].
-// Returns nil when the tool ID isn't found (e.g. a sub-agent's tool call that
-// lives in a different session).
-func (c *Controller) ToolResult(toolID string) *ToolResultData {
-	if c.executor == nil {
-		return nil
-	}
-	msgs := c.executor.Session().Snapshot()
-	// Search backwards: tool result first (most recent), then find the args
-	// from the preceding assistant turn.
-	for i := len(msgs) - 1; i >= 0; i-- {
-		if msgs[i].Role != provider.RoleTool || msgs[i].ToolCallID != toolID {
-			continue
-		}
-		out := &ToolResultData{
-			Args:   "",
-			Output: msgs[i].Content,
-		}
-		// Walk back to find the assistant turn that issued this call.
-		for j := i; j >= 0; j-- {
-			if msgs[j].Role != provider.RoleAssistant {
-				continue
-			}
-			for _, tc := range msgs[j].ToolCalls {
-				if tc.ID == toolID {
-					out.Args = tc.Arguments
-					return out
-				}
-			}
-		}
-		return out
-	}
-	return nil
-}
 
-// Balance queries the active provider's wallet balance, or (nil, nil) when the
-// provider declares no balance_url — so a caller treats "not configured" and
-// "fetched" the same and just omits the readout when nil.
-func (c *Controller) Balance(ctx context.Context) (*billing.Balance, error) {
-	if strings.TrimSpace(c.balanceURL) == "" {
-		return nil, nil
-	}
-	ctx, cancel := context.WithTimeout(ctx, 12*time.Second)
-	defer cancel()
-	return billing.FetchWithClient(ctx, c.balanceClient, c.balanceURL, c.balanceKey)
-}

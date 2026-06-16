@@ -6,7 +6,6 @@ import (
 	"reflect"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/BurntSushi/toml"
 )
@@ -786,70 +785,6 @@ func TestAutoStartPlugins(t *testing.T) {
 	got := c.AutoStartPlugins()
 	if len(got) != 2 || got[0].Name != "implicit" || got[1].Name != "enabled" {
 		t.Fatalf("AutoStartPlugins = %+v, want implicit + enabled", got)
-	}
-}
-
-func TestCodegraphDefaultEnabledForUpgrades(t *testing.T) {
-	c := Default()
-	if !c.Codegraph.Enabled {
-		t.Fatal("default codegraph enabled = false; existing configs without a [codegraph] section would lose it on upgrade")
-	}
-	if !c.Codegraph.AutoInstall {
-		t.Fatal("default codegraph auto_install = false, want true")
-	}
-	if c.Codegraph.Tier != "" {
-		t.Fatalf("default codegraph tier = %q, want unset (background by default)", c.Codegraph.Tier)
-	}
-}
-
-func TestBuiltInMCPDefaultsEnableOnlyTime(t *testing.T) {
-	c := Default()
-	if !c.BuiltInMCP.TimeEnabled || c.BuiltInMCP.Context7Enabled {
-		t.Fatalf("built-in MCP defaults = %+v, want time enabled and context7 disabled", c.BuiltInMCP)
-	}
-}
-
-func TestBuiltInMCPUpdateDefaultsAreNotifyOnly(t *testing.T) {
-	c := Default()
-	if got := c.BuiltInMCPUpdates.ResolvedMode(); got != BuiltInMCPUpdateModeNotify {
-		t.Fatalf("builtin MCP update mode = %q, want notify", got)
-	}
-	if got := c.BuiltInMCPUpdates.CheckIntervalDuration(); got != 24*time.Hour {
-		t.Fatalf("builtin MCP update interval = %v, want 24h", got)
-	}
-	invalid := BuiltInMCPUpdatesConfig{Mode: "surprise", CheckInterval: "-1s"}
-	if got := invalid.ResolvedMode(); got != BuiltInMCPUpdateModeNotify {
-		t.Fatalf("invalid mode resolved to %q, want notify", got)
-	}
-	if got := invalid.CheckIntervalDuration(); got != 24*time.Hour {
-		t.Fatalf("invalid interval resolved to %v, want 24h", got)
-	}
-}
-
-func TestLoadForEditPreservesCodegraphWithoutSection(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "reasonix.toml")
-	if err := os.WriteFile(path, []byte("default_model = \"x\"\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if c := LoadForEdit(path); !c.Codegraph.Enabled {
-		t.Fatal("a config omitting [codegraph] disabled codegraph; an upgrade must keep it on")
-	}
-}
-
-func TestLoadFirstRunDisablesCodegraph(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
-	t.Setenv("USERPROFILE", t.TempDir())
-	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
-	t.Setenv("AppData", t.TempDir())
-	t.Chdir(t.TempDir())
-
-	cfg, err := Load()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if cfg.Codegraph.Enabled {
-		t.Fatal("first run (no config file anywhere) left codegraph enabled; new users should start without it")
 	}
 }
 

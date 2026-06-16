@@ -10,10 +10,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"reflect"
-	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -21,8 +19,6 @@ import (
 
 	"reasonix/internal/agent"
 	"reasonix/internal/agent/testutil"
-	"reasonix/internal/builtinmcp"
-	"reasonix/internal/codegraph"
 	"reasonix/internal/config"
 	"reasonix/internal/event"
 	"reasonix/internal/memory"
@@ -60,9 +56,6 @@ func TestBuildFoldsProjectMemoryIntoSystemPrompt(t *testing.T) {
 
 	writeFile(t, dir, "reasonix.toml", `
 default_model = "test-model"
-
-[codegraph]
-enabled = false
 
 [agent]
 system_prompt = "BASE SYSTEM PROMPT"
@@ -108,9 +101,6 @@ func TestBuildRegistersUsableHistoryAndMemoryRetrievalTools(t *testing.T) {
 
 	writeFile(t, dir, "reasonix.toml", `
 default_model = "test-model"
-
-[codegraph]
-enabled = false
 
 [agent]
 system_prompt = "BASE"
@@ -352,9 +342,6 @@ func TestBuildSubagentSkillFailedContinuationPersistsTranscript(t *testing.T) {
 	writeFile(t, dir, "reasonix.toml", `
 default_model = "test-model"
 
-[codegraph]
-enabled = false
-
 [agent]
 system_prompt = "BASE"
 
@@ -413,9 +400,6 @@ func TestBuildSubagentStoreHonorsSessionDirOverride(t *testing.T) {
 	writeFile(t, dir, "reasonix.toml", `
 default_model = "test-model"
 
-[codegraph]
-enabled = false
-
 [agent]
 system_prompt = "BASE"
 
@@ -463,9 +447,6 @@ func TestBuildSubagentSkillUsesLiveReasoningLanguage(t *testing.T) {
 	writeFile(t, dir, "reasonix.toml", `
 default_model = "test-model"
 
-[codegraph]
-enabled = false
-
 [agent]
 system_prompt = "BASE"
 reasoning_language = "zh"
@@ -508,9 +489,6 @@ func TestBuildSubagentSkillGetsForegroundOnlyBash(t *testing.T) {
 	setBootSubagentTestProvider(t, prov)
 	writeFile(t, dir, "reasonix.toml", `
 default_model = "test-model"
-
-[codegraph]
-enabled = false
 
 [agent]
 system_prompt = "BASE"
@@ -688,9 +666,6 @@ func TestBuildHeadlessRunRunsTaskSubagentWithoutSessionPath(t *testing.T) {
 	setHeadlessTaskTestProvider(t, prov)
 	writeFile(t, dir, "reasonix.toml", `
 default_model = "test-model"
-
-[codegraph]
-enabled = false
 
 [agent]
 system_prompt = "BASE"
@@ -886,9 +861,6 @@ func TestBuildHonorsSessionDirOverride(t *testing.T) {
 	writeFile(t, dir, "reasonix.toml", `
 default_model = "test-model"
 
-[codegraph]
-enabled = false
-
 [[providers]]
 name = "test-model"
 kind = "openai"
@@ -920,9 +892,6 @@ func TestBuildDiscoversSkills(t *testing.T) {
 	t.Chdir(dir)
 	writeFile(t, dir, "reasonix.toml", `
 default_model = "test-model"
-
-[codegraph]
-enabled = false
 
 [agent]
 system_prompt = "BASE"
@@ -972,9 +941,6 @@ func TestBuildTokenFullMatchesDefaultRequestPrefix(t *testing.T) {
 	writeFile(t, dir, "reasonix.toml", `
 default_model = "test-model"
 
-[codegraph]
-enabled = false
-
 [agent]
 system_prompt = "BASE"
 
@@ -1019,9 +985,6 @@ func TestBuildTokenEconomyStartsWithLeanToolSurface(t *testing.T) {
 	writeFile(t, dir, "reasonix.toml", `
 default_model = "test-model"
 
-[codegraph]
-enabled = false
-
 [agent]
 system_prompt = "BASE"
 
@@ -1053,6 +1016,7 @@ command = "reasonix-missing-mockmcp"
 		"ask",
 		"bash",
 		"bash_output",
+		"code_index",
 		"complete_step",
 		"connect_tool_source",
 		"edit_file",
@@ -1117,9 +1081,6 @@ func TestBuildTokenEconomyConnectsWebFetchOnDemand(t *testing.T) {
 	writeFile(t, dir, "reasonix.toml", `
 default_model = "test-model"
 
-[codegraph]
-enabled = false
-
 [agent]
 system_prompt = "BASE"
 
@@ -1149,65 +1110,6 @@ model = "x"
 	}
 }
 
-func TestBuildTokenEconomyCodegraphSetsShortDaemonIdleTimeout(t *testing.T) {
-	isolateConfigHome(t)
-	dir := robustTempDir(t)
-	t.Chdir(dir)
-	launcher := writeCodegraphHelper(t, dir)
-	envOut := filepath.Join(dir, "codegraph-idle-env")
-	t.Setenv("REASONIX_CODEGRAPH_HELPER_ENV_OUT", envOut)
-
-	registerBootTokenProfileTestProvider()
-	prov := testutil.NewMock("token-economy",
-		testutil.Turn{ToolCalls: []provider.ToolCall{
-			{ID: "source-1", Name: "connect_tool_source", Arguments: `{"source":"codegraph"}`},
-		}},
-		testutil.Turn{Text: "done"},
-	)
-	setBootTokenProfileTestProvider(t, prov)
-	writeFile(t, dir, "reasonix.toml", fmt.Sprintf(`
-default_model = "test-model"
-
-[codegraph]
-enabled = true
-path = %q
-
-[agent]
-system_prompt = "BASE"
-
-[[providers]]
-name = "test-model"
-kind = "boot-token-profile-test"
-model = "x"
-`, launcher))
-
-	ctrl, err := Build(context.Background(), Options{Sink: event.Discard, TokenMode: TokenModeEconomy})
-	if err != nil {
-		t.Fatalf("Build: %v", err)
-	}
-	defer ctrl.Close()
-	if err := ctrl.Run(context.Background(), "enable codegraph later"); err != nil {
-		t.Fatalf("Run: %v", err)
-	}
-	reqs := prov.Requests()
-	if len(reqs) != 2 {
-		t.Fatalf("requests = %d, want 2", len(reqs))
-	}
-	if requestHasToolPrefix(reqs[0], "mcp__codegraph__") {
-		t.Fatalf("first request should hide codegraph; tools=%v", toolSchemaNames(reqs[0].Tools))
-	}
-	if !requestHasToolPrefix(reqs[1], "mcp__codegraph__") {
-		t.Fatalf("second request should expose codegraph after connect_tool_source; tools=%v", toolSchemaNames(reqs[1].Tools))
-	}
-	got, err := os.ReadFile(envOut)
-	if err != nil {
-		t.Fatalf("read codegraph idle timeout env: %v", err)
-	}
-	if string(got) != codegraph.ReasonixDaemonIdleTimeoutMS {
-		t.Fatalf("%s = %q; want %q", codegraph.DaemonIdleTimeoutEnv, got, codegraph.ReasonixDaemonIdleTimeoutMS)
-	}
-}
-
 func TestBuildTokenEconomyPlanModeCanConnectWebFetch(t *testing.T) {
 	isolateConfigHome(t)
 	dir := robustTempDir(t)
@@ -1223,9 +1125,6 @@ func TestBuildTokenEconomyPlanModeCanConnectWebFetch(t *testing.T) {
 	setBootTokenProfileTestProvider(t, prov)
 	writeFile(t, dir, "reasonix.toml", `
 default_model = "test-model"
-
-[codegraph]
-enabled = false
 
 [agent]
 system_prompt = "BASE"
@@ -1278,9 +1177,6 @@ default_model = "test-model"
 [tools]
 enabled = ["read_file", "grep"]
 
-[codegraph]
-enabled = false
-
 [agent]
 system_prompt = "BASE"
 
@@ -1331,9 +1227,6 @@ func TestBuildTokenEconomyConnectsSkillsOnDemand(t *testing.T) {
 	setBootTokenProfileTestProvider(t, prov)
 	writeFile(t, dir, "reasonix.toml", `
 default_model = "test-model"
-
-[codegraph]
-enabled = false
 
 [agent]
 system_prompt = "BASE"
@@ -1404,9 +1297,6 @@ func TestBuildOmitsDisabledSkillsFromPromptAndRuntimeList(t *testing.T) {
 	writeFile(t, dir, "reasonix.toml", `
 default_model = "test-model"
 
-[codegraph]
-enabled = false
-
 [agent]
 system_prompt = "BASE"
 
@@ -1460,9 +1350,6 @@ func TestBuildOmitsExcludedSkillRootsFromPromptAndRuntimeList(t *testing.T) {
 	writeFile(t, dir, "reasonix.toml", fmt.Sprintf(`
 default_model = "test-model"
 
-[codegraph]
-enabled = false
-
 [agent]
 system_prompt = "BASE"
 
@@ -1510,9 +1397,6 @@ func TestBuildWithoutMemoryLeavesPromptUnchanged(t *testing.T) {
 	writeFile(t, dir, "reasonix.toml", `
 default_model = "test-model"
 
-[codegraph]
-enabled = false
-
 [agent]
 system_prompt = "JUST THE BASE"
 
@@ -1553,9 +1437,6 @@ func TestBuildLanguagePolicyIsAppended(t *testing.T) {
 	t.Chdir(dir)
 	writeFile(t, dir, "reasonix.toml", `
 default_model = "test-model"
-
-[codegraph]
-enabled = false
 
 [agent]
 system_prompt = "BASE"
@@ -1763,9 +1644,9 @@ func TestBuildMigratesLegacyConfigEndToEnd(t *testing.T) {
 
 	proj := robustTempDir(t)
 	t.Chdir(proj)
-	// codegraph off keeps Build offline; it merges over the migrated user config
-	// without dropping the migrated plugins.
-	writeFile(t, proj, "reasonix.toml", "[codegraph]\nenabled = false\n")
+	// Project config merges over the migrated user config without dropping the
+	// migrated plugins.
+	writeFile(t, proj, "reasonix.toml", "")
 	writeFile(t, filepath.Join(home, ".reasonix"), "config.json",
 		`{"apiKey":"sk-e2e","lang":"zh","mcpServers":{"fs":{"command":"npx","args":["-y","server-fs"]}}}`)
 	writeFile(t, filepath.Join(home, ".reasonix", "sessions"), "chat-1.events.jsonl",
@@ -1838,7 +1719,7 @@ func TestBuildMigratesLegacySessionsFromConfigSessionDir(t *testing.T) {
 	t.Setenv("AppData", filepath.Join(home, "AppData"))
 
 	proj := robustTempDir(t)
-	writeFile(t, proj, "reasonix.toml", "[codegraph]\nenabled = false\n")
+	writeFile(t, proj, "reasonix.toml", "")
 
 	legacyDir := config.SessionDir()
 	writeFile(t, legacyDir, "custom-root.events.jsonl",
@@ -1925,17 +1806,45 @@ func TestPartitionByTier(t *testing.T) {
 	}
 }
 
-func TestBuiltInMCPsYieldToExtraPluginNames(t *testing.T) {
-	got := builtinmcp.AppendEnabled(nil, nil, []string{"time", "context7"}, pluginSpecNames([]plugin.Spec{{Name: "time"}})...)
-	if len(got) != 1 || got[0].Name != "context7" {
-		t.Fatalf("built-in MCP entries with extra time = %+v, want only context7", got)
+func TestPluginSpecsTrustKnownCodeGraphReadTools(t *testing.T) {
+	specs := PluginSpecs([]config.PluginEntry{{Name: "codegraph"}})
+	if len(specs) != 1 {
+		t.Fatalf("PluginSpecs returned %d specs, want 1", len(specs))
+	}
+	for _, name := range []string{"codegraph_context", "codegraph_search", "context", "search"} {
+		if !specs[0].ReadOnlyToolNames[name] {
+			t.Fatalf("codegraph spec missing read-only override for %q: %+v", name, specs[0].ReadOnlyToolNames)
+		}
 	}
 }
 
-func TestBuiltInMCPDefaultsEnableOnlyTime(t *testing.T) {
-	got := builtinmcp.AppendEnabled(nil, nil, config.Default().BuiltInMCP.EnabledNames())
-	if len(got) != 1 || got[0].Name != "time" {
-		t.Fatalf("default built-in MCP entries = %+v, want only time", got)
+func TestPluginSpecsForRootPinsCodeGraphToWorkspace(t *testing.T) {
+	specs := PluginSpecsForRoot([]config.PluginEntry{{Name: "codegraph"}}, "/workspace")
+	if len(specs) != 1 {
+		t.Fatalf("PluginSpecsForRoot returned %d specs, want 1", len(specs))
+	}
+	if specs[0].Dir != "/workspace" {
+		t.Fatalf("codegraph Dir = %q, want workspace root", specs[0].Dir)
+	}
+}
+
+func TestPluginSpecsForRootDoesNotPinHTTPCodeGraph(t *testing.T) {
+	specs := PluginSpecsForRoot([]config.PluginEntry{{Name: "codegraph", Type: "http", URL: "https://example.com/mcp"}}, "/workspace")
+	if len(specs) != 1 {
+		t.Fatalf("PluginSpecsForRoot returned %d specs, want 1", len(specs))
+	}
+	if specs[0].Dir != "" {
+		t.Fatalf("http codegraph Dir = %q, want empty", specs[0].Dir)
+	}
+}
+
+func TestPluginSpecsDoNotTrustCodeGraphToolsForOtherServers(t *testing.T) {
+	specs := PluginSpecs([]config.PluginEntry{{Name: "not-codegraph"}})
+	if len(specs) != 1 {
+		t.Fatalf("PluginSpecs returned %d specs, want 1", len(specs))
+	}
+	if specs[0].ReadOnlyToolNames["codegraph_context"] {
+		t.Fatalf("non-codegraph spec should not receive codegraph read-only overrides: %+v", specs[0].ReadOnlyToolNames)
 	}
 }
 
@@ -1946,9 +1855,6 @@ func TestBuildMigratesLegacyEagerTierToBackground(t *testing.T) {
 
 	writeFile(t, dir, "reasonix.toml", `
 default_model = "test-model"
-
-[codegraph]
-enabled = false
 
 [agent]
 system_prompt = "BASE"
@@ -1995,9 +1901,6 @@ func TestBuildMigratesLegacyLazyTierToBackground(t *testing.T) {
 	writeFile(t, dir, "reasonix.toml", `
 default_model = "test-model"
 
-[codegraph]
-enabled = false
-
 [agent]
 system_prompt = "BASE"
 
@@ -2035,164 +1938,6 @@ tier = "lazy"
 	}
 }
 
-func TestBuildColdCodegraphStartsInBackground(t *testing.T) {
-	isolateConfigHome(t)
-	dir := robustTempDir(t)
-	t.Chdir(dir)
-	launcher := writeCodegraphHelper(t, dir)
-	t.Setenv("GO_WANT_HELPER_PROCESS", "1")
-
-	writeFile(t, dir, "reasonix.toml", fmt.Sprintf(`
-default_model = "test-model"
-
-[codegraph]
-enabled = true
-path = %q
-tier = "background"
-
-[agent]
-system_prompt = "BASE"
-
-[[providers]]
-name = "test-model"
-kind = "openai"
-base_url = "https://example.invalid"
-model = "x"
-api_key_env = "REASONIX_TEST_KEY_UNSET"
-`, launcher))
-
-	var notices []event.Event
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
-	ctrl, err := Build(ctx, Options{
-		Sink: event.FuncSink(func(e event.Event) {
-			if e.Kind == event.Notice {
-				notices = append(notices, e)
-			}
-		}),
-	})
-	if err != nil {
-		t.Fatalf("Build: %v", err)
-	}
-	defer ctrl.Close()
-
-	if got := ctrl.Host().Failures(); len(got) != 0 {
-		t.Fatalf("Host.Failures() = %+v, want empty for cold built-in codegraph background startup", got)
-	}
-	codegraphDir := filepath.Join(dir, ".codegraph")
-	deadline := time.Now().Add(5 * time.Second)
-	for {
-		if _, err := os.Stat(codegraphDir); err == nil {
-			break
-		} else if time.Now().After(deadline) {
-			t.Fatalf("cold codegraph init did not create .codegraph/: %v", err)
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
-	foundNotice := false
-	for _, n := range notices {
-		if strings.Contains(n.Text, "preparing code-intelligence tools in the background") {
-			foundNotice = true
-			break
-		}
-	}
-	if !foundNotice {
-		t.Fatalf("missing background warmup notice; got %+v", notices)
-	}
-}
-
-func TestBuildCodegraphSetsShortDaemonIdleTimeout(t *testing.T) {
-	isolateConfigHome(t)
-	dir := robustTempDir(t)
-	t.Chdir(dir)
-	launcher := writeCodegraphHelper(t, dir)
-	envOut := filepath.Join(dir, "codegraph-idle-env")
-	t.Setenv("REASONIX_CODEGRAPH_HELPER_ENV_OUT", envOut)
-
-	writeFile(t, dir, "reasonix.toml", fmt.Sprintf(`
-default_model = "test-model"
-
-[codegraph]
-enabled = true
-path = %q
-
-[agent]
-system_prompt = "BASE"
-
-[[providers]]
-name = "test-model"
-kind = "openai"
-base_url = "https://example.invalid"
-model = "x"
-api_key_env = "REASONIX_TEST_KEY_UNSET"
-`, launcher))
-
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
-	ctrl, err := Build(ctx, Options{})
-	if err != nil {
-		t.Fatalf("Build: %v", err)
-	}
-	defer ctrl.Close()
-
-	deadline := time.Now().Add(5 * time.Second)
-	var got []byte
-	for {
-		got, err = os.ReadFile(envOut)
-		if err == nil && string(got) == codegraph.ReasonixDaemonIdleTimeoutMS {
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("codegraph helper idle timeout env = %q, want %q (read error: %v)", got, codegraph.ReasonixDaemonIdleTimeoutMS, err)
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
-}
-
-func TestBuildWarmCodegraphIgnoresLegacyEagerTier(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("fake launcher is a POSIX-sh script")
-	}
-	isolateConfigHome(t)
-	dir := robustTempDir(t)
-	t.Chdir(dir)
-	if err := os.Mkdir(filepath.Join(dir, ".codegraph"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	launcher := filepath.Join(dir, "slow-codegraph")
-	writeFile(t, dir, "slow-codegraph", "#!/bin/sh\nif [ \"$1\" = serve ]; then sleep 5; fi\n")
-	if err := os.Chmod(launcher, 0o755); err != nil {
-		t.Fatal(err)
-	}
-
-	writeFile(t, dir, "reasonix.toml", fmt.Sprintf(`
-default_model = "test-model"
-
-[codegraph]
-enabled = true
-path = %q
-tier = "eager"
-
-[agent]
-system_prompt = "BASE"
-
-[[providers]]
-name = "test-model"
-kind = "openai"
-base_url = "https://example.invalid"
-model = "x"
-api_key_env = "REASONIX_TEST_KEY_UNSET"
-`, launcher))
-
-	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
-	defer cancel()
-	ctrl, err := Build(ctx, Options{})
-	if err != nil {
-		t.Fatalf("Build should not block on warm codegraph with legacy eager tier: %v", err)
-	}
-	defer ctrl.Close()
-}
-
 func TestBuildDefaultsToNearestGitRoot(t *testing.T) {
 	isolateConfigHome(t)
 	root := robustTempDir(t)
@@ -2205,9 +1950,6 @@ func TestBuildDefaultsToNearestGitRoot(t *testing.T) {
 	}
 	writeFile(t, root, "reasonix.toml", `
 default_model = "root-model"
-
-[codegraph]
-enabled = false
 
 [agent]
 system_prompt = "BASE"
@@ -2244,9 +1986,6 @@ func TestBuildMigratesLegacyEagerBeforeStatsDemotion(t *testing.T) {
 
 	writeFile(t, dir, "reasonix.toml", `
 default_model = "test-model"
-
-[codegraph]
-enabled = false
 
 [agent]
 system_prompt = "BASE"
@@ -2373,83 +2112,4 @@ func TestHelperProcess(t *testing.T) {
 		b, _ := json.Marshal(resp)
 		os.Stdout.Write(append(b, '\n'))
 	}
-}
-
-func writeCodegraphHelper(t *testing.T, dir string) string {
-	t.Helper()
-	path := filepath.Join(dir, "codegraph-helper")
-	if runtime.GOOS == "windows" {
-		path += ".exe"
-	}
-	src := filepath.Join(dir, "codegraph-helper.go")
-	if err := os.WriteFile(src, []byte(`package main
-
-import (
-	"bufio"
-	"bytes"
-	"encoding/json"
-	"os"
-	"path/filepath"
-)
-
-func main() {
-	if len(os.Args) >= 3 && os.Args[1] == "init" {
-		_ = os.MkdirAll(filepath.Join(os.Args[2], ".codegraph"), 0o755)
-		return
-	}
-	if len(os.Args) >= 2 && os.Args[1] == "serve" {
-		if out := os.Getenv("REASONIX_CODEGRAPH_HELPER_ENV_OUT"); out != "" {
-			_ = os.WriteFile(out, []byte(os.Getenv("CODEGRAPH_DAEMON_IDLE_TIMEOUT_MS")), 0o644)
-		}
-	}
-
-	in := bufio.NewReader(os.Stdin)
-	for {
-		line, err := in.ReadBytes('\n')
-		if err != nil {
-			return
-		}
-		line = bytes.TrimSpace(line)
-		if len(line) == 0 {
-			continue
-		}
-
-		var req struct {
-			ID     *int            `+"`json:\"id\"`"+`
-			Method string          `+"`json:\"method\"`"+`
-			Params json.RawMessage `+"`json:\"params\"`"+`
-		}
-		if err := json.Unmarshal(line, &req); err != nil || req.ID == nil {
-			continue
-		}
-
-		var result any
-		switch req.Method {
-		case "initialize":
-			result = map[string]any{
-				"protocolVersion": "2024-11-05",
-				"serverInfo":      map[string]any{"name": "codegraph", "version": "0"},
-				"capabilities":    map[string]any{},
-			}
-		case "tools/list":
-			result = map[string]any{"tools": []map[string]any{{
-				"name":        "search",
-				"description": "Search symbols.",
-				"inputSchema": map[string]any{"type": "object"},
-			}}}
-		}
-
-		resp := map[string]any{"jsonrpc": "2.0", "id": *req.ID, "result": result}
-		b, _ := json.Marshal(resp)
-		_, _ = os.Stdout.Write(append(b, '\n'))
-	}
-}
-`), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	cmd := exec.Command("go", "build", "-o", path, src)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("build codegraph helper: %v\n%s", err, out)
-	}
-	return path
 }

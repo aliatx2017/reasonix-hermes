@@ -45,29 +45,29 @@ type Config struct {
 	Language      string              `toml:"language"` // ui/model language tag (e.g. "zh"); empty = auto-detect from $LANG / $REASONIX_LANG
 	UI            UIConfig            `toml:"ui"`
 	Desktop       DesktopConfig       `toml:"desktop"`
-	Notifications NotificationsConfig      `toml:"notifications"`
-	Agent         AgentConfig              `toml:"agent"`
-	Providers     []ProviderEntry          `toml:"providers"`
-	ActiveProfile string                   `toml:"active_profile"` // named profile from [profiles]; "" = none
-	Profiles      map[string]ProfileConfig `toml:"profiles"`
+        Notifications NotificationsConfig      `toml:"notifications"`
+        Agent         AgentConfig              `toml:"agent"`
+        Providers     []ProviderEntry          `toml:"providers"`
+        ActiveProfile string                   `toml:"active_profile"` // named profile from [profiles]; "" = none
+        Profiles      map[string]ProfileConfig `toml:"profiles"`
 	Tools         ToolsConfig         `toml:"tools"`
 	Permissions   PermissionsConfig   `toml:"permissions"`
 	Sandbox       SandboxConfig       `toml:"sandbox"`
 	Network       NetworkConfig       `toml:"network"`
 	Plugins       []PluginEntry       `toml:"plugins"`
 	Skills        SkillsConfig        `toml:"skills"`
-	Codegraph     CodegraphConfig     `toml:"codegraph"`
-	BuiltInMCP    BuiltInMCPConfig        `toml:"builtin_mcp"`
-	BuiltInMCPUpdates BuiltInMCPUpdatesConfig `toml:"builtin_mcp_updates"`
-	Statusline        StatuslineConfig        `toml:"statusline"`
-	LSP               LSPConfig               `toml:"lsp"`
-	Bot               BotConfig               `toml:"bot"`
-	Schedule          ScheduleConfig          `toml:"schedule"`
-	Learn             LearnConfig             `toml:"learn"`
-	Mesh              MeshConfig              `toml:"mesh"`
-	Collab            CollabConfig            `toml:"collab"`
-	Marketplace       MarketplaceConfig       `toml:"marketplace"`
-	Embedding         EmbeddingConfig         `toml:"embedding"`
+	Codegraph          CodegraphConfig          `toml:"codegraph"`
+	BuiltInMCP         BuiltInMCPConfig         `toml:"builtin_mcp"`
+	BuiltInMCPUpdates  BuiltInMCPUpdatesConfig   `toml:"builtin_mcp_updates"`
+	Statusline         StatuslineConfig          `toml:"statusline"`
+	LSP                LSPConfig                 `toml:"lsp"`
+	Bot                BotConfig                 `toml:"bot"`
+	Schedule           ScheduleConfig            `toml:"schedule"`
+	Learn              LearnConfig               `toml:"learn"`
+	Mesh               MeshConfig                `toml:"mesh"`
+	Collab             CollabConfig              `toml:"collab"`
+	Marketplace        MarketplaceConfig         `toml:"marketplace"`
+	Embedding          EmbeddingConfig           `toml:"embedding"`
 
 	providerSources map[string]providerSourceScope
 }
@@ -94,8 +94,9 @@ type UIConfig struct {
 // language, terminal colours, or provider-visible prompt/request data.
 type DesktopConfig struct {
 	Language       string   `toml:"language"`         // auto|en|zh; empty/auto = browser/OS auto-detect
-	Theme          string   `toml:"theme"`            // auto|dark|light; empty resolves to dark
+	Theme          string   `toml:"theme"`            // auto|dark|light; empty resolves to auto
 	ThemeStyle     string   `toml:"theme_style"`      // graphite|aurora|slate|carbon|nocturne|amber and legacy aliases
+	LayoutStyle    string   `toml:"layout_style"`     // classic|workbench; desktop layout style
 	CloseBehavior  string   `toml:"close_behavior"`   // quit|background; desktop window close behavior
 	DisplayMode    string   `toml:"display_mode"`     // standard|compact (legacy "minimal" maps to compact); transcript display mode
 	StatusBarStyle string   `toml:"status_bar_style"` // icon|text; desktop status bar metric labels
@@ -105,7 +106,6 @@ type DesktopConfig struct {
 	Metrics        *bool    `toml:"metrics"`          // opt-in aggregate agent metrics (anonymous signal/bucket counts; no content); nil = disabled
 	ProviderAccess []string `toml:"provider_access"`  // desktop-only list of provider entries shown in Settings > Model > Access
 	ExpandThinking bool         `toml:"expand_thinking"`  // true = show reasoning text expanded by default; false = collapsed
-	LayoutStyle    string       `toml:"layout_style"`     // classic|workbench; desktop layout style
 	Hotbar         HotbarConfig `toml:"hotbar"`          // keyboard digit keys 1-7 → action mapping
 }
 
@@ -207,8 +207,8 @@ func (c *Config) DesktopLanguage() string {
 	}
 }
 
-// DesktopTheme normalizes desktop.theme. New desktop users default to the light
-// graphite product look; an explicit auto/light/dark is preserved.
+// DesktopTheme normalizes desktop.theme. New desktop users default to the OS
+// automatic graphite product look; an explicit auto/light/dark is preserved.
 func (c *Config) DesktopTheme() string {
 	switch strings.ToLower(strings.TrimSpace(c.Desktop.Theme)) {
 	case "auto":
@@ -218,7 +218,7 @@ func (c *Config) DesktopTheme() string {
 	case "dark":
 		return "dark"
 	default:
-		return "light"
+		return "auto"
 	}
 }
 
@@ -1701,10 +1701,8 @@ func LoadForRoot(root string) (*Config, error) {
 		tomlSources = append(tomlSources, uc)
 	}
 	tomlSources = append(tomlSources, projectTOML)
-	sawConfigFile := false
 	for _, path := range tomlSources {
 		if _, err := os.Stat(path); err == nil {
-			sawConfigFile = true
 			if err := migrateLegacyMCPTiersFile(path); err != nil {
 				slog.Warn("config: legacy mcp tier migration failed", "path", path, "err", err)
 			}
@@ -1760,12 +1758,6 @@ func LoadForRoot(root string) (*Config, error) {
 	backfillDeepSeekOfficialPrices(cfg)
 	normalizeEffortConfig(cfg)
 	backfillDeepSeekPro(cfg)
-	// First run (no config file anywhere): keep CodeGraph off until the user opts
-	// in. An existing config — even one without a [codegraph] section — keeps the
-	// built-in default (on), so an upgrade never silently drops code intelligence.
-	if !sawConfigFile {
-		cfg.Codegraph.Enabled = false
-	}
 	return cfg, nil
 }
 
@@ -2018,7 +2010,6 @@ func normalizeLegacyMCPTiers(c *Config) {
 	if c == nil {
 		return
 	}
-	c.Codegraph.Tier = ""
 	for i := range c.Plugins {
 		c.Plugins[i].Tier = ""
 	}
@@ -2049,7 +2040,7 @@ func stripLegacyMCPTierLines(raw string) (string, bool) {
 		if header := tomlSectionHeader(line); header != "" {
 			section = header
 		}
-		if (section == "codegraph" || section == "plugins") && isTOMLKeyAssignment(line, "tier") {
+		if section == "plugins" && isTOMLKeyAssignment(line, "tier") {
 			changed = true
 			continue
 		}
@@ -2067,8 +2058,6 @@ func tomlSectionHeader(line string) string {
 		trimmed = strings.TrimSpace(trimmed[:i])
 	}
 	switch trimmed {
-	case "[codegraph]":
-		return "codegraph"
 	case "[[plugins]]":
 		return "plugins"
 	default:

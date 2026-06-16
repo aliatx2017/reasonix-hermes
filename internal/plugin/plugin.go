@@ -47,17 +47,18 @@ type Spec struct {
 	// the terminal so child logs cannot corrupt interactive UIs.
 	Stderr io.Writer
 	// ReadOnlyToolNames marks trusted raw MCP tool names as read-only even when
-	// the server omits annotations.readOnlyHint. It is for first-party adapters
-	// with known semantics; user-configured plugins should rely on MCP metadata.
+	// the server omits annotations.readOnlyHint. It is for known compatibility
+	// overrides where the tool semantics are stable; other user-configured
+	// plugins should rely on MCP metadata.
 	ReadOnlyToolNames map[string]bool
 	// StripRawPrefix, when non-empty, removes this prefix from each MCP tool's
-	// raw name before namespacing. For example, StripRawPrefix="codegraph_" turns
-	// "codegraph_context" into "context", yielding "mcp__codegraph__context"
-	// instead of the redundant "mcp__codegraph__codegraph_context". The original
-	// raw name is preserved for MCP protocol calls.
+	// raw name before namespacing. For example, StripRawPrefix="server_" turns
+	// "server_search" into "search", yielding "mcp__search__search" instead of
+	// the redundant "mcp__search__server_search". The original raw name is
+	// preserved for MCP protocol calls.
 	StripRawPrefix string
 	// LowPriority runs a stdio subprocess below normal scheduling priority, for
-	// background indexers (CodeGraph) that must not starve the user's machine.
+	// background indexers that must not starve the user's machine.
 	LowPriority bool
 }
 

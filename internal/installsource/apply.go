@@ -87,12 +87,12 @@ func (t *installSourceTool) applySkillRoot(req request, act *action) error {
 // copyDir uses O_EXCL so any race that slips through the Lstat check still
 // loses atomically.
 func (t *installSourceTool) applyCopySkill(req request, act *action) error {
-	canonical, err := t.skillCanonicalPath(act.skill.Name, req.Scope)
+	canonical, err := t.skillCanonicalPath(act.skill.Name, act.Scope)
 	if err != nil {
 		return err
 	}
 	targetDir := filepath.Dir(canonical)
-	conflicts, err := t.skillConflictTargets(act.skill.Name, req.Scope)
+	conflicts, err := t.skillConflictTargets(act.skill.Name, act.Scope)
 	if err != nil {
 		return err
 	}
@@ -115,7 +115,7 @@ func (t *installSourceTool) applyCopySkill(req request, act *action) error {
 	}
 	act.Target = canonical
 	act.CanonicalPath = canonical
-	return t.verifySkill(req.Scope, act.skill.Name, act)
+	return t.verifySkill(act.Scope, act.skill.Name, act)
 }
 
 // applyLinkSkill creates a symlink in the skills dir pointing at the source.
@@ -123,7 +123,7 @@ func (t *installSourceTool) applyCopySkill(req request, act *action) error {
 // plan was approved: a link-mode skill should not become a backdoor to arbitrary
 // host files.
 func (t *installSourceTool) applyLinkSkill(req request, act *action) error {
-	canonical, err := t.skillCanonicalPath(act.skill.Name, req.Scope)
+	canonical, err := t.skillCanonicalPath(act.skill.Name, act.Scope)
 	if err != nil {
 		return err
 	}
@@ -131,7 +131,7 @@ func (t *installSourceTool) applyLinkSkill(req request, act *action) error {
 	if act.skill.IsDir {
 		target = filepath.Dir(canonical)
 	}
-	conflicts, err := t.skillConflictTargets(act.skill.Name, req.Scope)
+	conflicts, err := t.skillConflictTargets(act.skill.Name, act.Scope)
 	if err != nil {
 		return err
 	}
@@ -153,7 +153,7 @@ func (t *installSourceTool) applyLinkSkill(req request, act *action) error {
 	}
 	act.Target = target
 	act.CanonicalPath = canonical
-	return t.verifySkill(req.Scope, act.skill.Name, act)
+	return t.verifySkill(act.Scope, act.skill.Name, act)
 }
 
 // isLinkTargetSafe reports whether a symlink source is allowed. The link

@@ -25,6 +25,7 @@ import { ANCHORED_POPOVER_CLOSE_MS, AnchoredPopover } from "./AnchoredPopover";
 import { EffortSwitcher } from "./EffortSwitcher";
 import { ModelSwitcher } from "./ModelSwitcher";
 import { Tooltip } from "./Tooltip";
+import { ComposerContextCard } from "./ComposerContextCard";
 
 interface Attachment {
   path: string;
@@ -754,6 +755,16 @@ export function Composer({
     });
   };
 
+  const replaceComposerText = (next: string) => {
+    clearAttachments();
+    setWorkspaceRefs([]);
+    setSessionRefs([]);
+    pastedBlocksRef.current = [];
+    setPastedBlocks([]);
+    setOpenPastedLabels([]);
+    setTextCaretEnd(next);
+  };
+
   const addWorkspaceReference = (ref: WorkspaceReference) => {
     setWorkspaceRefs((prev) => {
       const key = workspaceReferenceKey(ref);
@@ -766,6 +777,10 @@ export function Composer({
   useEffect(() => {
     if (!insertRequest || insertRequest.id === consumedInsertIdRef.current) return;
     consumedInsertIdRef.current = insertRequest.id;
+    if (insertRequest.mode === "replace") {
+      replaceComposerText(insertRequest.text);
+      return;
+    }
     const ref = parseWorkspaceReference(insertRequest.text);
     if (ref) {
       addWorkspaceReference(ref);
@@ -1552,7 +1567,7 @@ export function Composer({
     }
     // Esc interrupts the in-flight turn (matches the Stop button's hint), and
     // restores the text if the server hadn't replied yet.
-    if (e.key === "Escape" && running && !decisionPending) {
+    if (e.key === "Escape" && running) {
       e.preventDefault();
       handleCancel();
     }
@@ -1893,7 +1908,7 @@ export function Composer({
             <span className="composer-runstatus__dot" />
             <span className="composer-runstatus__text">{runActivity}</span>
             <Tooltip label={t("composer.stop")}>
-              <button className="composer-runstatus__stop" type="button" onClick={handleCancel} disabled={decisionPending}>
+              <button className="composer-runstatus__stop" type="button" onClick={handleCancel}>
                 <Square size={10} fill="currentColor" />
                 <span>{t("composer.stopShort")}</span>
               </button>
@@ -1906,62 +1921,29 @@ export function Composer({
           {sortComposerAttachments(attachments).map((a) => {
             const imageOnly = Boolean(a.previewUrl) && attachments.every((item) => item.previewUrl) && workspaceRefs.length === 0 && sessionRefs.length === 0;
             return (
-            <div
-              className={`composer-context__item${a.previewUrl ? " composer-context__item--image" : " composer-context__item--attachment"}${imageOnly ? " composer-context__item--image-only" : ""}`}
-              key={a.path}
-            >
-              <Tooltip label={a.path}>
-                <span className="composer-context__label">
-                  {a.previewUrl ? (
-                    <span className="composer-context__thumb">
-                      <img src={a.previewUrl} alt="" draggable={false} />
-                    </span>
-                  ) : (
-                    <>
-                      <span className="composer-context__fileicon">
-                        <FileText size={20} />
-                      </span>
-                      <span className="composer-context__main">
-                        <span className="composer-context__name">{attachmentName(a)}</span>
-                        <span className="composer-context__meta">{attachmentExt(attachmentName(a)) || t("msg.fileAttachment")}</span>
-                      </span>
-                    </>
-                  )}
-                </span>
-              </Tooltip>
-              <Tooltip label={t("composer.removeImage")} className="composer-context__remove-trigger">
-                <button
-                  className="composer-context__remove"
-                  type="button"
-                  onClick={() => removeAttachment(a.path)}
-                >
-                  <X size={14} />
-                </button>
-              </Tooltip>
-            </div>
+              <ComposerContextCard
+                key={a.path}
+                variant="attachment"
+                tooltipLabel={a.path}
+                removeLabel={t("composer.removeImage")}
+                onRemove={() => removeAttachment(a.path)}
+                previewUrl={a.previewUrl}
+                imageOnly={imageOnly}
+                name={attachmentName(a)}
+                meta={attachmentExt(attachmentName(a)) || t("msg.fileAttachment")}
+              />
             );
           })}
           {workspaceRefs.map((ref) => (
-            <div
-              className={`composer-context__item composer-context__item--workspace${ref.isDir ? " composer-context__item--folder" : " composer-context__item--file"}`}
+            <ComposerContextCard
               key={workspaceReferenceKey(ref)}
-            >
-              <Tooltip label={formatWorkspaceReference(ref.path, ref.isDir)}>
-                <span className="composer-context__label">
-                  {ref.isDir ? <Folder size={15} /> : <FileText size={15} />}
-                  <span>{ref.isDir ? `${baseName(ref.path)}/` : baseName(ref.path)}</span>
-                </span>
-              </Tooltip>
-              <Tooltip label={t("composer.removeReference")} className="composer-context__remove-trigger">
-                <button
-                  className="composer-context__remove"
-                  type="button"
-                  onClick={() => removeWorkspaceReference(ref)}
-                >
-                  <X size={13} />
-                </button>
-              </Tooltip>
-            </div>
+              variant="workspace"
+              tooltipLabel={formatWorkspaceReference(ref.path, ref.isDir)}
+              removeLabel={t("composer.removeReference")}
+              onRemove={() => removeWorkspaceReference(ref)}
+              folder={Boolean(ref.isDir)}
+              label={ref.isDir ? `${baseName(ref.path)}/` : baseName(ref.path)}
+            />
           ))}
           {sessionRefs.map((ref) => (
             <div

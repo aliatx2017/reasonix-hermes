@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -18,7 +17,6 @@ import (
 	"time"
 
 	"reasonix/internal/agent"
-	"reasonix/internal/codegraph"
 	"reasonix/internal/config"
 	"reasonix/internal/control"
 	"reasonix/internal/event"
@@ -78,6 +76,17 @@ func modelRefsFromView(models []ModelInfo) map[string]bool {
 		out[m.Ref] = true
 	}
 	return out
+}
+
+type desktopAskRuntimeRunner struct {
+	ask func(context.Context) error
+}
+
+func (r *desktopAskRuntimeRunner) Run(ctx context.Context, _ string) error {
+	if r.ask == nil {
+		return nil
+	}
+	return r.ask(ctx)
 }
 
 func TestCommandsIncludesEffortNotThinking(t *testing.T) {
@@ -176,6 +185,56 @@ func TestListTabsDoesNotExposeConfiguredSandboxPath(t *testing.T) {
 	}
 	if strings.Contains(string(raw), "sandboxPath") || strings.Contains(string(raw), configuredSandboxRoot) {
 		t.Fatalf("tab metadata should not expose configured sandbox root as sandboxPath: %s", raw)
+	}
+}
+
+func TestListTabsExposesStructuredRuntimeStatus(t *testing.T) {
+	asks := make(chan event.Ask, 1)
+	done := make(chan event.Event, 1)
+	runner := &desktopAskRuntimeRunner{}
+	ctrl := control.New(control.Options{
+		Runner: runner,
+		Sink: event.FuncSink(func(e event.Event) {
+			switch e.Kind {
+			case event.AskRequest:
+				asks <- e.Ask
+			case event.TurnDone:
+				done <- e
+			}
+		}),
+	})
+	runner.ask = func(ctx context.Context) error {
+		_, err := ctrl.Ask(ctx, []event.AskQuestion{{
+			ID:      "choice",
+			Prompt:  "Pick one",
+			Options: []event.AskOption{{Label: "A"}, {Label: "B"}},
+		}})
+		return err
+	}
+
+	app := NewApp()
+	app.setTestCtrl(ctrl, "prov/model")
+	app.tabOrder = []string{"test"}
+	ctrl.Send("ask user")
+	select {
+	case <-asks:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for ask request")
+	}
+
+	tabs := app.ListTabs()
+	if len(tabs) != 1 {
+		t.Fatalf("tabs = %d, want 1", len(tabs))
+	}
+	if !tabs[0].Running || !tabs[0].PendingPrompt || !tabs[0].Cancellable || tabs[0].CancelRequested {
+		t.Fatalf("tab runtime = running:%v pending:%v cancellable:%v cancel:%v", tabs[0].Running, tabs[0].PendingPrompt, tabs[0].Cancellable, tabs[0].CancelRequested)
+	}
+
+	app.CancelTab("test")
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for turn_done")
 	}
 }
 
@@ -1582,12 +1641,6 @@ func TestSearchFileRefsFindsNestedBasename(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "node_modules", "pkg", "runtime.js"), []byte("noise"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.MkdirAll(filepath.Join(dir, ".codegraph", "cache"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(dir, ".codegraph", "cache", "runtime.js"), []byte("index"), 0o644); err != nil {
-		t.Fatal(err)
-	}
 	for _, noise := range []string{".codex", ".npm", ".pnpm-store", "bin", "dist", "stage", "tmp"} {
 		if err := os.MkdirAll(filepath.Join(dir, noise), 0o755); err != nil {
 			t.Fatal(err)
@@ -1614,7 +1667,7 @@ func TestSearchFileRefsFindsNestedBasename(t *testing.T) {
 
 	app := &App{}
 	listed := app.ListDir("")
-	for _, hidden := range []string{".codex", ".codegraph", ".npm", ".pnpm-store", "bin", "dist", "stage", "tmp"} {
+	for _, hidden := range []string{".codex", ".npm", ".pnpm-store", "bin", "dist", "stage", "tmp"} {
 		if hasDirEntry(listed, hidden) {
 			t.Fatalf("ListDir should hide local noise %q, got %+v", hidden, listed)
 		}
@@ -1642,7 +1695,6 @@ func TestSearchFileRefsFindsNestedBasename(t *testing.T) {
 	}
 	for _, hidden := range []string{
 		".codex/runtime.js",
-		".codegraph/cache/runtime.js",
 		".npm/runtime.js",
 		".pnpm-store/runtime.js",
 		"bin/runtime.js",
@@ -2148,7 +2200,7 @@ func TestForkCreatesActiveTabWithoutSwitchingSourceController(t *testing.T) {
 	isolateDesktopUserDirs(t)
 
 	workspace := robustTempDir(t)
-	if err := os.WriteFile(filepath.Join(workspace, "reasonix.toml"), []byte("[codegraph]\nenabled = false\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(workspace, "reasonix.toml"), []byte(""), 0o644); err != nil {
 		t.Fatalf("write workspace config: %v", err)
 	}
 	dir := config.SessionDir()
@@ -2243,9 +2295,6 @@ func TestCapabilitiesShowsDefaultMCPAsInitializingNotDisabled(t *testing.T) {
 	dir := robustTempDir(t)
 	t.Chdir(dir)
 	if err := os.WriteFile(filepath.Join(dir, "reasonix.toml"), []byte(`
-[codegraph]
-enabled = false
-
 [[plugins]]
 name = "playwright"
 command = "npx"
@@ -2274,134 +2323,11 @@ args = ["-y", "@playwright/mcp"]
 	t.Fatalf("playwright MCP missing from Capabilities: %+v", view.Servers)
 }
 
-func TestCapabilitiesShowsDefaultCodegraphDisabled(t *testing.T) {
-	isolateDesktopUserDirs(t)
-	dir := robustTempDir(t)
-	t.Chdir(dir)
-
-	app := NewApp()
-	app.setTestCtrl(control.New(control.Options{Host: plugin.NewHost()}), "")
-	defer app.activeCtrl().Close()
-
-	view := app.Capabilities()
-	for _, s := range view.Servers {
-		if s.Name == "codegraph" {
-			if s.Status != "disabled" {
-				t.Fatalf("codegraph status = %q, want disabled; server = %+v", s.Status, s)
-			}
-			if !s.BuiltIn || !s.Configured {
-				t.Fatalf("codegraph builtIn/configured = %v/%v, want true/true; server = %+v", s.BuiltIn, s.Configured, s)
-			}
-			if s.AutoStart {
-				t.Fatalf("codegraph autoStart = true, want false; server = %+v", s)
-			}
-			if s.Tier != "background" {
-				t.Fatalf("codegraph tier = %q, want background; server = %+v", s.Tier, s)
-			}
-			if s.Command != "codegraph" || !reflect.DeepEqual(s.Args, []string{"serve", "--mcp"}) {
-				t.Fatalf("codegraph command = %q %+v, want codegraph serve --mcp", s.Command, s.Args)
-			}
-			return
-		}
-	}
-	t.Fatalf("codegraph missing from Capabilities: %+v", view.Servers)
-}
-
-func TestCapabilitiesShowsBuiltInMCPDefaults(t *testing.T) {
-	isolateDesktopUserDirs(t)
-	dir := robustTempDir(t)
-	t.Chdir(dir)
-
-	app := NewApp()
-	app.setTestCtrl(control.New(control.Options{Host: plugin.NewHost()}), "")
-	defer app.activeCtrl().Close()
-
-	view := app.Capabilities()
-	want := map[string][]string{
-		"time": []string{"builtin-mcp", "time"},
-	}
-	found := map[string]bool{}
-	for _, s := range view.Servers {
-		if s.Name != "time" && s.Name != "context7" {
-			continue
-		}
-		found[s.Name] = true
-		wantStatus := map[string]string{"time": "deferred", "context7": "disabled"}[s.Name]
-		wantAutoStart := s.Name == "time"
-		if s.Status != wantStatus {
-			t.Fatalf("%s status = %q, want %s; server = %+v", s.Name, s.Status, wantStatus, s)
-		}
-		if !s.BuiltIn || !s.Configured || s.AutoStart != wantAutoStart {
-			t.Fatalf("%s builtIn/configured/autoStart = %v/%v/%v, want true/true/%v; server = %+v", s.Name, s.BuiltIn, s.Configured, s.AutoStart, wantAutoStart, s)
-		}
-		if s.Tier != "lazy" || s.Transport != "stdio" || strings.TrimSpace(s.Command) == "" {
-			t.Fatalf("%s transport/tier/command = %q/%q/%q, want stdio/lazy/non-empty; server = %+v", s.Name, s.Transport, s.Tier, s.Command, s)
-		}
-		if s.Name == "time" && !reflect.DeepEqual(s.Args, want["time"]) {
-			t.Fatalf("time args = %+v, want %+v", s.Args, want["time"])
-		}
-		if s.Name == "context7" && !validContext7Runner(s.Command, s.Args) {
-			t.Fatalf("context7 runner = %q %+v, want npx/pnpm/bunx for @upstash/context7-mcp", s.Command, s.Args)
-		}
-	}
-	for _, name := range []string{"time", "context7"} {
-		if !found[name] {
-			t.Fatalf("built-in MCP %s missing from Capabilities: %+v", name, view.Servers)
-		}
-	}
-}
-
-func TestCapabilitiesShowsManuallyEnabledContext7Deferred(t *testing.T) {
+func TestConfiguredMCPWithFormerBuiltInNameIsUserServer(t *testing.T) {
 	isolateDesktopUserDirs(t)
 	dir := robustTempDir(t)
 	t.Chdir(dir)
 	if err := os.WriteFile(filepath.Join(dir, "reasonix.toml"), []byte(`
-[codegraph]
-enabled = false
-
-[builtin_mcp]
-context7_enabled = true
-`), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	app := NewApp()
-	app.setTestCtrl(control.New(control.Options{Host: plugin.NewHost()}), "")
-	defer app.activeCtrl().Close()
-
-	view := app.Capabilities()
-	for _, s := range view.Servers {
-		if s.Name == "context7" {
-			if s.Status != "deferred" || !s.AutoStart || !s.BuiltIn || !s.Configured {
-				t.Fatalf("enabled context7 view = %+v, want deferred built-in configured autoStart", s)
-			}
-			return
-		}
-	}
-	t.Fatalf("context7 missing from Capabilities: %+v", view.Servers)
-}
-
-func validContext7Runner(command string, args []string) bool {
-	switch command {
-	case "npx":
-		return reflect.DeepEqual(args, []string{"-y", "@upstash/context7-mcp"})
-	case "pnpm":
-		return reflect.DeepEqual(args, []string{"dlx", "@upstash/context7-mcp"})
-	case "bunx":
-		return reflect.DeepEqual(args, []string{"@upstash/context7-mcp"})
-	default:
-		return false
-	}
-}
-
-func TestConfiguredMCPWithBuiltInNameTakesPrecedence(t *testing.T) {
-	isolateDesktopUserDirs(t)
-	dir := robustTempDir(t)
-	t.Chdir(dir)
-	if err := os.WriteFile(filepath.Join(dir, "reasonix.toml"), []byte(`
-[codegraph]
-enabled = false
-
 [[plugins]]
 name = "time"
 command = "custom-time"
@@ -2423,7 +2349,7 @@ tier = "lazy"
 		}
 		found = true
 		if s.BuiltIn || !s.Configured || s.Command != "custom-time" || !reflect.DeepEqual(s.Args, []string{"serve"}) {
-			t.Fatalf("configured time view = %+v, want user config to take precedence over built-in", s)
+			t.Fatalf("configured time view = %+v, want ordinary user MCP config", s)
 		}
 	}
 	if !found {
@@ -2450,9 +2376,6 @@ func TestEditAndRemoveConfiguredMCPWithBuiltInName(t *testing.T) {
 	dir := robustTempDir(t)
 	t.Chdir(dir)
 	if err := os.WriteFile(filepath.Join(dir, "reasonix.toml"), []byte(`
-[codegraph]
-enabled = false
-
 [[plugins]]
 name = "time"
 command = "custom-time"
@@ -2494,45 +2417,11 @@ args = ["serve"]
 	}
 }
 
-func TestSetBuiltInMCPDisabledWritesBuiltInConfigOnly(t *testing.T) {
-	isolateDesktopUserDirs(t)
-	dir := robustTempDir(t)
-	t.Chdir(dir)
-
-	app := NewApp()
-	app.setTestCtrl(control.New(control.Options{Host: plugin.NewHost()}), "")
-	defer app.activeCtrl().Close()
-
-	if err := app.SetMCPServerEnabled("time", false); err != nil {
-		t.Fatalf("SetMCPServerEnabled(time,false): %v", err)
-	}
-	view := app.Capabilities()
-	for _, s := range view.Servers {
-		if s.Name == "time" {
-			if s.Status != "disabled" || !s.BuiltIn || !s.Configured {
-				t.Fatalf("time disabled view = %+v, want disabled built-in configured", s)
-			}
-			cfg := config.LoadForEdit(config.UserConfigPath())
-			if _, ok := findPluginEntry(cfg.Plugins, "time"); ok {
-				t.Fatalf("time built-in disable wrote a user plugin: %+v", cfg.Plugins)
-			}
-			if cfg.BuiltInMCP.TimeEnabled {
-				t.Fatalf("time built-in disable left time_enabled true: %+v", cfg.BuiltInMCP)
-			}
-			return
-		}
-	}
-	t.Fatalf("time missing from Capabilities after disable: %+v", view.Servers)
-}
-
 func TestCapabilitiesMarksBackgroundRemoteMCPAuthPossible(t *testing.T) {
 	isolateDesktopUserDirs(t)
 	dir := robustTempDir(t)
 	t.Chdir(dir)
 	if err := os.WriteFile(filepath.Join(dir, "reasonix.toml"), []byte(`
-[codegraph]
-enabled = false
-
 [[plugins]]
 name = "dida"
 type = "http"
@@ -2563,9 +2452,6 @@ func TestCapabilitiesDoesNotMarkRemoteMCPWithAuthHeaderPossible(t *testing.T) {
 	dir := robustTempDir(t)
 	t.Chdir(dir)
 	if err := os.WriteFile(filepath.Join(dir, "reasonix.toml"), []byte(`
-[codegraph]
-enabled = false
-
 [[plugins]]
 name = "stripe"
 type = "http"
@@ -2597,9 +2483,6 @@ func TestCapabilitiesMarksAuthFailureRequired(t *testing.T) {
 	dir := robustTempDir(t)
 	t.Chdir(dir)
 	if err := os.WriteFile(filepath.Join(dir, "reasonix.toml"), []byte(`
-[codegraph]
-enabled = false
-
 [[plugins]]
 name = "figma"
 type = "http"
@@ -2632,9 +2515,6 @@ func TestClearMCPServerAuthenticationClearsConfigAndFailure(t *testing.T) {
 	dir := robustTempDir(t)
 	t.Chdir(dir)
 	if err := os.WriteFile(filepath.Join(dir, "reasonix.toml"), []byte(`
-[codegraph]
-enabled = false
-
 [[plugins]]
 name = "figma"
 type = "http"
@@ -2695,9 +2575,6 @@ func TestUpdateMCPServerMigratesLegacyTierToBackground(t *testing.T) {
 	dir := robustTempDir(t)
 	t.Chdir(dir)
 	if err := os.WriteFile(filepath.Join(dir, "reasonix.toml"), []byte(`
-[codegraph]
-enabled = false
-
 [[plugins]]
 name = "playwright"
 command = "npx"
@@ -2769,9 +2646,6 @@ func TestUpdateMCPServerSplitsPastedCommandLine(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)
 	if err := os.WriteFile(filepath.Join(dir, "reasonix.toml"), []byte(`
-[codegraph]
-enabled = false
-
 [[plugins]]
 name = "playwright"
 command = "npx"
@@ -2809,9 +2683,6 @@ func TestUpdateMCPServerRecordsReconnectFailure(t *testing.T) {
 	dir := robustTempDir(t)
 	t.Chdir(dir)
 	if err := os.WriteFile(filepath.Join(dir, "reasonix.toml"), []byte(`
-[codegraph]
-enabled = false
-
 [[plugins]]
 name = "broken"
 command = "npx"
@@ -2864,9 +2735,6 @@ func TestSetMCPServerTierRecordsConnectFailure(t *testing.T) {
 	dir := robustTempDir(t)
 	t.Chdir(dir)
 	if err := os.WriteFile(filepath.Join(dir, "reasonix.toml"), []byte(`
-[codegraph]
-enabled = false
-
 [[plugins]]
 name = "broken"
 command = "reasonix-missing-mcp-binary"
@@ -2923,335 +2791,11 @@ tier = "lazy"
 	t.Fatalf("broken MCP missing from Capabilities: %+v", view.Servers)
 }
 
-func TestSetMCPServerTierEnablesCodegraphAndIgnoresLegacyTier(t *testing.T) {
-	t.Setenv("HOME", robustTempDir(t))
-	t.Setenv("USERPROFILE", robustTempDir(t))
-	t.Setenv("XDG_CONFIG_HOME", robustTempDir(t))
-	t.Setenv("AppData", robustTempDir(t))
-	t.Setenv("PATH", robustTempDir(t))
-	t.Setenv("REASONIX_CACHE_DIR", robustTempDir(t)) // isolate the codegraph bundle cache so Resolve fails deterministically
-	dir := robustTempDir(t)
-	t.Chdir(dir)
-	if err := os.WriteFile(filepath.Join(dir, "reasonix.toml"), []byte(`
-[codegraph]
-enabled = false
-auto_install = true
-`), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	app := NewApp()
-	app.setTestCtrl(control.New(control.Options{Host: plugin.NewHost()}), "")
-	defer app.activeCtrl().Close()
-
-	if err := app.SetMCPServerTier("codegraph", "eager"); err != nil {
-		t.Fatalf("SetMCPServerTier(codegraph): %v", err)
-	}
-	cfg, err := config.Load()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !cfg.Codegraph.Enabled {
-		t.Fatal("codegraph enabled = false, want true after legacy tier update")
-	}
-	if got := cfg.Codegraph.Tier; got != "" {
-		t.Fatalf("codegraph tier = %q, want ignored legacy tier", got)
-	}
-	userCfg := config.LoadForEdit(config.UserConfigPath())
-	if !userCfg.Codegraph.Enabled {
-		t.Fatal("user codegraph enabled = false, want true after legacy tier update")
-	}
-	if got := userCfg.Codegraph.Tier; got != "" {
-		t.Fatalf("user codegraph tier = %q, want ignored legacy tier", got)
-	}
-	if !mcpFailed(app.activeCtrl(), "codegraph") {
-		t.Fatalf("Host.Failures() = %+v, want codegraph failure recorded for missing runtime", app.activeCtrl().Host().Failures())
-	}
-	view := app.Capabilities()
-	for _, s := range view.Servers {
-		if s.Name == "codegraph" {
-			if s.Status != "failed" {
-				t.Fatalf("codegraph status = %q, want failed; server = %+v", s.Status, s)
-			}
-			if !s.BuiltIn || !s.Configured || s.Tier != "background" || !s.AutoStart {
-				t.Fatalf("codegraph view did not preserve built-in config: %+v", s)
-			}
-			return
-		}
-	}
-	t.Fatalf("codegraph missing from Capabilities: %+v", view.Servers)
-}
-
-func TestSetMCPServerEnabledPersistsCodegraphOff(t *testing.T) {
-	isolateDesktopUserDirs(t)
-	dir := robustTempDir(t)
-	t.Chdir(dir)
-	if err := os.WriteFile(filepath.Join(dir, "reasonix.toml"), []byte(`
-[codegraph]
-enabled = true
-tier = "lazy"
-`), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	app := NewApp()
-	app.setTestCtrl(control.New(control.Options{Host: plugin.NewHost()}), "")
-	defer app.activeCtrl().Close()
-
-	if err := app.SetMCPServerEnabled("codegraph", false); err != nil {
-		t.Fatalf("SetMCPServerEnabled(codegraph,false): %v", err)
-	}
-	cfg, err := config.Load()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if cfg.Codegraph.Enabled {
-		t.Fatal("codegraph enabled = true, want false after disabling")
-	}
-	userCfg := config.LoadForEdit(config.UserConfigPath())
-	if userCfg.Codegraph.Enabled {
-		t.Fatal("user codegraph enabled = true, want false after disabling")
-	}
-	view := app.Capabilities()
-	for _, s := range view.Servers {
-		if s.Name == "codegraph" {
-			if s.Status != "disabled" || s.AutoStart {
-				t.Fatalf("codegraph disabled view = %+v, want disabled with autoStart=false", s)
-			}
-			return
-		}
-	}
-	t.Fatalf("codegraph missing from Capabilities: %+v", view.Servers)
-}
-
-func TestUpdateBuiltInMCPServerUpdatesCodegraphRuntime(t *testing.T) {
-	isolateDesktopUserDirs(t)
-	dir := robustTempDir(t)
-	t.Chdir(dir)
-	if err := os.WriteFile(filepath.Join(dir, "reasonix.toml"), []byte(`
-[codegraph]
-enabled = false
-`), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	orig := updateBuiltInCodegraph
-	defer func() { updateBuiltInCodegraph = orig }()
-	called := false
-	updateBuiltInCodegraph = func(ctx context.Context, client *http.Client, log func(string)) (codegraph.UpdateResult, error) {
-		called = true
-		if ctx == nil {
-			t.Fatal("context is nil")
-		}
-		if client == nil {
-			t.Fatal("http client is nil")
-		}
-		return codegraph.UpdateResult{Version: "v9.9.9", Path: filepath.Join(dir, "cache", "codegraph")}, nil
-	}
-
-	app := NewApp()
-	app.setTestCtrl(control.New(control.Options{Host: plugin.NewHost()}), "")
-	defer app.activeCtrl().Close()
-
-	got, err := app.UpdateBuiltInMCPServer("codegraph")
-	if err != nil {
-		t.Fatalf("UpdateBuiltInMCPServer(codegraph): %v", err)
-	}
-	if !called {
-		t.Fatal("updater was not called")
-	}
-	if got.Name != "codegraph" || got.Version != "v9.9.9" || got.Path == "" {
-		t.Fatalf("UpdateBuiltInMCPServer result = %+v", got)
-	}
-}
-
-func TestUpdateBuiltInMCPServerRejectsOtherServers(t *testing.T) {
-	isolateDesktopUserDirs(t)
-
-	app := NewApp()
-	app.setTestCtrl(control.New(control.Options{Host: plugin.NewHost()}), "")
-	defer app.activeCtrl().Close()
-
-	if _, err := app.UpdateBuiltInMCPServer("time"); err == nil {
-		t.Fatal("UpdateBuiltInMCPServer(time) succeeded; want error")
-	}
-}
-
-func TestBuiltInMCPBackgroundNotifyDoesNotDownload(t *testing.T) {
-	isolateDesktopUserDirs(t)
-	t.Setenv("REASONIX_CACHE_DIR", robustTempDir(t))
-
-	origCheck := checkCodegraphLatest
-	origDownload := downloadLatestCodegraph
-	origUpdate := updateBuiltInCodegraph
-	defer func() {
-		checkCodegraphLatest = origCheck
-		downloadLatestCodegraph = origDownload
-		updateBuiltInCodegraph = origUpdate
-	}()
-
-	checkCodegraphLatest = func(ctx context.Context, client *http.Client) (string, error) {
-		return "v99.99.99", nil
-	}
-	downloadLatestCodegraph = func(ctx context.Context, client *http.Client, log func(string)) (codegraph.UpdateResult, error) {
-		t.Fatal("notify mode should not download")
-		return codegraph.UpdateResult{}, nil
-	}
-	updateBuiltInCodegraph = func(ctx context.Context, client *http.Client, log func(string)) (codegraph.UpdateResult, error) {
-		t.Fatal("notify mode should not activate")
-		return codegraph.UpdateResult{}, nil
-	}
-
-	cfg := config.Default()
-	cfg.BuiltInMCPUpdates.Mode = config.BuiltInMCPUpdateModeNotify
-	statuses, err := NewApp().runBuiltInMCPUpdateCheck(cfg)
-	if err != nil {
-		t.Fatalf("runBuiltInMCPUpdateCheck: %v", err)
-	}
-	if len(statuses) != 1 || statuses[0].Phase != "available" || statuses[0].Latest != "v99.99.99" {
-		t.Fatalf("statuses = %+v, want available latest v99.99.99", statuses)
-	}
-}
-
-func TestBuiltInMCPUpdateStatusesReturnArray(t *testing.T) {
-	app := NewApp()
-	empty := app.BuiltInMCPUpdateStatuses()
-	if empty == nil {
-		t.Fatal("empty BuiltInMCPUpdateStatuses returned nil; Wails should encode []")
-	}
-	app.recordBuiltInMCPUpdateStatus(BuiltInMCPUpdateStatus{
-		Name:    "codegraph",
-		Mode:    "notify",
-		Current: "v0.9.7",
-		Latest:  "v9.9.9",
-		Phase:   "available",
-	})
-	statuses := app.BuiltInMCPUpdateStatuses()
-	if len(statuses) != 1 || statuses[0].Name != "codegraph" || statuses[0].Phase != "available" {
-		t.Fatalf("BuiltInMCPUpdateStatuses = %+v, want codegraph available", statuses)
-	}
-}
-
-func TestBuiltInMCPBackgroundDownloadDoesNotActivate(t *testing.T) {
-	isolateDesktopUserDirs(t)
-	t.Setenv("REASONIX_CACHE_DIR", robustTempDir(t))
-
-	origCheck := checkCodegraphLatest
-	origDownload := downloadLatestCodegraph
-	origUpdate := updateBuiltInCodegraph
-	defer func() {
-		checkCodegraphLatest = origCheck
-		downloadLatestCodegraph = origDownload
-		updateBuiltInCodegraph = origUpdate
-	}()
-
-	checkCodegraphLatest = func(ctx context.Context, client *http.Client) (string, error) {
-		if _, ok := ctx.Deadline(); !ok {
-			t.Fatal("manifest check context has no deadline")
-		}
-		return "v99.99.99", nil
-	}
-	downloaded := false
-	downloadLatestCodegraph = func(ctx context.Context, client *http.Client, log func(string)) (codegraph.UpdateResult, error) {
-		downloaded = true
-		if deadline, ok := ctx.Deadline(); ok && time.Until(deadline) <= httpTimeout+time.Second {
-			t.Fatalf("download context inherited manifest timeout; deadline=%v", deadline)
-		}
-		return codegraph.UpdateResult{Version: "v99.99.99", Path: filepath.Join(t.TempDir(), "codegraph")}, nil
-	}
-	updateBuiltInCodegraph = func(ctx context.Context, client *http.Client, log func(string)) (codegraph.UpdateResult, error) {
-		t.Fatal("download mode should not activate")
-		return codegraph.UpdateResult{}, nil
-	}
-
-	cfg := config.Default()
-	cfg.BuiltInMCPUpdates.Mode = config.BuiltInMCPUpdateModeDownload
-	statuses, err := NewApp().runBuiltInMCPUpdateCheck(cfg)
-	if err != nil {
-		t.Fatalf("runBuiltInMCPUpdateCheck: %v", err)
-	}
-	if !downloaded {
-		t.Fatal("download mode did not call downloader")
-	}
-	if len(statuses) != 1 || statuses[0].Phase != "downloaded" || statuses[0].Path == "" {
-		t.Fatalf("statuses = %+v, want downloaded with path", statuses)
-	}
-}
-
-func TestBuiltInMCPBackgroundAutoNextSessionActivates(t *testing.T) {
-	isolateDesktopUserDirs(t)
-	t.Setenv("REASONIX_CACHE_DIR", robustTempDir(t))
-
-	origCheck := checkCodegraphLatest
-	origDownload := downloadLatestCodegraph
-	origUpdate := updateBuiltInCodegraph
-	defer func() {
-		checkCodegraphLatest = origCheck
-		downloadLatestCodegraph = origDownload
-		updateBuiltInCodegraph = origUpdate
-	}()
-
-	checkCodegraphLatest = func(ctx context.Context, client *http.Client) (string, error) {
-		if _, ok := ctx.Deadline(); !ok {
-			t.Fatal("manifest check context has no deadline")
-		}
-		return "v99.99.99", nil
-	}
-	downloadLatestCodegraph = func(ctx context.Context, client *http.Client, log func(string)) (codegraph.UpdateResult, error) {
-		t.Fatal("auto_next_session mode should activate through the updater")
-		return codegraph.UpdateResult{}, nil
-	}
-	activated := false
-	updateBuiltInCodegraph = func(ctx context.Context, client *http.Client, log func(string)) (codegraph.UpdateResult, error) {
-		activated = true
-		if deadline, ok := ctx.Deadline(); ok && time.Until(deadline) <= httpTimeout+time.Second {
-			t.Fatalf("activation context inherited manifest timeout; deadline=%v", deadline)
-		}
-		return codegraph.UpdateResult{Version: "v99.99.99", Path: filepath.Join(t.TempDir(), "codegraph")}, nil
-	}
-
-	cfg := config.Default()
-	cfg.BuiltInMCPUpdates.Mode = config.BuiltInMCPUpdateModeAutoNextSession
-	statuses, err := NewApp().runBuiltInMCPUpdateCheck(cfg)
-	if err != nil {
-		t.Fatalf("runBuiltInMCPUpdateCheck: %v", err)
-	}
-	if !activated {
-		t.Fatal("auto_next_session mode did not activate")
-	}
-	if len(statuses) != 1 || statuses[0].Phase != "activated" || statuses[0].Path == "" {
-		t.Fatalf("statuses = %+v, want activated with path", statuses)
-	}
-}
-
-func TestBuiltInMCPUpdateIntervalStamp(t *testing.T) {
-	isolateDesktopUserDirs(t)
-	origNow := builtInMCPUpdateNow
-	defer func() { builtInMCPUpdateNow = origNow }()
-
-	now := time.Date(2026, 6, 14, 12, 0, 0, 0, time.UTC)
-	builtInMCPUpdateNow = func() time.Time { return now }
-	if !shouldRunBuiltInMCPUpdateCheck(time.Hour) {
-		t.Fatal("first update check should run without a stamp")
-	}
-	markBuiltInMCPUpdateChecked()
-	if shouldRunBuiltInMCPUpdateCheck(time.Hour) {
-		t.Fatal("update check should be suppressed inside interval")
-	}
-	builtInMCPUpdateNow = func() time.Time { return now.Add(2 * time.Hour) }
-	if !shouldRunBuiltInMCPUpdateCheck(time.Hour) {
-		t.Fatal("update check should run after interval")
-	}
-}
-
 func TestCapabilitiesMigratesFailedMCPConfiguredTierAfterRestart(t *testing.T) {
 	isolateDesktopUserDirs(t)
 	dir := robustTempDir(t)
 	t.Chdir(dir)
 	if err := os.WriteFile(filepath.Join(dir, "reasonix.toml"), []byte(`
-[codegraph]
-enabled = false
-
 [[plugins]]
 name = "broken"
 command = "reasonix-missing-mcp-binary"

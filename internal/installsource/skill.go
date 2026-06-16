@@ -23,21 +23,22 @@ const (
 
 // skillAction builds the DTO for a single-skill install (copy or link).
 func (t *installSourceTool) skillAction(req request, cand skillCandidate, mode string) action {
+	scope := t.installScope(req, "skill", cand.SourcePath)
 	actionName := "copy_skill"
 	if mode == "link" {
 		actionName = "link_skill"
 	}
-	canonical, _ := t.skillCanonicalPath(cand.Name, req.Scope)
-	root, _ := t.skillInstallRoot(req.Scope)
+	canonical, _ := t.skillCanonicalPath(cand.Name, scope)
+	root, _ := t.skillInstallRoot(scope)
 	a := action{
 		Kind:          "skill",
 		Action:        actionName,
 		Name:          cand.Name,
 		Source:        cand.SourcePath,
 		Target:        canonical,
-		Scope:         req.Scope,
+		Scope:         scope,
 		Mode:          mode,
-		ConfigPath:    t.configPath(req.Scope),
+		ConfigPath:    t.configPath(scope),
 		Skills:        []string{cand.Name},
 		SkillCount:    1,
 		Layout:        "canonical_dir",
@@ -76,14 +77,15 @@ func skillActionRisk(mode string, cand skillCandidate) (RiskLevel, []string) {
 
 // skillRootAction builds the DTO for registering a whole skill directory.
 func (t *installSourceTool) skillRootAction(req request, path string, names []string) action {
+	scope := t.installScope(req, "skill", path)
 	return action{
 		Kind:        "skill",
 		Action:      "register_skill_root",
 		Name:        "",
 		Source:      path,
 		Target:      path,
-		ConfigPath:  t.configPath(req.Scope),
-		Scope:       req.Scope,
+		ConfigPath:  t.configPath(scope),
+		Scope:       scope,
 		Mode:        "register",
 		Skills:      names,
 		SkillCount:  len(names),

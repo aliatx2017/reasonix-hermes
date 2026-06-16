@@ -141,7 +141,7 @@ func TestMcpSpecsNil(t *testing.T) {
 
 func TestMcpSpecsConversion(t *testing.T) {
 	in := []MCPServerSpec{
-		{Name: "codegraph", Command: "codegraph", Args: []string{"--stdio"}, Env: MCPEnv{"HOME": "/tmp"}},
+		{Name: "search", Command: "search-mcp", Args: []string{"--stdio"}, Env: MCPEnv{"HOME": "/tmp"}},
 	}
 	got, err := mcpSpecs(in, "/workspace")
 	if err != nil {
@@ -150,7 +150,7 @@ func TestMcpSpecsConversion(t *testing.T) {
 	if len(got) != 1 {
 		t.Fatalf("len = %d, want 1", len(got))
 	}
-	if got[0].Name != "codegraph" || got[0].Type != "stdio" || got[0].Command != "codegraph" {
+	if got[0].Name != "search" || got[0].Type != "stdio" || got[0].Command != "search-mcp" {
 		t.Errorf("spec = %+v", got[0])
 	}
 	if got[0].Args[0] != "--stdio" {

@@ -286,6 +286,11 @@ func TestDisconnectMCPServerRemovesLazyPlaceholder(t *testing.T) {
 
 func TestRemoveMCPServerRemovesUnconnectedLazyPlaceholder(t *testing.T) {
 	dir := t.TempDir()
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+	t.Setenv("AppData", filepath.Join(home, "AppData", "Roaming"))
 	t.Chdir(dir)
 	if err := os.WriteFile("reasonix.toml", []byte(`
 [[plugins]]

@@ -11,11 +11,13 @@ export function ApprovalModal({
   onAnswer,
   onRevisePlan,
   onExitPlan,
+  onStop,
 }: {
   approval: WireApproval;
   onAnswer: (allow: boolean, session: boolean, persist: boolean) => void;
   onRevisePlan?: (text: string) => void;
   onExitPlan?: () => void;
+  onStop: () => void;
 }) {
   const t = useT();
   const isPlanApproval = approval.tool === "exit_plan_mode";
@@ -54,14 +56,16 @@ export function ApprovalModal({
   const choosePlanAction = (key: string) => {
     if (key === "1") setRevisionOpen((open) => !open);
     else if (key === "2") answerWithExit(() => onAnswer(true, false, false));
-    else if (key === "3" || key === "Escape") answerWithExit(() => (onExitPlan ?? (() => onAnswer(false, false, false)))());
+    else if (key === "3") answerWithExit(() => (onExitPlan ?? (() => onAnswer(false, false, false)))());
+    else if (key === "Escape") answerWithExit(onStop);
   };
 
   const chooseToolAction = (key: string) => {
     if (key === "1") answerWithExit(() => onAnswer(true, false, false));
     else if (key === "2") answerWithExit(() => onAnswer(true, true, false));
     else if (key === "3") answerWithExit(() => onAnswer(true, true, true));
-    else if (key === "4" || key === "Escape") answerWithExit(() => onAnswer(false, false, false));
+    else if (key === "4") answerWithExit(() => onAnswer(false, false, false));
+    else if (key === "Escape") answerWithExit(onStop);
   };
 
   useEffect(() => {
@@ -103,7 +107,7 @@ export function ApprovalModal({
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [isPlanApproval, onAnswer, onExitPlan, actionCount]);
+  }, [isPlanApproval, onAnswer, onExitPlan, onStop, actionCount]);
 
   useEffect(() => {
     if (revisionOpen) inputRef.current?.focus();
@@ -137,6 +141,7 @@ export function ApprovalModal({
               onClick={() => answerWithExit(() => (onExitPlan ?? (() => onAnswer(false, false, false)))())}
               selected={selectedIndex === 2}
             />
+            <PromptAction keyLabel="Esc" label={t("composer.stopShort")} onClick={() => answerWithExit(onStop)} />
           </>
         }
       >
@@ -196,6 +201,7 @@ export function ApprovalModal({
           <PromptAction keyLabel="2" label={t("approval.allowRuleSession")} onClick={() => answerWithExit(() => onAnswer(true, true, false))} selected={selectedIndex === 1} />
           <PromptAction keyLabel="3" label={t("approval.allowRulePersistent")} onClick={() => answerWithExit(() => onAnswer(true, true, true))} selected={selectedIndex === 2} />
           <PromptAction keyLabel="4" label={t("approval.deny")} onClick={() => answerWithExit(() => onAnswer(false, false, false))} selected={selectedIndex === 3} />
+          <PromptAction keyLabel="Esc" label={t("composer.stopShort")} onClick={() => answerWithExit(onStop)} />
         </>
       }
     >

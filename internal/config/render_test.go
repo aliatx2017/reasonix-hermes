@@ -96,8 +96,6 @@ func TestRenderTOMLRoundTrips(t *testing.T) {
 	orig.Skills.ExcludedPaths = []string{"~/.agents/skills"}
 	orig.Skills.DisabledSkills = []string{"review", "explore"}
 	orig.Skills.MaxDepth = 2
-	orig.Codegraph = CodegraphConfig{Enabled: true, AutoInstall: false, Path: "/opt/codegraph", Tier: "background"}
-	orig.BuiltInMCPUpdates = BuiltInMCPUpdatesConfig{Mode: BuiltInMCPUpdateModeDownload, CheckInterval: "12h"}
 	orig.Bot.ToolApprovalMode = "auto"
 	orig.Bot.Connections = []BotConnectionConfig{{
 		ID:               "feishu-lark",
@@ -237,24 +235,6 @@ func TestRenderTOMLRoundTrips(t *testing.T) {
 	}
 	if got.Agent.SystemPrompt != orig.Agent.SystemPrompt {
 		t.Errorf("system_prompt mismatch:\n got %q\nwant %q", got.Agent.SystemPrompt, orig.Agent.SystemPrompt)
-	}
-	if !got.Codegraph.Enabled {
-		t.Error("codegraph.enabled = false, want true")
-	}
-	if got.Codegraph.AutoInstall {
-		t.Error("codegraph.auto_install = true, want false")
-	}
-	if got.Codegraph.Path != "/opt/codegraph" {
-		t.Errorf("codegraph.path = %q, want /opt/codegraph", got.Codegraph.Path)
-	}
-	if got.Codegraph.Tier != "" {
-		t.Errorf("codegraph.tier = %q, want migrated empty", got.Codegraph.Tier)
-	}
-	if got.BuiltInMCPUpdates.ResolvedMode() != BuiltInMCPUpdateModeDownload {
-		t.Errorf("builtin_mcp_updates.mode = %q, want download", got.BuiltInMCPUpdates.ResolvedMode())
-	}
-	if got.BuiltInMCPUpdates.ResolvedCheckInterval() != "12h0m0s" {
-		t.Errorf("builtin_mcp_updates.check_interval = %q, want 12h0m0s", got.BuiltInMCPUpdates.ResolvedCheckInterval())
 	}
 	if !got.LSP.Enabled {
 		t.Error("lsp.enabled = false, want true")
@@ -463,14 +443,14 @@ func TestScopedRenderSeparatesUserAndProjectConfig(t *testing.T) {
 	c.Desktop.CheckUpdates = boolPtr(false)
 
 	user := RenderTOMLForScope(c, RenderScopeUser)
-	for _, want := range []string{"config_version = 3", "[desktop]", `theme = "dark"`, `close_behavior = "background"`, `status_bar_style = "text"`, `check_updates = false`, "[notifications]", "[builtin_mcp_updates]"} {
+	for _, want := range []string{"config_version = 3", "[desktop]", `theme = "dark"`, `close_behavior = "background"`, `status_bar_style = "text"`, `check_updates = false`, "[notifications]"} {
 		if !strings.Contains(user, want) {
 			t.Fatalf("user render missing %q:\n%s", want, user)
 		}
 	}
 
 	project := RenderTOMLForScope(c, RenderScopeProject)
-	for _, forbidden := range []string{"[desktop]", "[notifications]", "[builtin_mcp_updates]", "close_behavior =", "check_updates ="} {
+	for _, forbidden := range []string{"[desktop]", "[notifications]", "close_behavior =", "check_updates ="} {
 		if strings.Contains(project, forbidden) {
 			t.Fatalf("project render should not contain %q:\n%s", forbidden, project)
 		}

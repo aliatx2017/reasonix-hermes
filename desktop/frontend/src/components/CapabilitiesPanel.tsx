@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { asArray } from "../lib/array";
-import { app, onBuiltInMCPUpdate, openExternal } from "../lib/bridge";
+import { app, openExternal } from "../lib/bridge";
 import { useT } from "../lib/i18n";
-import type { BuiltInMCPUpdateStatus, CapabilitiesView, MCPServerInput, ServerView, SkillRootSkillView, SkillRootView, SkillView } from "../lib/types";
+import type { CapabilitiesView, MCPServerInput, ServerView, SkillRootSkillView, SkillRootView, SkillView } from "../lib/types";
 import { InlineConfirmButton } from "./InlineConfirmButton";
 import { ResizableDrawer } from "./ResizableDrawer";
 import { Tooltip } from "./Tooltip";
@@ -33,32 +33,13 @@ export function CapabilitiesPanel({
   const [expandedErrors, setExpandedErrors] = useState<Set<string>>(() => new Set());
   const [expandedServers, setExpandedServers] = useState<Set<string>>(() => new Set());
   const [expandedServerTools, setExpandedServerTools] = useState<Set<string>>(() => new Set());
-  const [updateStatuses, setUpdateStatuses] = useState<Record<string, BuiltInMCPUpdateStatus>>({});
 
   const reload = useCallback(async () => {
     setView(normalizeCapabilitiesView(await app.Capabilities().catch(() => ({ servers: [], skills: [], skillRoots: [] }))));
   }, []);
-  const reloadUpdateStatuses = useCallback(async () => {
-    setUpdateStatuses(normalizeBuiltInMCPUpdateStatuses(await app.BuiltInMCPUpdateStatuses().catch(() => [])));
-  }, []);
   useEffect(() => {
     void reload();
   }, [reload]);
-  useEffect(() => {
-    let cancelled = false;
-    void app.BuiltInMCPUpdateStatuses()
-      .then((statuses) => {
-        if (!cancelled) setUpdateStatuses(normalizeBuiltInMCPUpdateStatuses(statuses));
-      })
-      .catch(() => {});
-    const unsubscribe = onBuiltInMCPUpdate((status) => {
-      setUpdateStatuses((prev) => mergeBuiltInMCPUpdateStatus(prev, status));
-    });
-    return () => {
-      cancelled = true;
-      unsubscribe();
-    };
-  }, []);
   useEffect(() => {
     if (tab !== "servers" || !view?.servers.some((s) => s.status === "initializing" || s.status === "deferred")) return;
     const id = window.setInterval(() => void reload(), 2500);
@@ -81,12 +62,6 @@ export function CapabilitiesPanel({
     } finally {
       setBusy(false);
     }
-  };
-
-  const upgradeBuiltInMCP = async (name: string) => {
-    const ok = await mutate(() => app.UpdateBuiltInMCPServer(name));
-    await reloadUpdateStatuses();
-    return ok;
   };
 
   const summary = useMemo(() => {
@@ -119,11 +94,6 @@ export function CapabilitiesPanel({
       active: servers.filter((s) => s.status !== "failed"),
     };
   }, [view]);
-  const visibleUpdateStatuses = useMemo(
-    () => Object.values(updateStatuses).filter((status) => isVisibleBuiltInMCPUpdateStatus(status)),
-    [updateStatuses],
-  );
-
   const toggleSkill = useCallback((name: string) => {
     setExpandedSkills((prev) => {
       const next = new Set(prev);
@@ -204,13 +174,6 @@ export function CapabilitiesPanel({
 
             {tab === "servers" ? (
               <section className="mem-section">
-                {visibleUpdateStatuses.length > 0 && (
-                  <BuiltInMCPUpdateNotice
-                    statuses={visibleUpdateStatuses}
-                    busy={busy}
-                    onUpgrade={(name) => void upgradeBuiltInMCP(name)}
-                  />
-                )}
                 <div className="cap-mcp-toolbar cap-mcp-toolbar--drawer">
                   {!adding && (
                     <button className="btn btn--small" disabled={busy} onClick={() => setAdding(true)}>
@@ -225,8 +188,6 @@ export function CapabilitiesPanel({
                     onToggle={toggleError}
                     onRetry={(name) => void mutate(() => app.ReconnectMCPServer(name))}
                     onRetryMany={(names) => void mutate(() => Promise.allSettled(names.map((name) => app.ReconnectMCPServer(name))))}
-                    onUpgrade={(name) => void upgradeBuiltInMCP(name)}
-                    updates={updateStatuses}
                     onConfirmClearAuth={(name) => void mutate(() => app.ClearMCPServerAuthentication(name))}
                     onConfirm={(name) => void mutate(() => app.RemoveMCPServer(name))}
                     onConfirmMany={(names) => void mutate(() => Promise.allSettled(names.map((name) => app.RemoveMCPServer(name))))}
@@ -242,7 +203,6 @@ export function CapabilitiesPanel({
                     <ServerGroup
                       busy={busy}
                       servers={serverGroups.active}
-                      updates={updateStatuses}
                       expanded={expandedServers}
                       expandedTools={expandedServerTools}
                       editing={editing}
@@ -253,7 +213,6 @@ export function CapabilitiesPanel({
                       onCancelEdit={() => setEditing(null)}
                       onRetry={(name) => void mutate(() => app.ReconnectMCPServer(name))}
                       onReconnect={(name) => void mutate(() => app.ReconnectMCPServer(name))}
-                      onUpgrade={(name) => void upgradeBuiltInMCP(name)}
                       onConfirmClearAuth={(name) => void mutate(() => app.ClearMCPServerAuthentication(name))}
                       onToggle={(name, on) => void mutate(() => app.SetMCPServerEnabled(name, on))}
                       onUpdate={(name, input) =>
@@ -340,84 +299,6 @@ function normalizeCapabilitiesView(view: CapabilitiesView | null | undefined): C
       skillItems: asArray(root.skillItems),
     })),
   };
-}
-
-function normalizeBuiltInMCPUpdateStatuses(
-  statuses: BuiltInMCPUpdateStatus[] | null | undefined,
-): Record<string, BuiltInMCPUpdateStatus> {
-  const out: Record<string, BuiltInMCPUpdateStatus> = {};
-  for (const status of asArray(statuses)) {
-    const name = (status?.name || "").trim();
-    if (!name) continue;
-    out[name] = {
-      ...status,
-      name,
-      phase: normalizeBuiltInMCPUpdatePhase(status.phase),
-    };
-  }
-  return out;
-}
-
-function mergeBuiltInMCPUpdateStatus(
-  prev: Record<string, BuiltInMCPUpdateStatus>,
-  status: BuiltInMCPUpdateStatus,
-): Record<string, BuiltInMCPUpdateStatus> {
-  const name = (status?.name || "").trim();
-  if (!name) return prev;
-  return {
-    ...prev,
-    [name]: {
-      ...status,
-      name,
-      phase: normalizeBuiltInMCPUpdatePhase(status.phase),
-    },
-  };
-}
-
-function normalizeBuiltInMCPUpdatePhase(phase: string): BuiltInMCPUpdateStatus["phase"] {
-  switch (phase) {
-    case "current":
-    case "available":
-    case "downloaded":
-    case "activated":
-    case "skipped":
-    case "error":
-      return phase;
-    default:
-      return "skipped";
-  }
-}
-
-function isVisibleBuiltInMCPUpdateStatus(status: BuiltInMCPUpdateStatus): boolean {
-  return status.name === "codegraph" && ["available", "downloaded", "activated", "error"].includes(status.phase);
-}
-
-function BuiltInMCPUpdateNotice({
-  statuses,
-  busy,
-  onUpgrade,
-}: {
-  statuses: BuiltInMCPUpdateStatus[];
-  busy: boolean;
-  onUpgrade: (name: string) => void;
-}) {
-  const t = useT();
-  const primary = statuses[0];
-  if (!primary) return null;
-  const canUpgrade = primary.name === "codegraph" && (primary.phase === "available" || primary.phase === "downloaded");
-  return (
-    <div className={`cap-update-notice cap-update-notice--${primary.phase}`}>
-      <div className="cap-update-notice__text">
-        <div className="cap-update-notice__title">{t("caps.updateNoticeTitle")}</div>
-        <div className="cap-update-notice__summary">{builtInMCPUpdateSummary(primary, t)}</div>
-      </div>
-      {canUpgrade && (
-        <button className="btn btn--small" disabled={busy} type="button" onClick={() => onUpgrade(primary.name)}>
-          {t("caps.upgradeBuiltInMCP")}
-        </button>
-      )}
-    </div>
-  );
 }
 
 function sortServersForDisplay(servers: ServerView[]): ServerView[] {
@@ -725,7 +606,6 @@ function skillRootBadges(root: SkillRootView, t: ReturnType<typeof useT>): Array
 
 function ServerGroup({
   servers,
-  updates,
   expanded,
   expandedTools,
   busy,
@@ -735,7 +615,6 @@ function ServerGroup({
   onCancelEdit,
   onRetry,
   onReconnect,
-  onUpgrade,
   onConfirmClearAuth,
   onToggle,
   onUpdate,
@@ -743,7 +622,6 @@ function ServerGroup({
   onToggleTools,
 }: {
   servers: ServerView[];
-  updates: Record<string, BuiltInMCPUpdateStatus>;
   expanded: Set<string>;
   expandedTools: Set<string>;
   busy: boolean;
@@ -753,7 +631,6 @@ function ServerGroup({
   onCancelEdit: () => void;
   onRetry: (name: string) => void;
   onReconnect: (name: string) => void;
-  onUpgrade: (name: string) => void;
   onConfirmClearAuth: (name: string) => void;
   onToggle: (name: string, on: boolean) => void;
   onUpdate: (name: string, input: MCPServerInput) => void;
@@ -767,7 +644,6 @@ function ServerGroup({
         <ServerRow
           key={s.name}
           s={s}
-          updateStatus={updates[s.name]}
           expanded={expanded.has(s.name)}
           toolsExpanded={expandedTools.has(s.name)}
           busy={busy}
@@ -777,7 +653,6 @@ function ServerGroup({
           onCancelEdit={onCancelEdit}
           onRetry={() => onRetry(s.name)}
           onReconnect={() => onReconnect(s.name)}
-          onUpgrade={() => onUpgrade(s.name)}
           onConfirmClearAuth={() => onConfirmClearAuth(s.name)}
           onToggle={(on) => onToggle(s.name, on)}
           onUpdate={(input) => onUpdate(s.name, input)}
@@ -791,24 +666,20 @@ function ServerGroup({
 
 function FailedServersNotice({
   servers,
-  updates,
   expanded,
   busy,
   onToggle,
   onRetry,
-  onUpgrade,
   onRetryMany,
   onConfirmClearAuth,
   onConfirm,
   onConfirmMany,
 }: {
   servers: ServerView[];
-  updates: Record<string, BuiltInMCPUpdateStatus>;
   expanded: Set<string>;
   busy: boolean;
   onToggle: (name: string) => void;
   onRetry: (name: string) => void;
-  onUpgrade: (name: string) => void;
   onRetryMany: (names: string[]) => void;
   onConfirmClearAuth: (name: string) => void;
   onConfirm: (name: string) => void;
@@ -878,19 +749,13 @@ function FailedServersNotice({
                 <span className="cap-dot cap-dot--failed" />
                 <div className="cap-failure__text">
                   <div className="cap-failure__name">{s.name}</div>
-                  <div className="cap-failure__summary">{s.authStatus === "required" ? t("caps.authRequiredSummary") : summarizeServerError(error, t)}</div>
-                  {updates[s.name] && <div className="cap-failure__summary">{builtInMCPUpdateSummary(updates[s.name], t)}</div>}
+                  <div className="cap-failure__summary">{s.authStatus === "required" ? t("caps.authRequiredSummary") : summarizeServerError(error)}</div>
                 </div>
               </div>
               <div className="cap-failure__actions">
                 <button className="btn btn--small" disabled={busy} onClick={handlePrimaryAction}>
                   {actionLabel}
                 </button>
-                {canUpgradeBuiltInMCP(s, updates[s.name]) && (
-                  <button className="btn btn--small" disabled={busy} onClick={() => onUpgrade(s.name)}>
-                    {t("caps.upgradeBuiltInMCP")}
-                  </button>
-                )}
                 {canClearAuth(s) && (
                   <InlineConfirmButton
                     label={t("caps.clearAuth")}
@@ -935,7 +800,6 @@ function FailedServersNotice({
 
 function ServerRow({
   s,
-  updateStatus,
   expanded,
   toolsExpanded,
   busy,
@@ -945,7 +809,6 @@ function ServerRow({
   onCancelEdit,
   onRetry,
   onReconnect,
-  onUpgrade,
   onConfirmClearAuth,
   onToggle,
   onUpdate,
@@ -953,7 +816,6 @@ function ServerRow({
   onToggleTools,
 }: {
   s: ServerView;
-  updateStatus?: BuiltInMCPUpdateStatus;
   expanded: boolean;
   toolsExpanded: boolean;
   busy: boolean;
@@ -963,7 +825,6 @@ function ServerRow({
   onCancelEdit: () => void;
   onRetry: () => void;
   onReconnect: () => void;
-  onUpgrade: () => void;
   onConfirmClearAuth: () => void;
   onToggle: (on: boolean) => void;
   onUpdate: (input: MCPServerInput) => void;
@@ -987,10 +848,6 @@ function ServerRow({
         : t("caps.counts", { tools: s.tools, prompts: s.prompts, resources: s.resources });
   if (s.authStatus === "possible" && s.status !== "failed") {
     sub = `${sub} · ${t("caps.authPossibleShort")}`;
-  }
-  const updateSummary = builtInMCPRowUpdateSummary(s, updateStatus, t);
-  if (updateSummary) {
-    sub = `${sub} · ${updateSummary}`;
   }
   const enabled = s.status === "connected" || s.status === "deferred" || s.status === "initializing";
   const handlePrimaryAction = () => {
@@ -1019,11 +876,6 @@ function ServerRow({
               <span className="cap-row__name">{s.name}</span>
               <span className="cap-row__transport">{s.transport}</span>
               {s.builtIn && <span className="cap-row__builtin">{t("caps.builtIn")}</span>}
-              {isVisibleBuiltInMCPUpdateStatusForServer(s, updateStatus) && (
-                <span className={`cap-row__builtin cap-row__update cap-row__update--${updateStatus.phase}`}>
-                  {builtInMCPUpdateBadge(updateStatus, t)}
-                </span>
-              )}
             </div>
             <div className="cap-row__sub">{sub}</div>
           </div>
@@ -1053,13 +905,11 @@ function ServerRow({
       {expanded && (
         <ServerDetails
           s={s}
-          updateStatus={updateStatus}
           tools={tools}
           busy={busy}
           onConfirm={onConfirm}
           onConnectNow={onRetry}
           onReconnect={onReconnect}
-          onUpgrade={onUpgrade}
           onConfirmClearAuth={onConfirmClearAuth}
           toolsExpanded={toolsExpanded}
           editing={editing}
@@ -1075,13 +925,11 @@ function ServerRow({
 
 function ServerDetails({
   s,
-  updateStatus,
   tools,
   busy,
   onConfirm,
   onConnectNow,
   onReconnect,
-  onUpgrade,
   onConfirmClearAuth,
   toolsExpanded,
   editing,
@@ -1091,13 +939,11 @@ function ServerDetails({
   onToggleTools,
 }: {
   s: ServerView;
-  updateStatus?: BuiltInMCPUpdateStatus;
   tools: ServerView["toolList"];
   busy: boolean;
   onConfirm: () => void;
   onConnectNow: () => void;
   onReconnect: () => void;
-  onUpgrade: () => void;
   onConfirmClearAuth: () => void;
   toolsExpanded: boolean;
   editing: boolean;
@@ -1111,7 +957,6 @@ function ServerDetails({
   const canEditConfig = s.configured && !s.builtIn;
   const canConnectNow = s.status === "deferred" || s.status === "disabled";
   const canReconnect = s.status === "connected";
-  const canUpgrade = canUpgradeBuiltInMCP(s, updateStatus);
   const canShowTools = s.status === "connected" && ((s.tools ?? 0) > 0 || (tools?.length ?? 0) > 0);
   const showClearAuth = canClearAuth(s);
   const authLabel = serverAuthLabel(s, t);
@@ -1139,12 +984,6 @@ function ServerDetails({
             <span className="cap-detail__value">{authLabel}</span>
           </div>
         )}
-        {s.builtIn && (
-          <div className="cap-detail cap-detail--wide">
-            <span className="cap-detail__label">{t("caps.updatePolicy")}</span>
-            <span className="cap-detail__value">{builtInMCPUpdatePolicy(s, updateStatus, t)}</span>
-          </div>
-        )}
         {command && (
           <div className="cap-detail cap-detail--wide">
             <span className="cap-detail__label">{s.transport === "stdio" ? t("caps.command") : t("caps.url")}</span>
@@ -1167,11 +1006,6 @@ function ServerDetails({
         {canReconnect && (
           <button className="btn btn--small" disabled={busy} onClick={onReconnect}>
             {t("caps.reconnect")}
-          </button>
-        )}
-        {canUpgrade && (
-          <button className="btn btn--small" disabled={busy} onClick={onUpgrade}>
-            {t("caps.upgradeBuiltInMCP")}
           </button>
         )}
         {canShowTools && (
@@ -1324,72 +1158,6 @@ function parseEnvText(env: string): Record<string, string> {
   return envMap;
 }
 
-function isVisibleBuiltInMCPUpdateStatusForServer(s: ServerView, status?: BuiltInMCPUpdateStatus): status is BuiltInMCPUpdateStatus {
-  return Boolean(s.builtIn && status && isVisibleBuiltInMCPUpdateStatus(status));
-}
-
-function builtInMCPRowUpdateSummary(
-  s: ServerView,
-  status: BuiltInMCPUpdateStatus | undefined,
-  t: ReturnType<typeof useT>,
-): string {
-  if (!s.builtIn) return "";
-  if (s.name === "codegraph" && status && status.phase !== "current" && status.phase !== "skipped") {
-    return builtInMCPUpdateSummary(status, t);
-  }
-  if (s.name === "context7") return t("caps.updateManagedByNpxShort");
-  if (s.name === "time") return t("caps.updateBundledWithAppShort");
-  return "";
-}
-
-function builtInMCPUpdatePolicy(
-  s: ServerView,
-  status: BuiltInMCPUpdateStatus | undefined,
-  t: ReturnType<typeof useT>,
-): string {
-  if (s.name === "codegraph") {
-    if (status) return builtInMCPUpdateSummary(status, t);
-    return t("caps.updateCodegraphManual");
-  }
-  if (s.name === "context7") return t("caps.updateManagedByNpx");
-  if (s.name === "time") return t("caps.updateBundledWithApp");
-  return t("caps.updateNotManaged");
-}
-
-function builtInMCPUpdateSummary(status: BuiltInMCPUpdateStatus, t: ReturnType<typeof useT>): string {
-  const current = status.current || "";
-  const latest = status.latest || "";
-  switch (status.phase) {
-    case "available":
-      return t("caps.updateAvailable", { current, latest });
-    case "downloaded":
-      return t("caps.updateDownloaded", { current, latest });
-    case "activated":
-      return t("caps.updateActivated", { latest });
-    case "error":
-      return status.err ? t("caps.updateErrorWithMessage", { err: status.err }) : t("caps.updateError");
-    case "current":
-      return t("caps.updateCurrent", { current });
-    default:
-      return t("caps.updateCodegraphManual");
-  }
-}
-
-function builtInMCPUpdateBadge(status: BuiltInMCPUpdateStatus, t: ReturnType<typeof useT>): string {
-  switch (status.phase) {
-    case "available":
-      return t("caps.updateBadgeAvailable");
-    case "downloaded":
-      return t("caps.updateBadgeDownloaded");
-    case "activated":
-      return t("caps.updateBadgeActivated");
-    case "error":
-      return t("caps.updateBadgeError");
-    default:
-      return "";
-  }
-}
-
 function serverStatusLabel(s: ServerView, t: ReturnType<typeof useT>): string {
   switch (s.status) {
     case "connected":
@@ -1408,12 +1176,9 @@ function serverStatusLabel(s: ServerView, t: ReturnType<typeof useT>): string {
   }
 }
 
-function summarizeServerError(error: string, t: ReturnType<typeof useT>): string {
+function summarizeServerError(error: string): string {
   const normalized = error.replace(/\s+/g, " ").trim();
   const plugin = normalized.match(/plugin "([^"]+)"/i)?.[1];
-  if (plugin === "codegraph" && normalized.includes("context deadline exceeded")) {
-    return t("caps.codegraphWarming");
-  }
   const npmCode = normalized.match(/\bnpm error code ([A-Z0-9_]+)/i)?.[1];
   const errno = normalized.match(/\berrno (-?\d+)/i)?.[1];
   const reason = npmCode
@@ -1513,12 +1278,6 @@ function shouldOpenAuth(s: ServerView): boolean {
 function canClearAuth(s: ServerView): boolean {
   if (!s.configured || s.builtIn) return false;
   return Boolean(s.authConfigured || s.authStatus === "required" || s.authStatus === "possible" || isRemoteTransport(s.transport));
-}
-
-function canUpgradeBuiltInMCP(s: ServerView, status?: BuiltInMCPUpdateStatus): boolean {
-  if (!s.builtIn || s.name !== "codegraph") return false;
-  if (!status) return true;
-  return status.phase === "available" || status.phase === "downloaded" || status.phase === "error";
 }
 
 function isRemoteTransport(transport?: string): boolean {
@@ -1681,30 +1440,11 @@ export function MCPServersSettingsPage() {
 	const [expandedErrors, setExpandedErrors] = useState<Set<string>>(() => new Set());
 	const [expandedServers, setExpandedServers] = useState<Set<string>>(() => new Set());
 	const [expandedServerTools, setExpandedServerTools] = useState<Set<string>>(() => new Set());
-	const [updateStatuses, setUpdateStatuses] = useState<Record<string, BuiltInMCPUpdateStatus>>({});
 
 	const reload = useCallback(async () => {
 		setView(normalizeCapabilitiesView(await app.Capabilities().catch(() => ({ servers: [], skills: [], skillRoots: [] }))));
 	}, []);
-	const reloadUpdateStatuses = useCallback(async () => {
-		setUpdateStatuses(normalizeBuiltInMCPUpdateStatuses(await app.BuiltInMCPUpdateStatuses().catch(() => [])));
-	}, []);
 	useEffect(() => { void reload(); }, [reload]);
-	useEffect(() => {
-		let cancelled = false;
-		void app.BuiltInMCPUpdateStatuses()
-			.then((statuses) => {
-				if (!cancelled) setUpdateStatuses(normalizeBuiltInMCPUpdateStatuses(statuses));
-			})
-			.catch(() => {});
-		const unsubscribe = onBuiltInMCPUpdate((status) => {
-			setUpdateStatuses((prev) => mergeBuiltInMCPUpdateStatus(prev, status));
-		});
-		return () => {
-			cancelled = true;
-			unsubscribe();
-		};
-	}, []);
 	useEffect(() => {
 		if (!view || !view.servers.some((s) => s.status === "initializing" || s.status === "deferred")) return;
 		const id = window.setInterval(() => void reload(), 2500);
@@ -1726,12 +1466,6 @@ export function MCPServersSettingsPage() {
 			setBusy(false);
 		}
 	};
-	const upgradeBuiltInMCP = async (name: string) => {
-		const ok = await mutate(() => app.UpdateBuiltInMCPServer(name));
-		await reloadUpdateStatuses();
-		return ok;
-	};
-
 	const serverGroups = useMemo(() => {
 		const servers = sortServersForDisplay(view?.servers ?? []);
 		return {
@@ -1739,11 +1473,6 @@ export function MCPServersSettingsPage() {
 			active: servers.filter((s) => s.status !== "failed"),
 		};
 	}, [view]);
-	const visibleUpdateStatuses = useMemo(
-		() => Object.values(updateStatuses).filter((status) => isVisibleBuiltInMCPUpdateStatus(status)),
-		[updateStatuses],
-	);
-
 	const toggleError = useCallback((name: string) => {
 		setExpandedErrors((prev) => { const next = new Set(prev); if (next.has(name)) next.delete(name); else next.add(name); return next; });
 	}, []);
@@ -1764,13 +1493,6 @@ export function MCPServersSettingsPage() {
 		return (
 			<section className="mem-section">
 				{err && serverGroups.failed.length === 0 && <div className="banner banner--error">{err}</div>}
-				{visibleUpdateStatuses.length > 0 && (
-					<BuiltInMCPUpdateNotice
-						statuses={visibleUpdateStatuses}
-						busy={busy}
-						onUpgrade={(name) => void upgradeBuiltInMCP(name)}
-					/>
-				)}
 				<div className="cap-mcp-toolbar">
 				{view.servers.length > 0 ? <div className="drawer__summary">{summary}</div> : <span />}
 				<div className="cap-mcp-toolbar__actions">
@@ -1784,13 +1506,11 @@ export function MCPServersSettingsPage() {
 				{serverGroups.failed.length > 0 && (
 					<FailedServersNotice
 						servers={serverGroups.failed}
-						updates={updateStatuses}
 						expanded={expandedErrors}
 						busy={busy}
 						onToggle={toggleError}
 						onRetry={(name) => void mutate(() => app.ReconnectMCPServer(name))}
 						onRetryMany={(names) => void mutate(() => Promise.allSettled(names.map((name) => app.ReconnectMCPServer(name))))}
-						onUpgrade={(name) => void upgradeBuiltInMCP(name)}
 					onConfirmClearAuth={(name) => void mutate(() => app.ClearMCPServerAuthentication(name))}
 					onConfirm={(name) => void mutate(() => app.RemoveMCPServer(name))}
 					onConfirmMany={(names) => void mutate(() => Promise.allSettled(names.map((name) => app.RemoveMCPServer(name))))}
@@ -1805,7 +1525,6 @@ export function MCPServersSettingsPage() {
 						<ServerGroup
 							busy={busy}
 							servers={serverGroups.active}
-							updates={updateStatuses}
 							expanded={expandedServers}
 						expandedTools={expandedServerTools}
 						editing={editing}
@@ -1814,7 +1533,6 @@ export function MCPServersSettingsPage() {
 						onCancelEdit={() => setEditing(null)}
 						onRetry={(name) => void mutate(() => app.ReconnectMCPServer(name))}
 						onReconnect={(name) => void mutate(() => app.ReconnectMCPServer(name))}
-							onUpgrade={(name) => void upgradeBuiltInMCP(name)}
 						onConfirmClearAuth={(name) => void mutate(() => app.ClearMCPServerAuthentication(name))}
 						onToggle={(name, on) => void mutate(() => app.SetMCPServerEnabled(name, on))}
 						onUpdate={(name, input) =>

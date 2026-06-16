@@ -57,6 +57,7 @@ import { getGenerativePreset, setGenerativePreset, generativeMusic, type Generat
 import { SoundSelect } from "./SoundSelect";
 import { getSuccessPreference, setSuccessPreference, getAttentionPreference, setAttentionPreference, playSuccessChime, playAttentionChime, type SoundWavPref } from "../lib/sound";
 import { ModalCloseButton } from "./ModalCloseButton";
+import { ShortcutComboDisplay } from "./ShortcutComboDisplay";
 
 const SETTINGS_TABS: SettingsTab[] = ["general", "models", "bots", "mcp", "skills", "memory", "hooks", "shortcuts", "permissions", "sandbox", "network", "appearance", "updates", "hermes"];
 export type SettingsInitialFocus = { target: "bot-allowlist"; connectionId?: string };
@@ -529,6 +530,7 @@ function ShortcutsSection() {
                 <button
                   className={`shortcuts-settings__key${isRecording ? " shortcuts-settings__key--recording" : ""}`}
                   type="button"
+                  aria-label={isRecording ? t("settings.shortcutsRecording") : display}
                   aria-pressed={isRecording}
                   onClick={() => {
                     setRecording(definition.action);
@@ -536,7 +538,7 @@ function ShortcutsSection() {
                   }}
                   onKeyDown={(event) => isRecording && commitShortcut(definition.action, event)}
                 >
-                  {isRecording ? t("settings.shortcutsRecording") : display}
+                  {isRecording ? t("settings.shortcutsRecording") : <ShortcutComboDisplay combo={resolved} platform={platform} />}
                 </button>
                 <button
                   className="chip"
@@ -1080,7 +1082,7 @@ function GeneralSection({ s, busy, apply, agentRunning }: SectionProps & { agent
     void apply(() => app.SetDesktopLanguage(next));
   };
   return (
-    <SettingsSection title={t("settings.tab.general")}>
+    <SettingsSection>
       <SettingsField label={t("settings.language")}>
         <div className="set-seg">
           {LANGUAGE_PREFS.map((pref) => (

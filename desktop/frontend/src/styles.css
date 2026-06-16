@@ -3129,7 +3129,8 @@ a[href] {
 }
 .msg--user {
   display: flex;
-  justify-content: flex-end;
+  flex-direction: column;
+  align-items: flex-end;
   color: var(--fg);
 }
 .msg--user .msg__body {
@@ -3139,6 +3140,120 @@ a[href] {
   border-radius: 14px;
   padding: 10px 16px;
   position: relative;
+}
+.msg--user .msg__body--editing {
+  width: min(82%, 680px);
+  min-width: min(420px, 82%);
+  padding: 14px 16px 16px;
+  border-radius: 18px;
+}
+.msg-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.msg-edit__attachments {
+  margin-bottom: 0;
+}
+.msg-edit__input {
+  width: 100%;
+  min-height: 78px;
+  padding: 0;
+  border: none;
+  outline: none;
+  resize: vertical;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 450;
+  line-height: 1.65;
+  white-space: pre-wrap;
+}
+.msg-edit__input:disabled {
+  opacity: 0.72;
+}
+.msg-edit__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.msg-edit__btn {
+  min-height: 34px;
+  padding: 0 14px;
+  border: 1px solid var(--button-border);
+  border-radius: var(--button-radius);
+  background: var(--button-bg);
+  color: var(--button-fg);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1;
+  transition: color 0.12s, background 0.12s, border-color 0.12s, opacity 0.12s;
+}
+.msg-edit__btn:hover:not(:disabled),
+.msg-edit__btn:focus-visible:not(:disabled) {
+  background: var(--button-bg-hover);
+  border-color: var(--button-border-hover);
+}
+.msg-edit__btn--primary {
+  border-color: var(--control-primary-bg);
+  background: var(--control-primary-bg);
+  color: var(--control-primary-fg);
+}
+.msg-edit__btn--primary:hover:not(:disabled),
+.msg-edit__btn--primary:focus-visible:not(:disabled) {
+  border-color: var(--accent-strong);
+  background: var(--accent-strong);
+}
+.msg-edit__btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+.msg-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 24px;
+  margin-top: 4px;
+  margin-right: 10px;
+  color: var(--fg-faint);
+  font-size: 12px;
+  line-height: 1;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.msg-meta__time {
+  color: var(--fg-faint);
+  font-variant-numeric: tabular-nums;
+}
+.msg-meta__btn,
+.msg-meta .copybtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  gap: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--fg-faint);
+  box-shadow: none;
+  transition: color 0.12s, background 0.12s;
+}
+.msg-meta__btn:hover:not(:disabled),
+.msg-meta__btn:focus-visible:not(:disabled),
+.msg-meta .copybtn:hover,
+.msg-meta .copybtn:focus-visible {
+  color: var(--fg);
+  background: var(--button-bg-hover);
+}
+.msg-meta__btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
 }
 .rewind {
   position: absolute;
@@ -3804,6 +3919,10 @@ a[href] {
   color: var(--fg);
   border-color: var(--fg-faint);
   gap: 6px;
+}
+.copybtn--copied {
+  color: var(--fg);
+  border-color: var(--button-border-hover);
 }
 /* Show the "Copy" text only on hover, inside the button — no overflow risk */
 .copybtn__label-inline {
@@ -7645,6 +7764,36 @@ a[href] {
   border-bottom: 1px solid var(--border-soft);
 }
 
+.shortcut-combo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.shortcut-combo__part,
+.shortcut-combo__separator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  min-width: 0.72em;
+  line-height: 1;
+}
+
+.shortcut-combo__separator {
+  min-width: auto;
+  color: var(--fg-dim);
+}
+
 .shortcuts-cheatsheet__row kbd {
   justify-self: start;
   max-width: 100%;
@@ -7669,7 +7818,7 @@ a[href] {
   line-height: 1.3;
 }
 
-.shortcuts-cheatsheet__row span {
+.shortcuts-cheatsheet__desc {
   color: var(--fg-dim);
   font-size: var(--text-2xs);
   line-height: 1.4;
@@ -10340,6 +10489,9 @@ a[href] {
 
 .shortcuts-settings__key {
   --wails-draggable: no-drag;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-width: 104px;
   height: 30px;
   padding: 0 10px;
@@ -10348,6 +10500,7 @@ a[href] {
   background: var(--bg);
   color: var(--fg);
   font: 650 12px/1 var(--mono);
+  overflow: hidden;
   white-space: nowrap;
   cursor: pointer;
 }
@@ -11153,12 +11306,15 @@ a[href] {
   }
 }
 
-/* ── responsive: stacked nav on narrow screens ──────────────────────────────── */
-@media (max-width: 760px) {
+/* ── responsive: stacked nav on narrow and mid screens ─────────────────────── */
+@media (max-width: 900px) {
+  .settings-modal-backdrop {
+    padding: 16px;
+  }
+
   .settings-modal {
-    width: min(100vw, 100vw);
-    height: min(100vh, 100vh);
-    border-radius: 0;
+    width: 100%;
+    height: min(900px, calc(100vh - 32px));
   }
 
   .settings-center {
@@ -11195,7 +11351,7 @@ a[href] {
   }
 
   .settings-center__content {
-    padding: 14px 14px;
+    padding: 18px 20px;
   }
 
   .settings-page--form,
@@ -11216,6 +11372,7 @@ a[href] {
   .settings-field {
     grid-template-columns: 1fr;
     gap: 8px;
+    align-items: stretch;
   }
 
   .settings-field__control,
@@ -11225,6 +11382,18 @@ a[href] {
 
   .settings-inline-controls {
     flex-wrap: wrap;
+  }
+
+  .settings-inline-controls .set-seg {
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+  }
+
+  .settings-inline-controls .set-seg__btn {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .step-limit-control {
@@ -11262,6 +11431,27 @@ a[href] {
   .set-key {
     grid-template-columns: 1fr;
     display: grid;
+  }
+}
+
+@media (max-width: 760px) {
+  .settings-modal-backdrop {
+    padding: 0;
+  }
+
+  .settings-modal {
+    width: 100vw;
+    height: 100vh;
+    border-radius: 0;
+  }
+
+  .settings-center__content {
+    padding: 14px 14px;
+  }
+
+  .settings-section,
+  .settings-page--manager .mem-section {
+    padding: 14px;
   }
 }
 

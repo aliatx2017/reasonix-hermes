@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"reasonix/internal/agent"
-	"reasonix/internal/codegraph"
 	"reasonix/internal/config"
 	"reasonix/internal/netclient"
 	"reasonix/internal/sandbox"
@@ -29,7 +28,6 @@ type Report struct {
 	Config     ConfigReport     `json:"config"`
 	Providers  []ProviderReport `json:"providers"`
 	Plugins    []PluginReport   `json:"plugins,omitempty"`
-	Codegraph  CodegraphReport  `json:"codegraph"`
 	LSP        LSPReport        `json:"lsp"`
 	Sessions   SessionsReport   `json:"sessions"`
 	Sandbox    SandboxReport    `json:"sandbox"`
@@ -61,15 +59,6 @@ type PluginReport struct {
 	Transport string `json:"transport"`
 	AutoStart bool   `json:"auto_start"`
 	Target    string `json:"target,omitempty"`
-}
-
-type CodegraphReport struct {
-	Enabled     bool   `json:"enabled"`
-	AutoInstall bool   `json:"auto_install"`
-	Version     string `json:"version"`
-	CacheDir    string `json:"cache_dir,omitempty"`
-	Resolved    bool   `json:"resolved"`
-	Path        string `json:"path,omitempty"`
 }
 
 type LSPReport struct {
@@ -129,12 +118,6 @@ func Collect(opts Options) Report {
 			UserPath:     redactHome(config.UserConfigPath()),
 			DefaultModel: cfg.DefaultModel,
 		},
-		Codegraph: CodegraphReport{
-			Enabled:     cfg.Codegraph.Enabled,
-			AutoInstall: cfg.Codegraph.AutoInstall,
-			Version:     codegraph.Version,
-			CacheDir:    redactHome(codegraph.CacheDir()),
-		},
 		LSP: LSPReport{
 			Enabled: cfg.LSP.Enabled,
 			Servers: len(cfg.LSP.Servers),
@@ -160,10 +143,6 @@ func Collect(opts Options) Report {
 		Warnings: warnings,
 	}
 	report.Sessions.Dir = redactHome(report.Sessions.Dir)
-	if p, ok := codegraph.Resolve(cfg.Codegraph.Path); ok {
-		report.Codegraph.Resolved = true
-		report.Codegraph.Path = redactHome(p)
-	}
 	for i := range cfg.Providers {
 		p := cfg.Providers[i]
 		models := p.ModelList()
@@ -232,16 +211,6 @@ func RenderText(r Report) string {
 			fmt.Fprintf(&b, "  %-16s %-8s %s\n", p.Name, p.Transport, valueOr(p.Target, "(redacted)"))
 		}
 	}
-
-	resolved := "missing"
-	if r.Codegraph.Resolved {
-		resolved = "resolved"
-	}
-	fmt.Fprintf(&b, "\ncodegraph\n")
-	fmt.Fprintf(&b, "  enabled      %v\n", r.Codegraph.Enabled)
-	fmt.Fprintf(&b, "  auto_install %v\n", r.Codegraph.AutoInstall)
-	fmt.Fprintf(&b, "  version      %s\n", r.Codegraph.Version)
-	fmt.Fprintf(&b, "  resolved     %s\n", resolved)
 
 	fmt.Fprintf(&b, "\nlsp\n")
 	fmt.Fprintf(&b, "  enabled      %v\n", r.LSP.Enabled)

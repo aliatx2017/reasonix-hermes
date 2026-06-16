@@ -135,6 +135,10 @@ export interface TabMeta {
   label: string;
   ready: boolean;
   running: boolean;
+  pendingPrompt?: boolean;
+  backgroundJobs?: number;
+  cancelRequested?: boolean;
+  cancellable?: boolean;
   mode: Mode;
   collaborationMode?: CollaborationMode;
   toolApprovalMode?: ToolApprovalMode;
@@ -229,6 +233,8 @@ export interface ChangedFileInfo {
 export interface HistoryMessage {
   role: string;
   content: string;
+  submitText?: string;
+  createdAt?: number;
   reasoning?: string;
   level?: "info" | "warn";
   toolCalls?: HistoryToolCall[];
@@ -451,6 +457,7 @@ export interface GitCommitDetailView {
 export interface ComposerInsertRequest {
   id: number;
   text: string;
+  mode?: "insert" | "replace";
 }
 
 // MCP & Skills drawer (desktop/app.go Capabilities) — the GUI counterpart to
@@ -508,23 +515,6 @@ export interface CapabilitiesView {
   servers: ServerView[];
   skills: SkillView[];
   skillRoots: SkillRootView[];
-}
-export interface BuiltInMCPUpdateResult {
-  name: string;
-  version: string;
-  path: string;
-}
-
-export type BuiltInMCPUpdatePhase = "current" | "available" | "downloaded" | "activated" | "skipped" | "error";
-
-export interface BuiltInMCPUpdateStatus {
-  name: string;
-  mode: string;
-  current: string;
-  latest: string;
-  phase: BuiltInMCPUpdatePhase;
-  path?: string;
-  err?: string;
 }
 export interface MCPServerInput {
   name: string;

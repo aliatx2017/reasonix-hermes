@@ -420,6 +420,16 @@ func (a *App) Settings() SettingsView {
 			ExpandThinking:    false,
 			Hotbar:            defaultHotbarView(),
 			Profiles:          map[string]ProfileView{},
+			DesktopTheme:       "auto",
+			DesktopThemeStyle:  "graphite",
+			CloseBehavior:      "background",
+			DisplayMode:        "standard",
+			StatusBarStyle:     "text",
+			StatusBarItems:     config.DefaultDesktopStatusBarItems(),
+			CheckUpdates:       true,
+			Telemetry:          true,
+			Metrics:            false,
+			ExpandThinking:     false,
 		}
 	}
 	ctrl := a.activeCtrl()

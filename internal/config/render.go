@@ -347,28 +347,6 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 	b.WriteString("[tools.background_jobs]\n")
 	fmt.Fprintf(&b, "stalled_warning_seconds = %d   # warn once per background job after this many quiet seconds; 0 disables\n\n", c.BackgroundJobStalledWarningSeconds())
 
-	b.WriteString("[codegraph]\n")
-	fmt.Fprintf(&b, "enabled      = %v   # built-in MCP server; off by default for first-run sessions\n", c.Codegraph.Enabled)
-	fmt.Fprintf(&b, "auto_install = %v   # fetch the runtime when CodeGraph is enabled but missing\n", c.Codegraph.AutoInstall)
-	if c.Codegraph.Path != "" {
-		fmt.Fprintf(&b, "path         = %q   # optional launcher override\n", c.Codegraph.Path)
-	} else {
-		b.WriteString("# path       = \"\"   # empty = cache, then PATH, then a bundle beside reasonix\n")
-	}
-	b.WriteString("\n")
-
-	b.WriteString("[builtin_mcp]\n")
-	fmt.Fprintf(&b, "time_enabled = %v   # built-in Time MCP; off until manually enabled\n", c.BuiltInMCP.TimeEnabled)
-	fmt.Fprintf(&b, "context7_enabled = %v   # built-in Context7 MCP; off until manually enabled\n", c.BuiltInMCP.Context7Enabled)
-	b.WriteString("\n")
-
-	if scope != RenderScopeProject {
-		b.WriteString("[builtin_mcp_updates]\n")
-		fmt.Fprintf(&b, "mode = %q   # off|notify|download|auto_next_session; auto never hot-swaps active sessions\n", c.BuiltInMCPUpdates.ResolvedMode())
-		fmt.Fprintf(&b, "check_interval = %q   # minimum interval between desktop startup background checks\n", c.BuiltInMCPUpdates.ResolvedCheckInterval())
-		b.WriteString("\n")
-	}
-
 	renderLSPConfig(&b, c.LSP)
 
 	b.WriteString("[skills]\n")

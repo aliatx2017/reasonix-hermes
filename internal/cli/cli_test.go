@@ -976,13 +976,20 @@ func groupByFamilyKeys(ps []config.ProviderEntry, key string) []int {
 	return members[key]
 }
 
-func TestWriteDefaultConfigDisablesCodegraph(t *testing.T) {
+func TestWriteDefaultConfigOmitsLegacyInternalMCPSections(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "reasonix.toml")
 	if rc := writeDefaultConfig(path); rc != 0 {
 		t.Fatalf("writeDefaultConfig rc = %d", rc)
 	}
-	if c := config.LoadForEdit(path); c.Codegraph.Enabled {
-		t.Fatal("a freshly scaffolded config left codegraph enabled; new users should start without it")
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(raw)
+	for _, forbidden := range []string{"[codegraph]", "[builtin_mcp]", "[builtin_mcp_updates]"} {
+		if strings.Contains(text, forbidden) {
+			t.Fatalf("default config should omit %s:\n%s", forbidden, text)
+		}
 	}
 }
 
