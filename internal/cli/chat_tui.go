@@ -93,8 +93,6 @@ type chatTUI struct {
 	sessionCost float64
 	// sessionCostSymbol is the currency symbol for cost display (e.g. "¥").
 	sessionCostSymbol string
-	// showStats toggles the session stats panel via /stats.
-	showStats bool
 
 	// todoArgs is the latest todo_write call's raw args; it drives the task list
 	// pinned just above the input (see renderTodoPanel). "" when there's no list.
@@ -2359,10 +2357,6 @@ func (m chatTUI) View() tea.View {
 		parts = append(parts, card)
 		rowsAboveBox += strings.Count(card, "\n") + 1
 	}
-	if card := m.renderStatsPanel(); card != "" {
-		parts = append(parts, card)
-		rowsAboveBox += strings.Count(card, "\n") + 1
-	}
 	if card := m.renderMCPImport(); card != "" {
 		parts = append(parts, card)
 		rowsAboveBox += strings.Count(card, "\n") + 1
@@ -2712,11 +2706,9 @@ func todoPanelWindow(todos []todoPanelTodo) (int, int) {
 	return start, start + todoPanelMaxRows
 }
 
-// renderStatsPanel renders the session statistics panel when toggled via /stats.
-func (m chatTUI) renderStatsPanel() string {
-	if !m.showStats {
-		return ""
-	}
+// formatStatsPanel builds the session statistics block as a string. It is
+// committed directly to the transcript by /stats and /cost commands.
+func (m chatTUI) formatStatsPanel() string {
 	w := m.width
 	if w < 40 {
 		w = 40
@@ -3826,12 +3818,8 @@ func (m *chatTUI) runSlashCommand(input string) tea.Cmd {
 		m.showMemory()
 	case "/stats":
 		m.echoLocalCommand(input)
-		m.showStats = !m.showStats
-		if m.showStats {
-			m.notice("stats panel shown — /stats to hide")
-		} else {
-			m.notice("stats panel hidden")
-		}
+		m.commitLine(m.formatStatsPanel())
+		m.notice("stats shown — /stats to refresh")
 	case "/learn":
 		m.echoLocalCommand(input)
 		m.notice("learner integration pending — set [learn].enabled = true in reasonix.toml to enable pattern detection")
@@ -3858,8 +3846,8 @@ func (m *chatTUI) runSlashCommand(input string) tea.Cmd {
 		m.publishSession()
 	case "/cost":
 		m.echoLocalCommand(input)
-		m.showStats = true
-		m.notice("cost panel shown — /stats to hide")
+		m.commitLine(m.formatStatsPanel())
+		m.notice("cost stats shown — /stats to refresh")
 	case "/council":
 		m.echoLocalCommand(input)
 		task := strings.TrimSpace(strings.TrimPrefix(input, cmd))
