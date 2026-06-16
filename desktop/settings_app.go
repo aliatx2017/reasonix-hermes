@@ -423,7 +423,6 @@ func (a *App) Settings() SettingsView {
 			DesktopLayoutStyle: "workbench",
 			DesktopTheme:       "auto",
 			DesktopThemeStyle:  "graphite",
-			DesktopLayoutStyle: "classic",
 			CloseBehavior:      "background",
 			DisplayMode:        "standard",
 			StatusBarStyle:     "text",

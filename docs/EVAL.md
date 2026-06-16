@@ -1,19 +1,101 @@
 # Session Evaluation & Comparison
 
-> `reasonix eval compare <session-a> <session-b>` — compare two agent sessions
-> structurally for eval-driven development.
+> Eval-driven development toolkit — define test cases, run regressions, compare
+> sessions, and track behavioral changes across config/model/prompt changes.
 
-## Why Compare Sessions?
-
-When you change your config, system prompt, model, or tool set, you want to know
-whether the agent behaves **better** or **worse**. Session comparison gives you a
-structured diff — turns, tool usage, token consumption, cost — so you can quantify
-regressions and improvements.
-
-## Quick Start
+## Quick Reference
 
 ```bash
-# Compare two saved session transcripts
+reasonix eval define <name>        # Define a new eval test case
+reasonix eval check <name>         # Run a defined eval and check for regressions
+reasonix eval report <name>        # Show detailed results for an eval
+reasonix eval list                 # List all defined evals
+reasonix eval clean <name>         # Remove eval artifacts
+reasonix eval compare <a> <b>      # Compare two saved session transcripts
+```
+
+All commands also work as slash commands in the CLI TUI: `/eval define`, `/eval check`, etc.
+
+## Define — Create an Eval Test Case
+
+```bash
+reasonix eval define my-bugfix-test
+```
+
+Creates `evals/my-bugfix-test/` with:
+- `prompt.txt` — the input prompt to send to the agent
+- `config.toml` — optional config overrides (model, tools, profile)
+
+Edit `prompt.txt` with the task you want the agent to perform. Optionally edit
+`config.toml` to pin a specific model or tool set.
+
+The TUI `/eval define <name>` uses the workspace root as the evals directory.
+
+## Check — Run an Eval
+
+```bash
+reasonix eval check my-bugfix-test
+```
+
+Runs the agent against `prompt.txt` using the specified config, captures the
+result (turns, tools used, tokens, cost), and compares against a saved baseline
+if one exists. Reports:
+
+```
+=== Eval: my-bugfix-test ===
+Turns:       5
+Tokens in:   42000
+Tokens out:  31000
+Cost:        0.0145 ¥
+Pass@3:      ✓ (3/3 stable)
+```
+
+The pass@3 metric runs the test 3 times and checks for consistency — all 3
+runs must produce the same tool-call pattern (not identical output, but the
+same tool sequence). This catches flaky prompts and non-deterministic behavior.
+
+If a baseline `.baseline.json` exists in the eval directory, `check` diffs
+against it and flags any regressions in token usage or turn count.
+
+## Report — Show Detailed Results
+
+```bash
+reasonix eval report my-bugfix-test
+```
+
+Prints the full results from the last `check` run:
+- Turn-by-turn tool calls
+- Token breakdown per turn
+- Comparison against baseline (if any)
+- Any tool-call differences across the 3 runs
+
+## List — Show All Evals
+
+```bash
+reasonix eval list
+```
+
+Lists all defined evals with summary stats:
+```
+my-bugfix-test      (5 turns, pass@3=✓, last run 2026-06-16)
+refactor-safety     (8 turns, pass@3=✗, last run 2026-06-15)
+prompt-experiment   (no results yet)
+```
+
+## Clean — Remove Eval Artifacts
+
+```bash
+reasonix eval clean my-bugfix-test
+```
+
+Removes results and temporary files for the named eval but **keeps the
+definition** (prompt.txt and config.toml). Does not delete the baseline.
+
+To fully delete an eval, `rm -rf evals/<name>/`.
+
+## Compare — Diff Two Sessions
+
+```bash
 reasonix eval compare .reasonix/sessions/session-01.json .reasonix/sessions/session-02.json
 ```
 
@@ -97,3 +179,20 @@ pairs), extracts tool calls, and computes:
 Sessions are compared **structurally** (tool choices, not output content). This
 is intentionally different from comparing the final result — it tells you whether
 the agent is *thinking differently*, not whether it got the right answer.
+
+## Eval Directory Structure
+
+```
+evals/
+├── my-bugfix-test/
+│   ├── prompt.txt          # The input prompt
+│   ├── config.toml         # Optional config overrides
+│   ├── .baseline.json      # Saved baseline for regression checks
+│   └── results/            # Last check results
+└── refactor-safety/
+    ├── prompt.txt
+    └── .baseline.json
+```
+
+The CLI uses `./evals/` relative to the current working directory. The TUI uses
+the workspace root as the evals directory.

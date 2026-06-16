@@ -64,3 +64,5 @@ benchmarks/context-maintenance-e2e/run/
 npm/.stage-hermes/
 wasm-runtimes-research/
 .discord-webhook
+bin/e2ebench
+bin/reasonix-plugin-example
