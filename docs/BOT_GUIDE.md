@@ -95,12 +95,13 @@ runtime itself can also run as a long-lived headless gateway:
 
 ```sh
 reasonix bot doctor
-reasonix bot start --channels feishu,lark,weixin --dir /path/to/project
+reasonix bot start --channels feishu,lark,weixin,discord,telegram,line,slack --dir /path/to/project
 ```
 
 Use `--channels` to choose which configured IM inputs to accept. `feishu` and
 `lark` select the matching Feishu-family connection; `weixin` selects the saved
-WeChat iLink account; `qq` selects the configured QQ bot. Use `--dir` to attach
+WeChat iLink account; `qq` selects the configured QQ bot. Hermes extras:
+`discord`, `telegram`, `line`, `slack`. Use `--dir` to attach
 incoming messages to a project workspace and `--model` to override the default
 model for this process.
 
@@ -133,7 +134,7 @@ rules as local desktop or CLI turns.
 ```mermaid
 sequenceDiagram
   participant U as "User"
-  participant IM as "Feishu / Lark / WeChat"
+  participant IM as "Discord / Feishu / Lark / WeChat / Telegram / LINE / Slack"
   participant R as "Reasonix desktop"
   participant T as "Local tools and model"
 
@@ -183,7 +184,7 @@ send the equivalent text command.
 
 ## Command quick reference
 
-These commands work in Feishu, Lark, and WeChat.
+These commands work in all channels.
 
 | Command | Purpose | Example |
 | --- | --- | --- |
@@ -192,6 +193,8 @@ These commands work in Feishu, Lark, and WeChat.
 | `/stop` | Stop the current task | `/stop` |
 | `/new` | Start a fresh session | `/new` |
 | `/reset` | Reset the current session | `/reset` |
+| `/goal <objective>` | Set an autonomous loop goal (Hermes) | `/goal fix all lint errors` |
+| `/model <name>` | Switch model (Hermes) | `/model pro` |
 | `/approve <id>` | Approve a pending operation | `/approve 1` |
 | `/deny <id>` | Deny a pending operation | `/deny 1` |
 | `/answer <id> <option>` | Answer an Ask question | `/answer ask-1 2` |

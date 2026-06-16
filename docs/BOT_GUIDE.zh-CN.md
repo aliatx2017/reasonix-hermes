@@ -15,7 +15,7 @@
 - [连接渠道](#连接渠道)
 - [无界面运行 Bot](#无界面运行-bot)
 - [使用流程](#使用流程)
-- [三种渠道的交互差异](#三种渠道的交互差异)
+- [各渠道的交互差异](#各渠道的交互差异)
 - [命令速查](#命令速查)
 - [审批与 YOLO](#审批与-yolo)
 - [升级后是否需要重新绑定](#升级后是否需要重新绑定)
@@ -44,10 +44,18 @@ flowchart LR
   A["打开桌面端设置"] --> B["机器人"]
   B --> C["添加 IM Bot"]
   C --> D{"选择渠道"}
+  D --> D1["Discord 输入 Token"]
+  D --> D2["Telegram 输入 Token"]
+  D --> D3["LINE 输入凭据"]
+  D --> D4["Slack 输入 Token"]
   D --> E["飞书扫码创建 PersonalAgent"]
   D --> F["Lark 扫码创建 PersonalAgent"]
   D --> G["微信扫码登录 Bot 助手"]
-  E --> H["连接保存到本机"]
+  D1 --> H["连接保存到本机"]
+  D2 --> H
+  D3 --> H
+  D4 --> H
+  E --> H
   F --> H
   G --> H
   H --> I["在 IM 中发送第一条消息"]
@@ -90,13 +98,12 @@ flowchart LR
 
 ```sh
 reasonix bot doctor
-reasonix bot start --channels feishu,lark,weixin --dir /path/to/project
+reasonix bot start --channels feishu,lark,weixin,discord,telegram,line,slack --dir /path/to/project
 ```
 
 `--channels` 用来选择接受哪些已配置的 IM 输入。`feishu` 和 `lark` 会选择对应
 飞书系连接，`weixin` 会选择已保存的微信 iLink 账号，`qq` 会选择已配置的 QQ
-Bot。`--dir` 用来把远端消息绑定到某个项目工作区，`--model` 可以为这个进程
-临时覆盖默认模型。
+Bot。Hermes 扩展的平台可通过 `discord`、`telegram`、`line`、`slack` 选择。
 
 无界面网关复用桌面端保存的同一套配置：
 
@@ -122,7 +129,7 @@ Bot。`--dir` 用来把远端消息绑定到某个项目工作区，`--model` �
 ```mermaid
 sequenceDiagram
   participant U as "用户"
-  participant IM as "飞书 / Lark / 微信"
+  participant IM as "Discord / 飞书 / Lark / 微信 / Telegram / LINE / Slack"
   participant R as "Reasonix 桌面端"
   participant T as "本机工具与模型"
 
@@ -147,7 +154,7 @@ sequenceDiagram
 桌面端左侧的 **机器人** 入口会显示已连接 Bot。收到第一条 IM 消息后，可以
 从这里打开对应本地会话，查看上下文、工具轨迹、成本和运行指标。
 
-## 三种渠道的交互差异
+## 各渠道的交互差异
 
 下面三张图是虚构内容的交互示意，用来帮助理解真实软件里的操作形态。
 
@@ -159,6 +166,10 @@ sequenceDiagram
 
 | 渠道 | 连接方式 | 审批方式 | Ask 问答 | 适合场景 |
 | --- | --- | --- | --- | --- |
+| Discord | Token 输入 | 纯文本 `approve N` / `deny N` | 纯文本 `/answer` | 开发者社区、服务器自动化 |
+| Telegram | BotFather Token | 纯文本命令 | 纯文本命令 | 个人助手、群组管理 |
+| LINE | Messaging API 凭据 | 纯文本命令 | 纯文本命令 | 亚太地区用户、企业通知 |
+| Slack | Socket Mode Token | 纯文本命令 | 纯文本命令 | 团队协作、CI/CD 通知 |
 | 飞书 | 扫码创建 PersonalAgent | 交互卡片按钮，也可用命令 | 交互卡片按钮，也可用命令 | 国内飞书工作流、群聊或个人助手 |
 | Lark | 扫码创建 PersonalAgent | 交互卡片按钮，也可用命令 | 交互卡片按钮，也可用命令 | 国际版 Lark 工作流 |
 | 微信 | 微信扫码登录 | 回复 `1` / `2` 或命令 | 单选可直接回复编号，也可用命令 | 微信个人测试、轻量移动触发 |
@@ -169,7 +180,7 @@ sequenceDiagram
 
 ## 命令速查
 
-这些命令在飞书、Lark 和微信中通用。
+这些命令在所有渠道中通用。
 
 | 命令 | 作用 | 示例 |
 | --- | --- | --- |
@@ -186,6 +197,8 @@ sequenceDiagram
 | `/yolo off` | 切回询问模式 | `/yolo off` |
 | `/yolo auto` | 切换到自动审批模式 | `/yolo auto` |
 | `/yolo status` | 查看当前工具审批模式 | `/yolo status` |
+| `/goal <目标>` | 设置自主循环任务目标（Hermes Discord） | `/goal 修复所有 lint 错误` |
+| `/model <名称>` | 切换模型（Hermes Discord） | `/model pro` |
 | `/mode yolo` | 切换到 YOLO | `/mode yolo` |
 | `/mode ask` | 切换到询问模式 | `/mode ask` |
 | `/mode auto` | 切换到自动模式 | `/mode auto` |
@@ -228,6 +241,26 @@ YOLO 的边界很重要：
 - 临时调试、可信项目、需要快速连续读写时，可以用 `/yolo`。
 - 做高风险操作、生产代码或不确定任务时，用 `/mode ask` 切回询问模式。
 - 想减少普通审批但保留策略判断时，用 `/mode auto`。
+
+## Hermes 扩展平台
+
+Reasonix-Hermes 在上游三个平台之外增加了四个机器人平台：
+
+### Discord
+通过 **设置 → 机器人 → 添加 IM Bot → Discord** 连接。输入你的 Bot Token。
+支持 `/goal <目标>`、`/model flash|pro|mimo`，以及通过纯文本 `approve N` / `deny N` 进行审批。
+
+### Telegram
+通过 **设置 → 机器人 → Telegram** 连接。需要从 @BotFather 获取 Bot Token。
+使用长轮询（无需 webhook）。支持所有机器人命令。
+
+### LINE
+通过 **设置 → 机器人 → LINE** 连接。需要 LINE Messaging API 凭据。
+使用 webhook 服务器模式。连接设置中会显示 webhook URL。
+
+### Slack
+通过 **设置 → 机器人 → Slack** 连接。需要启用 Socket Mode 的 Slack App
+（App Token + Bot Token）。支持私信和 @提及。
 
 ## 升级后是否需要重新绑定
 
