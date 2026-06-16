@@ -8,7 +8,7 @@
 &nbsp;·&nbsp;
 <a href="./HERMES-GUIDE.md">Hermes 指南</a>
 
-> 日常配置与使用（上游 Reasonix）。Hermes 特有功能（Discord bot、MCP bridge、
+> 日常配置与使用（上游 Reasonix）。Hermes 特有功能（多平台 Bot、MCP bridge、
 > Hindsight memory、skills hub）请参阅 **[Hermes 指南](./HERMES-GUIDE.md)**。
 > 工程契约与内部实现（数据类型、registry、包结构、路线图）见
 > **[规格 SPEC.md](./SPEC.md)**。
@@ -329,7 +329,9 @@ shell 命令加 `--local`。
 
 Reasonix Hermes 在上游基础上增加了以下功能。完整文档见 **[Hermes 指南](./HERMES-GUIDE.md)**。
 
-### Discord Bot
+### 多平台 Bot
+
+Reasonix Hermes 支持 7 个 IM 平台：Discord、Telegram、LINE、Slack（Hermes 新增）以及上游的飞书、Lark、微信、QQ。以 Discord 为例：
 
 ```sh
 export DISCORD_BOT_TOKEN="你的token"

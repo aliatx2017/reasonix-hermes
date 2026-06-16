@@ -9,7 +9,7 @@
 <a href="./HERMES-GUIDE.md">Hermes Guide</a>
 
 > Day-to-day configuration and usage for upstream Reasonix. For Hermes-specific
-> features (Discord bot, MCP bridge, Hindsight memory, skills hub), see the
+> features (multi-platform bots, MCP bridge, Hindsight memory, skills hub), see the
 > **[Hermes Guide](./HERMES-GUIDE.md)**. For the engineering contract and internals
 > (data types, registries, package layout, roadmap), see the **[Spec](./SPEC.md)**.
 

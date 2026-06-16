@@ -81,7 +81,7 @@ The terminal chat UI has been enhanced:
 - **`/write <file>`** — opens .md files in $EDITOR for Write Mode
 - **`/publish` / `/cost`** — session transcript export (HTML/JSON) and cost summary
 
-### Expansion packs (v1.7.0+)
+### Expansion packs
 
 | Feature | What it does |
 |---------|-------------|

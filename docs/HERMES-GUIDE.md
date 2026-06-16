@@ -1340,7 +1340,7 @@ The manifest (`reasonix-hermes.json`) enables installation via upstream's
 `install_source` tool. The skills hub website deploys to GitHub Pages via
 `.github/workflows/pages.yml`.
 
-### 16.5 Token-Saving Compression (v1.7.0+)
+### 16.5 Token-Saving Compression
 
 Reasonix Hermes includes a built-in **tool output compressor** that reduces token
 consumption by 25-92% on tool results before they enter the model's context. It
@@ -1383,7 +1383,7 @@ command = "context-mode"
 args    = ["mcp"]
 ```
 
-### 16.6 Scheduled Tasks (v1.7.0+)
+### 16.6 Scheduled Tasks
 
 Automated cron-driven agent tasks. The scheduler runs in the background and
 fires prompts at configured times.
@@ -1400,7 +1400,7 @@ enabled = true
 
 Results are logged and visible on the desktop Hermes dashboard.
 
-### 16.7 Session Publishing (v1.7.0+)
+### 16.7 Session Publishing
 
 Export sessions as self-contained HTML with syntax-highlighted code blocks,
 light/dark mode, and inline CSS. No external dependencies.
@@ -1408,7 +1408,7 @@ light/dark mode, and inline CSS. No external dependencies.
 - **CLI:** `/publish` slash command in TUI — writes to `sessions/published/`
 - **API:** `internal/publish/` package — `ToHTML()` and `ToJSON()` for programmatic use
 
-### 16.8 Hash-Anchored Edits (v1.7.0+)
+### 16.8 Hash-Anchored Edits
 
 The `edit_file` tool accepts an optional `content_hash` (SHA-256 of file content
 from a prior `read_file`). If the file changed between the read and the edit
@@ -1420,7 +1420,7 @@ file main.go changed since content_hash was computed — re-read the file and tr
 
 This prevents stale-context edits from corrupting files.
 
-### 16.9 Provider Cost Tracking (v1.7.0+)
+### 16.9 Provider Cost Tracking
 
 Per-session cost accumulation via `provider.Pricing` (per 1M token rates). Cost
 is displayed in:

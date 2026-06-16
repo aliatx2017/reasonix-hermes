@@ -13,7 +13,7 @@
 ## Contents
 
 - [What the bot does](#what-the-bot-does)
-- [Connect the three channels](#connect-the-three-channels)
+- [Connect the channels](#connect-the-channels)
 - [Run the bot headlessly](#run-the-bot-headlessly)
 - [Usage flow](#usage-flow)
 - [Channel interaction differences](#channel-interaction-differences)
@@ -24,8 +24,8 @@
 
 ## What the bot does
 
-After a bot is connected, you can send Reasonix messages from Feishu, Lark, or
-WeChat. The desktop app handles the model, tools, permissions, sandboxing, and
+After a bot is connected, you can send Reasonix messages from Discord, Feishu,
+Lark, WeChat, Telegram, LINE, or Slack. The desktop app handles the model, tools, permissions, sandboxing, and
 local context, then sends progress and results back to the IM channel.
 
 Common uses:
@@ -37,7 +37,7 @@ Common uses:
 - Open the matching desktop IM session to inspect context, cost, tokens, and tool
   traces.
 
-## Connect the three channels
+## Connect the channels
 
 Open the Reasonix desktop app and go to **Settings -> Bots**. In **Add IM Bot**,
 choose a channel and scan the QR code.
