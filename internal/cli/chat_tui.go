@@ -2291,6 +2291,10 @@ func (m chatTUI) View() tea.View {
 	if m.balance != "" {
 		data = append(data, dim(m.balance))
 	}
+	// Session cost — accumulated estimated spend (e.g. "$0.42").
+	if m.sessionCost > 0 && m.sessionCostSymbol != "" {
+		data = append(data, dim(m.sessionCostSymbol+fmt.Sprintf("%.2f", m.sessionCost)))
+	}
 	// Session counters — always visible at the bottom.
 	data = append(data, dim("turns")+" "+strconv.Itoa(m.sessionTurns))
 	msgs := m.ctrl.History()

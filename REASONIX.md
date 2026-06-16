@@ -36,7 +36,7 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 ## Notes
 
-- **Upstream synced**: `v1.8.x` (commit bcd310d, 2026-07-15). 11 new commits merged (model list persistence, background job hardening, subagent tool surface, Mimo provider refactor). Previous sync: 2b6b130.
+- **Upstream synced**: `v1.8.x` (commit dbd15a8, 2026-??-??). 4 new commits merged (approval keyboard nav). Previous sync: bcd310d.
 - **Commit**: session 2026-07-15 (h20) — gradient banner stability fix (consolidated logoGradient calls), session time on status bar, height budget sync in computeStatusLineCount.
 - **Commit**: session 2026-07-15 (h19) — animated logo gradient banner (indigo→cyan→pink), doc sweep (8 files, stale binary names fixed), all prior h18 work.
 - **Commit**: session 2026-07-15 (h15) — upstream v1.8.x merge (8ab6d3b, 71 commits), vision pipeline restore, logo fix, 13 test fixes, constitution zero-test-failures rule.
@@ -426,6 +426,8 @@ desktop hotbar/profiles root-cause fix, 13 wedge tests, desktop-v1.8.2, collab+m
 - **Doc sweep**: BOT_GUIDE (en + zh-CN) updated from "three channels" to 7 platforms with Hermes sections for Discord, Telegram, LINE, Slack. Updated mermaid diagrams, interaction tables, command references, and `--channels` examples. GUIDE docs: "Discord bot" → "multi-platform bots". README/HERMES-GUIDE: removed stale `v1.7.0+` labels. index.html: `v1.8.0` → `v1.8.x`.
 - **Continuous learning v2.1**: Created `instinct-cli.py` (6 commands) + `observe.sh` hook under `.reasonix/homunculus/` — project-scoped instinct storage with confidence scoring, evolution pipeline, and auto-promotion.
 - **Files**: 14 files changed (+243/-107). 3 upstream merges in one session (2b6b130 via h15, bcd310d via h21). All 76 test packages pass, desktop Go tests pass, `tsc --noEmit` 0 errors.
+
+- **Commit**: session 2026-??-?? (h??) — session cost in bottom status bar, infrastructure maintenance (Nix flake v1.5→1.8.2 + Go 1.25 + 2 new binaries; Dockerfile pr-review+e2ebench; Helm v1.8.2; RELEASING.md stale version). Upstream merged (dbd15a8, 4 commits — approval keyboard nav).
 
 ### Next to build
 - [ ] **npm: publish reasonix-hermes** — pipeline verified; needs npm 2FA-bypass token + tag push

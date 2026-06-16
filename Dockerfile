@@ -24,7 +24,11 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
     go build -ldflags="-s -w" -o /out/reasonix-hooks ./cmd/reasonix-hooks && \
     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
-    go build -ldflags="-s -w" -o /out/reasonix-bot ./bot
+    go build -ldflags="-s -w" -o /out/reasonix-bot ./bot && \
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+    go build -ldflags="-s -w" -o /out/reasonix-pr-review ./cmd/reasonix-pr-review && \
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+    go build -ldflags="-s -w" -o /out/reasonix-e2ebench ./cmd/e2ebench
 
 # --- Runtime image ---
 FROM gcr.io/distroless/static-debian12:nonroot AS runtime
@@ -35,6 +39,8 @@ COPY --from=builder /out/reasonix-mcpbridge /usr/local/bin/reasonix-mcpbridge
 COPY --from=builder /out/reasonix-memoryserver /usr/local/bin/reasonix-memoryserver
 COPY --from=builder /out/reasonix-hooks /usr/local/bin/reasonix-hooks
 COPY --from=builder /out/reasonix-bot /usr/local/bin/reasonix-bot
+COPY --from=builder /out/reasonix-pr-review /usr/local/bin/reasonix-pr-review
+COPY --from=builder /out/reasonix-e2ebench /usr/local/bin/reasonix-e2ebench
 
 # Create workspace mount point
 RUN mkdir -p /workspace && chown 65532:65532 /workspace

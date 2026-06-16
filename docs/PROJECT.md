@@ -34,6 +34,8 @@ Binaries are available for macOS (amd64 + arm64), Linux (amd64 + arm64), and Win
 | `reasonix-mcpbridge` | ~9 MB | MCP bridge server (6 tools) |
 | `reasonix-memoryserver` | ~14 MB | Hindsight memory server (SQLite + vector search) |
 | `reasonix-hooks` | ~8 MB | Native Go hook runner |
+| `reasonix-pr-review` | ~9 MB | PR review CLI for GitHub Actions |
+| `reasonix-e2ebench` | ~9 MB | E2E benchmarking tool |
 
 ### Build from source
 
@@ -50,6 +52,7 @@ go build -o bin/reasonix-memoryserver     ./cmd/reasonix-memoryserver
 go build -o bin/reasonix-bot        ./bot
 go build -o bin/reasonix-hooks      ./cmd/reasonix-hooks
 go build -o bin/reasonix-pr-review     ./cmd/reasonix-pr-review
+go build -o bin/reasonix-e2ebench      ./cmd/e2ebench
 
 # Desktop app
 cd desktop && wails build -o ../bin/reasonix-desktop

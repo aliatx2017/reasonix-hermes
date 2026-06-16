@@ -61,7 +61,7 @@ the `release` environment deployment.
    ```sh
    npm dist-tag add reasonix@1.4.0 latest
    ```
-7. **Next cycle** — the canary rolls on toward `1.5.0`.
+7. **Next cycle** — the canary rolls on toward the next minor release.
 
 ## Notes
 
