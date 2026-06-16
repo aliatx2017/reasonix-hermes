@@ -162,23 +162,25 @@ cd desktop && wails build -o ../bin/reasonix-desktop
 ## Quick start
 
 ```sh
-./bin/reasonix setup                      # config wizard → ./reasonix.toml
-export DEEPSEEK_API_KEY=sk-...            # or put it in .env
-./bin/reasonix chat                       # start a session
+reasonix setup                      # config wizard → ./reasonix.toml
+export DEEPSEEK_API_KEY=sk-...      # or put it in .env
+reasonix chat                       # start a session
 
 # Run a one-shot task
-./bin/reasonix run "add unit tests for the auth module"
+reasonix run "add unit tests for the auth module"
 
 # Start the MCP bridge (expose Reasonix to other agents)
-./bin/reasonix-mcpbridge --http --port 9090
+reasonix-mcpbridge --http --port 9090
 
 # Start the memory server
-./bin/reasonix-memoryserver --backend sqlite --http --port 8080
+reasonix-memoryserver --backend sqlite --http --port 8080
 
 # Run the Discord/Telegram/LINE/Slack bot
 export DISCORD_BOT_TOKEN="..."
-./bin/reasonix-bot
+reasonix-bot
 ```
+
+> If you built from source, replace `reasonix` with `./bin/reasonix` above.
 
 <br/>
 

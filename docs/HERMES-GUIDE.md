@@ -120,24 +120,26 @@ permissions, plugins, desktop app, bot gateway) and adds:
 
 ## 2. Installation
 
-### 2.1 Prebuilt (upstream binary)
-
-The quickest way to get a working Reasonix binary:
+### 2.1 One-line install (npm)
 
 ```sh
-# Any OS — pulls the prebuilt native binary
-npm i -g reasonix
-
-# macOS
-brew install esengine/reasonix/reasonix
+npm i -g reasonix-hermes
 ```
 
-Prebuilt archives (`darwin|linux|windows × amd64|arm64`) and `SHA256SUMS` are on
-every [upstream GitHub release](https://github.com/esengine/DeepSeek-Reasonix/releases).
+Pulls the prebuilt binary for your platform and adds `reasonix` to your PATH.
+No Go toolchain, no cloning, no build step. Works on macOS, Linux, and Windows
+(amd64 + arm64).
 
-> **Note:** The upstream binary gives you the full Reasonix engine plus desktop
-> app. Hermes extras (MCP bridge, memory server, Discord bot) require building
-> from source (§2.2).
+Available commands after install:
+
+```sh
+reasonix chat            # interactive chat TUI
+reasonix run "..."       # one-shot task
+reasonix setup           # config wizard
+reasonix serve           # web UI
+reasonix bot             # start multi-platform bot
+reasonix marketplace sync # sync community skills
+```
 
 ### 2.2 Build Hermes from source
 
@@ -175,17 +177,18 @@ This installs 17 curated skills into your project or user config. See
 ### 2.4 Updating
 
 ```sh
-# CLI self-update (fetches latest upstream release)
+# npm install — updates the wrapper + platform binary
+npm update -g reasonix-hermes
+
+# CLI self-update (fetches latest release)
 reasonix upgrade
-reasonix update    # alias
 
 # Check current version
 reasonix --version
 ```
 
-The `upgrade` command fetches the latest release from upstream (esengine/deepseek-reasonix)
-and replaces the current binary. To update Hermes extensions (MCP bridge, memory server,
-Discord bot, hooks), rebuild from source with `go build`.
+`npm update -g reasonix-hermes` pulls the latest wrapper and platform binary.
+`reasonix upgrade` fetches the latest GitHub release and replaces the current binary.
 
 ---
 

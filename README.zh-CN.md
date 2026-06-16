@@ -104,23 +104,25 @@ cd desktop && wails build -o ../bin/reasonix-desktop
 ## 快速开始
 
 ```sh
-./bin/reasonix setup                      # 配置向导 → ./reasonix.toml
-export DEEPSEEK_API_KEY=sk-...            # 或写入 .env
-./bin/reasonix chat                       # 启动会话
+reasonix setup                      # 配置向导 → ./reasonix.toml
+export DEEPSEEK_API_KEY=sk-...      # 或写入 .env
+reasonix chat                       # 启动会话
 
 # 一次性任务
-./bin/reasonix run "给 auth 模块补单元测试"
+reasonix run "给 auth 模块补单元测试"
 
 # 启动 MCP bridge（向其他 agent 暴露 Reasonix）
-./bin/reasonix-mcpbridge --http --port 9090
+reasonix-mcpbridge --http --port 9090
 
 # 启动记忆服务
-./bin/reasonix-memoryserver --backend sqlite --http --port 8080
+reasonix-memoryserver --backend sqlite --http --port 8080
 
 # 运行 Discord/Telegram bot
 export DISCORD_BOT_TOKEN="你的token"
-./bin/reasonix-bot
+reasonix-bot
 ```
+
+> 如果从源码构建，请将上方的 `reasonix` 替换为 `./bin/reasonix`。
 
 <br/>
 
