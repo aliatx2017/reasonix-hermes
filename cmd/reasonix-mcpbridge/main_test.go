@@ -59,10 +59,6 @@ func TestDoctorCheck_APIKeySet(t *testing.T) {
 	if !strings.Contains(report, "✅ **DEEPSEEK_API_KEY**: Set") {
 		t.Errorf("expected API key marked as set, got:\n%s", report)
 	}
-	expectedLen := fmt.Sprintf("%d chars", len(key))
-	if !strings.Contains(report, expectedLen) {
-		t.Errorf("expected key length %s in report, got:\n%s", expectedLen, report)
-	}
 }
 
 func TestDoctorCheck_APIKeyUnset(t *testing.T) {

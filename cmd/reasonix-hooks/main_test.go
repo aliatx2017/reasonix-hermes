@@ -75,7 +75,7 @@ func TestReflect_SendsCorrectTool(t *testing.T) {
 		params := req["params"].(map[string]any)
 		gotTool = params["name"].(string)
 		args := params["arguments"].(map[string]any)
-		gotSession = args["session"].(string)
+		gotSession = args["session_id"].(string)
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer ts.Close()
@@ -97,7 +97,7 @@ func TestReflect_EmptySessionDefaultsToLatest(t *testing.T) {
 		var req map[string]any
 		json.NewDecoder(r.Body).Decode(&req)
 		args := req["params"].(map[string]any)["arguments"].(map[string]any)
-		gotSession = args["session"].(string)
+		gotSession = args["session_id"].(string)
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer ts.Close()

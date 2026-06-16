@@ -36,7 +36,7 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 ## Notes
 
-- **Upstream synced**: `v1.8.x` (commit a4cea91, 2026-07-15). 3 new commits merged (per-model vision capabilities, explicit vision model selection). Previous sync: 0706284.
+- **Upstream synced**: `v1.8.x` (commit a2709fc, 2026-07-16). 4 new commits merged (remove bundled MCP servers, codeindex fallback tool, desktop user message actions, Graphite auto theme). Previous sync: a4cea91.
 - **Commit**: session 2026-07-?? (h??) — Deep Research workflow adopted (5 skills from Weizhena/Deep-Research-skills), `/eval` slash command (define/check/report/list/clean), crawl4ai/searxng integration in research pipeline, upstream merge (0706284, 10 commits).
 - **Commit**: session 2026-07-15 (h19) — animated logo gradient banner (indigo→cyan→pink), doc sweep (8 files, stale binary names fixed), all prior h18 work.
 - **Commit**: session 2026-07-15 (h15) — upstream v1.8.x merge (8ab6d3b, 71 commits), vision pipeline restore, logo fix, 13 test fixes, constitution zero-test-failures rule.
