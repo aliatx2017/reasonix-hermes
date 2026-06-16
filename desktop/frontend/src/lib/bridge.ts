@@ -20,8 +20,6 @@ import type {
   BotLiveStatusView,
   BotRuntimeStatusView,
   BotSettingsView,
-  BuiltInMCPUpdateResult,
-  BuiltInMCPUpdateStatus,
   CacheEconomyView,
   CapabilitiesView,
   CheckpointFileDiff,

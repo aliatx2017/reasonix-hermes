@@ -2032,19 +2032,6 @@ export default function App() {
     return true;
   }, [activeTab?.readOnly, activeTabId, clearContextPending, sendToTab, state.approval, state.ask, state.messageAction, state.running, rewind]);
 
-  const handleEditPrompt = useCallback(async (turn: number, displayText: string, submitText?: string): Promise<boolean> => {
-    const sourceTabId = activeTabId;
-    if (!sourceTabId || activeTab?.readOnly || rewindStateRef.current || state.running || state.messageAction != null || state.approval != null || state.ask != null || clearContextPending) return false;
-    const next = displayText.trim();
-    if (!next) return false;
-    const submit = (submitText ?? displayText).trim();
-    const ok = await rewind(turn, "conversation");
-    if (!ok) return false;
-    setRewindSignal((v) => v + 1);
-    sendToTab(sourceTabId, next, submit);
-    return true;
-  }, [activeTab?.readOnly, activeTabId, clearContextPending, sendToTab, state.approval, state.ask, state.messageAction, state.running, rewind]);
-
   const handleOpenTopic = useCallback(async (scope: string, workspaceRoot: string, topicId: string, sessionPath?: string) => {
     closeTransientOverlays();
     setSidebarImDetailConnectionId("");

@@ -1087,6 +1087,7 @@ export function useController() {
     } catch { /* ignore */ }
   }, [activeTabId, dispatchTo]);
 
+
   const refreshWorkspaceState = useCallback(async (path: string): Promise<string> => {
     if (path) await syncActiveTabFromBackend(true);
     return path;
@@ -1249,7 +1250,7 @@ export function useController() {
     state: activeState,
     activeTabId,
     send, sendToTab, runShell, steer, notice, cancel, approve, answerQuestion, setControllerMode, setCollaborationMode, setToolApprovalMode, setGoal, clearGoal,
-    newSession, clearSession, listSessions, listTrashedSessions, resumeSession, openChannelSession, previewSession, deleteSession, restoreSession, purgeTrashedSession, renameSession,
+    newSession, clearSession, listSessions, listTrashedSessions, resumeSession, previewSession, deleteSession, restoreSession, purgeTrashedSession, renameSession,
     refreshMeta, pickWorkspace, switchWorkspace, compact, rewind, setModel, setEffort, setTokenMode,
     fetchMemory, remember, forget, saveDoc,
     switchTab, openProjectTab, openGlobalTab, openTopicSession, ensureBlankTab, closeTab, reorderTabs,

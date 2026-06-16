@@ -608,7 +608,7 @@ export function Transcript({
       if (!running) pushTurnActions();
     }
     return out;
-  }, [hotStartIdx, items, openAction, actionPending, rewindDisabled, running, onEditPrompt, onRewind, subcallsByParent, userTurn, checkpointsByTurn, displayMode, stepGroups, tabId]);
+  }, [hotStartIdx, items, openAction, actionPending, rewindDisabled, running, onEditPrompt, onRewind, subcallsByParent, userTurn, checkpointsByTurn, displayMode, stepGroups]);
 
   // ── Assemble rendered output ──────────────────────────────────────────────
   // Warm/cold zone is a separate memo'd WarmZone component so streaming tokens
@@ -644,7 +644,6 @@ export function Transcript({
             warmOnRewind={onRewind}
             warmSetOpenAction={setOpenAction}
             warmOnEdit={onEditPrompt}
-            tabId={tabId}
             onToggleColdPage={() => setColdPage((p) => p + 1)}
             onToggleWarmTurn={(g, expand) => {
               setExpandedWarmTurns((prev) => {
@@ -683,7 +682,6 @@ const WarmZone = memo(function WarmZone({
   warmOnRewind,
   warmSetOpenAction,
   warmOnEdit,
-  tabId,
   onToggleColdPage,
   onToggleWarmTurn,
 }: {
@@ -702,7 +700,6 @@ const WarmZone = memo(function WarmZone({
   warmOnRewind: ((turn: number, scope: string) => void) | undefined;
   warmSetOpenAction: (action: OpenTurnAction | null) => void;
   warmOnEdit?: (turn: number, displayText: string, submitText?: string) => boolean | void | Promise<boolean | void>;
-  tabId?: string;
   onToggleColdPage: () => void;
   onToggleWarmTurn: (g: number, expand: boolean) => void;
 }) {
@@ -758,7 +755,6 @@ const WarmZone = memo(function WarmZone({
               onRewind={warmOnRewind}
               setOpenAction={warmSetOpenAction}
               onEdit={warmOnEdit}
-              tabId={tabId}
             />
           </WarmTurnCard>,
         );
@@ -803,7 +799,6 @@ function WarmTurnItems({
   onRewind,
   setOpenAction,
   onEdit,
-  tabId,
 }: {
   startIdx: number;
   endIdx: number;
@@ -817,7 +812,6 @@ function WarmTurnItems({
   onRewind: ((turn: number, scope: string) => void) | undefined;
   setOpenAction: (action: OpenTurnAction | null) => void;
   onEdit?: (turn: number, displayText: string, submitText?: string) => boolean | void | Promise<boolean | void>;
-  tabId?: string;
 }) {
   const nodes: React.ReactNode[] = [];
   let actionText = "";

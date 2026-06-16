@@ -51,7 +51,6 @@ reasonix/
     │   ├── slack/          # [Hermes] Slack adapter
     │   └── telegram/       # [Hermes] Telegram adapter
     ├── botruntime/         # bot runtime bundling
-    ├── builtinmcp/         # built-in MCP servers shipped with Reasonix (codegraph, time, context7)
     ├── checkpoint/         # snapshot-based edit safety net — saves before writer tools
     ├── cli/                # subcommand routing, flags, assembly, exit codes
     ├── codegraph/          # CodeGraph code-intelligence engine integration
@@ -98,6 +97,7 @@ reasonix/
     ├── mcpdiag/            # MCP server connection diagnostics
     ├── memory/             # persistent memory (SQLite, TTL, importance, dense/sparse vector search)
     ├── mesh/               # [Hermes] agent-to-agent MCP delegation (delegate, broadcast, council, judge)
+    ├── migration/          # config path migration and credential store migration
     ├── netclient/          # HTTP client builder sharing Reasonix proxy/TLS config
     ├── nilutil/            # nil-slice safety utilities
     ├── notify/             # desktop notification sound system

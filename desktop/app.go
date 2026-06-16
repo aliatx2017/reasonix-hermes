@@ -2605,18 +2605,6 @@ func (a *App) SwitchWorkspace(dir string) (string, error) {
 // HistoryMessage is one prior turn, for the frontend to repopulate its transcript
 // after a reload.
 type HistoryMessage struct {
-	Role       string            `json:"role"`
-	Content    string            `json:"content"`
-	Reasoning  string            `json:"reasoning,omitempty"`
-	Level      string            `json:"level,omitempty"`
-	ToolCalls  []HistoryToolCall `json:"toolCalls,omitempty"`
-	ToolCallID string            `json:"toolCallId,omitempty"`
-	ToolName   string            `json:"toolName,omitempty"`
-	Pending    bool              `json:"pending,omitempty"`
-	Trigger    string            `json:"trigger,omitempty"`
-	Messages   int               `json:"messages,omitempty"`
-	Summary    string            `json:"summary,omitempty"`
-	Archive    string            `json:"archive,omitempty"`
 	Role               string            `json:"role"`
 	Content            string            `json:"content"`
 	SubmitText         string            `json:"submitText,omitempty"`

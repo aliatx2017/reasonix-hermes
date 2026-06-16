@@ -429,7 +429,19 @@ desktop hotbar/profiles root-cause fix, 13 wedge tests, desktop-v1.8.2, collab+m
 
 - **Commit**: session 2026-06-?? (h??) — session cost in bottom status bar, infrastructure maintenance (Nix flake v1.5→1.8.2 + Go 1.25 + 2 new binaries; Dockerfile pr-review+e2ebench; Helm v1.8.2; RELEASING.md stale version). Upstream merged (dbd15a8, 4 commits — approval keyboard nav).
 
-### Session 2026-07-15 (h22) — audit fixes + doc sweep + upstream vision merge
+### Session 2026-07-16 (h22 wrap-up) — npm publish, upstream merges ×2, doc sweep, build all
+
+- **npm publish**: `npm i -g reasonix-hermes` — 8 packages (1 wrapper + 6 platform binaries + 1 CLI) published to npm. Trusted publishing (OIDC) wired — CI workflow auto-exchanges OIDC token, zero secrets. Runner script detects OS/arch, loads matching binary.
+  - Fixed `build-hermes.mjs` semver: strips leading `v` from version. Added `--otp` support via `NPM_OTP` env.
+- **Upstream merge** (a2709fc, 4 commits): Removed bundled MCP servers (Time/Context7), added codeindex fallback tool, desktop user message actions + edit replay fixes, auto Graphite theme, app icons. 13 conflicts resolved. Controller consolidation — 126 duplicate declarations cleaned from Hermes sub-files. Restored codegraph + builtinmcp packages.
+- **Upstream merge** (8f3ae36, 18 commits): Credential store backends, Reasonix home asset migrations, config path migration, `/migration-rescue` slash command, desktop project tree visual overhaul (scroll/height/icons/disclosure), keyboard accessibility fixes. 11 conflicts resolved. Added `os` import to main_test.go, added `runtime` import to boot_test.go.
+- **Rune truncation audit**: Fixed 2 byte-index bugs in `compress.firstLine()` (now uses `[]rune`). Memory server `truncateStr` already rune-safe.
+- **Reasoning language**: Verified intact — full chain config→boot→agent→turn injection operational after vision merge. Test passes.
+- **CI coverage**: ci-hermes.yml covers 17 packages (exceeds claimed 14+). 7 jobs: lint/vet, test, race, desktop frontend, Wails build, Hermes packages, TOML lint.
+- **Bug fixes (3)**: hooks `session_id` key mismatch in test, mcpbridge stale key-length check, control/main_test.go missing `os` import.
+- **Doc sweep** (this session): RELEASING.md v1.4.0→v1.8.x (7 version replacements). CHANGELOG-HERMES.md +9 lines covering npm publish, upstream merges, HOWTO-TOKEN-SAVING, rune audit, reasoning_language, CI. SPEC.md updated: removed stale `builtinmcp/`, added `migration/`. AGENTS.md sync point a4cea91→8f3ae36 (189 commits/7 syncs).
+- **How-to doc**: `docs/HOWTO-TOKEN-SAVING.md` — 800-line step-by-step guide for grafting sqz token compressor into any Reasonix fork.
+- **Build**: All 7 binaries build clean. go build + go vet pass. All test packages pass.
 
 - **Deep audit (15 fixes)**: Verified 20+ claims from `AUDIT-2026-07-15.md` against live code. 14 confirmed + fixed across 12 files:
   - **STOP SHIP**: hooks `session`→`session_id` (reflect was silently broken), `reasonix.toml` (gitignored, local-only — no committed fix needed)
@@ -442,14 +454,6 @@ desktop hotbar/profiles root-cause fix, 13 wedge tests, desktop-v1.8.2, collab+m
 - **Files**: 43 files changed, ~3,974 insertions, 139 deletions. All binaries build. All tests pass.
 
 ### Next to build
-- [x] ~~npm: publish reasonix-hermes~~ — published v1.8.0, trusted publishing (OIDC) wired (h22)
-- [x] ~~Full test suite CI expansion~~ — verified 17 packages covered (h22)
-- [x] ~~Rune-based truncation audit~~ — fixed 2 byte-index bugs in compress.firstLine(); memory server already rune-safe (h22)
-- [x] ~~Reasoning language config~~ — verified intact after upstream vision merge (h22)
-- [x] ~~logoGradient per-frame caching~~ — done (h21)
-- [x] ~~computeStatusLineCount full mirror~~ — verified already done (h20)
-- [x] ~~Desktop app distribution~~ — `desktop-v1.8.2` tagged + pushed (h18)
-- [x] ~~Audit fixes (15 issues)~~ — done (h22)
-- [x] ~~eval.go dedup + bug fixes~~ — done (h22)
-- [x] ~~Upstream merge (a4cea91, vision capabilities)~~ — done (h22)
-- [x] ~~Upstream merge (a2709fc, remove bundled MCPs)~~ — done (h22)
+- [ ] **DESKTOP.md** — create English version (zh-CN exists as DESKTOP_HOOKS.zh-CN.md)
+- [ ] **Desktop macOS code-signing** — notarization for distribution outside app store
+- [ ] **Upstream fetch** — check for new commits next session

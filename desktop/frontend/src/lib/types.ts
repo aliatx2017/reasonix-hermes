@@ -133,6 +133,7 @@ export interface TabMeta {
   filePath?: string;
   projectColor?: string;
   label: string;
+  readOnly?: boolean;
   ready: boolean;
   running: boolean;
   pendingPrompt?: boolean;
