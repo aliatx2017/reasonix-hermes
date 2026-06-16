@@ -36,7 +36,7 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 ## Notes
 
-- **Upstream synced**: `v1.8.x` (commit 0706284, 2026-??-??). 10 new commits merged (compaction retention policy, Wails drag rejection). Previous sync: dbd15a8.
+- **Upstream synced**: `v1.8.x` (commit a4cea91, 2026-07-15). 3 new commits merged (per-model vision capabilities, explicit vision model selection). Previous sync: 0706284.
 - **Commit**: session 2026-07-?? (h??) — Deep Research workflow adopted (5 skills from Weizhena/Deep-Research-skills), `/eval` slash command (define/check/report/list/clean), crawl4ai/searxng integration in research pipeline, upstream merge (0706284, 10 commits).
 - **Commit**: session 2026-07-15 (h19) — animated logo gradient banner (indigo→cyan→pink), doc sweep (8 files, stale binary names fixed), all prior h18 work.
 - **Commit**: session 2026-07-15 (h15) — upstream v1.8.x merge (8ab6d3b, 71 commits), vision pipeline restore, logo fix, 13 test fixes, constitution zero-test-failures rule.
@@ -427,10 +427,29 @@ desktop hotbar/profiles root-cause fix, 13 wedge tests, desktop-v1.8.2, collab+m
 - **Continuous learning v2.1**: Created `instinct-cli.py` (6 commands) + `observe.sh` hook under `.reasonix/homunculus/` — project-scoped instinct storage with confidence scoring, evolution pipeline, and auto-promotion.
 - **Files**: 14 files changed (+243/-107). 3 upstream merges in one session (2b6b130 via h15, bcd310d via h21). All 76 test packages pass, desktop Go tests pass, `tsc --noEmit` 0 errors.
 
-- **Commit**: session 2026-??-?? (h??) — session cost in bottom status bar, infrastructure maintenance (Nix flake v1.5→1.8.2 + Go 1.25 + 2 new binaries; Dockerfile pr-review+e2ebench; Helm v1.8.2; RELEASING.md stale version). Upstream merged (dbd15a8, 4 commits — approval keyboard nav).
+- **Commit**: session 2026-06-?? (h??) — session cost in bottom status bar, infrastructure maintenance (Nix flake v1.5→1.8.2 + Go 1.25 + 2 new binaries; Dockerfile pr-review+e2ebench; Helm v1.8.2; RELEASING.md stale version). Upstream merged (dbd15a8, 4 commits — approval keyboard nav).
+
+### Session 2026-07-15 (h22) — audit fixes + doc sweep + upstream vision merge
+
+- **Deep audit (15 fixes)**: Verified 20+ claims from `AUDIT-2026-07-15.md` against live code. 14 confirmed + fixed across 12 files:
+  - **STOP SHIP**: hooks `session`→`session_id` (reflect was silently broken), `reasonix.toml` (gitignored, local-only — no committed fix needed)
+  - **HIGH (6)**: memory SearchDense Lock→RLock, Tidy() preserves CreatedAt via LastDecayAt, memory server binds 127.0.0.1, collab CheckOrigin restricted to localhost, collab WebSocket write deadlines (5s), mcputil.Server ReadHeaderTimeout (10s), MCP bridge workdir validation + key length fix, bot gateway TOCTOU lock fix
+  - **MEDIUM (6)**: compressor SetTurn mutex lock, scheduler parentCtx propagation, byte→rune truncation in publish.go, mesh atomic request IDs + initialize cache, CI test coverage 3→14+ packages, Dockerfile UID claim debunked (not using distroless)
+  - **Debunked (1)**: netclient DefaultClient reuses http.DefaultTransport with connection pooling — no goroutine leak
+- **eval.go rewrite**: Eliminated 60% code duplication (19 duplicated functions → unified shared logic via `evalOutput` callbacks). Fixed 4 bugs: vet now runs `go vet` (not `go build`), pass@3 is true run-level metric via `evalComputePassAtN`, build failure output shown, error swallowing replaced with explicit status. Restored `eval compare` subcommand. `eval_test.go`: 45+ test cases.
+- **Upstream merge** (a4cea91, 3 commits): Per-model vision capabilities (`VisionModels` on ProviderEntry), explicit vision model selection preservation. 2 conflicts resolved (kept Hermes config fields, updated Mimo backfill with VisionModels population).
+- **Doc sweep**: 6 files updated — v1.8.0→v1.8.x across README (en+zh), HERMES-GUIDE, PROJECT.md; index.html mock v1.0.0→v1.8.x; AGENTS.md sync point bcd310d→a4cea91 (161 commits/5 syncs).
+- **Files**: 43 files changed, ~3,974 insertions, 139 deletions. All binaries build. All tests pass.
 
 ### Next to build
 - [ ] **npm: publish reasonix-hermes** — pipeline verified; needs npm 2FA-bypass token + tag push
+- [ ] **Upstream the LINE adapter** — open a PR to esengine/deepseek-reasonix with `internal/bot/line/`
+- [ ] **Full test suite CI expansion** — ci-hermes.yml now covers 14+ packages, verify in CI
+- [ ] **Rune-based truncation audit** — check compress.go + memory recall for remaining byte-index truncations
+- [ ] **Reasoning language config** — verify `reasoning_language` still works after upstream vision merge
 - [x] ~~logoGradient per-frame caching~~ — done (h21)
 - [x] ~~computeStatusLineCount full mirror~~ — verified already done (h20)
 - [x] ~~Desktop app distribution~~ — `desktop-v1.8.2` tagged + pushed (h18)
+- [x] ~~Audit fixes (15 issues)~~ — done (h22)
+- [x] ~~eval.go dedup + bug fixes~~ — done (h22)
+- [x] ~~Upstream merge (a4cea91, vision capabilities)~~ — done (h22)
