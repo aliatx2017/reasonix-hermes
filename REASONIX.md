@@ -442,14 +442,14 @@ desktop hotbar/profiles root-cause fix, 13 wedge tests, desktop-v1.8.2, collab+m
 - **Files**: 43 files changed, ~3,974 insertions, 139 deletions. All binaries build. All tests pass.
 
 ### Next to build
-- [ ] **npm: publish reasonix-hermes** — pipeline verified; needs npm 2FA-bypass token + tag push
-- [ ] **Upstream the LINE adapter** — open a PR to esengine/deepseek-reasonix with `internal/bot/line/`
-- [ ] **Full test suite CI expansion** — ci-hermes.yml now covers 14+ packages, verify in CI
-- [ ] **Rune-based truncation audit** — check compress.go + memory recall for remaining byte-index truncations
-- [ ] **Reasoning language config** — verify `reasoning_language` still works after upstream vision merge
+- [x] ~~npm: publish reasonix-hermes~~ — published v1.8.0, trusted publishing (OIDC) wired (h22)
+- [x] ~~Full test suite CI expansion~~ — verified 17 packages covered (h22)
+- [x] ~~Rune-based truncation audit~~ — fixed 2 byte-index bugs in compress.firstLine(); memory server already rune-safe (h22)
+- [x] ~~Reasoning language config~~ — verified intact after upstream vision merge (h22)
 - [x] ~~logoGradient per-frame caching~~ — done (h21)
 - [x] ~~computeStatusLineCount full mirror~~ — verified already done (h20)
 - [x] ~~Desktop app distribution~~ — `desktop-v1.8.2` tagged + pushed (h18)
 - [x] ~~Audit fixes (15 issues)~~ — done (h22)
 - [x] ~~eval.go dedup + bug fixes~~ — done (h22)
 - [x] ~~Upstream merge (a4cea91, vision capabilities)~~ — done (h22)
+- [x] ~~Upstream merge (a2709fc, remove bundled MCPs)~~ — done (h22)
