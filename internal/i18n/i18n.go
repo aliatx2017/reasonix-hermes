@@ -43,7 +43,7 @@ type Messages struct {
 	// `reasonix init` — points to the in-session /init skill + setup
 	InitHint       string
 	StepSetKeyHint string // step 2 desc — env var hint
-	StepChatDesc   string // reasonix chat step desc
+	StepChatDesc   string // interactive session step desc
 	StepRunDesc    string // reasonix run step desc
 	HelpFooter     string // dim footer linking to reasonix help
 

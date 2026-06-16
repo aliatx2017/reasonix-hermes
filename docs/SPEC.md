@@ -399,7 +399,7 @@ func (p Policy) Decide(toolName string, readOnly bool, args json.RawMessage) Dec
 | Approved-plan execution window | Approved plan's tool calls auto-allowed unless denied | Future plans still wait | Waits for user |
 
 Out of the box (`mode = "ask"`, no rules) `reasonix run` behaves exactly as before
-(writers resolve `Ask`→allow with no TTY), while `reasonix chat` now prompts before
+(writers resolve `Ask`→allow with no TTY), while `reasonix` now prompts before
 each writer/bash call. `deny` rules harden both modes.
 
 ### 3.8 Slash commands (`internal/command`)

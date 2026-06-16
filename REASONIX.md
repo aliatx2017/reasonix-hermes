@@ -41,7 +41,7 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 - **Commit**: session 2026-06-?? (h??) — Deep Research workflow adopted (5 skills from Weizhena/Deep-Research-skills), `/eval` slash command (define/check/report/list/clean), crawl4ai/searxng integration in research pipeline, upstream merge (0706284, 10 commits).
 - **Commit**: session 2026-06-15 (h19) — animated logo gradient banner (indigo→cyan→pink), doc sweep (8 files, stale binary names fixed), all prior h18 work.
 - **Commit**: session 2026-06-15 (h15) — upstream v1.8.x merge (8ab6d3b, 71 commits), vision pipeline restore, logo fix, 13 test fixes, constitution zero-test-failures rule.
-- **npm**: `npm i -g reasonix-hermes` — one-line install. Pipeline verified; publish pending 2FA-bypass token.
+- **npm**: Published v1.8.0 — `npm i -g reasonix-hermes`, 6 platform packages.
 - **Key v1.6.0 additions**: vision support (image downscaling + detail knob), built-in Time + Context7 MCP servers, configurable shell interpreter (`[tools.shell]`), notification sound system, token economy composer mode, desktop time filter + custom fonts + status bar customization + Windows ARM64, crash capture (Go panics/breadcrumbs/group summaries), lightweight local history + memory retrieval, Traditional Chinese (zh-TW) locale, updater resilience, agent fixes (decline-ask guard, compaction bounds), desktop hooks UI.
 - **Key v1.7.0 additions** (merged 2026-06-14): reasoning language settings (`agent.reasoning_language`), session ownership and state routing integration, checkpoint boundary corrections (optimistic rewind), enriched+memoized shell PATH for MCP stdio subprocesses, dropped phrase-matched approved-plan continuation, desktop golangci-lint CI, `SaveDocForTab` Wails binding.
 - **Language policy**: All Chinese comments translated to English in `internal/bot/` and `internal/config/` — SPEC §1 compliance restored. Upstream v1.6.0 still has some Chinese comments in IM bot code; these are upstream-authored and left as-is.
@@ -149,16 +149,6 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 - **Build**: All binaries compile. `go build ./...` + `go vet ./...` pass. All 66 test packages pass. Desktop `SettingsView.DesktopLayoutStyle` vet error resolved.
 - **Files**: 22 files changed (13 modified, 9 new). ~1,500 additions across Go + TypeScript + skills.
 - **Upstream**: Checked — no new commits (still at 21d77d2). Already synced.
-
-### Next to build
-- [ ] **npm: publish reasonix-hermes** — pipeline verified; needs npm 2FA-bypass token + tag push
-- [ ] **Upstream the LINE adapter** — open a PR to esengine/deepseek-reasonix with `internal/bot/line/`
-- [ ] **Desktop app distribution** — cut a desktop-vX.Y.Z release tag (release-desktop.yml pipeline is ready)
-- [x] ~~Merge upstream v1.8.x~~ — merged v1.8.1 (a029618) in h14
-- [x] ~~**Fusion Router Tier 2**~~ — `council_judge` built-in tool (Consensus() synthesis, init-registered fallback, boot-wired via ConfineCouncil). 6 tests.
-- [x] ~~**Vision pipeline follow-up**~~ — `refTokenRe` extended with `@"([^"]+)"` quoted alternation. 4 new test cases.
-
-
 ### Session 2026-06-15 (h13) — Golang patterns audit, dead code, council judge, docs consolidation
 
 - **Golang patterns audit** (`/go-review` + `/go-test`): staticcheck found 5 dead code items — removed `embedFacts`, `workshopThreshold`, `batchItem`, `toolsListResult`; fixed unnecessary `fmt.Sprintf` in learn.go. All verified clean.
@@ -182,15 +172,6 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 - **Files**: 6 files changed (+83/-6): `internal/control/attachments.go`, `internal/control/refs.go`, `internal/plugin/lazy.go`, `internal/provider/schema_canonicalize.go`, `internal/provider/openai/openai_test.go`, `internal/tool/registry_test.go`. Config: `reasonix.toml`.
 
 - **Upstream**: Merged 5 commits (a029618). Desktop-v1.8.1 tag.
-
-### Next to build
-- [ ] **npm: publish reasonix-hermes** — pipeline verified; needs npm 2FA-bypass token + tag push
-- [ ] **Upstream the LINE adapter** — open a PR to esengine/deepseek-reasonix with `internal/bot/line/`
-- [ ] **Desktop app distribution** — cut a desktop-vX.Y.Z release tag (release-desktop.yml pipeline is ready)
-- [x] ~~Merge upstream v1.8.0~~ — merged v1.8.1 (a029618)
-- [x] ~~**Fusion Router Tier 2**~~ — `council_judge` built-in tool (Consensus() synthesis, init-registered fallback, boot-wired via ConfineCouncil). 6 tests.
-- [x] ~~**Vision pipeline `@path` spaces**~~ — `refTokenRe` extended with `@"([^"]+)"` quoted alternation. 4 new test cases.
-
 ## Next session — ideas & follow-ups
 
 ### Session 2026-06-13 (expansion plan execution)
@@ -265,11 +246,6 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 - **Frontend**: `SessionTokensView` type, binding methods + mocks, `tokens` field in `HermesLiveData`/`HermesDashboardPayload`, aggregate stats widget in Hermes dashboard (turns/tokens-in/tokens-out).
 - **Bug fix**: Naming collision with branch `.meta` sidecar resolved (now `.sessionstats`).
 - **Total**: 10 files changed (+276/-7). All Go build/vet/test pass; TypeScript compiles clean. 6 CLI binaries rebuilt.
-
-### Next to build
-- [ ] **npm: publish reasonix-hermes** — set 2FA-bypass granular token, push tag
-- [ ] **Upstream the LINE adapter** — open a PR to esengine/deepseek-reasonix with the line/ package if they want it
-
 ### Session 2026-06-15 (h7) — audit + bug fix + 4-phase expansion
 
 - **Audit**: Verified 20 claims from an AI-generated deep analysis against actual code at HEAD. 14 false/already-fixed, 4 real issues found — 1 fixed this session.
@@ -464,8 +440,8 @@ desktop hotbar/profiles root-cause fix, 13 wedge tests, desktop-v1.8.2, collab+m
   - **Constitution**: Added `no-e2e-no-fixed` memory — never declare feature fixed without CLI e2e evidence on disk.
   - **Files**: 6 files changed (+240/-6). All 74 packages pass. 8 binaries built.
 
-### Next to build
-- [ ] **Combine research/research-deep/research-report into one slash command** — `/research <topic>` should auto-chain: generate outline → ask approve → deep research → report → Discord publish. Currently 3 separate commands with manual transitions.
+### Completed
+- [x] **Combine research/research-deep/research-report into one slash command** — `/research <topic>` auto-chains: outline → approve → batch subagents → report → Discord publish. Single SKILL.md, old skills archived.
 
 ### Session 2026-06-16 (h24) — Research pipeline e2e proven, Discord publish, upstream merge
 

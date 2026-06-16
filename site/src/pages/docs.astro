@@ -72,8 +72,8 @@ brew install esengine/reasonix/reasonix</div>
 
       <h2 id="quickstart"><span class="l-en">Quick start</span><span class="l-zh">快速上手</span></h2>
       <p><span class="l-en">First run is minimal — <code>reasonix setup</code> walks you through picking a provider and keys. Then point Reasonix at a repo and start a session:</span><span class="l-zh">首次运行很简单——<code>reasonix setup</code> 引导你选择 provider 与密钥。然后指向仓库、开始会话:</span></p>
-      <div class="codeblock"><button data-copy="cd your-project && reasonix code">Copy</button>cd your-project
-reasonix code</div>
+      <div class="codeblock"><button data-copy="cd your-project && reasonix">Copy</button>cd your-project
+reasonix</div>
       <p><span class="l-en">Then just describe the task:</span><span class="l-zh">然后直接描述任务:</span></p>
       <div class="codeblock"><span class="a">›</span> add retry with backoff to the http client
 <span class="a">›</span> refactor the auth flow, keep the public API stable
@@ -90,7 +90,7 @@ reasonix code</div>
       <p><span class="l-en">Reasonix serializes context deterministically and only ever appends. The practical effect: hours-long sessions where 90%+ of every request replays from cache, and input-token cost collapses to ~1/5. See the <a href={`${base}/#how`}>animated walkthrough</a> on the home page.</span><span class="l-zh">Reasonix 以确定性方式序列化上下文,并且永远只追加。实际效果:数小时的会话中每次请求 90% 以上从缓存重放,输入 token 成本降到约 1/5。可在首页查看<a href={`${base}/#how`}>动态演示</a>。</span></p>
 
       <h2 id="permissions"><span class="l-en">Permissions &amp; sandbox</span><span class="l-zh">权限与沙箱</span></h2>
-      <p><span class="l-en">Permissions gate each tool call: <code>deny</code> &gt; <code>ask</code> &gt; <code>allow</code> &gt; fallback. Readers always allow; writers fall back to <code>[permissions] mode</code>. <code>reasonix chat</code> prompts before each writer; <code>reasonix run</code> stays autonomous but still honours <code>deny</code>.</span><span class="l-zh">权限逐个把关工具调用:<code>deny</code> &gt; <code>ask</code> &gt; <code>allow</code> &gt; 兜底。读工具始终放行;写工具回退到 <code>[permissions] mode</code>。<code>reasonix chat</code> 在每次写操作前询问;<code>reasonix run</code> 自主运行,但仍遵守 <code>deny</code>。</span></p>
+      <p><span class="l-en">Permissions gate each tool call: <code>deny</code> &gt; <code>ask</code> &gt; <code>allow</code> &gt; fallback. Readers always allow; writers fall back to <code>[permissions] mode</code>. <code>reasonix</code> prompts before each writer; <code>reasonix run</code> stays autonomous but still honours <code>deny</code>.</span><span class="l-zh">权限逐个把关工具调用:<code>deny</code> &gt; <code>ask</code> &gt; <code>allow</code> &gt; 兜底。读工具始终放行;写工具回退到 <code>[permissions] mode</code>。<code>reasonix</code> 在每次写操作前询问;<code>reasonix run</code> 自主运行,但仍遵守 <code>deny</code>。</span></p>
       <p><span class="l-en">The sandbox is enforcement: file-writers refuse any path outside <code>[sandbox] workspace_root</code> (default: the current dir), resolving symlinks and <code>..</code> so a link can't tunnel out. Reads are unrestricted.</span><span class="l-zh">沙箱负责强制执行:写文件工具拒绝 <code>[sandbox] workspace_root</code>(默认当前目录)之外的任何路径,并解析符号链接与 <code>..</code>,防止借链接逃逸。读取不受限。</span></p>
 
       <h2 id="mcp"><span class="l-en">Plugins (MCP)</span><span class="l-zh">插件(MCP)</span></h2>
@@ -108,8 +108,7 @@ headers = &#123; Authorization = "Bearer $&#123;STRIPE_KEY&#125;" &#125;</div>
 
       <h2 id="cli"><span class="l-en">CLI &amp; slash commands</span><span class="l-zh">命令行与斜杠命令</span></h2>
       <div class="codeblock">reasonix setup            <span class="c"># first-run: pick provider + keys</span>
-reasonix code             <span class="c"># start an interactive session in the current repo</span>
-reasonix chat             <span class="c"># interactive session, prompts before writes</span>
+reasonix                  <span class="c"># interactive session, prompts before writes</span>
 reasonix run "&lt;task&gt;"     <span class="c"># autonomous run, honours deny rules</span></div>
       <p><span class="l-en">Inside a session, slash commands run locally — <code>/help</code> lists them all:</span><span class="l-zh">会话中,斜杠命令在本地运行——<code>/help</code> 列出全部:</span></p>
       <div class="codeblock">/compact   /new      /rewind   /tree     /branch
