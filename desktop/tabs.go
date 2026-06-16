@@ -1441,24 +1441,6 @@ func (a *App) buildTabController(tab *WorkspaceTab) {
 	// global credentials store so it follows the user to every other workspace.
 	promoteProviderKeysToCredentials(cfg)
 
-	model := strings.TrimSpace(tab.model)
-	if model == "" {
-		model = cfg.DefaultModel
-	}
-	requestedModel := model
-	if resolved, fallback, ok := cfg.ResolveModelWithFallback(model); ok {
-		if fallback && strings.TrimSpace(tab.model) != "" {
-			a.noticeForTab(tab.ID, fmt.Sprintf("model %q is no longer available; switched to %s", requestedModel, resolved))
-		}
-		model = resolved
-	}
-
-	a.mu.Lock()
-	tab.model = model
-	tab.Label = model
-	a.saveTabsLocked()
-	a.mu.Unlock()
-
 	if tab.sink != nil {
 		tab.sink.setContext(wailsCtx)
 	}
@@ -1491,6 +1473,35 @@ func (a *App) buildTabController(tab *WorkspaceTab) {
 			sessionDir = dir
 		}
 	}
+	startupSessionPath := ""
+	if pinnedPath, ok := pinnedTabSessionPath(sessionDir, tab.SessionPath); ok {
+		startupSessionPath = pinnedPath
+	} else if topicID != "" {
+		startupSessionPath = findTopicSession(sessionDir, topicID)
+	}
+
+	model := strings.TrimSpace(tab.model)
+	if sessionModel, ok := agent.LoadSessionModel(startupSessionPath); ok {
+		if _, ok := cfg.ResolveModel(sessionModel); ok {
+			model = sessionModel
+		}
+	}
+	if model == "" {
+		model = cfg.DefaultModel
+	}
+	requestedModel := model
+	if resolved, fallback, ok := cfg.ResolveModelWithFallback(model); ok {
+		if fallback && strings.TrimSpace(tab.model) != "" {
+			a.noticeForTab(tab.ID, fmt.Sprintf("model %q is no longer available; switched to %s", requestedModel, resolved))
+		}
+		model = resolved
+	}
+
+	a.mu.Lock()
+	tab.model = model
+	tab.Label = model
+	a.saveTabsLocked()
+	a.mu.Unlock()
 
 	ctrl, err := boot.Build(buildCtx, boot.Options{
 		Model:          model,
@@ -4044,20 +4055,9 @@ func globalTabWorkspaceRoot() string {
 }
 
 func loadPinnedTabSession(dir, sessionPath string) (*agent.Session, string, bool) {
-	sessionPath = strings.TrimSpace(sessionPath)
-	if sessionPath == "" || dir == "" {
+	path, ok := pinnedTabSessionPath(dir, sessionPath)
+	if !ok {
 		return nil, "", false
-	}
-	path, _, err := validateSessionPath(dir, sessionPath)
-	if err != nil {
-		base := filepath.Base(sessionPath)
-		if base == "." || base == string(filepath.Separator) || !strings.HasSuffix(base, ".jsonl") {
-			return nil, "", false
-		}
-		path, _, err = validateSessionPath(dir, filepath.Join(dir, base))
-		if err != nil {
-			return nil, "", false
-		}
 	}
 	loaded, err := agent.LoadSession(path)
 	if err != nil {
@@ -4067,6 +4067,25 @@ func loadPinnedTabSession(dir, sessionPath string) (*agent.Session, string, bool
 		return nil, "", false
 	}
 	return loaded, path, true
+}
+
+func pinnedTabSessionPath(dir, sessionPath string) (string, bool) {
+	sessionPath = strings.TrimSpace(sessionPath)
+	if sessionPath == "" || dir == "" {
+		return "", false
+	}
+	path, _, err := validateSessionPath(dir, sessionPath)
+	if err != nil {
+		base := filepath.Base(sessionPath)
+		if base == "." || base == string(filepath.Separator) || !strings.HasSuffix(base, ".jsonl") {
+			return "", false
+		}
+		path, _, err = validateSessionPath(dir, filepath.Join(dir, base))
+		if err != nil {
+			return "", false
+		}
+	}
+	return path, true
 }
 
 func saveTabSessionMeta(tab *WorkspaceTab, path string) error {

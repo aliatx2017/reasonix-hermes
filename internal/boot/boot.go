@@ -135,6 +135,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	if !ok {
 		return nil, fmt.Errorf("%w %q (configured: %s); note: defining [[providers]] replaces the built-in presets, so add a [[providers]] entry for it or use a configured name, or run `reasonix setup` to reconfigure", ErrUnknownModel, modelName, providerNames(cfg))
 	}
+	modelRef := entry.Name + "/" + entry.Model
 	if opts.EffortOverride != nil {
 		entry.Effort = *opts.EffortOverride
 		if entry.Kind == "anthropic" && strings.TrimSpace(entry.Effort) != "" && strings.TrimSpace(entry.Thinking) == "" {
@@ -818,6 +819,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 		Sink:                   sink,
 		Policy:                 policy,
 		Label:                  label,
+		ModelRef:               modelRef,
 		SystemPrompt:           finalizeSystemPrompt(sysPrompt, cfg.Language),
 		SessionDir:             sessionDir,
 		Host:                   pluginHost,

@@ -225,6 +225,23 @@ func chdirTo(dir string) int {
 	return 0
 }
 
+func modelForResumePath(modelName, resumePath string, cfg *config.Config) string {
+	if strings.TrimSpace(modelName) != "" || strings.TrimSpace(resumePath) == "" {
+		return modelName
+	}
+	sessionModel, ok := agent.LoadSessionModel(resumePath)
+	if !ok {
+		return modelName
+	}
+	if cfg == nil {
+		return sessionModel
+	}
+	if _, ok := cfg.ResolveModel(sessionModel); !ok {
+		return modelName
+	}
+	return sessionModel
+}
+
 var newNotificationSender = func() notify.Sender { return notify.NewPlatformSender() }
 
 // withNotifications adds system notifications to CLI event streams when configured.
@@ -286,6 +303,13 @@ func runAgent(args []string) int {
 		sink = metrics
 	}
 	sink = withNotifications(sink, cfg)
+	if *resume != "" {
+		*model = modelForResumePath(*model, *resume, cfg)
+	} else if *cont {
+		if sessions, err := agent.ListSessions(resolveCLISessionDir()); err == nil && len(sessions) > 0 {
+			*model = modelForResumePath(*model, sessions[0].Path, cfg)
+		}
+	}
 	ctrl, err := setup(ctx, *model, *maxSteps, true, sink)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, i18n.M.ErrorPrefix, err)
@@ -353,6 +377,8 @@ func runServe(args []string) int {
 
 	ctx := context.Background()
 	bc := serve.NewBroadcaster()
+	cfg, _ := config.Load()
+	*model = modelForResumePath(*model, *resume, cfg)
 	ctrl, err := setup(ctx, *model, *maxSteps, true, bc)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, i18n.M.ErrorPrefix, err)
@@ -427,6 +453,7 @@ func chatREPL(args []string) int {
 	}
 
 	ctx := context.Background()
+	*model = modelForResumePath(*model, resumePath, cfg)
 
 	// Plumb the controller's typed event stream through a channel so each event
 	// can become a tea.Msg inside the TUI's update loop. Buffered generously:

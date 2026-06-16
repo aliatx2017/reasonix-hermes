@@ -15,6 +15,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"reasonix/internal/agent"
 	"reasonix/internal/config"
 	"reasonix/internal/event"
 	"reasonix/internal/i18n"
@@ -50,6 +51,40 @@ func TestChdirTo(t *testing.T) {
 
 	if rc := chdirTo(filepath.Join(tmp, "does-not-exist")); rc != 2 {
 		t.Fatalf("chdirTo(missing) = %d, want 2", rc)
+	}
+}
+
+func TestModelForResumePathUsesStoredModelWhenAvailable(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "session.jsonl")
+	session := agent.NewSession("sys")
+	session.Add(provider.Message{Role: provider.RoleUser, Content: "hello"})
+	if err := session.Save(path); err != nil {
+		t.Fatal(err)
+	}
+	if err := agent.SetBranchModelPreserveUpdated(path, "saved/model"); err != nil {
+		t.Fatal(err)
+	}
+	cfg := &config.Config{
+		DefaultModel: "default/model",
+		Providers: []config.ProviderEntry{
+			{Name: "default", Kind: "openai", BaseURL: "https://default.invalid/v1", Model: "model"},
+			{Name: "saved", Kind: "openai", BaseURL: "https://saved.invalid/v1", Model: "model"},
+		},
+	}
+
+	if got := modelForResumePath("", path, cfg); got != "saved/model" {
+		t.Fatalf("modelForResumePath = %q, want saved/model", got)
+	}
+	if got := modelForResumePath("explicit/model", path, cfg); got != "explicit/model" {
+		t.Fatalf("explicit model was overwritten: %q", got)
+	}
+	if got := modelForResumePath("", filepath.Join(dir, "missing.jsonl"), cfg); got != "" {
+		t.Fatalf("missing session model = %q, want empty fallback", got)
+	}
+	cfg.Providers = cfg.Providers[:1]
+	if got := modelForResumePath("", path, cfg); got != "" {
+		t.Fatalf("unknown stored model = %q, want empty fallback", got)
 	}
 }
 
