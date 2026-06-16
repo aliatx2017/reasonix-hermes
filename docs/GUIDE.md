@@ -16,6 +16,7 @@
 ## Contents
 
 - [Configuration](#configuration)
+- [Configuration paths](./CONFIG_PATHS.md)
 - [Reasoning language](./REASONING_LANGUAGE.md)
 - [Keyboard shortcuts](#keyboard-shortcuts)
 - [Permissions & sandbox](#permissions--sandbox)
@@ -27,10 +28,15 @@
 ## Configuration
 
 Resolution order: **flag > `./reasonix.toml` > the user config file >
-built-in defaults**. The user config lives in your OS config dir: `~/.config/reasonix/`
-on Linux, `~/Library/Application Support/reasonix/` on macOS, `%AppData%\reasonix\` on
-Windows. Secrets come from the environment via `api_key_env` and are
-never stored in config files.
+built-in defaults**. Starting with **Reasonix v1.8.1**, the user config lives at
+`~/.reasonix/config.toml` on macOS/Linux and
+`%AppData%\reasonix\config.toml` on Windows; see
+[Configuration paths](./CONFIG_PATHS.md) for migration and related data paths.
+Secrets come from the environment via `api_key_env` and are never stored in
+config files. Credentials default to `credentials_store = "auto"`, which prefers
+the OS credential store and falls back to the file under Reasonix home. New keys
+saved by Reasonix are not written to a project `.env`; project `.env` files are
+only read for compatibility and explicit per-project overrides.
 
 For the desktop and CLI usage of visible reasoning language, see
 [Reasoning language](./REASONING_LANGUAGE.md).
@@ -285,7 +291,7 @@ and `/goal clear` to cancel. `/tree` shows saved conversation
 branches, `/branch [name]` forks the current conversation tip, `/branch <turn>
 [name]` forks from an earlier checkpointed turn, and `/switch <id|name>` loads
 another branch. **Custom commands** are Markdown files under `.reasonix/commands/`
-(project) or `~/.config/reasonix/commands/` (user) — `review.md` becomes
+(project) or `~/.reasonix/commands/` (user) — `review.md` becomes
 `/review`, a subdirectory namespaces it (`git/commit.md` → `/git:commit`). The
 body is a prompt template; invoking the command sends it as a turn.
 

@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -15,10 +16,17 @@ func isolateUserConfigHome(t *testing.T) string {
 	t.Helper()
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+	t.Setenv("REASONIX_CREDENTIALS_STORE", "file")
 	t.Setenv("USERPROFILE", home)
 	t.Setenv("AppData", filepath.Join(home, "AppData", "Roaming"))
 	return home
+}
+
+func expectedDefaultReasonixHome(home string) string {
+	if runtime.GOOS == "windows" {
+		return filepath.Join(home, "AppData", "Roaming", "reasonix")
+	}
+	return filepath.Join(home, ".reasonix")
 }
 
 func TestUserConfigDisplayPathCollapsesHome(t *testing.T) {
@@ -35,12 +43,48 @@ func TestUserConfigDisplayPathCollapsesHome(t *testing.T) {
 	}
 }
 
+func TestUserConfigPathUsesReasonixHome(t *testing.T) {
+	home := isolateUserConfigHome(t)
+	want := filepath.Join(expectedDefaultReasonixHome(home), "config.toml")
+	if got := UserConfigPath(); filepath.Clean(got) != filepath.Clean(want) {
+		t.Fatalf("UserConfigPath() = %q, want %q", got, want)
+	}
+}
+
+func TestUserConfigPathHonorsReasonixHome(t *testing.T) {
+	home := isolateUserConfigHome(t)
+	custom := filepath.Join(home, "custom-home")
+	t.Setenv("REASONIX_HOME", custom)
+
+	want := filepath.Join(custom, "config.toml")
+	if got := UserConfigPath(); filepath.Clean(got) != filepath.Clean(want) {
+		t.Fatalf("UserConfigPath() = %q, want %q", got, want)
+	}
+}
+
 func TestRenderTOMLHeaderShowsResolvedConfigPath(t *testing.T) {
 	isolateUserConfigHome(t)
 	out := RenderTOML(Default())
 	want := "> " + userConfigDisplayPath() + " > built-in defaults."
 	if !strings.Contains(out, want) {
 		t.Fatalf("rendered header missing resolved config path %q", want)
+	}
+}
+
+func TestWriteRootsForRootExcludesUserConfigDirByDefault(t *testing.T) {
+	isolateUserConfigHome(t)
+	project := t.TempDir()
+	cfg := Default()
+
+	roots := cfg.WriteRootsForRoot(project)
+	want := filepath.Clean(filepath.Dir(UserConfigPath()))
+	for _, root := range roots {
+		if filepath.Clean(root) == want {
+			t.Fatalf("WriteRootsForRoot() = %v, must not include user config dir %q by default", roots, want)
+		}
+	}
+	if got := filepath.Clean(roots[0]); got != filepath.Clean(project) {
+		t.Fatalf("first write root = %q, want project %q", got, project)
 	}
 }
 
@@ -628,8 +672,8 @@ func TestRenderTOMLNonDefaultStepsWrittenExplicitly(t *testing.T) {
 }
 
 func TestRenderTOMLDefaultStepsDoNotOverrideGlobalConfig(t *testing.T) {
-	home := isolateUserConfigHome(t)
-	globalDir := filepath.Join(home, ".config", "reasonix")
+	isolateUserConfigHome(t)
+	globalDir := filepath.Dir(UserConfigPath())
 	if err := os.MkdirAll(globalDir, 0o755); err != nil {
 		t.Fatal(err)
 	}

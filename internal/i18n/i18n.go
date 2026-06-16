@@ -160,6 +160,7 @@ type Messages struct {
 	CmdRename       string // /rename
 	CmdModel        string // /model
 	CmdMemory       string // /memory
+	CmdMigrate      string // /migrate
 	CmdGoal         string // /goal
 	CmdRemember     string // /remember
 	CmdForget       string // /forget

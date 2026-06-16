@@ -98,10 +98,10 @@ func (t *installSourceTool) skillRootAction(req request, path string, names []st
 
 func (t *installSourceTool) skillInstallRoot(scope string) (string, error) {
 	if scope == "global" {
-		if t.home == "" {
-			return "", newErr(ErrSourceUnreadable, "global skill install requires a home directory")
+		if t.reasonixHome == "" {
+			return "", newErr(ErrSourceUnreadable, "global skill install requires a Reasonix home directory")
 		}
-		return filepath.Join(t.home, ".reasonix", skill.SkillsDirname), nil
+		return filepath.Join(t.reasonixHome, skill.SkillsDirname), nil
 	}
 	return filepath.Join(t.root, ".reasonix", skill.SkillsDirname), nil
 }
@@ -132,7 +132,7 @@ func (t *installSourceTool) verifySkill(scope, name string, act *action) error {
 		custom = cfg.SkillCustomPaths()
 	}
 	var stderr bytes.Buffer
-	store := skill.New(skill.Options{HomeDir: t.home, ProjectRoot: t.root, CustomPaths: custom, DisableBuiltins: true, Stderr: &stderr})
+	store := skill.New(skill.Options{HomeDir: t.home, ReasonixHomeDir: t.reasonixHome, ProjectRoot: t.root, CustomPaths: custom, DisableBuiltins: true, Stderr: &stderr})
 	sk, ok := store.Read(name)
 	if !ok {
 		return newErr(ErrSourceUnreadable, "skill %q is installed but not discoverable", name)

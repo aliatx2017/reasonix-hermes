@@ -16,6 +16,7 @@
 ## 目录
 
 - [配置](#配置)
+- [配置路径](./CONFIG_PATHS.zh-CN.md)
 - [思考语言](./REASONING_LANGUAGE.zh-CN.md)
 - [桌面端 Hooks](./DESKTOP_HOOKS.zh-CN.md)
 - [快捷键](#快捷键)
@@ -27,9 +28,12 @@
 
 ## 配置
 
-优先级：**flag > `./reasonix.toml` > 用户配置文件 > 内置默认值**。用户配置位于操作系统配置目录：
-Linux 为 `~/.config/reasonix/`，macOS 为 `~/Library/Application Support/reasonix/`，Windows 为 `%AppData%\reasonix\`。
-密钥经环境变量通过 `api_key_env` 注入，绝不写入配置文件。
+优先级：**flag > `./reasonix.toml` > 用户配置文件 > 内置默认值**。从
+**Reasonix v1.8.1** 开始，用户配置位于 macOS/Linux 的
+`~/.reasonix/config.toml`，Windows 为 `%AppData%\reasonix\config.toml`；迁移和相关数据路径见
+[配置路径](./CONFIG_PATHS.zh-CN.md)。密钥经环境变量通过 `api_key_env` 注入，绝不写入配置文件。
+credentials 默认使用 `credentials_store = "auto"`：优先系统密钥库，不可用时 fallback 到 Reasonix home 下的文件。
+Reasonix 保存的新密钥不会写入项目 `.env`；项目 `.env` 只用于兼容读取或用户主动的项目级覆盖。
 
 桌面端和 CLI 端的可见思考语言设置，见 [思考语言](./REASONING_LANGUAGE.zh-CN.md)。
 桌面端 Hooks 的 JSON 配置、事件 key 和 payload 字段，见 [桌面端 Hooks](./DESKTOP_HOOKS.zh-CN.md)。
@@ -255,7 +259,7 @@ headers = { Authorization = "Bearer ${STRIPE_KEY}" }
 `/new` 会开启新会话，同时保存之前的 transcript 供历史记录和恢复使用；`/clear` 会二次确认，确认后丢弃当前上下文且不保存。
 `/tree` 查看已保存的对话分支，`/branch [name]` 从当前对话末端分支，`/branch <turn> [name]`
 从较早的 checkpoint 轮次分支，`/switch <id|name>` 切换到另一个分支。**自定义命令**
-是放在 `.reasonix/commands/`（项目）或 `~/.config/reasonix/commands/`（用户）下的 Markdown 文件——
+是放在 `.reasonix/commands/`（项目）或 `~/.reasonix/commands/`（用户）下的 Markdown 文件——
 `review.md` 即 `/review`，子目录构成命名空间（`git/commit.md` → `/git:commit`）。文件正文
 是 prompt 模板，调用即作为一轮对话发出。
 

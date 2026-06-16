@@ -20,7 +20,7 @@ import (
 // resolved config and applies edits through internal/config/edit.go (the
 // purpose-built mutation API), then rebuilds the controller so the change takes
 // effect live — the same snapshot→reload→resume pattern as SetModel. Secrets are
-// the exception: they go to the global credentials file (upsertDotEnv), since
+// the exception: they go to the global credential store (upsertDotEnv), since
 // config stores only the env-var name, not the key.
 
 // --- read ---
@@ -1377,7 +1377,7 @@ func (a *App) deleteProviderAndRetargetTabs(name string) error {
 	return nil
 }
 
-// SetProviderKey writes a secret to the global credentials file under the given
+// SetProviderKey writes a secret to the global credential store under the given
 // env-var name (the one a provider's api_key_env points at) and rebuilds so it
 // resolves immediately.
 func (a *App) SetProviderKey(apiKeyEnv, value string) error {
@@ -1393,7 +1393,7 @@ func (a *App) SetProviderKey(apiKeyEnv, value string) error {
 	return a.rebuild()
 }
 
-// ClearProviderKey removes a provider secret from the global credentials file
+// ClearProviderKey removes a provider secret from the global credential store
 // and rebuilds so the provider immediately becomes unauthenticated.
 func (a *App) ClearProviderKey(apiKeyEnv string) error {
 	if strings.TrimSpace(apiKeyEnv) == "" {
@@ -1595,7 +1595,7 @@ func (a *App) SetDesktopMetrics(enabled bool) error {
 	}
 	switch {
 	case enabled && a.metrics.Load() == nil && version != "dev":
-		a.metrics.Store(newMetricsAggregator(filepath.Dir(config.UserConfigPath())))
+		a.metrics.Store(newMetricsAggregator(config.MemoryUserDir()))
 	case !enabled:
 		a.metrics.Store(nil)
 	}

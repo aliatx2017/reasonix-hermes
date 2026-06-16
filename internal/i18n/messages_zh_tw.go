@@ -95,7 +95,7 @@ var ChineseTraditional = Messages{
 	SlashUnavailable:   "當前建構不支援該命令",
 	SlashUnknown:       "未知命令",
 	SlashTodoCleared:   "已清除任務清單",
-	SlashHelp:          "命令：/compact · /new（/clear）· /resume · /rewind · /tree · /branch · /switch · /todo · /verbose · /model（切換模型）· /effort · /theme · /language · /mcp · /skills · /hooks · /paste-image · /memory · /remember · /quit · /help · 以及 skills（/init、/explore …）",
+	SlashHelp:          "命令：/compact · /new（/clear）· /resume · /rewind · /tree · /branch · /switch · /todo · /verbose · /model（切換模型）· /effort · /theme · /language · /mcp · /skills · /hooks · /paste-image · /memory · /migrate · /remember · /quit · /help · 以及 skills（/init、/explore …）",
 
 	SkillPickerTitle:             "Skills",
 	SkillPickerAvailableFmt:      "%d 個可用",
@@ -161,6 +161,7 @@ var ChineseTraditional = Messages{
 	CmdResume:       "恢復已儲存的會話",
 	CmdModel:        "切換模型",
 	CmdMemory:       "檢視記憶檔案",
+	CmdMigrate:      "重試舊資料遷移",
 	CmdRemember:     "儲存一條記憶",
 	CmdForget:       "刪除一條已存記憶",
 	CmdMcp:          "MCP 伺服器",
@@ -335,7 +336,7 @@ var ChineseTraditional = Messages{
   echo "解釋這段程式碼" | reasonix run
 
 設定：
-  優先順序：flag > ./reasonix.toml > ~/.config/reasonix/config.toml > 內建預設值
+  優先順序：flag > ./reasonix.toml > ~/.reasonix/config.toml > 內建預設值
   金鑰透過 api_key_env 從環境變數注入（如 DEEPSEEK_API_KEY）。
   執行 'reasonix setup' 生成設定；詳見 docs/SPEC.md。
 `,

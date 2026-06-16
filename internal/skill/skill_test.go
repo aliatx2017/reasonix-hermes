@@ -156,6 +156,36 @@ func TestConventionDirsDiscovered(t *testing.T) {
 	}
 }
 
+func TestReasonixHomeDirOverridesGlobalReasonixSkills(t *testing.T) {
+	home := t.TempDir()
+	reasonixHome := filepath.Join(t.TempDir(), "rx-home")
+	writeSkill(t, home, ".reasonix/skills/old.md", "---\ndescription: old\n---\nold")
+	writeSkill(t, home, ".reasonix/skills/current.md", "---\ndescription: old current\n---\nold current")
+	currentPath := writeSkill(t, reasonixHome, "skills/current.md", "---\ndescription: current\n---\ncurrent")
+
+	st := New(Options{HomeDir: home, ReasonixHomeDir: reasonixHome, DisableBuiltins: true})
+	list := st.List()
+	current, ok := find(list, "current")
+	if !ok {
+		t.Fatal("Reasonix home skill should be discovered")
+	}
+	if current.Path != currentPath {
+		t.Fatalf("current skill path = %q, want Reasonix home path %q", current.Path, currentPath)
+	}
+	if _, ok := find(list, "old"); !ok {
+		t.Fatal("legacy ~/.reasonix skill should remain discoverable")
+	}
+
+	path, err := st.Create("created", ScopeGlobal)
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	want := filepath.Join(reasonixHome, SkillsDirname, "created", SkillFile)
+	if path != want {
+		t.Fatalf("created skill path = %q, want %q", path, want)
+	}
+}
+
 func TestNonSkillMarkdownInClaudeSkillRootsIgnored(t *testing.T) {
 	proj := t.TempDir()
 	writeSkill(t, proj, ".claude/skills/guide.md", "# Skill notes\n\nThis is documentation, not a skill.")

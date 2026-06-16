@@ -770,7 +770,8 @@ func ClearPluginAuthenticationInSource(name string) (PluginEntry, bool, string, 
 }
 
 func pluginTOMLSourcePath(name string) string {
-	for _, path := range []string{"reasonix.toml", userConfigPath()} {
+	paths := append([]string{"reasonix.toml"}, userConfigCandidatePaths()...)
+	for _, path := range paths {
 		if strings.TrimSpace(path) == "" {
 			continue
 		}
@@ -887,16 +888,27 @@ func renderScopeForPath(path string) RenderScope {
 
 func isUserConfigPath(path string) bool {
 	path = strings.TrimSpace(path)
-	uc := strings.TrimSpace(userConfigPath())
-	if path == "" || uc == "" {
+	if path == "" {
 		return false
 	}
-	pathAbs, pathErr := filepath.Abs(path)
-	ucAbs, ucErr := filepath.Abs(uc)
-	if pathErr == nil && ucErr == nil {
-		return filepath.Clean(pathAbs) == filepath.Clean(ucAbs)
+	for _, uc := range userConfigCandidatePaths() {
+		uc = strings.TrimSpace(uc)
+		if uc == "" {
+			continue
+		}
+		pathAbs, pathErr := filepath.Abs(path)
+		ucAbs, ucErr := filepath.Abs(uc)
+		if pathErr == nil && ucErr == nil {
+			if filepath.Clean(pathAbs) == filepath.Clean(ucAbs) {
+				return true
+			}
+			continue
+		}
+		if filepath.Clean(path) == filepath.Clean(uc) {
+			return true
+		}
 	}
-	return filepath.Clean(path) == filepath.Clean(uc)
+	return false
 }
 
 // Save writes the configuration back to the file it was loaded from

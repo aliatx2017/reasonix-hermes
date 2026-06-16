@@ -127,7 +127,6 @@ for (const selector of [
   ".context-panel__section-head span",
   ".context-panel__metric span",
   ".context-panel__metric strong",
-  ".context-panel__file-copy > span",
   ".topbar__model",
   ".composer-modebar__item span",
   ".composer-more-menu__item span",

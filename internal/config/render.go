@@ -55,6 +55,9 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 	} else {
 		b.WriteString("# language      = \"zh\"   # ui/model language; empty = auto-detect from $LANG / $REASONIX_LANG\n")
 	}
+	if scope != RenderScopeProject {
+		fmt.Fprintf(&b, "credentials_store = %q   # auto|keyring|file; auto prefers the OS keychain and falls back to ~/.reasonix/credentials\n", normalizeCredentialsStore(c.CredentialsStore))
+	}
 	b.WriteString("\n")
 
 	if c.ActiveProfile != "" {
@@ -387,7 +390,7 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 
 	b.WriteString("[sandbox]\n")
 	b.WriteString("# Confine tool blast radius. File-writers (write_file/edit_file/multi_edit/move_file)\n")
-	b.WriteString("# may only write under workspace_root (empty = current dir) + allow_write.\n")
+	b.WriteString("# may only write under workspace_root (empty = current dir) and allow_write extras.\n")
 	b.WriteString("# bash = \"enforce\" (default) jails each command in an OS sandbox (macOS now;\n")
 	b.WriteString("# graceful fallback elsewhere); \"off\" disables it. network allows egress.\n")
 	if c.Sandbox.WorkspaceRoot != "" {

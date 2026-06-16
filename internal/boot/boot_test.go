@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -1640,7 +1641,8 @@ func TestBuildMigratesLegacyConfigEndToEnd(t *testing.T) {
 	t.Setenv("USERPROFILE", home)                               // os.UserHomeDir on Windows
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config")) // os.UserConfigDir on Linux
 	t.Setenv("AppData", filepath.Join(home, "AppData"))         // os.UserConfigDir on Windows
-	t.Setenv("DEEPSEEK_API_KEY", "")                            // track for cleanup; migration os.Setenv's it live
+	t.Setenv("REASONIX_CREDENTIALS_STORE", "file")
+	t.Setenv("DEEPSEEK_API_KEY", "") // track for cleanup; migration os.Setenv's it live
 
 	proj := robustTempDir(t)
 	t.Chdir(proj)
@@ -1721,7 +1723,11 @@ func TestBuildMigratesLegacySessionsFromConfigSessionDir(t *testing.T) {
 	proj := robustTempDir(t)
 	writeFile(t, proj, "reasonix.toml", "")
 
-	legacyDir := config.SessionDir()
+	legacyConfig := config.LegacyUserConfigPath()
+	if legacyConfig == "" {
+		t.Skip("legacy OS config path matches primary path on this platform")
+	}
+	legacyDir := filepath.Join(filepath.Dir(legacyConfig), "sessions")
 	writeFile(t, legacyDir, "custom-root.events.jsonl",
 		`{"type":"user.message","id":1,"ts":"t","turn":0,"text":"hello from redirected config root"}`+"\n"+
 			`{"type":"model.final","id":2,"ts":"t","turn":0,"content":"hi from redirected root","toolCalls":[],"usage":{},"costUsd":0}`+"\n")
@@ -1765,6 +1771,57 @@ func TestBuildMigratesLegacySessionsFromConfigSessionDir(t *testing.T) {
 	}
 }
 
+func TestBuildMigratesLegacyXDGAndProjectSessions(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("legacy XDG paths are Unix-only")
+	}
+	home := robustTempDir(t)
+	xdg := filepath.Join(home, "xdg-config")
+	reasonixHome := filepath.Join(home, "rx-home")
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	t.Setenv("XDG_CONFIG_HOME", xdg)
+	t.Setenv("REASONIX_HOME", reasonixHome)
+
+	proj := robustTempDir(t)
+	writeFile(t, proj, "reasonix.toml", "[codegraph]\nenabled = false\n")
+
+	legacyRoot := filepath.Join(xdg, "reasonix")
+	writeFile(t, filepath.Join(legacyRoot, "sessions"), "xdg-flat.events.jsonl",
+		`{"type":"user.message","id":1,"ts":"t","turn":0,"text":"hello from xdg"}`+"\n"+
+			`{"type":"model.final","id":2,"ts":"t","turn":0,"content":"hi from xdg","toolCalls":[],"usage":{},"costUsd":0}`+"\n")
+
+	slug := config.WorkspaceSlug(proj)
+	legacyProjectDir := filepath.Join(legacyRoot, "projects", slug, "sessions")
+	session := agent.NewSession("")
+	session.Add(provider.Message{Role: provider.RoleUser, Content: "hello from old project session"})
+	if err := session.Save(filepath.Join(legacyProjectDir, "project-chat.jsonl")); err != nil {
+		t.Fatalf("save legacy project session: %v", err)
+	}
+
+	ctrl, err := Build(context.Background(), Options{WorkspaceRoot: proj})
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	defer ctrl.Close()
+
+	flatData, err := os.ReadFile(filepath.Join(config.SessionDir(), "xdg-flat.jsonl"))
+	if err != nil {
+		t.Fatalf("legacy XDG flat session not imported: %v", err)
+	}
+	if !strings.Contains(string(flatData), "hello from xdg") {
+		t.Fatalf("legacy XDG flat session missing content:\n%s", flatData)
+	}
+	projectPath := filepath.Join(config.MemoryUserDir(), "projects", slug, "sessions", "project-chat.jsonl")
+	projectData, err := os.ReadFile(projectPath)
+	if err != nil {
+		t.Fatalf("legacy project session not imported to %s: %v", projectPath, err)
+	}
+	if !strings.Contains(string(projectData), "hello from old project session") {
+		t.Fatalf("legacy project session missing content:\n%s", projectData)
+	}
+}
+
 // isolateConfigHome redirects os.UserConfigDir() (and the cache subtree under
 // it) at a per-test temp dir by overriding the env vars Go's stdlib reads —
 // HOME on darwin, XDG_CONFIG_HOME on linux. Without this, Build's plugin path
@@ -1776,6 +1833,7 @@ func isolateConfigHome(t *testing.T) string {
 	dir := robustTempDir(t)
 	t.Setenv("HOME", dir)
 	t.Setenv("XDG_CONFIG_HOME", dir)
+	t.Setenv("REASONIX_CREDENTIALS_STORE", "file")
 	return dir
 }
 

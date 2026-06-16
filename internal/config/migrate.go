@@ -77,18 +77,22 @@ func (r *MigrationResult) Notice() string {
 // modifies or deletes the legacy files. Returns nil when there is nothing to
 // migrate, or when the current user config already exists.
 func MigrateLegacyIfNeeded() (*MigrationResult, error) {
+	credErr := migrateLegacyCredentialsIfNeeded()
 	dest := userConfigPath()
 	if dest == "" {
-		return nil, nil
+		return nil, credErr
 	}
 	if _, err := os.Stat(dest); err == nil {
-		return nil, nil
+		return nil, credErr
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return nil, nil
+		return nil, credErr
 	}
 	if res, err := migrateLegacyTOMLIfNeeded(dest, home); res != nil || err != nil {
+		if err == nil {
+			err = credErr
+		}
 		return res, err
 	}
 	src := filepath.Join(home, ".reasonix", "config.json")
@@ -145,7 +149,44 @@ func MigrateLegacyIfNeeded() (*MigrationResult, error) {
 			return res, fmt.Errorf("write credentials: %w", err)
 		}
 	}
-	return res, nil
+	return res, credErr
+}
+
+func migrateLegacyCredentialsIfNeeded() error {
+	missing := map[string]string{}
+	for _, src := range legacyCredentialsPaths() {
+		if src == "" {
+			continue
+		}
+		data, err := os.ReadFile(src)
+		if err != nil {
+			continue
+		}
+		assignments := parseCredentialLines(strings.Split(string(data), "\n"))
+		for key, value := range assignments {
+			if _, exists := missing[key]; !exists && !credentialCurrentStoreHasKey(key) {
+				missing[key] = value
+			}
+		}
+	}
+	if len(missing) == 0 {
+		return nil
+	}
+	_, err := StoreCredentialLines(credentialLines(missing))
+	return err
+}
+
+func credentialLines(assignments map[string]string) []string {
+	keys := make([]string, 0, len(assignments))
+	for key := range assignments {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	lines := make([]string, 0, len(keys))
+	for _, key := range keys {
+		lines = append(lines, key+"="+assignments[key])
+	}
+	return lines
 }
 
 func migrateLegacyQQConfig(cfg *Config, legacy legacyQQConfig) {
@@ -213,9 +254,29 @@ func migrateLegacyTOMLIfNeeded(dest, home string) (*MigrationResult, error) {
 }
 
 func legacyTOMLPaths(dest, home string) []string {
-	paths := []string{filepath.Join(filepath.Dir(dest), "reasonix.toml")}
+	seen := map[string]bool{}
+	var paths []string
+	add := func(path string) {
+		if path == "" {
+			return
+		}
+		path = filepath.Clean(path)
+		if seen[path] {
+			return
+		}
+		seen[path] = true
+		paths = append(paths, path)
+	}
+	if legacy := legacyUserConfigPath(); legacy != "" {
+		add(legacy)
+	}
+	for _, legacy := range legacyXDGConfigPaths() {
+		add(legacy)
+		add(filepath.Join(filepath.Dir(legacy), "reasonix.toml"))
+	}
+	add(filepath.Join(filepath.Dir(dest), "reasonix.toml"))
 	if home != "" {
-		paths = append(paths, filepath.Join(home, ".reasonix", "reasonix.toml"))
+		add(filepath.Join(home, ".reasonix", "reasonix.toml"))
 	}
 	return paths
 }
@@ -321,52 +382,17 @@ func mergeEnv(base, overlay map[string]string) map[string]string {
 	return out
 }
 
-// writeCredentialsEnv merges lines into the reasonix-owned global credentials
-// file (UserCredentialsPath, e.g. %AppData%\reasonix\credentials), replacing any
-// existing assignment of the same key, and pins them into the current process env
-// so the just-built session resolves the key without a restart. Falls back to
-// ~/.env only when the user config dir can't be resolved — never a project .env,
-// so a migration keeps secrets out of the user's project tree.
+// writeCredentialsEnv merges lines into the configured global credential store
+// and pins them into the current process env so the just-built session resolves
+// the key without a restart. Falls back to ~/.env only when Reasonix home can't
+// be resolved — never a project .env, so a migration keeps secrets out of the
+// user's project tree.
 func writeCredentialsEnv(home string, lines []string) error {
-	path := UserCredentialsPath()
-	if path == "" {
-		path = filepath.Join(home, ".env")
-	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if _, err := StoreCredentialLines(lines); err != nil {
+		if UserCredentialsPath() == "" && home != "" {
+			return os.WriteFile(filepath.Join(home, ".env"), []byte(strings.Join(lines, "\n")+"\n"), 0o600)
+		}
 		return err
 	}
-	target := make(map[string]bool, len(lines))
-	for _, l := range lines {
-		if k, _, ok := strings.Cut(l, "="); ok {
-			target[strings.TrimSpace(k)] = true
-		}
-	}
-	var kept []string
-	if data, err := os.ReadFile(path); err == nil {
-		for _, raw := range strings.Split(string(data), "\n") {
-			check := strings.TrimPrefix(strings.TrimSpace(raw), "export ")
-			if k, _, ok := strings.Cut(check, "="); ok && target[strings.TrimSpace(k)] {
-				continue
-			}
-			kept = append(kept, raw)
-		}
-		if n := len(kept); n > 0 && kept[n-1] == "" {
-			kept = kept[:n-1]
-		}
-	} else if !os.IsNotExist(err) {
-		return err
-	}
-	var b strings.Builder
-	for _, l := range kept {
-		b.WriteString(l)
-		b.WriteByte('\n')
-	}
-	for _, l := range lines {
-		b.WriteString(l)
-		b.WriteByte('\n')
-		if k, v, ok := strings.Cut(l, "="); ok {
-			os.Setenv(strings.TrimSpace(k), v)
-		}
-	}
-	return os.WriteFile(path, []byte(b.String()), 0o600)
+	return nil
 }

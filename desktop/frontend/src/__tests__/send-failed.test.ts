@@ -37,6 +37,13 @@ eq(
   "optimistic user bubble preserves submit-only context",
 );
 
+const hiddenSubmit = reducer({ ...initialState }, { type: "user", text: "display prompt", submitText: "hidden context\ndisplay prompt", seq: 0 });
+eq(
+  hiddenSubmit.items[0].kind === "user" && hiddenSubmit.items[0].submitText,
+  "hidden context\ndisplay prompt",
+  "optimistic user bubble preserves submit-only context",
+);
+
 const confirmed = reducer(sent, { type: "event", e: { kind: "text", text: "hi" } as WireEvent });
 eq(confirmed.items.filter((it) => it.kind === "user").length, 1, "first backend event confirms without duplicating");
 eq(confirmed.pendingUser, undefined, "confirmation clears the pending marker");

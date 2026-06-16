@@ -4050,7 +4050,14 @@ func loadPinnedTabSession(dir, sessionPath string) (*agent.Session, string, bool
 	}
 	path, _, err := validateSessionPath(dir, sessionPath)
 	if err != nil {
-		return nil, "", false
+		base := filepath.Base(sessionPath)
+		if base == "." || base == string(filepath.Separator) || !strings.HasSuffix(base, ".jsonl") {
+			return nil, "", false
+		}
+		path, _, err = validateSessionPath(dir, filepath.Join(dir, base))
+		if err != nil {
+			return nil, "", false
+		}
 	}
 	loaded, err := agent.LoadSession(path)
 	if err != nil {

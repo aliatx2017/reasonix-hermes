@@ -69,6 +69,23 @@ eq(
   "@.reasonix/attachments/clipboard-20260610-121238.444775-000001.png",
   "formats raw attachment refs for edit replay submit",
 );
+eq(
+  restoreAttachmentRefsForSubmit("review @[DS30000.sl2](.reasonix/attachments/clipboard-20260610-121238.444775-000002.sl2), then @[park.png](.reasonix/attachments/clipboard-20260610-121238.444775-000001.png)"),
+  "review @.reasonix/attachments/clipboard-20260610-121238.444775-000002.sl2, then @.reasonix/attachments/clipboard-20260610-121238.444775-000001.png",
+  "restores named display refs for submit",
+);
+eq(
+  formatAttachmentRefForDisplay({ path: ".reasonix/attachments/clipboard-20260610-121238.444775-000001.png", name: "park.png", kind: "image", source: "attachment", ext: "PNG" }),
+  "@[park.png](.reasonix/attachments/clipboard-20260610-121238.444775-000001.png)",
+  "formats attachment display refs for edit replay",
+);
+eq(
+  formatAttachmentRefForSubmit({ path: ".reasonix/attachments/clipboard-20260610-121238.444775-000001.png" }),
+  "@.reasonix/attachments/clipboard-20260610-121238.444775-000001.png",
+  "formats raw attachment refs for edit replay submit",
+);
+eq(baseName("C:\\Users\\Abyss\\Desktop\\DS30000.sl2"), "DS30000.sl2", "extracts Windows path basenames");
+eq(baseName("/Users/abyss/Desktop/park.png"), "park.png", "extracts POSIX path basenames");
 
 console.log(`\n${passed} passed, ${failed} failed, ${passed + failed} total`);
 if (failed > 0) process.exit(1);

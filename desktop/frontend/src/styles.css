@@ -17259,7 +17259,7 @@ a[href] {
   opacity: 0;
   transform: translateY(-4px);
   pointer-events: none;
-  transition: grid-template-rows 0.2s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.16s ease, transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: opacity 0.16s ease, transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .project-tree__children--expanded {
@@ -17286,6 +17286,173 @@ a[href] {
 
 .project-tree__chevron--open {
   transform: rotate(90deg);
+}
+
+/* Project tree: icon stack holds chevron + folder icon at same position */
+.project-tree__icon-stack {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  position: relative;
+}
+.project-tree__icon-stack > .project-tree__folder-icon {
+  width: 14px;
+  height: 14px;
+  color: var(--fg-faint);
+}
+.project-tree__icon-stack > .project-tree__chevron {
+  position: absolute;
+  color: var(--fg-faint);
+}
+/* Override workbench width constraint on chevron */
+.sidebar--workbench .project-tree__icon-stack > .project-tree__chevron {
+  width: auto;
+  height: auto;
+}
+.project-tree__icon-stack > .project-tree__chevron > svg {
+  display: block;
+}
+/* Default: hide chevron, show folder icon */
+.project-tree__chevron--on-hover {
+  display: none;
+}
+/* Hover: show chevron, hide folder icon */
+:root[data-theme-style] .project-tree__folder-main:hover .project-tree__icon-stack--expandable .project-tree__chevron--on-hover,
+.project-tree__folder-main:hover .project-tree__icon-stack--expandable .project-tree__chevron--on-hover {
+  display: inline-flex;
+}
+:root[data-theme-style] .project-tree__folder-main:hover .project-tree__icon-stack--expandable > .project-tree__folder-icon,
+.project-tree__folder-main:hover .project-tree__icon-stack--expandable > .project-tree__folder-icon {
+  display: none;
+}
+/* Topic hover/active effect: full row width (remove left margin) */
+:root[data-theme-style] .sidebar--workbench .project-tree__topic {
+  margin-left: 0;
+}
+
+/* Project name de-emphasis: empty projects (no children) use lighter color */
+:root[data-theme-style] .project-tree__folder-label--empty {
+  color: var(--fg-faint);
+}
+:root[data-theme-style] .project-tree__folder-label:not(.project-tree__folder-label--empty) {
+  color: color-mix(in srgb, var(--fg-dim) 58%, var(--fg-faint) 42%);
+}
+:root[data-theme-style] .project-tree__topic-label {
+  color: var(--fg);
+  font-weight: 550;
+}
+
+/* Extra spacing after expanded project section */
+/* Extra spacing only after expanded project that actually has children */
+.project-tree__project-wrapper {
+  contain: layout;
+}
+.project-tree__project-wrapper:has(.project-tree__folder-main[aria-expanded="true"]):has(.project-tree__children) {
+  margin-bottom: 6px;
+}
+
+/* Weaken topic time display */
+:root[data-theme-style] .sidebar--workbench .project-tree__topic-side {
+  font-size: 11px;
+  color: color-mix(in srgb, var(--fg-faint) 72%, transparent);
+}
+:root[data-theme-style] .sidebar--workbench .project-tree__topic-side--empty {
+  visibility: hidden;
+}
+/* Ensure consistent topic height regardless of time/status presence */
+:root[data-theme-style] .sidebar--workbench .project-tree__topic {
+  min-height: 34px;
+  height: 34px;
+  box-sizing: border-box;
+}
+:root[data-theme-style] .sidebar--workbench .project-tree__topic-main {
+  min-height: 34px;
+  height: 34px;
+  box-sizing: border-box;
+}
+
+/* Sidebar: keep search & header fixed, only list scrolls */
+:root[data-theme-style] .sidebar--workbench .project-tree {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+:root[data-theme-style] .sidebar--workbench .project-tree__search,
+:root[data-theme-style] .sidebar--workbench .project-tree__header {
+  flex: 0 0 auto;
+}
+:root[data-theme-style] .sidebar--workbench .project-tree__list,
+:root[data-theme-style] .sidebar--workbench .project-tree__list--workbench {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* Folder: no active background, but very weak hover hint */
+:root[data-theme-style] .sidebar--workbench .project-tree__folder:hover {
+  background: color-mix(in srgb, var(--sidebar-hover) 60%, transparent);
+}
+:root[data-theme-style] .sidebar--workbench .project-tree__folder--active,
+:root[data-theme-style] .sidebar--workbench .project-tree__folder--menu-open,
+:root[data-theme-style] .sidebar--workbench .project-tree__folder--active:hover,
+:root[data-theme-style] .sidebar--workbench .project-tree__folder--menu-open:hover {
+  background: transparent;
+}
+
+/* Topic name left-aligned with project name */
+:root[data-theme-style] .sidebar--workbench .project-tree__topic-main {
+  padding-left: 30px !important;
+}
+
+/* Active topic: keep text style unchanged (no color/font-weight change) */
+:root[data-theme-style] .sidebar--workbench .project-tree__topic--active .project-tree__topic-label {
+  color: var(--fg);
+  font-weight: 550;
+}
+
+/* Topic action icons (pin, archive): clean, no background, no border */
+:root[data-theme-style] .sidebar--workbench .project-tree__topic-action {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+:root[data-theme-style] .sidebar--workbench .project-tree__topic-action:hover {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  transform: none;
+}
+
+/* Folder action icons: hidden by default, show on folder hover */
+:root[data-theme-style] .sidebar--workbench .project-tree__folder-action-slot {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-fast);
+}
+:root[data-theme-style] .sidebar--workbench .project-tree__folder:hover .project-tree__folder-action-slot,
+:root[data-theme-style] .sidebar--workbench .project-tree__folder:focus-within .project-tree__folder-action-slot,
+:root[data-theme-style] .sidebar--workbench .project-tree__folder-action-slot:focus-within {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Remove right-side slide animations on topic hover */
+:root[data-theme-style] .sidebar--workbench .project-tree__topic-actions {
+  transform: translateY(-50%) translateX(0);
+}
+:root[data-theme-style] .sidebar--workbench .project-tree__topic:hover .project-tree__topic-actions,
+:root[data-theme-style] .sidebar--workbench .project-tree__topic:focus-within .project-tree__topic-actions,
+:root[data-theme-style] .sidebar--workbench .project-tree__topic--menu-open .project-tree__topic-actions {
+  transform: translateY(-50%) translateX(0);
+}
+:root[data-theme-style] .sidebar--workbench .project-tree__topic:hover .project-tree__topic-side,
+:root[data-theme-style] .sidebar--workbench .project-tree__topic:focus-within .project-tree__topic-side,
+:root[data-theme-style] .sidebar--workbench .project-tree__topic--menu-open .project-tree__topic-side {
+  transform: translateX(0);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -17867,157 +18034,6 @@ a[href] {
 .context-panel__source-row em {
   color: var(--fg-muted);
   font-style: normal;
-}
-
-.context-panel__preview {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin: 0;
-}
-
-.context-panel__preview + .context-panel__preview {
-  margin-top: 6px;
-}
-
-.context-panel__preview-head {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-height: 28px;
-}
-
-.context-panel__preview-head h3 {
-  flex: 1;
-  margin: 0;
-  color: var(--fg);
-  font-size: 13px;
-  line-height: 1.2;
-  font-weight: 650;
-}
-
-.context-panel__preview-head > span {
-  flex: 0 0 auto;
-  color: var(--fg-faint);
-  font-size: 11.5px;
-  white-space: nowrap;
-}
-
-.context-panel__preview-head button {
-  flex: 0 0 auto;
-  border: none;
-  background: transparent;
-  color: var(--accent);
-  font: inherit;
-  font-size: 12px;
-}
-
-.context-panel__preview-head button:hover {
-  color: var(--fg);
-}
-
-.context-panel__empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 160px;
-  color: var(--fg-faint);
-  font-size: 13px;
-}
-
-.context-panel__file-list {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.context-panel__file-row {
-  min-height: var(--tree-row-height);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 4px 8px;
-  border-radius: var(--tree-row-radius);
-  background: transparent;
-  color: var(--fg-dim);
-  font-size: 12.5px;
-}
-
-.context-panel__file-row--button {
-  width: 100%;
-  border: 0;
-  appearance: none;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.context-panel__file-row--button:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-}
-
-.context-panel__file-row:hover {
-  background: var(--tree-row-hover-bg);
-  color: var(--fg);
-}
-
-.context-panel__file-list--compact .context-panel__file-row {
-  min-height: 34px;
-}
-
-.context-panel__file-main {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.context-panel__file-main svg {
-  flex: 0 0 auto;
-  color: var(--fg-faint);
-}
-
-.context-panel__file-copy {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.context-panel__file-copy > span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.context-panel__file-copy small {
-  color: var(--fg-faint);
-  font-size: 11px;
-  line-height: 1.1;
-}
-
-.context-panel__file-meta {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  color: var(--fg-faint);
-  font-size: 11.5px;
-  white-space: nowrap;
-}
-
-.context-panel__file-turn {
-  max-width: 76px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  padding: 2px 6px;
-  border-radius: 999px;
-  background: var(--bg);
-  color: var(--fg-dim);
 }
 
 /* ----------------------------------------------------------------------------
@@ -20852,22 +20868,14 @@ a[href] {
   background: var(--accent-soft);
 }
 
-:root[data-theme-style] .context-panel__file-turn {
-  border-color: var(--border);
-  background: var(--bg-soft);
-  color: var(--fg-dim);
-}
-
 :root[data-theme-style] .context-panel__usage,
 :root[data-theme-style] .context-panel__section,
-:root[data-theme-style] .context-panel__stats,
-:root[data-theme-style] .context-panel__preview {
+:root[data-theme-style] .context-panel__stats {
   animation: graphite-message-in var(--dur-slow) var(--ease-out) both;
 }
 
 :root[data-theme-style] .context-panel__metric,
-:root[data-theme-style] .context-panel__section,
-:root[data-theme-style] .context-panel__preview {
+:root[data-theme-style] .context-panel__section {
   border-color: var(--border);
   border-radius: 8px;
   background: var(--bg-elev);
@@ -20877,16 +20885,6 @@ a[href] {
 :root[data-theme-style] .context-panel__donut-core {
   background: var(--bg-elev);
   box-shadow: inset 0 0 0 1px var(--border);
-}
-
-:root[data-theme-style] .context-panel__file-row {
-  border-radius: 7px;
-  transition: background var(--dur-fast), color var(--dur-fast), transform var(--dur-fast) var(--ease-out);
-}
-
-:root[data-theme-style] .context-panel__file-row:hover {
-  background: var(--workspace-files-hover);
-  transform: translateX(2px);
 }
 
 :root[data-theme-style] .workspace-tree-resizer::after {

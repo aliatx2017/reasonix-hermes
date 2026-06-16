@@ -140,10 +140,6 @@ const RIGHT_DOCK_MIN_RENDER_WIDTH = 280;
 const RIGHT_DOCK_MAX_WIDTH = 860;
 
 type RightDockMode = "context" | "files" | "changed";
-type WorkspaceRevealRequest = { id: number; path: string };
-type WorkspaceFileListRequest = { id: number; paths: string[] };
-type WorkspaceChangeListEntry = { key: string; path: string; meta: string; time: string; detail: string };
-type WorkspaceChangeListRequest = { id: number; changes: WorkspaceChangeListEntry[] };
 const SHOW_CONTEXT_DOCK = true;
 type HistoryScopeFilter = { scope: "global" | "project"; workspaceRoot: string };
 type DesktopPlatform = "darwin" | "windows" | "linux";
@@ -893,10 +889,6 @@ export default function App() {
   const [workspacePanelResizing, setWorkspacePanelResizing] = useState(false);
   const [workspacePanelMaximized, setWorkspacePanelMaximized] = useState(false);
   const [rightDockMode, setRightDockMode] = useState<RightDockMode>("context");
-  const [workspaceRevealRequest, setWorkspaceRevealRequest] = useState<WorkspaceRevealRequest | null>(null);
-  const [workspaceChangeRevealRequest, setWorkspaceChangeRevealRequest] = useState<WorkspaceRevealRequest | null>(null);
-  const [workspaceFileListRequest, setWorkspaceFileListRequest] = useState<WorkspaceFileListRequest | null>(null);
-  const [workspaceChangeListRequest, setWorkspaceChangeListRequest] = useState<WorkspaceChangeListRequest | null>(null);
   const [dockRefreshKey, setDockRefreshKey] = useState(0);
   const [projectRevision, setProjectRevision] = useState(0);
   const [activeTopicTurns, setActiveTopicTurns] = useState<number | undefined>(undefined);
@@ -1821,86 +1813,9 @@ export default function App() {
     openWorkspacePanel("context");
   }, [closeWorkspacePanel, openWorkspacePanel, pulseWorkspaceToggle, workspacePanelRenderable]);
 
-  const clearWorkspaceRequests = useCallback(() => {
-    setWorkspaceRevealRequest(null);
-    setWorkspaceChangeRevealRequest(null);
-    setWorkspaceFileListRequest(null);
-    setWorkspaceChangeListRequest(null);
-  }, []);
-
-  useEffect(() => {
-    clearWorkspaceRequests();
-  }, [activeTabId, clearWorkspaceRequests]);
-
   const openRightDockMode = useCallback(
     (mode: RightDockMode) => {
-      clearWorkspaceRequests();
       openWorkspacePanel(mode);
-    },
-    [clearWorkspaceRequests, openWorkspacePanel],
-  );
-
-  const openRightDockFile = useCallback(
-    (path: string) => {
-      const nextPath = path.trim();
-      if (!nextPath) return;
-      setWorkspaceFileListRequest(null);
-      setWorkspaceChangeListRequest(null);
-      setWorkspaceChangeRevealRequest(null);
-      setWorkspaceRevealRequest((current) => ({ id: (current?.id ?? 0) + 1, path: nextPath }));
-      openWorkspacePanel("files");
-    },
-    [openWorkspacePanel],
-  );
-
-  const openRightDockFileList = useCallback(
-    (paths: string[]) => {
-      const normalized = Array.from(new Set(paths.map((path) => path.trim()).filter(Boolean)));
-      setWorkspaceRevealRequest(null);
-      setWorkspaceChangeRevealRequest(null);
-      setWorkspaceChangeListRequest(null);
-      setWorkspaceFileListRequest((current) =>
-        normalized.length > 0
-          ? { id: (current?.id ?? 0) + 1, paths: normalized }
-          : null,
-      );
-      openWorkspacePanel("files");
-    },
-    [openWorkspacePanel],
-  );
-
-  const openRightDockChangeFile = useCallback(
-    (path: string) => {
-      const nextPath = path.trim();
-      if (!nextPath) return;
-      setWorkspaceRevealRequest(null);
-      setWorkspaceFileListRequest(null);
-      setWorkspaceChangeListRequest(null);
-      setWorkspaceChangeRevealRequest((current) => ({ id: (current?.id ?? 0) + 1, path: nextPath }));
-      openWorkspacePanel("changed");
-    },
-    [openWorkspacePanel],
-  );
-
-  const openRightDockChangeList = useCallback(
-    (changes: WorkspaceChangeListEntry[]) => {
-      const seen = new Set<string>();
-      const normalized = changes
-        .map((change) => ({ ...change, path: change.path.trim() }))
-        .filter((change) => {
-          if (!change.path || seen.has(change.path)) return false;
-          seen.add(change.path);
-          return true;
-      });
-      setWorkspaceRevealRequest(null);
-      setWorkspaceChangeRevealRequest(null);
-      setWorkspaceFileListRequest(null);
-      setWorkspaceChangeListRequest((current) =>
-        normalized.length > 0
-          ? { id: (current?.id ?? 0) + 1, changes: normalized }
-          : null,
-      );
-      openWorkspacePanel("changed");
     },
     [openWorkspacePanel],
   );
@@ -1939,11 +1854,10 @@ export default function App() {
 
   const handleTabChange = useCallback(async (id: string) => {
     closeTransientOverlays();
-    clearWorkspaceRequests();
     const tabs = await switchTab(id);
     if (tabs) setTabMetas(tabs);
     setTabRevealSignal((signal) => signal + 1);
-  }, [clearWorkspaceRequests, closeTransientOverlays, switchTab]);
+  }, [closeTransientOverlays, switchTab]);
 
   const handleTabClose = useCallback(async (id: string) => {
     closeTransientOverlays();
@@ -2104,6 +2018,19 @@ export default function App() {
 
     setRewindSignal((v) => v + 1);
   }, [state.items, rewind, refreshTabMetas, setComposerInsertRequest]);
+
+  const handleEditPrompt = useCallback(async (turn: number, displayText: string, submitText?: string): Promise<boolean> => {
+    const sourceTabId = activeTabId;
+    if (!sourceTabId || activeTab?.readOnly || rewindStateRef.current || state.running || state.messageAction != null || state.approval != null || state.ask != null || clearContextPending) return false;
+    const next = displayText.trim();
+    if (!next) return false;
+    const submit = (submitText ?? displayText).trim();
+    const ok = await rewind(turn, "conversation");
+    if (!ok) return false;
+    setRewindSignal((v) => v + 1);
+    sendToTab(sourceTabId, next, submit);
+    return true;
+  }, [activeTab?.readOnly, activeTabId, clearContextPending, sendToTab, state.approval, state.ask, state.messageAction, state.running, rewind]);
 
   const handleEditPrompt = useCallback(async (turn: number, displayText: string, submitText?: string): Promise<boolean> => {
     const sourceTabId = activeTabId;
@@ -3077,11 +3004,6 @@ export default function App() {
                   sessionCurrency={state.sessionCurrency}
                   sessionGen={state.sessionGen}
                   refreshKey={dockRefreshKey}
-                  onOpenWorkspaceMode={openRightDockMode}
-                  onOpenWorkspaceFile={openRightDockFile}
-                  onOpenWorkspaceFileList={openRightDockFileList}
-                  onOpenWorkspaceChangeList={openRightDockChangeList}
-                  onOpenWorkspaceChangeFile={openRightDockChangeFile}
                 />
               ) : (
                 <WorkspacePanel
@@ -3100,10 +3022,6 @@ export default function App() {
                   onRequestPanelWidth={ensureWorkspacePanelWidth}
                   refreshKey={dockRefreshKey}
                   initialViewMode={rightDockMode === "changed" ? "changed" : "files"}
-                  revealPathRequest={workspaceRevealRequest}
-                  changeRevealRequest={workspaceChangeRevealRequest}
-                  fileListRequest={workspaceFileListRequest}
-                  changeListRequest={workspaceChangeListRequest}
                   showViewTabs={false}
                 />
               )}

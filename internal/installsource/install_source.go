@@ -61,6 +61,7 @@ type Options struct {
 type installSourceTool struct {
 	root         string
 	home         string
+	reasonixHome string
 	httpClient   *http.Client
 	connectMCP   MCPConnector
 	onDisconnect OnDisconnectFunc
@@ -86,6 +87,14 @@ func NewTool(opts Options) tool.Tool {
 			home = h
 		}
 	}
+	reasonixHome := ""
+	if opts.HomeDir != "" {
+		reasonixHome = filepath.Join(home, ".reasonix")
+	} else if dir := config.ReasonixHomeDir(); dir != "" {
+		reasonixHome = dir
+	} else if home != "" {
+		reasonixHome = filepath.Join(home, ".reasonix")
+	}
 	client := opts.HTTPClient
 	if client == nil {
 		client = &http.Client{}
@@ -97,6 +106,7 @@ func NewTool(opts Options) tool.Tool {
 	return &installSourceTool{
 		root:         root,
 		home:         home,
+		reasonixHome: reasonixHome,
 		httpClient:   client,
 		connectMCP:   opts.ConnectMCP,
 		onDisconnect: opts.OnDisconnect,
@@ -423,10 +433,10 @@ func (t *installSourceTool) resolveSkillPath(name, scope string) (string, bool) 
 	}
 	var root string
 	if scope == "global" {
-		if t.home == "" {
+		if t.reasonixHome == "" {
 			return "", false
 		}
-		root = filepath.Join(t.home, ".reasonix", skill.SkillsDirname)
+		root = filepath.Join(t.reasonixHome, skill.SkillsDirname)
 	} else {
 		root = filepath.Join(t.root, ".reasonix", skill.SkillsDirname)
 	}

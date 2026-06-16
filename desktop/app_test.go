@@ -56,8 +56,11 @@ func isolateDesktopUserDirs(t *testing.T) string {
 		}
 	}
 	t.Setenv("HOME", home)
+	t.Setenv("REASONIX_CREDENTIALS_STORE", "file")
 	t.Setenv("USERPROFILE", home)
 	t.Setenv("XDG_CONFIG_HOME", xdg)
+	t.Setenv("REASONIX_STATE_HOME", filepath.Join(home, "state"))
+	t.Setenv("REASONIX_CACHE_HOME", filepath.Join(home, "cache"))
 	t.Setenv("AppData", appData)
 	return home
 }

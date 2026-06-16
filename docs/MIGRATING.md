@@ -52,22 +52,35 @@ cd DeepSeek-Reasonix && make build                        # -> bin/reasonix(.exe
 
 | Legacy | Reasonix 1.0 |
 |---|---|
-| TS config files | `reasonix.toml` (project) / `config.toml` in your OS config dir (user; `~/.config/reasonix/` on Linux, `~/Library/Application Support/reasonix/` on macOS, `%AppData%\reasonix\` on Windows) — see `reasonix.example.toml` |
+| TS config files | `reasonix.toml` (project) / `config.toml` in Reasonix home (`~/.reasonix/` on macOS/Linux; `%AppData%\reasonix\` on Windows) from v1.8.1 — see `reasonix.example.toml` and [Configuration paths](./CONFIG_PATHS.md) |
 | env / API keys | `.env` or the environment (`DEEPSEEK_API_KEY`, `MIMO_API_KEY`, …) via `api_key_env` |
 | project memory | `REASONIX.md` (+ auto-memory), Claude-Code-compatible |
 | MCP servers | `[[plugins]]` in `reasonix.toml`, or a Claude-Code `.mcp.json` (read as-is) |
 
-On first launch v2 runs a one-time, **non-destructive** import: it reads a v0.x
-`~/.reasonix/config.json` (API key, base URL, language, MCP servers) and imports
-past sessions from `~/.reasonix/sessions` and legacy event logs already located
-in the current user config session directory, leaves the old files untouched, and
-prints a boot notice when it does. Each session lands in the workspace it
-belonged to (read from its v0.x sidecar meta, summary carried over as the title),
-so the desktop sidebar lists it under the right project; sessions whose workspace
-no longer exists land in the global session dir. Imported sessions resume with
-`--resume` or the history panel. The config import only runs when no v2 config exists yet — if v2
-wrote its config before your `0.x` data was in place nothing is overwritten, so
-copy any missing values across by hand.
+On first launch, v1.8.1+ runs a one-time, **non-destructive** import: it reads
+legacy config from `~/Library/Application Support/reasonix/config.toml`,
+`~/.config/reasonix/config.toml`, `~/.reasonix/reasonix.toml`, or v0.x
+`~/.reasonix/config.json` (API key, base URL, language, MCP servers), and imports
+past sessions from legacy session directories. Old files are left untouched, and
+Reasonix prints a boot notice when it imports data. Each session lands in the
+workspace it belonged to (read from its v0.x sidecar meta, summary carried over
+as the title), so the desktop sidebar lists it under the right project; sessions
+whose workspace no longer exists land in the global session dir. Imported
+sessions resume with `--resume` or the history panel. The config import only
+runs when no v1.8.1+ config exists yet — if v1.8.1+ wrote its config before your
+legacy data was in place nothing is overwritten, so copy any missing values
+across by hand.
+
+If the automatic pass missed data because you opened a v1.8.1+ CLI/desktop build
+before the old paths were available, run `/migrate` from an interactive session.
+The command is available only in Go-based Reasonix builds that include it; if you
+see `unknown command`, upgrade first. It prints progress while it checks legacy
+config and credentials, scans legacy memory and session directories, imports
+memory files and sessions that were not previously imported, and summarizes the
+result. `/migrate` keeps the same safety rules as startup migration: it does not
+overwrite an existing `config.toml` or memory file, it respects session import
+markers, and it is not available in the legacy 0.x TypeScript line. See
+[Configuration paths](./CONFIG_PATHS.md) for the full path list and limitations.
 
 ## What's the same
 

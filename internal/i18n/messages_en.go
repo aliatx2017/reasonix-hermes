@@ -103,7 +103,7 @@ var English = Messages{
 	SlashUnavailable:   "command unavailable in this build",
 	SlashUnknown:       "unknown command",
 	SlashTodoCleared:   "task list dismissed",
-	SlashHelp:          "commands: /compact · /new · /clear · /resume · /rewind · /tree · /branch · /switch · /todo · /verbose · /model (switch model) · /effort · /theme · /language · /mcp · /skills · /hooks · /paste-image · /memory · /goal · /remember · /quit · /help · plus skills (/init, /explore, …)",
+	SlashHelp:          "commands: /compact · /new · /clear · /resume · /rewind · /tree · /branch · /switch · /todo · /verbose · /model (switch model) · /effort · /theme · /language · /mcp · /skills · /hooks · /paste-image · /memory · /migrate · /goal · /remember · /quit · /help · plus skills (/init, /explore, …)",
 
 	SkillPickerTitle:             "Skills",
 	SkillPickerAvailableFmt:      "%d available",
@@ -171,6 +171,7 @@ var English = Messages{
 	CmdRename:       "rename a session",
 	CmdModel:        "switch model",
 	CmdMemory:       "show memory files",
+	CmdMigrate:      "retry legacy data migration",
 	CmdGoal:         "set or clear the active goal",
 	CmdRemember:     "save a memory note",
 	CmdForget:       "archive a saved memory",
@@ -387,7 +388,7 @@ Examples:
   echo "explain this code" | reasonix run
 
 Configuration:
-  Resolution: flag > ./reasonix.toml > ~/.config/reasonix/config.toml > built-in defaults
+  Resolution: flag > ./reasonix.toml > ~/.reasonix/config.toml > built-in defaults
   Secrets come from the environment via api_key_env (e.g. DEEPSEEK_API_KEY).
   Run 'reasonix setup' to scaffold a config; see docs/SPEC.md.
 `,

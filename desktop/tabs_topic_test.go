@@ -512,6 +512,25 @@ func TestBuildTabControllerRestoresPinnedSessionBeforeTopicFallback(t *testing.T
 	}
 }
 
+func TestLoadPinnedTabSessionFallsBackToMigratedBasename(t *testing.T) {
+	isolateDesktopUserDirs(t)
+
+	dir := config.SessionDir()
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("mkdir sessions: %v", err)
+	}
+	path := writeLegacySession(t, dir, "migrated-tab.jsonl", "resume after path migration", time.Now())
+	oldPath := filepath.Join(t.TempDir(), "old-reasonix", "projects", "slug", "sessions", filepath.Base(path))
+
+	loaded, pinnedPath, ok := loadPinnedTabSession(dir, oldPath)
+	if !ok || loaded == nil {
+		t.Fatalf("loadPinnedTabSession did not recover migrated basename: ok=%v loaded=%v path=%q", ok, loaded, pinnedPath)
+	}
+	if filepath.Clean(pinnedPath) != filepath.Clean(path) {
+		t.Fatalf("pinned path = %q, want %q", pinnedPath, path)
+	}
+}
+
 func TestBuildTabControllerKeepsMissingPinnedSessionPath(t *testing.T) {
 	isolateDesktopUserDirs(t)
 

@@ -25,6 +25,18 @@ type typedNilControllerSink struct{}
 
 func (*typedNilControllerSink) Emit(event.Event) {}
 
+func isolateControlConfigHome(t *testing.T) string {
+	t.Helper()
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("REASONIX_CREDENTIALS_STORE", "file")
+	t.Setenv("USERPROFILE", home)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+	t.Setenv("AppData", filepath.Join(home, "AppData"))
+	t.Chdir(t.TempDir())
+	return home
+}
+
 type appendingRunner struct {
 	session *agent.Session
 }
@@ -285,6 +297,7 @@ func TestDisconnectMCPServerRemovesLazyPlaceholder(t *testing.T) {
 }
 
 func TestRemoveMCPServerRemovesUnconnectedLazyPlaceholder(t *testing.T) {
+	isolateControlConfigHome(t)
 	dir := t.TempDir()
 	home := t.TempDir()
 	t.Setenv("HOME", home)

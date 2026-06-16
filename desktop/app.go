@@ -317,7 +317,7 @@ func (a *App) startup(ctx context.Context) {
 	a.startTray()
 
 	if cfg, err := config.Load(); err == nil && cfg.DesktopMetrics() && version != "dev" {
-		a.metrics.Store(newMetricsAggregator(filepath.Dir(config.UserConfigPath())))
+		a.metrics.Store(newMetricsAggregator(config.MemoryUserDir()))
 	}
 
 	go a.restoreOrBuildTabs()
@@ -3215,6 +3215,7 @@ func (a *App) Commands() []CommandInfo {
 		{Name: "provider", Description: i18n.M.CmdProvider, Kind: "builtin"},
 		{Name: "effort", Description: i18n.M.CmdEffort, Kind: "builtin"},
 		{Name: "memory", Description: i18n.M.CmdMemory, Kind: "builtin"},
+		{Name: "migrate", Description: i18n.M.CmdMigrate, Kind: "builtin"},
 		{Name: "goal", Description: i18n.M.CmdGoal, Kind: "builtin"},
 		{Name: "remember", Description: i18n.M.CmdRemember, Kind: "builtin"},
 		{Name: "mcp", Description: i18n.M.CmdMcp, Kind: "builtin"},
@@ -5573,7 +5574,7 @@ func (a *App) NeedsOnboarding() bool {
 }
 
 // ConnectKey validates apiKey against the balance endpoint, persists it to the
-// global credentials file, and rebuilds the controller so the new key takes effect.
+// global credential store, and rebuilds the controller so the new key takes effect.
 func (a *App) ConnectKey(apiKey string) error {
 	apiKey = strings.TrimSpace(apiKey)
 	if apiKey == "" {

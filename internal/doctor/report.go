@@ -108,14 +108,24 @@ func Collect(opts Options) Report {
 		}
 	}
 	cwd, _ := os.Getwd()
+	sourcePath := config.SourcePath()
+	userPath := config.UserConfigPath()
+	if legacyPath := config.LegacyUserConfigPath(); userPath != "" && legacyPath != "" {
+		if _, userErr := os.Stat(userPath); userErr == nil {
+			if _, legacyErr := os.Stat(legacyPath); legacyErr == nil {
+				warnings = append(warnings, "legacy user config exists at "+redactHome(legacyPath)+
+					" but is ignored because "+redactHome(userPath)+" exists")
+			}
+		}
+	}
 	report := Report{
 		Version: opts.Version,
 		OS:      runtime.GOOS,
 		Arch:    runtime.GOARCH,
 		CWD:     redactHome(cwd),
 		Config: ConfigReport{
-			SourcePath:   redactHome(config.SourcePath()),
-			UserPath:     redactHome(config.UserConfigPath()),
+			SourcePath:   redactHome(sourcePath),
+			UserPath:     redactHome(userPath),
 			DefaultModel: cfg.DefaultModel,
 		},
 		LSP: LSPReport{

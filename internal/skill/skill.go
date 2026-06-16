@@ -72,8 +72,11 @@ func IsValidName(name string) bool { return config.IsValidSkillName(name) }
 
 // Options configure a Store. ProjectRoot "" reads only the global + custom
 // scopes. HomeDir "" resolves to the OS home dir (tests point it at a tmpdir).
+// ReasonixHomeDir overrides the canonical Reasonix home; empty uses
+// config.ReasonixHomeDir(), or HomeDir/.reasonix when HomeDir is explicitly set.
 type Options struct {
 	HomeDir         string
+	ReasonixHomeDir string
 	ProjectRoot     string
 	CustomPaths     []string
 	ExcludedPaths   []string
@@ -89,6 +92,7 @@ type Options struct {
 // Store resolves skills across the configured roots.
 type Store struct {
 	homeDir         string
+	reasonixHomeDir string
 	projectRoot     string
 	customPaths     []string
 	excludedPaths   map[string]bool
@@ -105,6 +109,14 @@ func New(opts Options) *Store {
 	if home == "" {
 		if h, err := os.UserHomeDir(); err == nil {
 			home = h
+		}
+	}
+	reasonixHome := opts.ReasonixHomeDir
+	if reasonixHome == "" {
+		if opts.HomeDir != "" {
+			reasonixHome = filepath.Join(home, ".reasonix")
+		} else {
+			reasonixHome = config.ReasonixHomeDir()
 		}
 	}
 	root := opts.ProjectRoot
@@ -130,6 +142,7 @@ func New(opts Options) *Store {
 	}
 	return &Store{
 		homeDir:         home,
+		reasonixHomeDir: reasonixHome,
 		projectRoot:     root,
 		customPaths:     custom,
 		excludedPaths:   excluded,
@@ -168,8 +181,8 @@ type discoveryRoot struct {
 
 // roots returns the discovery directories, highest priority first: the
 // convention dirs (config.ConventionDirs: .reasonix / .agents / .agent / .claude)
-// under the project root → custom paths → the same convention dirs under the home
-// dir. A later root never overrides an earlier one.
+// under the project root → custom paths → the Reasonix home skills dir → other
+// home-dir convention dirs. A later root never overrides an earlier one.
 func (s *Store) roots() []discoveryRoot {
 	type de struct {
 		dir               string
@@ -185,8 +198,15 @@ func (s *Store) roots() []discoveryRoot {
 	for _, d := range s.customPaths {
 		dirs = append(dirs, de{d, ScopeCustom, false})
 	}
+	if s.reasonixHomeDir != "" {
+		dirs = append(dirs, de{filepath.Join(s.reasonixHomeDir, SkillsDirname), ScopeGlobal, false})
+	}
 	for _, c := range config.ConventionDirs {
-		dirs = append(dirs, de{filepath.Join(s.homeDir, c, SkillsDirname), ScopeGlobal, c == ".claude"})
+		dir := filepath.Join(s.homeDir, c, SkillsDirname)
+		if s.reasonixHomeDir != "" && config.CanonicalSkillPath(filepath.Dir(dir)) == config.CanonicalSkillPath(s.reasonixHomeDir) {
+			continue
+		}
+		dirs = append(dirs, de{dir, ScopeGlobal, c == ".claude"})
 	}
 	out := make([]discoveryRoot, 0, len(dirs))
 	for _, d := range dirs {
@@ -551,7 +571,7 @@ func (s *Store) CreateWithContent(name string, scope Scope, content string) (str
 		}
 		root = filepath.Join(s.projectRoot, ".reasonix", SkillsDirname)
 	default:
-		root = filepath.Join(s.homeDir, ".reasonix", SkillsDirname)
+		root = s.globalSkillsRoot()
 	}
 	flat := filepath.Join(root, name+".md")
 	folder := filepath.Join(root, name, SkillFile)
@@ -577,6 +597,13 @@ func (s *Store) CreateWithContent(name string, scope Scope, content string) (str
 		return "", err
 	}
 	return folder, nil
+}
+
+func (s *Store) globalSkillsRoot() string {
+	if s.reasonixHomeDir != "" {
+		return filepath.Join(s.reasonixHomeDir, SkillsDirname)
+	}
+	return filepath.Join(s.homeDir, ".reasonix", SkillsDirname)
 }
 
 // loadBodyWithReferences appends a directory-layout skill's sibling

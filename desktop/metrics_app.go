@@ -221,7 +221,7 @@ func (a *App) flushMetrics() {
 	if err != nil || !cfg.DesktopMetrics() {
 		return
 	}
-	path := filepath.Join(filepath.Dir(config.UserConfigPath()), metricsPendingFile)
+	path := filepath.Join(config.MemoryUserDir(), metricsPendingFile)
 	temp := path + ".sending"
 	if os.Rename(path, temp) != nil {
 		return // nothing pending

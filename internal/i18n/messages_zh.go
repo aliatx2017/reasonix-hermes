@@ -104,7 +104,7 @@ var Chinese = Messages{
 	SlashUnavailable:   "当前构建不支持该命令",
 	SlashUnknown:       "未知命令",
 	SlashTodoCleared:   "已清除任务清单",
-	SlashHelp:          "命令：/compact · /new · /clear · /resume · /rewind · /tree · /branch · /switch · /todo · /verbose · /model（切换模型）· /effort · /theme · /language · /mcp · /skills · /hooks · /paste-image · /memory · /goal · /remember · /quit · /help · 以及 skills（/init、/explore …）",
+	SlashHelp:          "命令：/compact · /new · /clear · /resume · /rewind · /tree · /branch · /switch · /todo · /verbose · /model（切换模型）· /effort · /theme · /language · /mcp · /skills · /hooks · /paste-image · /memory · /migrate · /goal · /remember · /quit · /help · 以及 skills（/init、/explore …）",
 
 	SkillPickerTitle:             "Skills",
 	SkillPickerAvailableFmt:      "%d 个可用",
@@ -172,6 +172,7 @@ var Chinese = Messages{
 	CmdRename:       "重命名会话",
 	CmdModel:        "切换模型",
 	CmdMemory:       "查看记忆文件",
+	CmdMigrate:      "重试旧数据迁移",
 	CmdGoal:         "设置或清除当前目标",
 	CmdRemember:     "保存一条记忆",
 	CmdForget:       "归档一条已存记忆",
@@ -388,7 +389,7 @@ var Chinese = Messages{
   echo "解释这段代码" | reasonix run
 
 配置：
-  优先级：flag > ./reasonix.toml > ~/.config/reasonix/config.toml > 内置默认值
+  优先级：flag > ./reasonix.toml > ~/.reasonix/config.toml > 内置默认值
   密钥通过 api_key_env 从环境变量注入（如 DEEPSEEK_API_KEY）。
   运行 'reasonix setup' 生成配置；详见 docs/SPEC.md。
 `,

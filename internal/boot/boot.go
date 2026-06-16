@@ -33,6 +33,7 @@ import (
 	"reasonix/internal/lsp"
 	"reasonix/internal/memory"
 	"reasonix/internal/mesh"
+	"reasonix/internal/migration"
 	"reasonix/internal/netclient"
 	"reasonix/internal/outputstyle"
 	"reasonix/internal/permission"
@@ -157,7 +158,8 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	} else if migrated != nil {
 		sink.Emit(event.Event{Kind: event.Notice, Level: event.LevelInfo, Text: migrated.Notice()})
 	}
-	migrateLegacySessionSources(sink)
+	migration.MigrateLegacyMemorySources(sink)
+	migration.MigrateLegacySessionSources(sink)
 
 	// A resolvable model whose API key env is unset would otherwise build fine
 	// (RequireKey is false so the UI stays reachable) and then fail silently on the
@@ -866,49 +868,6 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	}
 
 	return ctrl, nil
-}
-
-func migrateLegacySessionSources(sink event.Sink) {
-	dest := config.SessionDir()
-	if strings.TrimSpace(dest) == "" {
-		return
-	}
-	type legacySource struct {
-		dir     string
-		label   string
-		migrate func(srcDir, globalDest string, projectDir func(string) string) (int, error)
-	}
-	var sources []legacySource
-	if home, herr := os.UserHomeDir(); herr == nil {
-		sources = append(sources, legacySource{
-			dir:     filepath.Join(home, ".reasonix", "sessions"),
-			label:   "~/.reasonix/sessions",
-			migrate: agent.MigrateLegacySessions,
-		})
-	}
-	// Back-fill v0.x sessions from the current user config session directory as
-	// well. This covers users whose platform config root was redirected before the
-	// Go rewrite; their event logs can already live where v2 stores sessions.
-	sources = append(sources, legacySource{
-		dir:     dest,
-		label:   dest,
-		migrate: agent.MigrateLegacySessionsFromConfigDir,
-	})
-
-	seen := map[string]bool{}
-	for _, src := range sources {
-		if strings.TrimSpace(src.dir) == "" {
-			continue
-		}
-		key := filepath.Clean(src.dir)
-		if seen[key] {
-			continue
-		}
-		seen[key] = true
-		if n, serr := src.migrate(src.dir, dest, config.ProjectSessionDir); serr == nil && n > 0 {
-			sink.Emit(event.Event{Kind: event.Notice, Level: event.LevelInfo, Text: fmt.Sprintf("imported %d past session(s) from %s — resume them with --resume or the history panel", n, src.label)})
-		}
-	}
 }
 
 func rememberPermissionRule(workspaceRoot, rule string) control.RememberResult {

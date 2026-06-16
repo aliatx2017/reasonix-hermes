@@ -120,11 +120,37 @@ reasonix-memoryserver --backend sqlite --http --port 8080
 # 运行 Discord/Telegram bot
 export DISCORD_BOT_TOKEN="你的token"
 reasonix-bot
+export DEEPSEEK_API_KEY=sk-...      # 也可以让 setup 保存到凭据存储
+reasonix chat                       # 然后在会话里运行 /init 生成 AGENTS.md（项目记忆）
+reasonix run "把 main.go 里的 TODO 实现掉"
+reasonix run --model mimo-pro "给这个函数补单元测试"
+echo "解释这段代码" | reasonix run
 ```
 
 > 如果从源码构建，请将上方的 `reasonix` 替换为 `./bin/reasonix`。
 
 <br/>
+一个最小的 `reasonix.toml`——一个 provider 加一个默认模型——就够跑起来:
+
+```toml
+default_model = "deepseek-flash"
+
+[[providers]]
+name        = "deepseek-flash"
+kind        = "openai"
+base_url    = "https://api.deepseek.com"
+model       = "deepseek-v4-flash"
+api_key_env = "DEEPSEEK_API_KEY"
+```
+
+优先级为 **flag > `./reasonix.toml` > 用户配置文件 > 内置默认值**；从
+**Reasonix v1.8.1** 开始，用户配置位于 macOS/Linux 的 `~/.reasonix/config.toml`，
+Windows 为 `%AppData%\reasonix\config.toml`。迁移细节见
+**[配置路径](./docs/CONFIG_PATHS.zh-CN.md)**。
+密钥经环境变量通过 `api_key_env` 注入，绝不写入配置文件；新密钥默认优先保存到系统凭据存储，
+不可用时才 fallback 到 Reasonix 管理的凭据文件。项目 `.env` 只作为兼容覆盖读取，
+Reasonix 不会把新密钥写入项目 `.env`。权限、沙盒、插件(MCP)、
+斜杠命令、`@` 引用与双模型设置,全部在 **[指南](./docs/GUIDE.zh-CN.md)** 里。
 
 ## 文档
 

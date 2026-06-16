@@ -133,7 +133,7 @@ func Run(args []string, version string) int {
 
 func shouldMigrateLegacyConfigForCLI(cmd string) bool {
 	switch cmd {
-	case "", "run", "chat", "code", "serve", "setup", "config", "init", "acp", "mcp", "codegraph", "doctor", "bot", "models", "marketplace", "eval", "upgrade", "update", "install-source":
+	case "", "run", "chat", "code", "serve", "setup", "config", "init", "acp", "mcp", "doctor", "bot", "upgrade", "update":
 		return true
 	default:
 		return false
@@ -597,9 +597,10 @@ func reserveNativeScrollbackFrame(w io.Writer, rows int) {
 	}
 }
 
-// setupTargets is where the wizard writes: the TOML config and the secrets file.
-// Keys always go to the reasonix-owned global credentials file so they never land
-// in a project's own .env; only the config location is project-local under --local.
+// setupTargets is where the wizard writes: the TOML config and the credential
+// store. Keys always go to the reasonix-owned global credential store so they
+// never land in a project's own .env; only the config location is project-local
+// under --local.
 type setupTargets struct {
 	config string
 	env    string
@@ -614,13 +615,10 @@ func defaultConfigTarget() string {
 	return "reasonix.toml"
 }
 
-// defaultEnvTarget is the reasonix-owned global credentials file, falling back to
-// a project-local .env only when the user config dir can't be resolved.
+// defaultEnvTarget is the display target for the reasonix-owned global
+// credential store.
 func defaultEnvTarget() string {
-	if p := config.UserCredentialsPath(); p != "" {
-		return p
-	}
-	return ".env"
+	return config.CredentialsTargetDescription()
 }
 
 // resolveSetupTargets picks where `reasonix setup` writes. Keys always go to the
@@ -649,7 +647,8 @@ func displayPath(p string) string {
 
 // setupConfig runs the configuration wizard (the `reasonix setup` command),
 // writing config.toml to the user-global dir (or ./reasonix.toml under --local)
-// and API keys to the reasonix-owned global .env — never a project's own .env.
+// and API keys to the reasonix-owned global credential store — never a project's
+// own .env.
 // Project memory is a separate concern — the in-session `/init` skill generates
 // AGENTS.md (see initHint).
 func setupConfig(args []string) int {
@@ -705,8 +704,8 @@ func initHint() int {
 }
 
 // interactiveSetup runs the setup wizard, then writes the config to configPath
-// and any entered API keys to envPath (the reasonix-owned global .env, never a
-// project's own). The wizard is intentionally minimal: pick language, pick
+// and any entered API keys to the configured global credential store. The wizard
+// is intentionally minimal: pick language, pick
 // provider, enter API keys. Language is asked first so every subsequent prompt
 // is already in the user's language even when env auto-detection got it wrong.
 // Two-model collaboration is left as a manual config edit (planner_model) so
@@ -763,11 +762,15 @@ func interactiveSetup(configPath, envPath string) int {
 	fmt.Printf("\n%s %s\n", green("✓"), fmt.Sprintf(i18n.M.WroteFileFmt, displayPath(configPath)))
 
 	if len(envLines) > 0 {
-		if err := appendEnv(envPath, envLines); err != nil {
+		target, err := config.StoreCredentialLines(envLines)
+		if err != nil {
 			fmt.Fprintln(os.Stderr, i18n.M.WriteEnvErr, err)
 			return 1
 		}
-		fmt.Printf("%s %s\n", green("✓"), fmt.Sprintf(i18n.M.WroteFileFmt, displayPath(envPath)))
+		if target == "" {
+			target = envPath
+		}
+		fmt.Printf("%s %s\n", green("✓"), fmt.Sprintf(i18n.M.WroteFileFmt, displayPath(target)))
 	}
 
 	fmt.Printf("\n%s %s\n", accent("◆"), i18n.M.SetupComplete)
@@ -945,8 +948,9 @@ func familyStaticModels(providers []config.ProviderEntry, idxs []int) []string {
 
 // ensureProbeKey prompts once for the family's API key when it isn't already in
 // the environment, so the /models probe can run and return the live SKU list.
-// The value is set in the env for the probe; configureKeys persists it to .env
-// later and skips re-asking. A blank entry is fine — the static fallback covers it.
+// The value is set in the env for the probe; configureKeys returns the same key
+// for the credential store later and skips re-asking. A blank entry is fine —
+// the static fallback covers it.
 func ensureProbeKey(probe *config.ProviderEntry, famName string) {
 	if probe.APIKeyEnv == "" || os.Getenv(probe.APIKeyEnv) != "" {
 		return
@@ -1182,7 +1186,7 @@ func promptCustomProviderManual() ([]config.ProviderEntry, error) {
 // Pre-filled values (baseURL, keyEnv, apiKey) are reused as-is when non-empty
 // so the URL-fetch flow can fall through to manual entry without re-asking
 // the user for information they've already typed. An empty apiKey is allowed
-// — the key step happens later in the wizard and .env is updated then.
+// — the key step happens later in the wizard and the credential store is updated then.
 func promptCustomProviderManualWith(in *bufio.Scanner, baseURL, keyEnv, apiKey string) ([]config.ProviderEntry, error) {
 	fmt.Println()
 	if baseURL == "" {
@@ -1413,8 +1417,8 @@ func withBuiltinFamiliesForLanguage(providers []config.ProviderEntry, pricingLan
 
 // promptMissingKeys re-runs the wizard's key-entry step for model refs that are
 // actually active and whose api_key_env is unset. Newly entered values are
-// appended to the reasonix-owned global .env so the chat session that follows
-// picks them up via config.Load. The user can hit Enter to skip — the chat
+// written to the reasonix-owned global credential store so the chat session that
+// follows picks them up via config.Load. The user can hit Enter to skip — the chat
 // banner falls back to a one-line warning so they still see what's missing.
 // Returns a non-zero exit code only when writing the env file fails.
 func promptMissingKeys(cfg *config.Config) int {
@@ -1428,12 +1432,12 @@ func promptMissingKeys(cfg *config.Config) int {
 	if len(envLines) == 0 {
 		return 0
 	}
-	envPath := defaultEnvTarget()
-	if err := appendEnv(envPath, envLines); err != nil {
+	target, err := config.StoreCredentialLines(envLines)
+	if err != nil {
 		fmt.Fprintln(os.Stderr, i18n.M.WriteEnvErr, err)
 		return 1
 	}
-	fmt.Printf("%s %s\n", green("✓"), fmt.Sprintf(i18n.M.WroteFileFmt, displayPath(envPath)))
+	fmt.Printf("%s %s\n", green("✓"), fmt.Sprintf(i18n.M.WroteFileFmt, displayPath(target)))
 	return 0
 }
 
@@ -1487,8 +1491,8 @@ func providersWithMissingKeys(cfg *config.Config) []config.ProviderEntry {
 // environment. For every distinct api_key_env: if the variable is already set,
 // setup asks whether to re-enter it; Enter keeps and re-pins the existing value.
 // Otherwise the user is asked once per env var (deduped across providers that
-// share one, e.g. both DeepSeek models). Returns KEY=value lines to append to
-// .env. Re-pinning matters because loadDotEnv is first-wins, so a stale key left
+// share one, e.g. both DeepSeek models). Returns KEY=value lines for the
+// configured credential store. Re-pinning matters because loadDotEnv is first-wins, so a stale key left
 // earlier in the credentials file would otherwise keep shadowing the fresh value.
 func configureKeys(selected []config.ProviderEntry, r io.Reader, w io.Writer) []string {
 	in := bufio.NewScanner(r)
@@ -1633,8 +1637,8 @@ func welcome(version string) int {
 		if rc := interactiveSetup(defaultConfigTarget(), defaultEnvTarget()); rc != 0 {
 			return rc
 		}
-		// Config just written; reload so .env (and any pinned language) is
-		// picked up. If the chosen provider's key is ready, drop into chat.
+		// Config just written; reload so the credential store (and any pinned
+		// language) is picked up. If the chosen provider's key is ready, drop into chat.
 		if cfg, err := config.Load(); err == nil && cfg.Validate(cfg.DefaultModel) == nil {
 			if cfg.Language != "" {
 				i18n.DetectLanguage(cfg.Language)

@@ -1316,7 +1316,7 @@ export const zhTW: Record<DictKey, string> = {
   "settings.botInstallStepPick": "選擇",
   "settings.botInstallStepScan": "授權",
   "settings.botInstallStepDone": "完成",
-  "settings.botInstallManualQQ": "填寫 App ID 和 App Secret；金鑰只會儲存到本機 credentials。",
+  "settings.botInstallManualQQ": "填寫 App ID 和 App Secret；金鑰只會儲存到本機憑據儲存。",
   "settings.botInstallQQHint": "官方 Bot API，先手動配置。",
   "settings.botInstallFeishuHint": "掃碼建立飛書 PersonalAgent。",
   "settings.botInstallLarkHint": "掃碼建立 Lark PersonalAgent。",

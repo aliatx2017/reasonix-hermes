@@ -1,7 +1,6 @@
-// ContextPanel shows the active tab's context gauge, token usage, read files,
-// and workspace changes. All visible text is routed through the i18n dictionary.
+// ContextPanel shows the active tab's context gauge and token usage.
+// All visible text is routed through the i18n dictionary.
 import { useCallback, useEffect, useRef, useState } from "react";
-import { FileText } from "lucide-react";
 import { asArray } from "../lib/array";
 import { app } from "../lib/bridge";
 import { useI18n, type Translator } from "../lib/i18n";
@@ -55,8 +54,6 @@ interface HealthResult {
   shortKey: DictKey;
   vars: Record<string, string | number>;
 }
-
-type ContextFileRow = { key: string; path: string; meta: string; time: string; detail: string };
 
 export function contextCostDisplay({
   info,
@@ -239,11 +236,6 @@ export function ContextPanel({
   sessionCurrency,
   sessionGen,
   refreshKey,
-  onOpenWorkspaceMode,
-  onOpenWorkspaceFile,
-  onOpenWorkspaceFileList,
-  onOpenWorkspaceChangeList,
-  onOpenWorkspaceChangeFile,
 }: ContextPanelProps) {
   const { locale, t } = useI18n();
   const [info, setInfo] = useState<ContextPanelInfo | null>(null);
@@ -349,6 +341,8 @@ export function ContextPanel({
     detail: asArray(f.turns).length > 0 ? `T${asArray(f.turns).join(',')}` : '',
   }));
   const health = contextHealth(usagePct, Math.round(cachePct), readRows.length);
+  const requestCount = info?.requestCount && info.requestCount > 0 ? info.requestCount : derivedRequestCount;
+  const health = contextHealth(usagePct, Math.round(cachePct), readFiles.length);
 
   return (
     <div className="context-panel">

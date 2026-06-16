@@ -31,6 +31,7 @@ import (
 	"reasonix/internal/hook"
 	"reasonix/internal/i18n"
 	"reasonix/internal/memory"
+	"reasonix/internal/migration"
 	"reasonix/internal/outputstyle"
 	"reasonix/internal/permission"
 	"reasonix/internal/plugin"
@@ -3827,6 +3828,13 @@ func (m *chatTUI) runSlashCommand(input string) tea.Cmd {
 	case "/learn":
 		m.echoLocalCommand(input)
 		m.notice("learner integration pending — set [learn].enabled = true in reasonix.toml to enable pattern detection")
+	case "/migrate", "/migration":
+		m.echoLocalCommand(input)
+		migration.RunLegacyRescue(event.FuncSink(func(e event.Event) {
+			if e.Kind == event.Notice {
+				m.notice(e.Text)
+			}
+		}))
 	case "/goal":
 		return m.runGoalSubcommand(input)
 	case "/remember":

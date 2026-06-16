@@ -1016,6 +1016,27 @@ func TestFetchTextAppliesTimeoutAndUA(t *testing.T) {
 	}
 }
 
+func TestGlobalSkillInstallRootUsesReasonixHome(t *testing.T) {
+	home := t.TempDir()
+	reasonixHome := filepath.Join(t.TempDir(), "rx-home")
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	t.Setenv("REASONIX_HOME", reasonixHome)
+	oldUserHomeDir := userHomeDir
+	userHomeDir = func() (string, error) { return home, nil }
+	t.Cleanup(func() { userHomeDir = oldUserHomeDir })
+
+	tl := NewTool(Options{ProjectRoot: t.TempDir()}).(*installSourceTool)
+	root, err := tl.skillInstallRoot("global")
+	if err != nil {
+		t.Fatalf("skillInstallRoot: %v", err)
+	}
+	want := filepath.Join(reasonixHome, skill.SkillsDirname)
+	if root != want {
+		t.Fatalf("global skill root = %q, want %q", root, want)
+	}
+}
+
 func TestFetchTextAuthMapsToErrAuthRequired(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
