@@ -137,7 +137,7 @@ skills-hub/            17-skill community registry + static catalog site
 ## Notes
 
 - Upstream remote: `https://github.com/esengine/deepseek-reasonix.git` (branch `main-v2`)
-- **Upstream target**: v1.8.x (July 2026) — ✅ synced (8ab6d3b). 147 commits merged across 3 syncs.
+- **Upstream target**: v1.8.x (July 2026) — ✅ synced (bcd310d). 158 commits merged across 4 syncs.
 - Our fork: `https://github.com/aliatx2017/reasonix-hermes.git` (branch `main`)
 - To pull upstream updates: `git fetch upstream && git merge upstream/main-v2`
 - `reasonix.toml` is gitignored (upstream convention) — never commit secrets
@@ -163,7 +163,7 @@ skills-hub/            17-skill community registry + static catalog site
   - **LAN skills**: 4 project skills (`searxng-local`, `crawl4ai-local`, `google-maps-scraper`, `last30days`) for local network services at 192.168.1.214.
   - **Total**: 30+ files changed, 3 new Go packages, 4 new React components, 80+ tests. All binaries rebuilt. Upstream synced to ed07684.
 - **2026-07-14 session (h6)** (banner + version + savings stats):
-  - **Dynamic version**: `BuildVersion` from ldflags, defaults to v1.8.0 via `git describe --tags --match 'v*'`.
+  - **Dynamic version**: `resolveVersion()` in `style.go` — uses ldflags first, then `git describe --tags --match 'v*'`, falls back to `"v1.8.0"` only as last resort. Pinned banner shows live git tag in dev builds.
   - **Diamond Wing logo**: `◆` replaces `⚚` caduceus in pinned header + session banner, gold accent preserved.
   - **Savings stats in status bar**: `aux↓N` (tokens saved via auxiliary providers) + `sqz↓N` (bytes saved by compressor). Atomic counters in compressor, exposed through agent → controller → TUI.
   - **Total**: 6 files changed, +91/-12 lines. Committed f0ba51b.

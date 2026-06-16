@@ -122,7 +122,7 @@ reasonix/
 ```
 
 [Hermes] = Reasonix-Hermes custom additions (not present in upstream esengine/deepseek-reasonix).
-Total: 58 internal packages (43 core + 15 Hermes).
+Total: 55 internal packages.
 
 Dependency direction (acyclic): `cli → {agent, plugin, config} → {tool, provider}`.
 Built-in subpackages (`provider/openai`, `tool/builtin`) import their parent to

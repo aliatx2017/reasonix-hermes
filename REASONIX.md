@@ -36,7 +36,7 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 ## Notes
 
-- **Upstream synced**: `v1.8.x` (commit 8ab6d3b, 2026-07-15). 71 new commits merged (model switcher, math rendering, desktop fixes). Previous tag: desktop-v1.8.1.
+- **Upstream synced**: `v1.8.x` (commit bcd310d, 2026-07-15). 11 new commits merged (model list persistence, background job hardening, subagent tool surface, Mimo provider refactor). Previous sync: 2b6b130.
 - **Commit**: session 2026-07-15 (h20) — gradient banner stability fix (consolidated logoGradient calls), session time on status bar, height budget sync in computeStatusLineCount.
 - **Commit**: session 2026-07-15 (h19) — animated logo gradient banner (indigo→cyan→pink), doc sweep (8 files, stale binary names fixed), all prior h18 work.
 - **Commit**: session 2026-07-15 (h15) — upstream v1.8.x merge (8ab6d3b, 71 commits), vision pipeline restore, logo fix, 13 test fixes, constitution zero-test-failures rule.
@@ -416,8 +416,19 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 See commit notes above. Highlights: controller 53% reduction, base prompt complete_step protocol,
 desktop hotbar/profiles root-cause fix, 13 wedge tests, desktop-v1.8.2, collab+mesh+profiles enabled.
 
+### Session 2026-07-15 (h21) — upstream sync (bcd310d), logoGradient caching, /stats inline, version fix, doc sweep
+
+- **Upstream merged**: 11 commits from 2b6b130 to bcd310d — model list persistence, background job hardening (stalled warnings, interrupted finalization), subagent tool surface alignment, Mimo provider refactor (official host detection, `mergeCuratedModelsIntoProvider`). 6 conflicts resolved across Go + TypeScript. Removed stale Hermes Mimo backfill in favor of upstream's `isOfficialMimoAPIProvider` guard. Fixed duplicate `isOpenAIProviderKind`.
+- **Version fix**: Replaced hardcoded `"v1.8.0"` in `renderPinnedBanner` with `resolveVersion()` — uses ldflags first, then `git describe --tags --match 'v*'`, falls back to `"v1.8.0"` only as last resort. Pinned banner now shows `v1.8.0-268-g...` in dev builds.
+- **logoGradient caching**: Added `frameLogo` string field to chatTUI, computed once in `Update()`, consumed in `renderPinnedBanner()` with empty-string fallback. Ensures `bottomRows()` and `View()` see identical byte sequences within a render frame — no more flicker.
+- **`/stats` inline rendering**: Removed `showStats` toggle and bottom-panel pattern. `formatStatsPanel()` now commits directly to the transcript via `commitLine()` — stats scroll with conversation, no permanent viewport shrink. Same for `/cost`.
+- **`computeStatusLineCount` mirror**: Confirmed all 4 conditional Hermes items (sqz, aux, goal, mem) already present — completed in h20.
+- **Doc sweep**: BOT_GUIDE (en + zh-CN) updated from "three channels" to 7 platforms with Hermes sections for Discord, Telegram, LINE, Slack. Updated mermaid diagrams, interaction tables, command references, and `--channels` examples. GUIDE docs: "Discord bot" → "multi-platform bots". README/HERMES-GUIDE: removed stale `v1.7.0+` labels. index.html: `v1.8.0` → `v1.8.x`.
+- **Continuous learning v2.1**: Created `instinct-cli.py` (6 commands) + `observe.sh` hook under `.reasonix/homunculus/` — project-scoped instinct storage with confidence scoring, evolution pipeline, and auto-promotion.
+- **Files**: 14 files changed (+243/-107). 3 upstream merges in one session (2b6b130 via h15, bcd310d via h21). All 76 test packages pass, desktop Go tests pass, `tsc --noEmit` 0 errors.
+
 ### Next to build
 - [ ] **npm: publish reasonix-hermes** — pipeline verified; needs npm 2FA-bypass token + tag push
-- [ ] **logoGradient per-frame caching** — `logoGradient` calls `time.Now()` every invocation; cache the gradient string per render frame so `bottomRows()` and `View()` see identical byte sequences
-- [ ] **computeStatusLineCount full mirror** — still missing conditional data items (sqz, aux, goal, mem); add controller getters to replicate these in the height budget
+- [x] ~~logoGradient per-frame caching~~ — done (h21)
+- [x] ~~computeStatusLineCount full mirror~~ — verified already done (h20)
 - [x] ~~Desktop app distribution~~ — `desktop-v1.8.2` tagged + pushed (h18)

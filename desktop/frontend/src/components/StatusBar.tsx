@@ -3,7 +3,7 @@ import { Activity, Circle, CircleDollarSign, CircleGauge, Cpu, Database, Folder,
 import { Tooltip } from "./Tooltip";
 import { useI18n, type Translator } from "../lib/i18n";
 import { app } from "../lib/bridge";
-import { formatMoney, formatMoneyLocalized } from "../lib/money";
+import { formatMoneyLocalized } from "../lib/money";
 import { normalizeStatusBarItems, type StatusBarItemId } from "../lib/statusBarItems";
 import { type BalanceInfo, type BotLiveStatusView, type CacheEconomyView, type CollaborationMode, type CompressStatsView, type ContextInfo, type JobView, type ToolApprovalMode, type WireUsage } from "../lib/types";
 
