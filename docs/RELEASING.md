@@ -6,7 +6,7 @@ How Reasonix ships, who can ship what, and the canary-before-stable flow.
 
 - **`main-v2`** is the single development line (the v2 / 1.x trunk). Every PR merges here.
 - **Production is a tag, not a branch.** A release is a tagged snapshot of `main-v2`:
-  `v1.4.0` (CLI), `npm-v1.4.0` (npm), `desktop-v1.4.0` (desktop).
+  `v1.8.x` (CLI), `hermes-npm-v1.8.x` (npm), `desktop-v1.8.x` (desktop).
 - **`v1`** is the archived 1.0/legacy line — maintenance only.
 - **Hotfix** an already-released version by branching from its tag, fixing, and tagging again.
 
@@ -44,22 +44,22 @@ the `release` environment deployment.
 
 1. **Develop** — PRs land on `main-v2` (branch auto-deletes on merge).
 2. **Cut a canary** before the intended release (e.g. heading for `1.4.0`):
-   - Desktop: Actions → **Release desktop** → `channel: canary`, `base_version: 1.4.0`
-   - CLI: Actions → **Release npm** → `base_version: 1.4.0`
+   - Desktop: Actions → **Release desktop** → `channel: canary`, `base_version: 1.8.0`
+   - CLI: Actions → **Release npm** → `base_version: 1.8.0`
    - Publishes `1.4.0-canary.N` to the desktop R2 `canary/` pointer (no GitHub release) and npm `@canary`.
 3. **Test** — testers install `reasonix@canary` (CLI) or grab the desktop canary
    build from its R2 link, and report bugs.
 4. **Fix** on `main-v2` via PRs; re-cut the canary as needed (`canary.N` bumps).
 5. **Ship stable** when the canary is clean — push the three tags:
    ```sh
-   git tag v1.4.0         && git push origin v1.4.0          # CLI binaries + Homebrew
-   git tag npm-v1.4.0     && git push origin npm-v1.4.0      # npm -> next
-   git tag desktop-v1.4.0 && git push origin desktop-v1.4.0  # desktop -> R2 latest/
+   git tag v1.8.0         && git push origin v1.4.0          # CLI binaries + Homebrew
+   git tag hermes-npm-v1.8.0     && git push origin npm-v1.4.0      # npm -> next
+   git tag desktop-v1.8.0 && git push origin desktop-v1.4.0  # desktop -> R2 latest/
    ```
    Each stable run **waits for esengine to approve the `release` environment** before publishing.
 6. **Promote to default install** (optional, when 1.x should become the bare `npm i` target):
    ```sh
-   npm dist-tag add reasonix@1.4.0 latest
+   npm dist-tag add reasonix-hermes@1.8.0 latest
    ```
 7. **Next cycle** — the canary rolls on toward the next minor release.
 
@@ -67,6 +67,6 @@ the `release` environment deployment.
 
 - Canary version numbers use the workflow `run_number`, so the desktop and CLI canary
   numbers differ (e.g. `canary.11` vs `canary.2`). Only monotonicity per channel matters.
-- A stable `-rc` tag (e.g. `npm-v1.4.0-rc.1`) still ships under `next`, not `canary`.
+- A stable `-rc` tag (e.g. `hermes-npm-v1.8.0-rc.1`) still ships under `next`, not `canary`.
 - macOS canary self-update is manual (no notarization); testers download the canary
   build from its R2 link (canary is not on the GitHub releases page).

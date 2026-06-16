@@ -1,6 +1,7 @@
 package control
 
 import (
+	"os"
 	"testing"
 
 	"go.uber.org/goleak"

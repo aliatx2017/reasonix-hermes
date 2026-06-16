@@ -4,6 +4,15 @@ Key milestones in the Hermes fork since June 2026.
 
 ## v1.8.x (July 2026)
 
+### Session 2026-07-16 (h22) — npm publish, upstream merges, token-saving doc
+- **npm publish**: `npm i -g reasonix-hermes` — one-line install published for all 6 platforms (darwin/linux/windows × arm64/amd64). Trusted publishing (OIDC) wired — future releases are CI-driven, token-free.
+- **Token-saving compressor**: `docs/HOWTO-TOKEN-SAVING.md` — 800-line step-by-step guide for grafting sqz into any Reasonix fork. Covers SHA-256 content cache, repeated-line collapsing, JSON minification, safe mode, and full integration chain (8 steps, 8 files).
+- **Upstream merged** (a2709fc, 4 commits): Removed bundled MCP servers (Time/Context7), added codeindex fallback tool, desktop user message actions, edit replay fixes, auto Graphite theme, app icons. Controller consolidation — 126 duplicate declarations cleaned from Hermes sub-files.
+- **Upstream merged** (8f3ae36, 18 commits): Credential store backends, Reasonix home asset migrations, config path migration, `/migration-rescue` slash command, desktop project tree visual overhaul (scroll/height/icons/disclosure), keyboard accessibility fixes.
+- **Bug fixes**: 3 pre-existing test failures (hooks `session→session_id`, mcpbridge stale key-length check). Rune truncation audit — 2 byte-index bugs in `compress.firstLine()` fixed.
+- **Reasoning language**: Verified intact after upstream vision merge — full chain (config→boot→agent→turn injection) operational.
+- **CI**: ci-hermes.yml covers 17 packages (exceeds claimed 14+). 7 jobs: lint/vet, test, race, desktop frontend, Wails build, Hermes packages, TOML lint.
+
 ### Session 2026-07-?? (h??) — Research workflow, /eval command, upstream sync, crawl4ai/searxng
 - **Deep Research workflow adopted**: 5 skills in `.reasonix/skills/` inspired by `Weizhena/Deep-Research-skills` (1.1k★): `/research` (outline), `/research-add-items`, `/research-add-fields`, `/research-deep` (parallel subagents), `/research-report` (markdown synthesis). Phase 1 uses SearXNG (local multi-engine search) + Crawl4AI (JS-rendered page extraction); Phase 2 dispatches parallel task subagents per item; Phase 3 generates comprehensive markdown reports.
 - **/eval slash command**: `internal/cli/eval.go` — define, check, report, list, clean subcommands for eval-driven development. Supports PASS/FAIL/MANUAL criteria, pass@1/pass@3 metrics, and ship/blocked recommendations.
