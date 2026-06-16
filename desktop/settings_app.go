@@ -38,6 +38,8 @@ type ProviderView struct {
 	Default           string   `json:"default"`
 	APIKeyEnv         string   `json:"apiKeyEnv"`
 	KeySet            bool     `json:"keySet"` // the env var currently resolves to a non-empty value
+	KeySource         string   `json:"keySource,omitempty"`
+	KeySourcePath     string   `json:"keySourcePath,omitempty"`
 	BalanceURL        string   `json:"balanceUrl"`
 	ContextWindow     int      `json:"contextWindow"`
 	ReasoningProtocol string   `json:"reasoningProtocol"`
@@ -338,17 +340,24 @@ func removeProviderAccess(c *config.Config, names ...string) {
 }
 
 func providerViewFromEntry(p config.ProviderEntry, builtIn, added bool) ProviderView {
+	return providerViewFromEntryForRoot(p, builtIn, added, ".")
+}
+
+func providerViewFromEntryForRoot(p config.ProviderEntry, builtIn, added bool, root string) ProviderView {
 	models := p.ChatModelList()
 	visionModels := p.VisionModels
 	visionModelsSet := p.Vision || p.VisionModels != nil
 	if p.Vision {
 		visionModels = models
 	}
+	key := config.ResolveCredentialForRoot(root, p.APIKeyEnv)
 	return ProviderView{
 		Name: p.Name, BuiltIn: builtIn, Added: added, Kind: p.Kind, BaseURL: p.BaseURL,
 		Models: nonNil(models), VisionModels: nonNil(providerVisionModels(models, visionModels)), VisionModelsSet: visionModelsSet, ModelsURL: p.ModelsURL, Default: p.DefaultModel(),
 		APIKeyEnv:         p.APIKeyEnv,
-		KeySet:            p.APIKeyEnv != "" && os.Getenv(p.APIKeyEnv) != "",
+		KeySet:            key.Set,
+		KeySource:         key.Source.Label,
+		KeySourcePath:     key.Source.Path,
 		BalanceURL:        p.BalanceURL,
 		ContextWindow:     p.ContextWindow,
 		ReasoningProtocol: p.ReasoningProtocol,
@@ -358,6 +367,10 @@ func providerViewFromEntry(p config.ProviderEntry, builtIn, added bool) Provider
 }
 
 func officialProviderViews(added map[string]bool, pricingLanguage string) []ProviderView {
+	return officialProviderViewsForRoot(added, pricingLanguage, ".")
+}
+
+func officialProviderViewsForRoot(added map[string]bool, pricingLanguage, root string) []ProviderView {
 	var out []ProviderView
 	for _, kind := range []string{"deepseek", "mimo-api", "mimo-token-plan"} {
 		entries, _, err := officialProviderTemplate(kind, pricingLanguage)
@@ -365,7 +378,7 @@ func officialProviderViews(added map[string]bool, pricingLanguage string) []Prov
 			continue
 		}
 		for _, entry := range entries {
-			out = append(out, providerViewFromEntry(entry, true, added[entry.Name]))
+			out = append(out, providerViewFromEntryForRoot(entry, true, added[entry.Name], root))
 		}
 	}
 	return out
@@ -485,10 +498,11 @@ func (a *App) Settings() SettingsView {
 		ActiveProfile:     cfg.ActiveProfile,
 	}
 	added := providerAccessSet(cfg.Desktop.ProviderAccess)
-	v.OfficialProviders = officialProviderViews(officialProviderAddedSet(cfg), cfg.DeepSeekOfficialPricingLanguage())
+	root := a.activeWorkspaceRoot()
+	v.OfficialProviders = officialProviderViewsForRoot(officialProviderAddedSet(cfg), cfg.DeepSeekOfficialPricingLanguage(), root)
 	for i := range cfg.Providers {
 		p := &cfg.Providers[i]
-		v.Providers = append(v.Providers, providerViewFromEntry(*p, isOfficialBuiltInProvider(*p), added[p.Name]))
+		v.Providers = append(v.Providers, providerViewFromEntryForRoot(*p, isOfficialBuiltInProvider(*p), added[p.Name], root))
 	}
 	return v
 }
@@ -728,6 +742,34 @@ func (a *App) activeWorkspaceRoot() string {
 		return tab.WorkspaceRoot
 	}
 	return "."
+}
+
+func (a *App) saveProviderCredential(apiKeyEnv, value string) (string, error) {
+	apiKeyEnv = strings.TrimSpace(apiKeyEnv)
+	value = strings.TrimSpace(value)
+	root := a.activeWorkspaceRoot()
+	before := config.ResolveCredentialForRoot(root, apiKeyEnv)
+	beforeEnvValue, beforeEnvSet := os.LookupEnv(apiKeyEnv)
+	if err := upsertDotEnv(apiKeyEnv, value); err != nil {
+		return "", err
+	}
+	return providerCredentialShadowWarning(apiKeyEnv, value, root, before, beforeEnvSet, beforeEnvValue), nil
+}
+
+func providerCredentialShadowWarning(apiKeyEnv, value, root string, before config.CredentialResolution, beforeEnvSet bool, beforeEnvValue string) string {
+	if beforeEnvSet && beforeEnvValue != value {
+		return fmt.Sprintf("saved %s to Reasonix credentials, but an existing environment variable with the same name can override it after restart; update or remove that environment variable", apiKeyEnv)
+	}
+	if before.Set && before.Source.Kind == config.CredentialSourceEnvironment && before.Value != value {
+		return fmt.Sprintf("saved %s to Reasonix credentials, but an existing environment variable with the same name can override it after restart; update or remove that environment variable", apiKeyEnv)
+	}
+	current := config.ResolveCredentialForRoot(root, apiKeyEnv)
+	for _, source := range current.Shadowed {
+		if source.Kind == config.CredentialSourceProjectEnv {
+			return fmt.Sprintf("saved %s to Reasonix credentials, but this workspace's project .env also defines %s and can override it after restart; update or remove that project .env entry", apiKeyEnv, apiKeyEnv)
+		}
+	}
+	return ""
 }
 
 func projectConfigPathForRoot(root string) string {
@@ -1105,21 +1147,24 @@ func (a *App) SaveProvider(p ProviderView) error {
 // AddOfficialProviderAccess adds one curated desktop provider template to the
 // Settings > Model > Access list. The runtime default providers still exist
 // independently; this only records the user's explicit access setup.
-func (a *App) AddOfficialProviderAccess(kind, key string) error {
+func (a *App) AddOfficialProviderAccess(kind, key string) (string, error) {
 	cfg, _, err := a.loadDesktopUserConfigForEdit()
 	if err != nil {
-		return err
+		return "", err
 	}
 	entries, keyEnv, err := officialProviderTemplate(kind, cfg.DeepSeekOfficialPricingLanguage())
 	if err != nil {
-		return err
+		return "", err
 	}
+	keyWarning := ""
 	if strings.TrimSpace(key) != "" && keyEnv != "" {
-		if err := upsertDotEnv(keyEnv, key); err != nil {
-			return err
+		var err error
+		keyWarning, err = a.saveProviderCredential(keyEnv, key)
+		if err != nil {
+			return "", err
 		}
 	}
-	return a.applyConfigChange(func(c *config.Config) error {
+	if err := a.applyConfigChange(func(c *config.Config) error {
 		names := make([]string, 0, len(entries))
 		for _, e := range entries {
 			if err := c.UpsertProvider(e); err != nil {
@@ -1129,7 +1174,10 @@ func (a *App) AddOfficialProviderAccess(kind, key string) error {
 		}
 		addProviderAccess(c, names...)
 		return nil
-	})
+	}); err != nil {
+		return "", err
+	}
+	return keyWarning, nil
 }
 
 // FetchProviderModels probes the provider's OpenAI-compatible model-list
@@ -1370,17 +1418,21 @@ func (a *App) deleteProviderAndRetargetTabs(name string) error {
 // SetProviderKey writes a secret to the global credential store under the given
 // env-var name (the one a provider's api_key_env points at) and rebuilds so it
 // resolves immediately.
-func (a *App) SetProviderKey(apiKeyEnv, value string) error {
+func (a *App) SetProviderKey(apiKeyEnv, value string) (string, error) {
 	if strings.TrimSpace(apiKeyEnv) == "" {
-		return fmt.Errorf("this provider has no api_key_env set")
+		return "", fmt.Errorf("this provider has no api_key_env set")
 	}
 	if err := a.ensureActiveTabRebuildAllowed("provider key"); err != nil {
-		return err
+		return "", err
 	}
-	if err := upsertDotEnv(apiKeyEnv, value); err != nil {
-		return err
+	warning, err := a.saveProviderCredential(apiKeyEnv, value)
+	if err != nil {
+		return "", err
 	}
-	return a.rebuild()
+	if err := a.rebuild(); err != nil {
+		return "", err
+	}
+	return warning, nil
 }
 
 // ClearProviderKey removes a provider secret from the global credential store

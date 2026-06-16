@@ -90,6 +90,134 @@ func TestLoadDotEnvReadsGlobalCredentials(t *testing.T) {
 	}
 }
 
+func TestResolveCredentialSourceShowsProjectEnvShadowingCredentials(t *testing.T) {
+	cwd := t.TempDir()
+	cfgHome := t.TempDir()
+
+	t.Chdir(cwd)
+	t.Setenv("HOME", cfgHome)
+	t.Setenv("REASONIX_CREDENTIALS_STORE", "file")
+	t.Setenv("USERPROFILE", cfgHome)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(cfgHome, ".config"))
+	t.Setenv("AppData", filepath.Join(cfgHome, "AppData"))
+
+	key := "KEY_SOURCE_PROJECT"
+	cred := UserCredentialsPath()
+	if cred == "" {
+		t.Skip("user config dir unresolved on this platform")
+	}
+	if err := os.MkdirAll(filepath.Dir(cred), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(cred, []byte(key+"=from_credentials\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(cwd, ".env"), []byte(key+"=from_project\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv(key, "")
+	os.Unsetenv(key)
+
+	loadDotEnv()
+
+	got := ResolveCredentialForRoot(cwd, key)
+	if !got.Set || got.Source.Kind != CredentialSourceProjectEnv {
+		t.Fatalf("source = %+v set=%v, want project .env", got.Source, got.Set)
+	}
+	foundCredentialsShadow := false
+	for _, source := range got.Shadowed {
+		if source.Kind == CredentialSourceCredentials {
+			foundCredentialsShadow = true
+		}
+	}
+	if !foundCredentialsShadow {
+		t.Fatalf("shadowed = %+v, want credentials shadowed by project .env", got.Shadowed)
+	}
+}
+
+func TestResolveCredentialSourceShowsEmptyProjectEnvShadowingCredentials(t *testing.T) {
+	cwd := t.TempDir()
+	cfgHome := t.TempDir()
+
+	t.Chdir(cwd)
+	t.Setenv("HOME", cfgHome)
+	t.Setenv("REASONIX_CREDENTIALS_STORE", "file")
+	t.Setenv("USERPROFILE", cfgHome)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(cfgHome, ".config"))
+	t.Setenv("AppData", filepath.Join(cfgHome, "AppData"))
+
+	key := "KEY_SOURCE_EMPTY_PROJECT"
+	cred := UserCredentialsPath()
+	if cred == "" {
+		t.Skip("user config dir unresolved on this platform")
+	}
+	if err := os.MkdirAll(filepath.Dir(cred), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(cred, []byte(key+"=from_credentials\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(cwd, ".env"), []byte(key+"=\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv(key, "")
+	os.Unsetenv(key)
+
+	if _, err := StoreCredentialLines([]string{key + "=from_credentials"}); err != nil {
+		t.Fatalf("StoreCredentialLines: %v", err)
+	}
+
+	got := ResolveCredentialForRoot(cwd, key)
+	foundProjectShadow := false
+	for _, source := range got.Shadowed {
+		if source.Kind == CredentialSourceProjectEnv {
+			foundProjectShadow = true
+		}
+	}
+	if !foundProjectShadow {
+		t.Fatalf("shadowed = %+v, want empty project .env shadowing credentials", got.Shadowed)
+	}
+}
+
+func TestResolveCredentialSourceShowsCredentialsBeforeHomeEnv(t *testing.T) {
+	cwd := t.TempDir()
+	cfgHome := t.TempDir()
+
+	t.Chdir(cwd)
+	t.Setenv("HOME", cfgHome)
+	t.Setenv("REASONIX_CREDENTIALS_STORE", "file")
+	t.Setenv("USERPROFILE", cfgHome)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(cfgHome, ".config"))
+	t.Setenv("AppData", filepath.Join(cfgHome, "AppData"))
+
+	key := "KEY_SOURCE_CREDENTIALS"
+	cred := UserCredentialsPath()
+	if cred == "" {
+		t.Skip("user config dir unresolved on this platform")
+	}
+	if err := os.MkdirAll(filepath.Dir(cred), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(cred, []byte(key+"=from_credentials\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(cfgHome, ".env"), []byte(key+"=from_home\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv(key, "")
+	os.Unsetenv(key)
+
+	loadDotEnv()
+
+	got := ResolveCredentialForRoot(cwd, key)
+	if !got.Set || got.Source.Kind != CredentialSourceCredentials {
+		t.Fatalf("source = %+v set=%v, want Reasonix credentials", got.Source, got.Set)
+	}
+	if got.Value != "from_credentials" {
+		t.Fatalf("value = %q, want credentials value", got.Value)
+	}
+}
+
 func TestStoreCredentialLinesFileMode(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)

@@ -5571,18 +5571,19 @@ func (a *App) NeedsOnboarding() bool {
 
 // ConnectKey validates apiKey against the balance endpoint, persists it to the
 // global credential store, and rebuilds the controller so the new key takes effect.
-func (a *App) ConnectKey(apiKey string) error {
+func (a *App) ConnectKey(apiKey string) (string, error) {
 	apiKey = strings.TrimSpace(apiKey)
 	if apiKey == "" {
-		return fmt.Errorf("key is required")
+		return "", fmt.Errorf("key is required")
 	}
 	ctx, cancel := context.WithTimeout(a.ctx, 8*time.Second)
 	defer cancel()
 	if _, err := billing.FetchWithClient(ctx, nil, onboardingBalanceURL, apiKey); err != nil {
-		return fmt.Errorf("validate: %w", err)
+		return "", fmt.Errorf("validate: %w", err)
 	}
-	if err := upsertDotEnv(onboardingKeyEnv, apiKey); err != nil {
-		return fmt.Errorf("save: %w", err)
+	warning, err := a.saveProviderCredential(onboardingKeyEnv, apiKey)
+	if err != nil {
+		return "", fmt.Errorf("save: %w", err)
 	}
 	if err := a.rebuild(); err != nil {
 		// Key is persisted; surface the failure but let the next rebuild load it.
@@ -5592,5 +5593,5 @@ func (a *App) ConnectKey(apiKey string) error {
 		}
 		a.mu.Unlock()
 	}
-	return nil
+	return warning, nil
 }

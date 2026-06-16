@@ -1242,6 +1242,7 @@ export const zh: Record<DictKey, string> = {
   "settings.keyStatus": "密钥",
   "settings.configuredKey": "已填写 {env}",
   "settings.notConfiguredKey": "未填写 {env}",
+  "settings.keySource": "来源：{source}",
   "settings.moreModels": "还有 {n} 个",
   "settings.permissionsModeHint": "控制写文件、执行命令等写操作默认如何被处理。",
   "settings.modeAskShort": "写操作前询问",

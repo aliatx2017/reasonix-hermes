@@ -430,16 +430,20 @@ type Config struct {
 // surface it verbatim instead of dumping a raw status body. Providers should
 // return this (rather than a generic status error) for auth failures.
 type AuthError struct {
-	Provider string // the provider instance name, e.g. "deepseek"
-	KeyEnv   string // the api_key_env the key is read from, when known
-	Status   int    // the HTTP status (401 or 403)
-	HasKey   bool   // a non-empty key was sent — the server rejected it, vs. no key configured at all
+	Provider  string // the provider instance name, e.g. "deepseek"
+	KeyEnv    string // the api_key_env the key is read from, when known
+	KeySource string // human-readable source of KeyEnv, when known
+	Status    int    // the HTTP status (401 or 403)
+	HasKey    bool   // a non-empty key was sent — the server rejected it, vs. no key configured at all
 }
 
 func (e *AuthError) Error() string {
 	key := "the API key"
 	if e.KeyEnv != "" {
 		key = e.KeyEnv
+	}
+	if e.KeySource != "" {
+		key += " from " + e.KeySource
 	}
 	return fmt.Sprintf("authentication failed for provider %q (HTTP %d): %s is invalid or expired — update it (in .env or your environment) and retry, or run `reasonix setup`",
 		e.Provider, e.Status, key)

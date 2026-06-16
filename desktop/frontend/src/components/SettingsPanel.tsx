@@ -82,6 +82,7 @@ export function SettingsPanel({
   const [s, setS] = useState<SettingsView | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
   const [theme, setThemeState] = useState<Theme>(getTheme());
   const [themeStyle, setThemeStyleState] = useState<ThemeStyle>(() => getThemeStyle(getTheme()));
   const [textSize, setTextSizeState] = useState<TextSize>(getTextSize());
@@ -107,13 +108,17 @@ export function SettingsPanel({
   }, [s?.desktopTheme, s?.desktopThemeStyle]);
 
   // apply runs a mutation, re-reads settings, and refreshes the topbar/model.
-  const apply = async (fn: () => Promise<void>) => {
+  const apply = async (fn: () => Promise<unknown>) => {
     setBusy(true);
     setErr(null);
+    setWarning(null);
     try {
-      await fn();
+      const result = await fn();
       await reload();
       onChanged();
+      if (typeof result === "string" && result.trim()) {
+        setWarning(result.trim());
+      }
     } catch (e) {
       setErr(String((e as Error)?.message ?? e));
     } finally {
@@ -122,6 +127,7 @@ export function SettingsPanel({
   };
   const backgroundApply = async (fn: () => Promise<void>) => {
     setErr(null);
+    setWarning(null);
     try {
       await fn();
       await reload();
@@ -168,6 +174,7 @@ export function SettingsPanel({
           </nav>
           <main className="settings-center__content">
             {needsSettings && err && <div className="banner banner--error">{err}</div>}
+            {needsSettings && warning && <div className="banner banner--warning">{warning}</div>}
             {needsSettings && !s ? (
               <div className="empty">{t("settings.loading")}</div>
             ) : (
@@ -250,7 +257,7 @@ export function SettingsPanel({
   );
 }
 
-function SettingsPageShell({ s: _s, tab, children }: { s: SettingsView | null; tab: SettingsTab; busy: boolean; apply: (fn: () => Promise<void>) => Promise<void>; children: ReactNode }) {
+function SettingsPageShell({ s: _s, tab, children }: { s: SettingsView | null; tab: SettingsTab; busy: boolean; apply: (fn: () => Promise<unknown>) => Promise<void>; children: ReactNode }) {
   const t = useT();
   const descKey = `settings.pageDesc.${tab}` as keyof typeof import("../locales/en").en;
   const desc = t(descKey as any);
@@ -362,7 +369,7 @@ function settingsTabPageTitle(id: SettingsTab, t: ReturnType<typeof useT>): stri
 type SectionProps = {
   s: SettingsView;
   busy: boolean;
-  apply: (fn: () => Promise<void>) => Promise<void>;
+  apply: (fn: () => Promise<unknown>) => Promise<void>;
 };
 
 type ModelsSectionProps = SectionProps & {
@@ -761,6 +768,8 @@ function normalizeProviderView(p: ProviderView): ProviderView {
     modelsUrl: p.modelsUrl ?? "",
     reasoningProtocol: normalizeReasoningProtocol(p.reasoningProtocol),
     supportedEfforts: asArray(p.supportedEfforts),
+    keySource: p.keySource ?? "",
+    keySourcePath: p.keySourcePath ?? "",
   };
 }
 
@@ -3597,6 +3606,8 @@ type ProviderAccessGroup = {
   providers: ProviderView[];
   apiKeyEnv: string;
   keySet: boolean;
+  keySource?: string;
+  keySourcePath?: string;
   baseUrl: string;
   kind: string;
   models: string[];
@@ -3853,6 +3864,7 @@ function ProviderAccessCard({
         <span>{group.kind}</span>
         <span>{group.baseUrl}</span>
         <span>{group.apiKeyEnv || t("common.none")}</span>
+        {group.keySource && <span title={group.keySourcePath || undefined}>{t("settings.keySource", { source: group.keySource })}</span>}
       </div>
 
       <div className="provider-card-block">
@@ -4036,6 +4048,8 @@ function providerAccessGroups(providers: ProviderView[], t: ReturnType<typeof us
     if (existing) {
       existing.providers.push(p);
       existing.keySet = existing.keySet || p.keySet;
+      if (!existing.keySource && p.keySource) existing.keySource = p.keySource;
+      if (!existing.keySourcePath && p.keySourcePath) existing.keySourcePath = p.keySourcePath;
       existing.models = uniqueStrings([...existing.models, ...p.models]);
       continue;
     }
@@ -4047,6 +4061,8 @@ function providerAccessGroups(providers: ProviderView[], t: ReturnType<typeof us
       providers: [p],
       apiKeyEnv: p.apiKeyEnv,
       keySet: p.keySet,
+      keySource: p.keySource,
+      keySourcePath: p.keySourcePath,
       baseUrl: p.baseUrl,
       kind: p.kind,
       models: uniqueStrings(p.models),
@@ -4310,7 +4326,10 @@ function ProviderEditor({
         {initial && onSaveKey && keyEnv && (
           <>
             <div className="provider-key-status provider-key-status--managed provider-key-status--compact">
-              <span>{initial.keySet ? t("settings.configuredKey", { env: keyEnv }) : t("settings.notConfiguredKey", { env: keyEnv })}</span>
+              <span title={initial.keySourcePath || undefined}>
+                {initial.keySet ? t("settings.configuredKey", { env: keyEnv }) : t("settings.notConfiguredKey", { env: keyEnv })}
+                {initial.keySource ? ` · ${t("settings.keySource", { source: initial.keySource })}` : ""}
+              </span>
               {initial.keySet && onClearKey && (
                 <InlineConfirmButton
                   label={t("settings.clearKey")}
@@ -4495,6 +4514,11 @@ function ProviderEditor({
       {initial && onSaveKey && apiKeyEnv.trim() && (
         <>
           <label className="set-label">{t("settings.providerKey")}</label>
+          {initial.keySource && (
+            <div className="mem-hint" title={initial.keySourcePath || undefined}>
+              {t("settings.keySource", { source: initial.keySource })}
+            </div>
+          )}
           <KeyField
             apiKeyEnv={apiKeyEnv.trim()}
             busy={busy || fetchingModels}

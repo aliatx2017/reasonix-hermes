@@ -864,6 +864,8 @@ export interface ProviderView {
   default: string;
   apiKeyEnv: string;
   keySet: boolean; // the env var currently resolves to a value
+  keySource?: string;
+  keySourcePath?: string;
   balanceUrl: string; // optional wallet-balance endpoint; "" disables the readout
   contextWindow: number;
   reasoningProtocol: string; // auto|deepseek|openai|none; empty = auto/model registry

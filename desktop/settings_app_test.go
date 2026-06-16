@@ -87,6 +87,98 @@ func TestProviderViewFromEntry_MigratesProviderWideVision(t *testing.T) {
 	}
 }
 
+func TestProviderViewFromEntryShowsKeySource(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	t.Setenv("TEST_PROVIDER_KEY_SOURCE", "")
+	os.Unsetenv("TEST_PROVIDER_KEY_SOURCE")
+	if _, err := config.SetCredential("TEST_PROVIDER_KEY_SOURCE", "sk-test"); err != nil {
+		t.Fatalf("SetCredential: %v", err)
+	}
+
+	view := providerViewFromEntry(config.ProviderEntry{
+		Name:      "custom",
+		APIKeyEnv: "TEST_PROVIDER_KEY_SOURCE",
+	}, false, true)
+	if !view.KeySet {
+		t.Fatal("KeySet = false, want true")
+	}
+	if view.KeySource == "" || !strings.Contains(view.KeySource, "credentials") {
+		t.Fatalf("KeySource = %q, want credentials source", view.KeySource)
+	}
+}
+
+func TestSetProviderKeyWarnsWhenProjectEnvWillShadowSavedKey(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	project := t.TempDir()
+	if err := os.WriteFile(filepath.Join(project, ".env"), []byte("TEST_PROVIDER_SHADOW=old-key\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("TEST_PROVIDER_SHADOW", "")
+	os.Unsetenv("TEST_PROVIDER_SHADOW")
+
+	app := &App{
+		tabs:        map[string]*WorkspaceTab{"project": {ID: "project", WorkspaceRoot: project}},
+		activeTabID: "project",
+	}
+	warning, err := app.SetProviderKey("TEST_PROVIDER_SHADOW", "new-key")
+	if err != nil {
+		t.Fatalf("SetProviderKey: %v", err)
+	}
+	if !strings.Contains(warning, "project .env") {
+		t.Fatalf("SetProviderKey warning = %q, want project .env shadow warning", warning)
+	}
+	data, readErr := os.ReadFile(config.UserCredentialsPath())
+	if readErr != nil {
+		t.Fatalf("read credentials: %v", readErr)
+	}
+	if !strings.Contains(string(data), "TEST_PROVIDER_SHADOW=new-key") {
+		t.Fatalf("saved credentials missing new key:\n%s", data)
+	}
+}
+
+func TestSetProviderKeyWarnsWhenEmptyEnvironmentWillShadowSavedKey(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	t.Setenv("TEST_PROVIDER_EMPTY_ENV", "")
+
+	app := &App{}
+	warning, err := app.SetProviderKey("TEST_PROVIDER_EMPTY_ENV", "new-key")
+	if err != nil {
+		t.Fatalf("SetProviderKey: %v", err)
+	}
+	if !strings.Contains(warning, "environment variable") {
+		t.Fatalf("SetProviderKey warning = %q, want environment variable shadow warning", warning)
+	}
+	data, readErr := os.ReadFile(config.UserCredentialsPath())
+	if readErr != nil {
+		t.Fatalf("read credentials: %v", readErr)
+	}
+	if !strings.Contains(string(data), "TEST_PROVIDER_EMPTY_ENV=new-key") {
+		t.Fatalf("saved credentials missing new key:\n%s", data)
+	}
+}
+
+func TestSetProviderKeyWarnsWhenEmptyProjectEnvWillShadowSavedKey(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	project := t.TempDir()
+	if err := os.WriteFile(filepath.Join(project, ".env"), []byte("TEST_PROVIDER_EMPTY_PROJECT=\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("TEST_PROVIDER_EMPTY_PROJECT", "")
+	os.Unsetenv("TEST_PROVIDER_EMPTY_PROJECT")
+
+	app := &App{
+		tabs:        map[string]*WorkspaceTab{"project": {ID: "project", WorkspaceRoot: project}},
+		activeTabID: "project",
+	}
+	warning, err := app.SetProviderKey("TEST_PROVIDER_EMPTY_PROJECT", "new-key")
+	if err != nil {
+		t.Fatalf("SetProviderKey: %v", err)
+	}
+	if !strings.Contains(warning, "project .env") {
+		t.Fatalf("SetProviderKey warning = %q, want project .env shadow warning", warning)
+	}
+}
+
 func TestFetchProviderModelsFiltersNonChatModels(t *testing.T) {
 	t.Setenv("TEST_PROVIDER_KEY", "test-key")
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

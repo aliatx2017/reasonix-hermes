@@ -2227,6 +2227,11 @@ a[href] {
   color: var(--err);
   border-bottom: 1px solid var(--border-soft);
 }
+.banner--warning {
+  background: color-mix(in srgb, var(--warn) 12%, var(--bg-elev));
+  color: var(--warn);
+  border-bottom: 1px solid var(--border-soft);
+}
 .banner--update {
   display: flex;
   align-items: center;

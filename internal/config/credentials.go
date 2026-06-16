@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/BurntSushi/toml"
 	"github.com/zalando/go-keyring"
@@ -21,6 +22,38 @@ const (
 
 	credentialsKeyringService = "reasonix"
 )
+
+const (
+	CredentialSourceEnvironment = "environment"
+	CredentialSourceProjectEnv  = "project_env"
+	CredentialSourceCredentials = "credentials"
+	CredentialSourceHomeEnv     = "home_env"
+	CredentialSourceLegacy      = "legacy_credentials"
+)
+
+type CredentialSource struct {
+	Kind  string `json:"kind"`
+	Path  string `json:"path,omitempty"`
+	Label string `json:"label,omitempty"`
+}
+
+type CredentialResolution struct {
+	Name     string             `json:"name"`
+	Set      bool               `json:"set"`
+	Value    string             `json:"-"`
+	Source   CredentialSource   `json:"source,omitempty"`
+	Shadowed []CredentialSource `json:"shadowed,omitempty"`
+}
+
+type trackedCredentialSource struct {
+	source CredentialSource
+	value  string
+}
+
+var credentialSourceTracker = struct {
+	sync.Mutex
+	byKey map[string]trackedCredentialSource
+}{byKey: map[string]trackedCredentialSource{}}
 
 func normalizeCredentialsStore(mode string) string {
 	switch strings.ToLower(strings.TrimSpace(mode)) {
@@ -100,20 +133,22 @@ func loadCredentialStoreForRoot(root string) {
 	if mode == CredentialsStoreAuto || mode == CredentialsStoreKeyring {
 		for _, name := range names {
 			if _, exists := os.LookupEnv(name); exists {
+				recordExistingCredentialSource(name)
 				continue
 			}
 			value, err := keyring.Get(credentialsKeyringService, name)
 			if err == nil && value != "" {
 				_ = os.Setenv(name, value)
+				recordCredentialSource(name, value, CredentialSource{Kind: CredentialSourceCredentials, Label: "system credential store"})
 			}
 		}
 	}
 	if mode == CredentialsStoreAuto || mode == CredentialsStoreFile {
 		if p := UserCredentialsPath(); p != "" {
-			loadDotEnvFile(p)
+			loadDotEnvFileAs(p, CredentialSource{Kind: CredentialSourceCredentials, Path: p, Label: "Reasonix credentials"})
 		}
 		for _, p := range legacyCredentialsPaths() {
-			loadDotEnvFile(p)
+			loadDotEnvFileAs(p, CredentialSource{Kind: CredentialSourceLegacy, Path: p, Label: "legacy Reasonix credentials"})
 		}
 	}
 }
@@ -255,7 +290,151 @@ func parseCredentialLines(lines []string) map[string]string {
 func pinCredentialAssignments(assignments map[string]string) {
 	for key, value := range assignments {
 		_ = os.Setenv(key, value)
+		recordCredentialSource(key, value, CredentialSource{Kind: CredentialSourceCredentials, Label: "Reasonix credentials"})
 	}
+}
+
+func recordExistingCredentialSource(key string) {
+	key = strings.TrimSpace(key)
+	value := os.Getenv(key)
+	if key == "" || value == "" {
+		return
+	}
+	credentialSourceTracker.Lock()
+	defer credentialSourceTracker.Unlock()
+	if current, ok := credentialSourceTracker.byKey[key]; ok && current.value == value {
+		return
+	}
+	if _, ok := credentialSourceTracker.byKey[key]; ok {
+		return
+	}
+	credentialSourceTracker.byKey[key] = trackedCredentialSource{
+		source: CredentialSource{Kind: CredentialSourceEnvironment, Label: "environment variable"},
+		value:  value,
+	}
+}
+
+func recordCredentialSource(key, value string, source CredentialSource) {
+	key = strings.TrimSpace(key)
+	if key == "" || value == "" {
+		return
+	}
+	source.Label = credentialSourceLabel(source)
+	credentialSourceTracker.Lock()
+	credentialSourceTracker.byKey[key] = trackedCredentialSource{source: source, value: value}
+	credentialSourceTracker.Unlock()
+}
+
+func trackedCredential(key, value string) (CredentialSource, bool) {
+	credentialSourceTracker.Lock()
+	defer credentialSourceTracker.Unlock()
+	current, ok := credentialSourceTracker.byKey[key]
+	if !ok || current.value != value {
+		return CredentialSource{}, false
+	}
+	return current.source, true
+}
+
+func credentialSourceLabel(source CredentialSource) string {
+	if strings.TrimSpace(source.Label) != "" {
+		return source.Label
+	}
+	switch source.Kind {
+	case CredentialSourceProjectEnv:
+		return "project .env"
+	case CredentialSourceCredentials:
+		return "Reasonix credentials"
+	case CredentialSourceHomeEnv:
+		return "home .env"
+	case CredentialSourceLegacy:
+		return "legacy Reasonix credentials"
+	case CredentialSourceEnvironment:
+		return "environment variable"
+	default:
+		return ""
+	}
+}
+
+func ResolveCredential(key string) CredentialResolution {
+	return ResolveCredentialForRoot(".", key)
+}
+
+func ResolveCredentialForRoot(root, key string) CredentialResolution {
+	key = strings.TrimSpace(key)
+	res := CredentialResolution{Name: key}
+	if key == "" {
+		return res
+	}
+	value := os.Getenv(key)
+	if value == "" {
+		return res
+	}
+	res.Set = true
+	res.Value = value
+	if source, ok := trackedCredential(key, value); ok {
+		res.Source = source
+	} else if source, ok := inferCredentialSource(root, key, value); ok {
+		res.Source = source
+	} else {
+		res.Source = CredentialSource{Kind: CredentialSourceEnvironment, Label: credentialSourceLabel(CredentialSource{Kind: CredentialSourceEnvironment})}
+	}
+	res.Source.Label = credentialSourceLabel(res.Source)
+	res.Shadowed = shadowedCredentialSources(root, key, value, res.Source)
+	return res
+}
+
+func inferCredentialSource(root, key, value string) (CredentialSource, bool) {
+	for _, candidate := range credentialSourceCandidates(root) {
+		if v, ok := envFileValue(candidate.Path, key); ok && v == value {
+			candidate.Label = credentialSourceLabel(candidate)
+			return candidate, true
+		}
+	}
+	return CredentialSource{}, false
+}
+
+func shadowedCredentialSources(root, key, activeValue string, active CredentialSource) []CredentialSource {
+	var out []CredentialSource
+	for _, candidate := range credentialSourceCandidates(root) {
+		if sameCredentialSource(candidate, active) {
+			continue
+		}
+		if v, ok := envFileValue(candidate.Path, key); ok && v != activeValue {
+			candidate.Label = credentialSourceLabel(candidate)
+			out = append(out, candidate)
+		}
+	}
+	return out
+}
+
+func credentialSourceCandidates(root string) []CredentialSource {
+	root = resolveRoot(root)
+	var out []CredentialSource
+	dotEnvPath := ".env"
+	if root != "" && root != "." {
+		dotEnvPath = filepath.Join(root, ".env")
+	}
+	out = append(out, CredentialSource{Kind: CredentialSourceProjectEnv, Path: dotEnvPath})
+	if p := UserCredentialsPath(); p != "" {
+		out = append(out, CredentialSource{Kind: CredentialSourceCredentials, Path: p})
+	}
+	for _, p := range legacyCredentialsPaths() {
+		out = append(out, CredentialSource{Kind: CredentialSourceLegacy, Path: p})
+	}
+	if home, err := os.UserHomeDir(); err == nil {
+		out = append(out, CredentialSource{Kind: CredentialSourceHomeEnv, Path: filepath.Join(home, ".env")})
+	}
+	return out
+}
+
+func sameCredentialSource(a, b CredentialSource) bool {
+	if a.Kind != b.Kind {
+		return false
+	}
+	if a.Path == "" || b.Path == "" {
+		return a.Path == b.Path
+	}
+	return samePath(a.Path, b.Path)
 }
 
 func storeCredentialsInKeyring(assignments map[string]string) error {

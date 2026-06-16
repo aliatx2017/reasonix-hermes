@@ -255,11 +255,11 @@ export interface AppBindings {
   SetSubagentEffort(level: string): Promise<void>;
   SetAutoPlan(mode: string): Promise<void>;
   SaveProvider(p: ProviderView): Promise<void>;
-  AddOfficialProviderAccess(kind: string, key: string): Promise<void>;
+  AddOfficialProviderAccess(kind: string, key: string): Promise<string>;
   FetchProviderModels(p: ProviderView): Promise<string[]>;
   DeleteProvider(name: string): Promise<void>;
   RemoveProviderAccess(name: string): Promise<void>;
-  SetProviderKey(apiKeyEnv: string, value: string): Promise<void>;
+  SetProviderKey(apiKeyEnv: string, value: string): Promise<string>;
   ClearProviderKey(apiKeyEnv: string): Promise<void>;
   SetPermissionMode(mode: string): Promise<void>;
   AddPermissionRule(list: string, rule: string): Promise<void>;
@@ -301,7 +301,7 @@ export interface AppBindings {
   ApplyUpdate(): Promise<void>;
   OpenDownloadPage(): Promise<void>;
   NeedsOnboarding(): Promise<boolean>;
-  ConnectKey(apiKey: string): Promise<void>;
+  ConnectKey(apiKey: string): Promise<string>;
   // Crash overlay "Send report" (desktop/crash_app.go): scrubs user paths, attaches
   // version/os/arch, POSTs to the collection endpoint. Only ever sent on user click.
   ReportCrash(kind: string, detail: string): Promise<void>;
@@ -2455,6 +2455,7 @@ function makeMockApp(): AppBindings {
       const i = settings.providers.findIndex((x) => x.name === next.name);
       if (i >= 0) settings.providers[i] = { ...settings.providers[i], ...next, keySet: next.keySet || settings.providers[i].keySet };
       else settings.providers.push(next);
+      return "";
     },
     async FetchProviderModels(p: ProviderView) {
       if (!p.baseUrl.trim()) throw new Error(t("settings.fetchModelsMissingBaseUrl"));
@@ -2476,6 +2477,7 @@ function makeMockApp(): AppBindings {
       settings.providers.forEach((p) => {
         if (p.apiKeyEnv === apiKeyEnv) p.keySet = true;
       });
+      return "";
     },
     async ClearProviderKey(apiKeyEnv: string) {
       settings.providers.forEach((p) => {
@@ -2828,6 +2830,7 @@ function makeMockApp(): AppBindings {
         if (p.apiKeyEnv === "DEEPSEEK_API_KEY") p.keySet = true;
       });
       await delay(300);
+      return "";
     },
     async ReportCrash() {
       await delay(300);

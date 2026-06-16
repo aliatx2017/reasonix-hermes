@@ -755,6 +755,7 @@ export const zhTW: Record<DictKey, string> = {
   "settings.keyStatus": "金鑰",
   "settings.configuredKey": "已填寫 {env}",
   "settings.notConfiguredKey": "未填寫 {env}",
+  "settings.keySource": "來源：{source}",
   "settings.moreModels": "還有 {n} 個",
   "settings.permissionsModeHint": "控制寫檔案、執行命令等寫操作預設如何被處理。",
   "settings.modeAskShort": "寫操作前詢問",

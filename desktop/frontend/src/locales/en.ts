@@ -1240,6 +1240,7 @@ export const en = {
   "settings.keyStatus": "Key",
   "settings.configuredKey": "Saved {env}",
   "settings.notConfiguredKey": "No key saved for {env}",
+  "settings.keySource": "Source: {source}",
   "settings.moreModels": "{n} more",
   "settings.permissionsModeHint": "Controls the default behavior for file writes, shell commands, and other writer actions.",
   "settings.modeAskShort": "Prompt before writers",
