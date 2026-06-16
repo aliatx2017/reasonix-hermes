@@ -452,7 +452,22 @@ desktop hotbar/profiles root-cause fix, 13 wedge tests, desktop-v1.8.2, collab+m
 - **eval.go rewrite**: Eliminated 60% code duplication (19 duplicated functions → unified shared logic via `evalOutput` callbacks). Fixed 4 bugs: vet now runs `go vet` (not `go build`), pass@3 is true run-level metric via `evalComputePassAtN`, build failure output shown, error swallowing replaced with explicit status. Restored `eval compare` subcommand. `eval_test.go`: 45+ test cases.
 - **Upstream merge** (a4cea91, 3 commits): Per-model vision capabilities (`VisionModels` on ProviderEntry), explicit vision model selection preservation. 2 conflicts resolved (kept Hermes config fields, updated Mimo backfill with VisionModels population).
 - **Doc sweep**: 6 files updated — v1.8.0→v1.8.x across README (en+zh), HERMES-GUIDE, PROJECT.md; index.html mock v1.0.0→v1.8.x; AGENTS.md sync point bcd310d→a4cea91 (161 commits/5 syncs).
-- **Files**: 43 files changed, ~3,974 insertions, 139 deletions. All binaries build. All tests pass.
+- **Commit**: session 2026-06-16 (h23) — **Research subagent dispatch fixed (3-root-cause)**.
+  - **Root cause 1**: `max_steps` silently ignored for `task(batch=...)` — `executeBatch` never received the top-level parameter, so sub-agents defaulted to `parent_max_steps/2 ≈ 10` rounds. Fix: `Execute` passes `p.MaxSteps`, `executeBatch` accepts `maxStepsTop` and uses it before `t.maxSteps/2`. Test: `TestTaskToolBatchHonorsTopLevelMaxSteps`, `TestTaskToolBatchItemMaxStepsOverridesTopLevel`.
+  - **Root cause 2**: Batch jobs invisible to `wait` — `executeBatch` used `jm.Start()` (empty session), but `wait` filters by `jobs.SessionFromContext(ctx)`. Empty-session jobs never matched. Fix: `jm.StartForSession(jobs.SessionFromContext(ctx), ...)` — matches single-task background path at line 329. Test: `TestTaskToolBatchWaitFindsSessionScopedJobs`.
+  - **Root cause 3**: Sandbox blocks sub-agent transcript dirs — Controller sets `ParentSession` on context, causing `prepareTranscriptRun` to attempt persistent storage under `~/.reasonix/projects/$HOME-.../`. macOS Seatbelt blocks mkdir → batch jobs skipped entirely. Fix: fall back to `EphemeralSubagentRun` when `prepareTranscriptRun` fails, so sub-agent still runs and can write files.
+  - **E2E tests** (3 new): `TestTaskToolBatchE2EWriteFile` (mock, parent session), `TestTaskToolBatchE2EHeadlessWriteFile` (mock, no parent session), `TestBatchLiveSubAgent` (real DeepSeek API, wrote ★1414 to disk). All pass.
+  - **Host enforcement**: `## Reasonix host checks` added to REASONIX.md — `verify-session.sh` + batch e2e test. `complete_step` tool blocks sign-off unless these pass after last write. Hard gate, no human-in-loop needed.
+  - **verify-session.sh**: Added step 9 (batch e2e test).
+  - **Research-deep skill**: Step 4 + Notes updated to recommend `max_steps: 30`.
+  - **Upstream**: Merged 7 commits (8ddb46d) — resume session model metadata, app icon fixes, MCP reconnect timeout. 1 conflict resolved (boot.go).
+  - **Constitution**: Added `no-e2e-no-fixed` memory — never declare feature fixed without CLI e2e evidence on disk.
+  - **Files**: 6 files changed (+240/-6). All 74 packages pass. 8 binaries built.
 
 ### Next to build
-- [ ] **Fix research subagent dispatch** — parallel task batch didn't produce output; investigate why subagents fail to write file results
+- [ ] **Fix research pipeline e2e** — run actual `reasonix run` with `/research-deep` workflow. User acceptance criteria: agent dispatches batch sub-agents with `max_steps=30`, sub-agents search via SearXNG + Crawl4AI, write JSON to local FS, publish results to Discord general channel. Subagents MUST produce output — no falling back to inline.
+
+## Reasonix host checks
+
+- verify: go test -count=1 -run TestTaskToolBatchE2E ./internal/agent/
+- verify: ./.reasonix/verify-session.sh

@@ -268,7 +268,7 @@ func (t *TaskTool) Execute(ctx context.Context, args json.RawMessage) (string, e
 		if p.ContinueFrom != "" || p.ForkFrom != "" {
 			return "", fmt.Errorf("batch and continue_from/fork_from are mutually exclusive")
 		}
-		return t.executeBatch(ctx, p.Batch, p.Tools, p.Model, p.Effort)
+		return t.executeBatch(ctx, p.Batch, p.Tools, p.Model, p.Effort, p.MaxSteps)
 	}
 
 	if p.Prompt == "" {
@@ -551,12 +551,13 @@ func FormatSubagentResult(answer, ref string, failed bool) string {
 // task call and returns a summary of job IDs and refs. Each sub-agent runs as a
 // background job so they progress in parallel across turns; the parent collects
 // results with wait. The caller's tool scope and model/effort profile apply to
-// every member.
+// every member. maxStepsTop is the task-level max_steps that serves as a default
+// for batch items that don't specify their own.
 func (t *TaskTool) executeBatch(ctx context.Context, items []struct {
 	Prompt      string `json:"prompt"`
 	Description string `json:"description"`
 	MaxSteps    int    `json:"max_steps"`
-}, tools []string, model, effort string) (string, error) {
+}, tools []string, model, effort string, maxStepsTop int) (string, error) {
 	jm, ok := jobs.FromContext(ctx)
 	if !ok {
 		return "", fmt.Errorf("background execution is not available in this context")
@@ -587,7 +588,9 @@ func (t *TaskTool) executeBatch(ctx context.Context, items []struct {
 
 		maxSteps := item.MaxSteps
 		if maxSteps <= 0 {
-			if t.maxSteps > 0 {
+			if maxStepsTop > 0 {
+				maxSteps = maxStepsTop
+			} else if t.maxSteps > 0 {
 				maxSteps = t.maxSteps / 2
 				if maxSteps < 5 {
 					maxSteps = 5
@@ -597,8 +600,11 @@ func (t *TaskTool) executeBatch(ctx context.Context, items []struct {
 
 		run, prepErr := t.prepareTranscriptRun(subReg, modelRef, effortRef, ParentSession(ctx), parentID, "", "")
 		if prepErr != nil {
-			fmt.Fprintf(&b, "- %q: prep failed: %v\n", label, prepErr)
-			continue
+			// Fall back to ephemeral run when persistent storage is
+			// unavailable (sandbox, permissions, headless run, etc.).
+			// The sub-agent still runs and can write files — it just
+			// won't have a persisted transcript.
+			run = EphemeralSubagentRun(t.sysPrompt)
 		}
 		if t.transcripts != nil && run != nil && run.Ref != "" {
 			if err := t.transcripts.MarkRunning(run); err != nil {
@@ -614,7 +620,7 @@ func (t *TaskTool) executeBatch(ctx context.Context, items []struct {
 		itemMaxSteps := maxSteps
 		itemRun := run
 
-		job := jm.Start("task", itemLabel, func(jobCtx context.Context, _ io.Writer) (string, error) {
+		job := jm.StartForSession(jobs.SessionFromContext(ctx), "task", itemLabel, func(jobCtx context.Context, _ io.Writer) (string, error) {
 			defer itemRun.Release()
 			answer, err := t.runSubSession(jobCtx, itemPrompt, subReg, nested, itemMaxSteps, prov, pricing, ctxWin, itemRun.Session)
 			if err != nil {

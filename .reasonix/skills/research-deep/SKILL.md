@@ -34,7 +34,7 @@ For each batch of items (up to `batch_size` at a time):
 
 Ask the user for approval before launching each batch.
 
-Use the `task` tool with `batch` mode to spawn one subagent per item. Grant the subagents `Bash, Read, Write, Glob` tools (they need `bash` for curl calls to crawl4ai/searxng). Each subagent's prompt should be:
+Use the `task` tool with `batch` mode to spawn one subagent per item. Grant the subagents `Bash, Read, Write, Glob` tools (they need `bash` for curl calls to crawl4ai/searxng). Set `max_steps` to at least 30 — each subagent needs multiple rounds to search, crawl, extract content, and synthesize JSON output; the default subagent step budget (parent_max_steps/2 ≈ 10) is too low for research tasks. Each subagent's prompt should be:
 
 ```
 You are researching: {item_name}
@@ -102,6 +102,7 @@ After all items are researched, output:
 
 ## Notes
 - Use the `task` tool with `batch` mode for parallel subagents (up to 8 at a time)
+- **Always set `max_steps` to at least 30** — research tasks need many rounds (search → crawl → extract → write JSON). The default subagent step budget (parent_max_steps/2 ≈ 10) is too low and will cause subagents to fail before producing output.
 - Each subagent writes its own JSON result file
 - Subagents need `Bash` tool for curl calls to searxng/crawl4ai
 - Subagents do NOT have access to the parent's workspace files — pass field content explicitly in their prompt

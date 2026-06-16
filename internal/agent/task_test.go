@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"errors"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"reasonix/internal/jobs"
 	"reasonix/internal/provider"
 	"reasonix/internal/tool"
+	toolbuiltin "reasonix/internal/tool/builtin"
 )
 
 func testTaskContext() context.Context {
@@ -489,6 +491,227 @@ func TestTaskToolBatchRequiresJobsContext(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "background execution is not available") {
 		t.Fatalf("expected jobs-context error, got: %v", err)
 	}
+}
+
+// TestTaskToolBatchHonorsTopLevelMaxSteps verifies the top-level max_steps is
+// accepted alongside batch and passed through to executeBatch as the default
+// for items that don't specify their own max_steps.
+func TestTaskToolBatchHonorsTopLevelMaxSteps(t *testing.T) {
+	sub := &mockProvider{name: "sub", chunks: []provider.Chunk{
+		{Type: provider.ChunkText, Text: "answer"},
+		{Type: provider.ChunkDone},
+	}}
+	task := newTestTaskTool(t, sub, tool.NewRegistry(), "sys", "", "", nil)
+	jm := jobs.NewManager(nil)
+	ctx := jobs.WithManager(testTaskContext(), jm)
+
+	// max_steps=42 at top level should be accepted alongside batch.
+	out, err := task.Execute(ctx, []byte(`{"batch":[{"prompt":"task A","description":"alpha"},{"prompt":"task B","description":"beta"}],"max_steps":42}`))
+	if err != nil {
+		t.Fatalf("Execute batch with top-level max_steps: %v", err)
+	}
+	if !strings.Contains(out, "Started 2 parallel background tasks") {
+		t.Errorf("expected batch summary, got: %s", out)
+	}
+
+	// Cleanup.
+	jm.Close()
+}
+
+// TestTaskToolBatchItemMaxStepsOverridesTopLevel verifies per-item max_steps
+// overrides the top-level max_steps.
+func TestTaskToolBatchItemMaxStepsOverridesTopLevel(t *testing.T) {
+	sub := &mockProvider{name: "sub", chunks: []provider.Chunk{
+		{Type: provider.ChunkText, Text: "answer"},
+		{Type: provider.ChunkDone},
+	}}
+	task := newTestTaskTool(t, sub, tool.NewRegistry(), "sys", "", "", nil)
+	jm := jobs.NewManager(nil)
+	ctx := jobs.WithManager(testTaskContext(), jm)
+
+	// Top-level max_steps=10, but item specifies max_steps=50 — item should win.
+	out, err := task.Execute(ctx, []byte(`{"batch":[{"prompt":"task A","description":"alpha","max_steps":50}],"max_steps":10}`))
+	if err != nil {
+		t.Fatalf("Execute batch with item-level max_steps override: %v", err)
+	}
+	if !strings.Contains(out, "Started 1 parallel background task") {
+		t.Errorf("expected batch summary, got: %s", out)
+	}
+
+	jm.Close()
+}
+
+// TestTaskToolBatchE2EWriteFile verifies end-to-end: batch sub-agents with a
+// multi-turn provider can call write_file and produce persistent output.
+func TestTaskToolBatchE2EWriteFile(t *testing.T) {
+	ws := t.TempDir()
+	resultPath := ws + "/results/item.json"
+
+	// Build a tool registry with workspace-bound write_file.
+	reg := tool.NewRegistry()
+	wsTools := toolbuiltin.Workspace{Dir: ws}.Tools()
+	for _, tl := range wsTools {
+		reg.Add(tl)
+	}
+
+	// Multi-turn mock: turn 1 = write_file, turn 2 = final answer.
+	sub := &mockProvider{
+		name: "sub",
+		streams: [][]provider.Chunk{
+			// Turn 1: call write_file with the JSON result.
+			{
+				{Type: provider.ChunkToolCallStart, ToolCall: &provider.ToolCall{ID: "c1", Name: "write_file"}},
+				{Type: provider.ChunkToolCall, ToolCall: &provider.ToolCall{
+					ID: "c1", Name: "write_file",
+					Arguments: `{"path":"results/item.json","content":"{\"name\":\"item1\",\"status\":\"done\"}"}`,
+				}},
+				{Type: provider.ChunkDone},
+			},
+			// Turn 2: final text answer.
+			{
+				{Type: provider.ChunkText, Text: "JSON written to results/item.json"},
+				{Type: provider.ChunkDone},
+			},
+		},
+	}
+	task := NewTaskTool(sub, nil, reg, 20, 0, 0, 0, 0, 0, 0.0, "", "sys", nil, 0, "", "", nil).
+		WithTranscripts(NewSubagentStore(t.TempDir()), t.TempDir(), "base-model", "base-effort")
+
+	jm := jobs.NewManager(nil)
+	ctx := jobs.WithManager(testTaskContext(), jm)
+
+	out, err := task.Execute(ctx, []byte(`{"batch":[{"prompt":"research item1"}],"max_steps":30}`))
+	if err != nil {
+		t.Fatalf("Execute batch: %v", err)
+	}
+	if !strings.Contains(out, "Started 1 parallel background task") {
+		t.Errorf("expected batch summary, got: %s", out)
+	}
+
+	// Wait for the background job to finish.
+	res := jm.Wait(context.Background(), nil, 5)
+	if len(res) != 1 {
+		t.Fatalf("expected 1 job result, got %d", len(res))
+	}
+	if res[0].Status != jobs.Done {
+		t.Fatalf("job status = %v, want Done. Output: %s", res[0].Status, res[0].Output)
+	}
+
+	// Verify the file was actually written.
+	data, err := os.ReadFile(resultPath)
+	if err != nil {
+		t.Fatalf("ReadFile %s: %v", resultPath, err)
+	}
+	if string(data) != `{"name":"item1","status":"done"}` {
+		t.Errorf("file content = %q, want JSON payload", string(data))
+	}
+
+	jm.Close()
+}
+
+// TestTaskToolBatchE2EHeadlessWriteFile verifies batch sub-agents in headless
+// mode (no parent session, like `reasonix run`) can call write_file and produce output.
+func TestTaskToolBatchE2EHeadlessWriteFile(t *testing.T) {
+	ws := t.TempDir()
+	resultPath := ws + "/results/item.json"
+
+	reg := tool.NewRegistry()
+	wsTools := toolbuiltin.Workspace{Dir: ws}.Tools()
+	for _, tl := range wsTools {
+		reg.Add(tl)
+	}
+
+	// Multi-turn mock: turn 1 = write_file, turn 2 = final answer.
+	sub := &mockProvider{
+		name: "sub",
+		streams: [][]provider.Chunk{
+			{
+				{Type: provider.ChunkToolCallStart, ToolCall: &provider.ToolCall{ID: "c1", Name: "write_file"}},
+				{Type: provider.ChunkToolCall, ToolCall: &provider.ToolCall{
+					ID: "c1", Name: "write_file",
+					Arguments: `{"path":"results/item.json","content":"{\"name\":\"item1\"}"}`,
+				}},
+				{Type: provider.ChunkDone},
+			},
+			{
+				{Type: provider.ChunkText, Text: "done"},
+				{Type: provider.ChunkDone},
+			},
+		},
+	}
+	task := NewTaskTool(sub, nil, reg, 20, 0, 0, 0, 0, 0, 0.0, "", "sys", nil, 0, "", "", nil).
+		WithTranscripts(NewSubagentStore(t.TempDir()), ws, "base-model", "base-effort")
+
+	jm := jobs.NewManager(nil)
+	// Headless: no parent session set on context.
+	ctx := jobs.WithManager(context.Background(), jm)
+
+	out, err := task.Execute(ctx, []byte(`{"batch":[{"prompt":"research item1"}],"max_steps":30}`))
+	if err != nil {
+		t.Fatalf("Execute batch headless: %v", err)
+	}
+	if !strings.Contains(out, "Started 1 parallel background task") {
+		t.Errorf("expected batch summary, got: %s", out)
+	}
+
+	res := jm.Wait(context.Background(), nil, 5)
+	if len(res) != 1 {
+		t.Fatalf("expected 1 job result, got %d", len(res))
+	}
+	if res[0].Status != jobs.Done {
+		t.Fatalf("job status = %v, want Done. Output: %s", res[0].Status, res[0].Output)
+	}
+
+	data, err := os.ReadFile(resultPath)
+	if err != nil {
+		t.Fatalf("ReadFile %s: %v", resultPath, err)
+	}
+	if string(data) != `{"name":"item1"}` {
+		t.Errorf("file content = %q, want {\"name\":\"item1\"}", string(data))
+	}
+
+	jm.Close()
+}
+
+// TestTaskToolBatchWaitFindsSessionScopedJobs verifies that batch jobs started
+// with session scoping are visible to wait when filtering by the same session.
+// This is the regression test for the bug where jm.Start("task",...) (empty
+// session) meant wait(jobs.SessionFromContext(ctx)) couldn't find them.
+func TestTaskToolBatchWaitFindsSessionScopedJobs(t *testing.T) {
+	sub := &mockProvider{name: "sub", chunks: []provider.Chunk{
+		{Type: provider.ChunkText, Text: "answer"},
+		{Type: provider.ChunkDone},
+	}}
+	task := newTestTaskTool(t, sub, tool.NewRegistry(), "sys", "", "", nil)
+	jm := jobs.NewManager(nil)
+	ctx := jobs.WithManager(testTaskContext(), jm)
+	// Mimic the controller path: set a session on the context.
+	ctx = jobs.WithSession(ctx, "my-session")
+
+	out, err := task.Execute(ctx, []byte(`{"batch":[{"prompt":"task A","description":"alpha"}]}`))
+	if err != nil {
+		t.Fatalf("Execute batch with session: %v", err)
+	}
+	if !strings.Contains(out, "Started 1 parallel background task") {
+		t.Errorf("expected batch summary, got: %s", out)
+	}
+
+	// The batch jobs should be scoped to "my-session" and found by wait.
+	res := jm.WaitForSession(context.Background(), "my-session", nil, 5)
+	if len(res) != 1 {
+		t.Fatalf("expected 1 job for session my-session, got %d", len(res))
+	}
+	if res[0].Status != jobs.Done {
+		t.Fatalf("job status = %v, want Done", res[0].Status)
+	}
+
+	// But a different session should see none.
+	resOther := jm.WaitForSession(context.Background(), "other-session", nil, 1)
+	if len(resOther) != 0 {
+		t.Fatalf("expected 0 jobs for other-session, got %d", len(resOther))
+	}
+
+	jm.Close()
 }
 
 type panicProvider struct{ name string }
