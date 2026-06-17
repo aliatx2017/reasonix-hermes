@@ -16,8 +16,8 @@ import {
 
 import { app } from './bridge';
 
-export type Theme = 'auto' | 'light' | 'dark';
-export type ResolvedTheme = Exclude<Theme, 'auto'>;
+export type Theme = "auto" | "light" | "dark";
+export type ResolvedTheme = Exclude<Theme, "auto">;
 
 export const THEME_STYLES = ['graphite', 'aurora', 'slate', 'carbon', 'nocturne', 'amber', 'hermes'] as const;
 
@@ -131,7 +131,8 @@ export function applyTheme(
   }
 
   // Sync the native window theme (title bar, traffic lights) to match.
-  if (typeof window !== "undefined" && window.runtime) {
+  const runtime = typeof window !== "undefined" ? window.runtime : undefined;
+  if (runtime) {
     syncAutoThemeBackgroundListener(theme);
     if (theme === "auto") {
       WindowSetSystemDefaultTheme();
@@ -218,7 +219,8 @@ export function initTheme(): void {
 }
 
 function syncNativeWindowBackground(theme: Theme): void {
-  if (typeof window === 'undefined' || !window.runtime) return;
+  const runtime = typeof window !== "undefined" ? window.runtime : undefined;
+  if (!runtime?.WindowSetBackgroundColour) return;
   const resolved = getResolvedTheme(theme);
   const style = getThemeStyle(theme);
   if (style === 'hermes') {
@@ -226,9 +228,9 @@ function syncNativeWindowBackground(theme: Theme): void {
     WindowSetBackgroundColour(resolved === 'light' ? 250 : 30, resolved === 'light' ? 247 : 28, resolved === 'light' ? 239 : 19, 255);
   } else if (resolved === "light") {
     // Light shell: matches graphite --bg (#f4f3ef).
-    WindowSetBackgroundColour(244, 243, 239, 255);
+    runtime.WindowSetBackgroundColour(244, 243, 239, 255);
   } else {
     // Dark shell: matches :root --bg (#090a0c).
-    WindowSetBackgroundColour(9, 10, 12, 255);
+    runtime.WindowSetBackgroundColour(9, 10, 12, 255);
   }
 }

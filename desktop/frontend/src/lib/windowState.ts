@@ -10,15 +10,17 @@
 // event may not land; the 5s poll and the Go shutdown hook make this unlikely
 // to matter.
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef } from "react";
 import { WindowGetPosition, WindowGetSize, WindowIsMaximised } from '../../wailsjs/runtime/runtime';
-import { app } from './bridge';
+import { app } from "./bridge";
 
 export function useWindowStatePersistence() {
   const lastState = useRef('');
 
   useEffect(() => {
-    if (typeof window === 'undefined' || !window.runtime) return;
+    const runtime = typeof window !== "undefined" ? window.runtime : undefined;
+    if (!runtime?.WindowGetSize || !runtime.WindowGetPosition || !runtime.WindowIsMaximised) return;
+    const { WindowGetSize, WindowGetPosition, WindowIsMaximised } = runtime;
 
     let timer: ReturnType<typeof setInterval>;
 

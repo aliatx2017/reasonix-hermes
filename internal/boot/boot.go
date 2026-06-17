@@ -165,7 +165,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	// A resolvable model whose API key env is unset would otherwise build fine
 	// (RequireKey is false so the UI stays reachable) and then fail silently on the
 	// first request, showing as an empty/dead model. Surface the cause up front.
-	if !opts.RequireKey && entry.APIKeyEnv != "" && entry.APIKey() == "" {
+	if !opts.RequireKey && entry.RequiresAPIKey() && entry.APIKey() == "" {
 		sink.Emit(event.Event{Kind: event.Notice, Text: fmt.Sprintf("model %q is selected but its API key %s is not set — requests will fail until you set it", modelName, entry.APIKeyEnv)})
 	}
 	jm := jobs.NewManager(sink, jobs.WithStalledWarningAfter(time.Duration(cfg.BackgroundJobStalledWarningSeconds())*time.Second))
@@ -741,27 +741,28 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 
 	execSess := agent.NewSession(finalizeSystemPrompt(sysPrompt, cfg.Language))
 	executor := agent.New(execProv, reg, execSess, agent.Options{
-		MaxSteps:          maxSteps,
-		Temperature:       cfg.Agent.Temperature,
-		Pricing:           entry.Price,
-		Gate:              headlessGate,
-		Hooks:             hookRunner,
-		Jobs:              jm,
-		ProjectChecks:     projectChecks,
-		ContextWindow:     entry.ContextWindow,
-		SoftCompactRatio:  cfg.Agent.SoftCompactRatio,
-		CompactRatio:      cfg.Agent.CompactRatio,
-		CompactForceRatio: cfg.Agent.CompactForceRatio,
-		RecentKeep:        cfg.Agent.RecentKeep,
-		ArchiveDir:        config.ArchiveDir(),
-		WorkshopThreshold: workshopThreshold,
-		Workshop:          workshopSynthesizer(jm, execProv, reg, entry, cfg.Agent),
-		CompressToolOutput: compressEnabled(cfg.Agent.CompressToolOutput),
-		CompressionProv:   compressionProv,
-		VisionProv:        visionProv,
-		WebExtractProv:    webExtractProv,
-		KeepPolicy:        keepPolicy,
-		ReasoningLanguage: cfg.ReasoningLanguage(),
+		MaxSteps:             maxSteps,
+		Temperature:          cfg.Agent.Temperature,
+		Pricing:              entry.Price,
+		Gate:                 headlessGate,
+		Hooks:                hookRunner,
+		Jobs:                 jm,
+		ProjectChecks:        projectChecks,
+		ContextWindow:        entry.ContextWindow,
+		SoftCompactRatio:     cfg.Agent.SoftCompactRatio,
+		CompactRatio:         cfg.Agent.CompactRatio,
+		CompactForceRatio:    cfg.Agent.CompactForceRatio,
+		RecentKeep:           cfg.Agent.RecentKeep,
+		ArchiveDir:           config.ArchiveDir(),
+		WorkshopThreshold:    workshopThreshold,
+		Workshop:             workshopSynthesizer(jm, execProv, reg, entry, cfg.Agent),
+		CompressToolOutput:   compressEnabled(cfg.Agent.CompressToolOutput),
+		CompressionProv:      compressionProv,
+		VisionProv:           visionProv,
+		WebExtractProv:       webExtractProv,
+		KeepPolicy:           keepPolicy,
+		ReasoningLanguage:    cfg.ReasoningLanguage(),
+		PlanModeAllowedTools: cfg.Agent.PlanModeAllowedTools,
 	}, sink)
 
 	var runner agent.Runner = executor
@@ -842,6 +843,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 		ReasoningLanguage:      cfg.ReasoningLanguage(),
 		DisableColdResumePrune: !cfg.ColdResumePruneEnabled(),
 		Shell:                  shell,
+		PlanModeAllowedTools:   cfg.Agent.PlanModeAllowedTools,
 		OnRemember: func(rule string) control.RememberResult {
 			return rememberPermissionRule(root, rule)
 		},

@@ -426,7 +426,9 @@ func (a *App) restoreOrBuildTabs() {
 	// freshly written config (including the user's default_model) is
 	// picked up by Load instead of falling back to built-in defaults.
 	_, _ = config.MigrateLegacyIfNeeded()
+	f := loadTabsFile()
 	_, _ = config.ResetOfficialProviderPricingOnUpgrade(config.UserConfigPath())
+	_, _ = config.MigrateMCPToUserConfigOnUpgrade(desktopMCPMigrationRoots(f))
 
 	// Load i18n from the first available config.
 	// Prefer DesktopLanguage (desktop UI setting) over Language (CLI setting),
@@ -439,7 +441,6 @@ func (a *App) restoreOrBuildTabs() {
 		i18n.DetectLanguage(lang)
 	}
 
-	f := loadTabsFile()
 	if len(f.Tabs) > 0 {
 		toBuild := make([]*WorkspaceTab, 0, len(f.Tabs))
 		for _, entry := range f.Tabs {

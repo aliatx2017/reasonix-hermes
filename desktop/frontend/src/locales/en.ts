@@ -823,6 +823,7 @@ export const en = {
   "settings.notificationSoundPreview": "Preview",
   "settings.keySet": "key set",
   "settings.noKey": "no key",
+  "settings.noKeyRequired": "no key required",
   "settings.cantDeleteDefault": "Can't delete the default provider",
   "settings.cantRemoveDefault": "Can't remove access for the default provider",
   "settings.deleteProvider": "Delete provider",

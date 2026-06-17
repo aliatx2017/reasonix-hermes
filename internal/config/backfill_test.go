@@ -135,6 +135,27 @@ func TestNormalizeDesktopOfficialProviderAccessCanonicalizesLegacyIDs(t *testing
 	}
 }
 
+func TestNormalizeDesktopOfficialProviderAccessKeepsCustomAlias(t *testing.T) {
+	c := &Config{
+		Desktop: DesktopConfig{ProviderAccess: []string{"deepseek-flash"}},
+		Providers: []ProviderEntry{{
+			Name:    "deepseek-flash",
+			Kind:    "openai",
+			BaseURL: "https://proxy.example/v1",
+			Model:   "deepseek-v4-flash",
+		}},
+	}
+
+	normalizeDesktopOfficialProviderAccess(c)
+
+	if len(c.Desktop.ProviderAccess) != 1 || c.Desktop.ProviderAccess[0] != "deepseek-flash" {
+		t.Fatalf("provider_access = %+v, want custom alias preserved", c.Desktop.ProviderAccess)
+	}
+	if _, ok := c.Provider("deepseek"); ok {
+		t.Fatal("custom deepseek-flash proxy should not create canonical deepseek provider")
+	}
+}
+
 func TestNormalizeOfficialDeepSeekModelsRepairsCanonicalProvider(t *testing.T) {
 	c := &Config{
 		DefaultModel: "deepseek-flash/deepseek-v4-flash",

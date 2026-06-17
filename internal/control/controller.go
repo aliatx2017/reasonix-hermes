@@ -201,6 +201,10 @@ type pendingAsk struct {
 	reply     chan []event.AskAnswer
 }
 
+type plannerSessionResetter interface {
+	ResetPlannerSession()
+}
+
 // RuntimeStatus is the frontend-facing snapshot of foreground turn state. It is
 // intentionally more explicit than the legacy Running bool so UI code can
 // distinguish a cancellable foreground turn from pending prompts and background
@@ -298,6 +302,9 @@ type Options struct {
 	ScheduleConfig *scheduler.Config
 	// Mesh enables agent-to-agent MCP delegation (nil = disabled).
 	Mesh *mesh.Mesh
+	// PlanModeAllowedTools names tools exempt from the plan-mode read-only gate.
+	// Passed through to the executor agent so user-configured exceptions work.
+	PlanModeAllowedTools []string
 }
 
 // New builds a Controller. A nil Sink is replaced with event.Discard.
@@ -1420,6 +1427,9 @@ func (c *Controller) SetPlanMode(v bool) {
 	if c.executor != nil {
 		c.executor.SetPlanMode(v)
 	}
+	if setter, ok := c.runner.(interface{ SetPlanMode(bool) }); ok {
+		setter.SetPlanMode(v)
+	}
 }
 
 // SetAutoPlan updates the interactive auto-plan gate for subsequent turns.
@@ -1539,6 +1549,7 @@ func (c *Controller) NewSession() error {
 	}
 	c.setActiveJobSession(c.SessionPath())
 	c.executor.SetSession(agent.NewSession(c.systemPrompt))
+	c.resetPlannerSession()
 	c.rebindCheckpoints(c.SessionPath())
 	c.mu.Lock()
 	c.startedOnce = true // NewSession fires SessionStart itself; don't re-fire on the next turn
@@ -1576,6 +1587,7 @@ func (c *Controller) ClearSession() error {
 	}
 	c.setActiveJobSession(c.SessionPath())
 	c.executor.SetSession(agent.NewSession(c.systemPrompt))
+	c.resetPlannerSession()
 	c.rebindCheckpoints(c.SessionPath())
 	c.mu.Lock()
 	c.startedOnce = true
@@ -1596,6 +1608,9 @@ func (c *Controller) ClearSession() error {
 func removeSessionArtifacts(path string) error {
 	if path == "" {
 		return nil
+	}
+	if err := jobs.RemoveArtifacts(path); err != nil {
+		return err
 	}
 	for _, p := range []string{path, agent.BranchMetaPath(path)} {
 		if p == "" {
@@ -1765,6 +1780,7 @@ func (c *Controller) forkNamed(turn int, name string, switchToFork bool) (string
 	}
 	if switchToFork {
 		c.executor.SetSession(sess)
+		c.resetPlannerSession()
 		c.mu.Lock()
 		c.sessionPath = newPath
 		c.mu.Unlock()
@@ -1830,6 +1846,7 @@ func (c *Controller) Branch(name string) (string, error) {
 		return "", c.rewindFail(err)
 	}
 	c.executor.SetSession(sess)
+	c.resetPlannerSession()
 	c.mu.Lock()
 	c.sessionPath = newPath
 	c.mu.Unlock()
@@ -1877,6 +1894,7 @@ func (c *Controller) SwitchBranch(ref string) (agent.BranchInfo, error) {
 	if c.executor != nil {
 		c.executor.SetSession(loaded)
 	}
+	c.resetPlannerSession()
 	c.mu.Lock()
 	c.sessionPath = match.Path
 	c.mu.Unlock()
@@ -1976,12 +1994,20 @@ func (c *Controller) Resume(s *agent.Session, path string) {
 	if c.executor != nil {
 		c.executor.SetSession(s)
 	}
+	c.resetPlannerSession()
 	c.mu.Lock()
 	c.sessionPath = path
 	c.mu.Unlock()
 	c.setActiveJobSession(path)
 	c.rebindCheckpoints(path)
 	c.maybeColdResumePrune(path)
+}
+
+func (c *Controller) resetPlannerSession() {
+	runner, ok := c.runner.(plannerSessionResetter)
+	if ok {
+		runner.ResetPlannerSession()
+	}
 }
 
 // cacheColdAfter approximates how long the provider keeps a prompt prefix
@@ -2162,7 +2188,7 @@ func (c *Controller) IsDestroyingSession(sessionPath string) bool {
 
 func (c *Controller) setActiveJobSession(sessionPath string) {
 	if c.jobs != nil {
-		c.jobs.SetActiveSession(agent.BranchID(sessionPath))
+		c.jobs.SetActiveSessionPath(agent.BranchID(sessionPath), sessionPath)
 	}
 }
 

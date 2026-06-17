@@ -316,15 +316,19 @@ var ChineseTraditional = Messages{
 	UsageBody: `reasonix — 由設定和插件驅動的 coding agent（多模型）
 
 用法：
-  reasonix [--model NAME] [-c|--continue] [--resume]        互動式會話（多輪；-c 恢復最近一次，--resume 選擇一個）
+  reasonix [--model NAME] [-c|--continue] [--resume] [--yolo] [--dir PATH]   互動式會話（多輪；-c 恢復最近一次，--resume 選擇一個）
   reasonix run  [--model NAME] [--max-steps N] [-c|--continue] [--resume PATH] <task>   執行單次任務後退出
+  reasonix review [--base BRANCH] [--commit SHA] [--model NAME]  AI 程式碼審查（基於本機 diff）
   reasonix serve [--model NAME] [--addr HOST:PORT]      透過 HTTP+SSE 提供會話（瀏覽器客戶端在 /）
   reasonix acp [--model NAME]                           透過 stdio 提供 Agent Client Protocol（也可用：reasonix --acp）
   reasonix setup [path]                                 互動式設定精靈；生成 reasonix.toml（及 .env）
   reasonix config auto-plan [off|on]                    設定自動計畫模式
   reasonix config reasoning-language [auto|zh|en]        設定可見思考語言
-  reasonix mcp <add|remove|list>                        管理 reasonix.toml 裡的 MCP 伺服器
+  reasonix mcp <add|remove|list|import>                 管理 reasonix.toml 裡的 MCP 伺服器
+  reasonix init                                         查看如何產生專案記憶（AGENTS.md）
   reasonix doctor [--json]                              輸出脫敏的本機診斷資訊
+  reasonix bot start|doctor|weixin-login                多管道 IM bot 閘道
+  reasonix upgrade [--check] [--force]                   自更新至最新版本（也可用：reasonix update）
   reasonix version
   reasonix help
 

@@ -214,6 +214,14 @@ export function Transcript({
   // Track question count and auto-scroll on new messages.
   useEffect(() => { trackQuestions(questions.length); }, [questions.length, trackQuestions]);
 
+  // Reset the auto-scroll pin when switching tabs so the new session always
+  // starts at the bottom. Without this, stick.current from the previous tab
+  // persists across React re-renders (Transcript is not keyed by tabId) and
+  // disables auto-scroll when the user had scrolled up in the old tab (#4584).
+  useEffect(() => {
+    stick.current = true;
+  }, [tabId]);
+
   // Auto-scroll to bottom during streaming. Coalesce fast token/reasoning
   // updates into one layout read/write per animation frame.
   const contentVersion = useMemo(() => scrollVersion(items), [items]);

@@ -72,3 +72,38 @@ model = "m"
 		t.Fatalf("migration should preserve ordinary config:\n%s", updated)
 	}
 }
+
+func TestLoadForEditLoadsDotEnvNextToEditedProjectConfig(t *testing.T) {
+	project := t.TempDir()
+	launch := t.TempDir()
+	path := filepath.Join(project, "reasonix.toml")
+	body := `default_model = "custom/m"
+[[providers]]
+name = "custom"
+kind = "openai"
+base_url = "https://example.invalid/v1"
+model = "m"
+api_key_env = "PROJECT_ONLY_KEY"
+`
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(project, ".env"), []byte("PROJECT_ONLY_KEY=from-project\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(launch)
+	t.Setenv("PROJECT_ONLY_KEY", "")
+	os.Unsetenv("PROJECT_ONLY_KEY")
+
+	cfg := LoadForEdit(path)
+	provider, ok := cfg.Provider("custom")
+	if !ok {
+		t.Fatalf("provider missing from edited config: %+v", cfg.Providers)
+	}
+	if !provider.Configured() {
+		t.Fatalf("provider should resolve api_key_env from project .env next to edited config")
+	}
+	if got := ResolveCredentialForRoot(project, "PROJECT_ONLY_KEY"); !got.Set || got.Value != "from-project" {
+		t.Fatalf("credential = %+v, want project .env value", got)
+	}
+}

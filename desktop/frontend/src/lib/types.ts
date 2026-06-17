@@ -868,6 +868,8 @@ export interface ProviderView {
   default: string;
   apiKeyEnv: string;
   keySet: boolean; // the env var currently resolves to a value
+  requiresKey?: boolean; // false for explicit no-auth providers
+  configured?: boolean; // selectable: key is set or no key is required
   keySource?: string;
   keySourcePath?: string;
   balanceUrl: string; // optional wallet-balance endpoint; "" disables the readout

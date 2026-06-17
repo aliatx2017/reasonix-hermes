@@ -86,6 +86,14 @@ configured credential store / Reasonix home when the new destination does not
 already exist. If the new global config already exists, it wins and legacy
 config files are only kept as compatibility fallbacks.
 
+Starting in **v1.9.1**, Reasonix also backfills MCP servers from known legacy
+paths, legacy `config.json`, desktop-registered projects, and restored tab
+projects into the global `<Reasonix home>/config.toml`. Existing global
+`[[plugins]]` entries win by name, so project or legacy entries never overwrite a
+server the user already configured globally. Source files are left untouched, and
+the backfill writes a one-time marker so a user-deleted global MCP server is not
+recreated repeatedly from an old project config.
+
 ## Manual Migration Rescue
 
 If Reasonix has already created the new home directory but some legacy data was

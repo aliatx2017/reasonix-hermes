@@ -185,6 +185,10 @@ type chatTUI struct {
 	toolStreamStart time.Time
 	toolStreamFrame int
 	transcriptDirty bool
+	// forceGotoBottom is set by replayActiveBranch and resetFreshContextView to
+	// pin the viewport to the bottom after a session / branch / clear switch
+	// regardless of the previous wasAtBottom state (#4584).
+	forceGotoBottom bool
 	eventCh         chan event.Event
 	started         bool // banner + resumed history committed once
 
@@ -705,8 +709,9 @@ func (m chatTUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		wrapped := wrapTranscript(strings.Join(cm.transcript, "\n"), contentW)
 		cm.viewport.SetContent(wrapped)
 		cm.wrappedLines = strings.Split(wrapped, "\n")
-		if wasAtBottom {
+		if wasAtBottom || cm.forceGotoBottom {
 			cm.viewport.GotoBottom() // tail-follow: stay pinned to newest output
+			cm.forceGotoBottom = false
 		}
 	}
 	cm.transcriptDirty = false

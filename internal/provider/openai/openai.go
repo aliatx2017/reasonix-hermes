@@ -203,7 +203,9 @@ func (c *client) Stream(ctx context.Context, req provider.Request) (<-chan provi
 			return nil, err
 		}
 		httpReq.Header.Set("Content-Type", "application/json")
-		httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
+		if c.apiKey != "" {
+			httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
+		}
 		httpReq.Header.Set("Accept", "text/event-stream")
 		return httpReq, nil
 	}

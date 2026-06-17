@@ -535,6 +535,105 @@ status_bar_items = ["cost", "balance"]
 	}
 }
 
+func TestSettingsLoadsActiveWorkspaceCredentialsWithUserConfig(t *testing.T) {
+	isolateDesktopUserDirs(t)
+
+	project := robustTempDir(t)
+	launch := robustTempDir(t)
+	if err := os.WriteFile(filepath.Join(project, ".env"), []byte("WORKSPACE_ONLY_KEY=from-project\n"), 0o600); err != nil {
+		t.Fatalf("write project env: %v", err)
+	}
+	userCfg := config.LoadForEdit(config.UserConfigPath())
+	if err := userCfg.UpsertProvider(config.ProviderEntry{
+		Name:      "workspace-provider",
+		Kind:      "openai",
+		BaseURL:   "https://workspace.example/v1",
+		Model:     "workspace-model",
+		APIKeyEnv: "WORKSPACE_ONLY_KEY",
+	}); err != nil {
+		t.Fatalf("upsert provider: %v", err)
+	}
+	userCfg.Desktop.ProviderAccess = []string{"workspace-provider"}
+	if err := userCfg.SaveTo(config.UserConfigPath()); err != nil {
+		t.Fatalf("save user config: %v", err)
+	}
+	t.Setenv("WORKSPACE_ONLY_KEY", "")
+	os.Unsetenv("WORKSPACE_ONLY_KEY")
+	orig, _ := os.Getwd()
+	defer func() { _ = os.Chdir(orig) }()
+	if err := os.Chdir(launch); err != nil {
+		t.Fatalf("chdir launch: %v", err)
+	}
+
+	app := NewApp()
+	app.tabs = map[string]*WorkspaceTab{"project": {ID: "project", WorkspaceRoot: project}}
+	app.activeTabID = "project"
+	got := app.Settings()
+	for _, p := range got.Providers {
+		if p.Name == "workspace-provider" {
+			if !p.KeySet {
+				t.Fatalf("workspace provider keySet = false, want true from active workspace .env: %+v", p)
+			}
+			if !p.Configured {
+				t.Fatalf("workspace provider configured = false, want true from active workspace .env: %+v", p)
+			}
+			return
+		}
+	}
+	t.Fatalf("workspace provider missing from settings: %+v", got.Providers)
+}
+
+func TestSettingsShowsGlobalCredentialWithoutMutatingWorkspaceEnv(t *testing.T) {
+	isolateDesktopUserDirs(t)
+
+	project := robustTempDir(t)
+	launch := robustTempDir(t)
+	if err := os.WriteFile(filepath.Join(project, ".env"), []byte("SHARED_SETTINGS_KEY=from-project\n"), 0o600); err != nil {
+		t.Fatalf("write project env: %v", err)
+	}
+	if _, err := config.SetCredential("SHARED_SETTINGS_KEY", "from-credentials"); err != nil {
+		t.Fatalf("SetCredential: %v", err)
+	}
+	userCfg := config.LoadForEditWithoutCredentials(config.UserConfigPath())
+	if err := userCfg.UpsertProvider(config.ProviderEntry{
+		Name:      "settings-provider",
+		Kind:      "openai",
+		BaseURL:   "https://settings.example/v1",
+		Model:     "settings-model",
+		APIKeyEnv: "SHARED_SETTINGS_KEY",
+	}); err != nil {
+		t.Fatalf("upsert provider: %v", err)
+	}
+	userCfg.Desktop.ProviderAccess = []string{"settings-provider"}
+	if err := userCfg.SaveTo(config.UserConfigPath()); err != nil {
+		t.Fatalf("save user config: %v", err)
+	}
+	t.Setenv("SHARED_SETTINGS_KEY", "from-project")
+	orig, _ := os.Getwd()
+	defer func() { _ = os.Chdir(orig) }()
+	if err := os.Chdir(launch); err != nil {
+		t.Fatalf("chdir launch: %v", err)
+	}
+
+	app := NewApp()
+	app.tabs = map[string]*WorkspaceTab{"project": {ID: "project", WorkspaceRoot: project}}
+	app.activeTabID = "project"
+	got := app.Settings()
+	for _, p := range got.Providers {
+		if p.Name != "settings-provider" {
+			continue
+		}
+		if !p.KeySet || p.KeySource != "Reasonix credentials" {
+			t.Fatalf("settings-provider key = set:%v source:%q, want Reasonix credentials: %+v", p.KeySet, p.KeySource, p)
+		}
+		if env := os.Getenv("SHARED_SETTINGS_KEY"); env != "from-project" {
+			t.Fatalf("Settings mutated SHARED_SETTINGS_KEY = %q, want existing project env", env)
+		}
+		return
+	}
+	t.Fatalf("settings provider missing from settings: %+v", got.Providers)
+}
+
 func TestSettingsSeedsMissingUserConfigFromLegacyProjectConfig(t *testing.T) {
 	isolateDesktopUserDirs(t)
 
@@ -866,6 +965,83 @@ api_key_env = "DEEPSEEK_API_KEY"
 	}
 }
 
+func TestSetProviderKeyRestoresOfficialProviderAccess(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	t.Setenv("DEEPSEEK_API_KEY", "")
+	os.Unsetenv("DEEPSEEK_API_KEY")
+	if err := os.MkdirAll(filepath.Dir(config.UserConfigPath()), 0o755); err != nil {
+		t.Fatalf("mkdir config dir: %v", err)
+	}
+	if err := os.WriteFile(config.UserConfigPath(), []byte(`
+default_model = "deepseek/deepseek-v4-flash"
+
+[desktop]
+provider_access = []
+
+[[providers]]
+name = "deepseek"
+kind = "openai"
+base_url = "https://api.deepseek.com"
+models = ["deepseek-v4-flash", "deepseek-v4-pro"]
+default = "deepseek-v4-flash"
+api_key_env = "DEEPSEEK_API_KEY"
+`), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	if _, err := NewApp().SetProviderKey("DEEPSEEK_API_KEY", "sk-test"); err != nil {
+		t.Fatalf("SetProviderKey: %v", err)
+	}
+	cfg := config.LoadForEdit(config.UserConfigPath())
+	if !providerAccessSet(cfg.Desktop.ProviderAccess)["deepseek"] {
+		t.Fatalf("provider_access = %+v, want deepseek restored", cfg.Desktop.ProviderAccess)
+	}
+	got := NewApp().Settings()
+	for _, p := range got.Providers {
+		if p.Name == "deepseek" {
+			if !p.Added || !p.KeySet {
+				t.Fatalf("deepseek settings = %+v, want added and key-set", p)
+			}
+			return
+		}
+	}
+	t.Fatalf("settings providers missing deepseek: %+v", got.Providers)
+}
+
+func TestSetProviderKeyKeepsCustomAliasProviderAccess(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	t.Setenv("PROXY_DEEPSEEK_KEY", "")
+	os.Unsetenv("PROXY_DEEPSEEK_KEY")
+	if err := os.MkdirAll(filepath.Dir(config.UserConfigPath()), 0o755); err != nil {
+		t.Fatalf("mkdir config dir: %v", err)
+	}
+	if err := os.WriteFile(config.UserConfigPath(), []byte(`
+[desktop]
+provider_access = []
+
+[[providers]]
+name = "deepseek-flash"
+kind = "openai"
+base_url = "https://proxy.example/v1"
+model = "deepseek-v4-flash"
+api_key_env = "PROXY_DEEPSEEK_KEY"
+`), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	if _, err := NewApp().SetProviderKey("PROXY_DEEPSEEK_KEY", "sk-test"); err != nil {
+		t.Fatalf("SetProviderKey: %v", err)
+	}
+	cfg := config.LoadForEditWithoutCredentials(config.UserConfigPath())
+	access := providerAccessSet(cfg.Desktop.ProviderAccess)
+	if !access["deepseek-flash"] {
+		t.Fatalf("provider_access = %+v, want custom alias deepseek-flash", cfg.Desktop.ProviderAccess)
+	}
+	if access["deepseek"] {
+		t.Fatalf("provider_access = %+v, should not canonicalize custom proxy to deepseek", cfg.Desktop.ProviderAccess)
+	}
+}
+
 func TestAddOfficialProviderAccessUsesDesktopLanguagePricing(t *testing.T) {
 	isolateDesktopUserDirs(t)
 	if err := os.MkdirAll(filepath.Dir(config.UserConfigPath()), 0o755); err != nil {
@@ -977,6 +1153,102 @@ func TestModelsForTabOnlyListsProviderAccessWhenConfigured(t *testing.T) {
 	}
 	if len(models) != 4 {
 		t.Fatalf("Models() len = %d, want 4: %+v", len(models), models)
+	}
+}
+
+func TestModelsForTabListsCustomMultiModelProviderWithoutMetadata(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	t.Setenv("LOCAL_API_KEY", "sk-test")
+	if err := os.MkdirAll(filepath.Dir(config.UserConfigPath()), 0o755); err != nil {
+		t.Fatalf("mkdir config dir: %v", err)
+	}
+	if err := os.WriteFile(config.UserConfigPath(), []byte(`
+default_model = "local/model-a"
+
+[desktop]
+provider_access = ["local"]
+
+[[providers]]
+name = "local"
+kind = "openai"
+base_url = "http://127.0.0.1:23333/v1"
+models = ["model-a", "model-b"]
+default = "model-a"
+api_key_env = "LOCAL_API_KEY"
+`), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	models := NewApp().Models()
+	refs := modelRefsFromView(models)
+	for _, want := range []string{"local/model-a", "local/model-b"} {
+		if !refs[want] {
+			t.Fatalf("Models() refs = %+v, missing %s", models, want)
+		}
+	}
+	if len(models) != 2 {
+		t.Fatalf("Models() len = %d, want 2: %+v", len(models), models)
+	}
+}
+
+func TestModelsForTabListsKeylessCustomMultiModelProvider(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	if err := os.MkdirAll(filepath.Dir(config.UserConfigPath()), 0o755); err != nil {
+		t.Fatalf("mkdir config dir: %v", err)
+	}
+	if err := os.WriteFile(config.UserConfigPath(), []byte(`
+default_model = "local/model-a"
+
+[desktop]
+provider_access = ["local"]
+
+[[providers]]
+name = "local"
+kind = "openai"
+base_url = "http://127.0.0.1:23333/v1"
+models = ["model-a", "model-b"]
+default = "model-a"
+`), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	models := NewApp().Models()
+	refs := modelRefsFromView(models)
+	for _, want := range []string{"local/model-a", "local/model-b"} {
+		if !refs[want] {
+			t.Fatalf("Models() refs = %+v, missing %s", models, want)
+		}
+	}
+}
+
+func TestModelsForTabListsLoopbackCustomProviderWithMissingKeyEnv(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	if err := os.MkdirAll(filepath.Dir(config.UserConfigPath()), 0o755); err != nil {
+		t.Fatalf("mkdir config dir: %v", err)
+	}
+	if err := os.WriteFile(config.UserConfigPath(), []byte(`
+default_model = "local/model-a"
+
+[desktop]
+provider_access = ["local"]
+
+[[providers]]
+name = "local"
+kind = "openai"
+base_url = "http://127.0.0.1:23333/v1"
+models = ["model-a", "model-b"]
+default = "model-a"
+api_key_env = "LOCAL_API_KEY"
+`), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	models := NewApp().Models()
+	refs := modelRefsFromView(models)
+	for _, want := range []string{"local/model-a", "local/model-b"} {
+		if !refs[want] {
+			t.Fatalf("Models() refs = %+v, missing %s", models, want)
+		}
 	}
 }
 

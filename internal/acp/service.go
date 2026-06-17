@@ -17,6 +17,7 @@ import (
 	"reasonix/internal/control"
 	"reasonix/internal/event"
 	"reasonix/internal/fileutil"
+	"reasonix/internal/jobs"
 	"reasonix/internal/plugin"
 	"reasonix/internal/provider"
 )
@@ -1408,6 +1409,9 @@ func deleteSessionFiles(sessionPath string) error {
 		}
 	}
 	if err := agent.DeleteSubagentsByParent(filepath.Dir(sessionPath), agent.BranchID(sessionPath)); err != nil {
+		return err
+	}
+	if err := jobs.RemoveArtifacts(sessionPath); err != nil {
 		return err
 	}
 	return nil

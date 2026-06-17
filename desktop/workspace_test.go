@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"mime"
 	"net/http"
 	"net/http/httptest"
@@ -65,6 +66,47 @@ func TestSaveWorkspaceOnlyRemembersLastWorkspace(t *testing.T) {
 	}
 	if got := loadWorkspaces(); len(got) != 0 {
 		t.Fatalf("saveWorkspace should not maintain legacy workspace list, got %v", got)
+	}
+}
+
+func TestDesktopMCPMigrationRootsIncludesLegacyWorkspaces(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	active := t.TempDir()
+	legacy := t.TempDir()
+	tabRoot := t.TempDir()
+	projectRoot := t.TempDir()
+
+	saveWorkspace(active)
+	if err := os.MkdirAll(filepath.Dir(workspaceListPath()), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	b, err := json.Marshal([]string{legacy, active, legacy})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(workspaceListPath(), b, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := saveProjectsFile(desktopProjectFile{Projects: []desktopProject{{Root: projectRoot}}}); err != nil {
+		t.Fatal(err)
+	}
+
+	roots := desktopMCPMigrationRoots(desktopTabsFile{
+		Tabs: []desktopTabEntry{{Scope: "project", WorkspaceRoot: tabRoot}},
+	})
+	want := []string{
+		normalizeProjectRoot(active),
+		normalizeProjectRoot(legacy),
+		normalizeProjectRoot(tabRoot),
+		normalizeProjectRoot(projectRoot),
+	}
+	if len(roots) != len(want) {
+		t.Fatalf("roots len = %d, want %d: %+v", len(roots), len(want), roots)
+	}
+	for i, root := range want {
+		if roots[i] != root {
+			t.Fatalf("roots[%d] = %q, want %q; roots=%+v", i, roots[i], root, roots)
+		}
 	}
 }
 

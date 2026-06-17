@@ -96,10 +96,14 @@ func credentialEnvNamesForRoot(root string) []string {
 		tomlSources = append(tomlSources, uc)
 	}
 	tomlSources = append(tomlSources, projectTOML)
-	if providers, _, ok, err := mergeTOMLProviders(tomlSources); err == nil && ok {
+	if providers, _, _, ok, err := mergeTOMLProviders(tomlSources); err == nil && ok {
 		cfg.Providers = providers
 	}
 
+	return credentialEnvNamesFromConfig(cfg)
+}
+
+func credentialEnvNamesFromConfig(cfg *Config) []string {
 	seen := map[string]bool{}
 	var out []string
 	add := func(name string) {
@@ -381,6 +385,73 @@ func ResolveCredentialForRoot(root, key string) CredentialResolution {
 	res.Source.Label = credentialSourceLabel(res.Source)
 	res.Shadowed = shadowedCredentialSources(root, key, value, res.Source)
 	return res
+}
+
+func ResolveCredentialForRootGlobalFirst(root, key string) CredentialResolution {
+	key = strings.TrimSpace(key)
+	res := CredentialResolution{Name: key}
+	if key == "" {
+		return res
+	}
+	if value, source, ok := storedCredentialValue(key); ok {
+		res.Set = true
+		res.Value = value
+		res.Source = source
+		res.Source.Label = credentialSourceLabel(res.Source)
+		res.Shadowed = shadowedCredentialSources(root, key, value, res.Source)
+		return res
+	}
+	for _, source := range credentialSourceCandidates(root) {
+		switch source.Kind {
+		case CredentialSourceProjectEnv, CredentialSourceHomeEnv, CredentialSourceLegacy:
+		default:
+			continue
+		}
+		if value, ok := envFileValue(source.Path, key); ok && value != "" {
+			res.Set = true
+			res.Value = value
+			source.Label = credentialSourceLabel(source)
+			res.Source = source
+			res.Shadowed = shadowedCredentialSources(root, key, value, source)
+			return res
+		}
+	}
+	value := os.Getenv(key)
+	if value == "" {
+		return res
+	}
+	res.Set = true
+	res.Value = value
+	if source, ok := trackedCredential(key, value); ok {
+		res.Source = source
+	} else {
+		res.Source = CredentialSource{Kind: CredentialSourceEnvironment}
+	}
+	res.Source.Label = credentialSourceLabel(res.Source)
+	res.Shadowed = shadowedCredentialSources(root, key, value, res.Source)
+	return res
+}
+
+func storedCredentialValue(key string) (string, CredentialSource, bool) {
+	mode := credentialsStoreMode()
+	if mode == CredentialsStoreAuto || mode == CredentialsStoreKeyring {
+		if value, err := keyring.Get(credentialsKeyringService, key); err == nil && value != "" {
+			return value, CredentialSource{Kind: CredentialSourceCredentials, Label: "system credential store"}, true
+		}
+	}
+	if mode == CredentialsStoreAuto || mode == CredentialsStoreFile {
+		if p := UserCredentialsPath(); p != "" {
+			if value, ok := envFileValue(p, key); ok && value != "" {
+				return value, CredentialSource{Kind: CredentialSourceCredentials, Path: p, Label: "Reasonix credentials"}, true
+			}
+		}
+		for _, p := range legacyCredentialsPaths() {
+			if value, ok := envFileValue(p, key); ok && value != "" {
+				return value, CredentialSource{Kind: CredentialSourceLegacy, Path: p, Label: "legacy Reasonix credentials"}, true
+			}
+		}
+	}
+	return "", CredentialSource{}, false
 }
 
 func inferCredentialSource(root, key, value string) (CredentialSource, bool) {

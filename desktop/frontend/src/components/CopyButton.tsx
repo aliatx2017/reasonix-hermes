@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, Copy } from "lucide-react";
-import { ClipboardSetText } from "../../wailsjs/runtime/runtime";
 import { useT } from "../lib/i18n";
 
 function fallbackCopyText(value: string): boolean {
@@ -44,7 +43,7 @@ async function writeClipboardText(value: string): Promise<void> {
     /* try the desktop runtime below */
   }
   try {
-    if (typeof window !== "undefined" && window.runtime && (await ClipboardSetText(value))) return;
+    if (typeof window !== "undefined" && (await window.runtime?.ClipboardSetText?.(value))) return;
   } catch {
     /* runtime unavailable in browser dev */
   }

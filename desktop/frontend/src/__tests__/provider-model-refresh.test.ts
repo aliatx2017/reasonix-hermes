@@ -5,8 +5,11 @@ import {
   isLikelyChatModel,
   isLikelyVisionModel,
   mergedFetchedProviderModels,
+  providerApiKeyEnvForSave,
   providerDefaultModel,
+  providerIsConfigured,
   providerModelCandidates,
+  providerRequiresKey,
 } from "../lib/providerModels";
 
 let passed = 0;
@@ -116,6 +119,36 @@ eq(
   providerDefaultModel("deleted", ["coding-pro", "chat"]),
   "coding-pro",
   "falls back to first saved model when default is unavailable",
+);
+
+eq(
+  providerApiKeyEnvForSave("Local Gateway", "", ""),
+  "",
+  "keeps custom provider keyless when no key env or key value is supplied",
+);
+
+eq(
+  providerApiKeyEnvForSave("Local Gateway", "", "sk-test"),
+  "LOCAL_GATEWAY_API_KEY",
+  "creates a key env when saving an inline key for a new custom provider",
+);
+
+eq(
+  providerApiKeyEnvForSave("Local Gateway", "GATEWAY_KEY", ""),
+  "GATEWAY_KEY",
+  "preserves an explicitly configured key env",
+);
+
+eq(
+  [
+    providerRequiresKey({ apiKeyEnv: "" }),
+    providerIsConfigured({ apiKeyEnv: "", keySet: false }),
+    providerIsConfigured({ apiKeyEnv: "LOCAL_API_KEY", keySet: false, requiresKey: false }),
+    providerIsConfigured({ apiKeyEnv: "REMOTE_API_KEY", keySet: false, requiresKey: true }),
+    providerIsConfigured({ apiKeyEnv: "REMOTE_API_KEY", keySet: true, requiresKey: true }),
+  ],
+  [false, true, true, false, true],
+  "separates provider selectability from key presence for no-auth providers",
 );
 
 console.log(`\n${passed} passed, ${failed} failed, ${passed + failed} total`);

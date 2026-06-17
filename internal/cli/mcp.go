@@ -268,7 +268,7 @@ Usage:
   reasonix mcp add <name> <command> [args...]        stdio server
   reasonix mcp add <name> --http <url> [--header K=V] remote (Streamable HTTP)
   reasonix mcp add <name> --sse  <url>               remote (legacy SSE)
-  reasonix mcp import                                import Codex-enabled servers from cc-switch
+  reasonix mcp import                                import MCP servers from cc-switch
   reasonix mcp remove <name>
 
 Flags for add:

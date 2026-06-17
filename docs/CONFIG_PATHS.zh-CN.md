@@ -73,6 +73,12 @@ Windows:     %APPDATA%\reasonix\config.toml
 
 旧 credentials、memory 文件和 sessions 也会在新目标不存在时导入到配置的 credential store / Reasonix home。若新的全局配置已经存在，则新配置优先；旧配置只作为兼容 fallback 保留。
 
+从 **v1.9.1** 开始，Reasonix 还会在升级时把已知旧路径、legacy `config.json`、
+桌面端已登记项目和恢复 tabs 对应项目里的 MCP 配置汇总补齐到全局
+`<Reasonix home>/config.toml`。已有的全局 `[[plugins]]` 按名称优先，不会被旧
+配置或项目配置覆盖；源文件会保留不变。该补齐会写入一次性 marker，避免用户之后
+主动删除某个全局 MCP 时又被旧项目配置反复恢复。
+
 ## 手动补救迁移
 
 如果 Reasonix 已经创建了新的 home 目录，但当时旧数据还不在可扫描路径里；或者先打开了桌面端，导致自动迁移没有把旧路径数据补齐，可以在任一前端运行补救命令：

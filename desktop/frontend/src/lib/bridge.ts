@@ -9,6 +9,7 @@ import type * as GeneratedApp from "../../wailsjs/go/main/App";
 
 import { addBreadcrumb } from "./breadcrumbs";
 import { t } from "./i18n";
+import { providerRequiresKey } from "./providerModels";
 import { DEFAULT_STATUS_BAR_ITEMS, normalizeStatusBarItems } from "./statusBarItems";
 import { modeWithAutoApproveTools, modeWithPlan, normalizeCollaborationMode, normalizeMode, normalizeTokenMode, normalizeToolApprovalMode } from "./types";
 
@@ -405,6 +406,14 @@ export type _CheckAppToGen = AssertNever<Exclude<Exclude<keyof AppBindings, keyo
 interface WailsRuntime {
   EventsOn(name: string, cb: (...data: unknown[]) => void): () => void;
   BrowserOpenURL(url: string): void;
+  WindowSetSystemDefaultTheme?(): void;
+  WindowSetLightTheme?(): void;
+  WindowSetDarkTheme?(): void;
+  WindowSetBackgroundColour?(r: number, g: number, b: number, a: number): void;
+  WindowGetSize?(): Promise<{ w: number; h: number }>;
+  WindowGetPosition?(): Promise<{ x: number; y: number }>;
+  WindowIsMaximised?(): Promise<boolean>;
+  ClipboardSetText?(text: string): Promise<boolean>;
   // Native OS file drop (desktop only); useDropTarget gates delivery to elements
   // carrying the --wails-drop-target CSS property. Absent in the browser dev mock.
   OnFileDrop?(cb: (x: number, y: number, paths: string[]) => void, useDropTarget: boolean): void;
@@ -2478,7 +2487,7 @@ function makeMockApp(): AppBindings {
     },
     async FetchProviderModels(p: ProviderView) {
       if (!p.baseUrl.trim()) throw new Error(t("settings.fetchModelsMissingBaseUrl"));
-      if (!p.apiKeyEnv.trim()) throw new Error(t("settings.fetchModelsMissingKeyEnv"));
+      if (providerRequiresKey(p) && !p.apiKeyEnv.trim()) throw new Error(t("settings.fetchModelsMissingKeyEnv"));
       await delay(350);
       if (p.baseUrl.includes("deepseek")) return ["deepseek-v4-flash", "deepseek-v4-pro"];
       if (p.baseUrl.includes("mimo") || p.baseUrl.includes("xiaomimimo")) return ["mimo-v2.5", "mimo-v2.5-pro"];

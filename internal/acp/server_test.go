@@ -17,6 +17,7 @@ import (
 	"reasonix/internal/control"
 	"reasonix/internal/event"
 	"reasonix/internal/hook"
+	"reasonix/internal/jobs"
 	"reasonix/internal/provider"
 )
 
@@ -856,6 +857,13 @@ func TestDeleteSessionFilesDeletesOwnedSubagents(t *testing.T) {
 	}
 	ref := "sa_20260102_030405_000000000_aabbccddeeff"
 	writeACPSubagentArtifact(t, dir, ref, agent.BranchID(sessionPath))
+	jobsDir := jobs.ArtifactDir(sessionPath)
+	if err := os.MkdirAll(jobsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(jobsDir, "bash-1.log"), []byte("output"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	if err := deleteSessionFiles(sessionPath); err != nil {
 		t.Fatalf("deleteSessionFiles: %v", err)
@@ -865,6 +873,9 @@ func TestDeleteSessionFilesDeletesOwnedSubagents(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dir, "subagents", ref+".meta.json")); !os.IsNotExist(err) {
 		t.Fatalf("subagent meta should be deleted, stat err = %v", err)
+	}
+	if _, err := os.Stat(jobsDir); !os.IsNotExist(err) {
+		t.Fatalf("jobs sidecar should be deleted, stat err = %v", err)
 	}
 }
 

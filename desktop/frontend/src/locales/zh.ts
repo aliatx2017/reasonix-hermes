@@ -825,6 +825,7 @@ export const zh: Record<DictKey, string> = {
   "settings.notificationSoundPreview": "预览",
   "settings.keySet": "已设密钥",
   "settings.noKey": "无密钥",
+  "settings.noKeyRequired": "无需密钥",
   "settings.cantDeleteDefault": "无法删除默认模型服务",
   "settings.cantRemoveDefault": "无法移除默认模型服务接入",
   "settings.deleteProvider": "删除模型服务",

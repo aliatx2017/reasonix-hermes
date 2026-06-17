@@ -7,9 +7,8 @@ import (
 )
 
 // TestLoadDotEnvFallsBackToHome proves the unified-key behaviour: the working
-// directory's .env wins, but a key only present in ~/.env is still picked up —
-// so a key set once in the home .env (the desktop app writes there) reaches the
-// CLI run from any project directory. Existing env vars beat both files.
+// directory's .env is still read as a fallback, and a key only present in ~/.env
+// is picked up too. Existing env vars beat file-backed credential sources.
 func TestLoadDotEnvFallsBackToHome(t *testing.T) {
 	cwd := t.TempDir()
 	home := t.TempDir()
@@ -49,7 +48,7 @@ func TestLoadDotEnvFallsBackToHome(t *testing.T) {
 
 // TestLoadDotEnvReadsGlobalCredentials proves `reasonix setup`'s target — the
 // reasonix-owned credentials file under Reasonix home — is loaded from any
-// working directory, while a project ./.env still wins on a shared key.
+// working directory and wins over a project ./.env on a shared key.
 func TestLoadDotEnvReadsGlobalCredentials(t *testing.T) {
 	cwd := t.TempDir()
 	cfgHome := t.TempDir()
@@ -68,7 +67,7 @@ func TestLoadDotEnvReadsGlobalCredentials(t *testing.T) {
 	if err := os.MkdirAll(filepath.Dir(cred), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(cred, []byte("KEY_GLOBAL=from_credentials\nKEY_SHARED=global_loses\n"), 0o600); err != nil {
+	if err := os.WriteFile(cred, []byte("KEY_GLOBAL=from_credentials\nKEY_SHARED=global_wins\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(cwd, ".env"), []byte("KEY_SHARED=cwd_wins\n"), 0o600); err != nil {
@@ -85,12 +84,48 @@ func TestLoadDotEnvReadsGlobalCredentials(t *testing.T) {
 	if got := os.Getenv("KEY_GLOBAL"); got != "from_credentials" {
 		t.Errorf("global credentials not loaded: KEY_GLOBAL=%q want from_credentials", got)
 	}
-	if got := os.Getenv("KEY_SHARED"); got != "cwd_wins" {
-		t.Errorf("project .env should win over global credentials: KEY_SHARED=%q want cwd_wins", got)
+	if got := os.Getenv("KEY_SHARED"); got != "global_wins" {
+		t.Errorf("global credentials should win over project .env: KEY_SHARED=%q want global_wins", got)
 	}
 }
 
-func TestResolveCredentialSourceShowsProjectEnvShadowingCredentials(t *testing.T) {
+func TestResolveCredentialGlobalFirstDoesNotMutateProjectEnv(t *testing.T) {
+	project := t.TempDir()
+	home := t.TempDir()
+
+	t.Setenv("HOME", home)
+	t.Setenv("REASONIX_CREDENTIALS_STORE", "file")
+	t.Setenv("USERPROFILE", home)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+	t.Setenv("AppData", filepath.Join(home, "AppData"))
+
+	key := "KEY_GLOBAL_PRIORITY"
+	if err := os.MkdirAll(filepath.Dir(UserCredentialsPath()), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(UserCredentialsPath(), []byte(key+"=from_credentials\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(project, ".env"), []byte(key+"=from_project\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv(key, "")
+	os.Unsetenv(key)
+	t.Setenv(key, "from_project")
+
+	if got := os.Getenv(key); got != "from_project" {
+		t.Fatalf("precondition: existing env should be project value, got %q", got)
+	}
+	got := ResolveCredentialForRootGlobalFirst(project, key)
+	if got.Value != "from_credentials" || got.Source.Kind != CredentialSourceCredentials {
+		t.Fatalf("credential = %+v, want global credentials for settings display", got)
+	}
+	if env := os.Getenv(key); env != "from_project" {
+		t.Fatalf("global-first resolution mutated process env: %q", env)
+	}
+}
+
+func TestResolveCredentialSourceShowsCredentialsShadowingProjectEnv(t *testing.T) {
 	cwd := t.TempDir()
 	cfgHome := t.TempDir()
 
@@ -121,21 +156,21 @@ func TestResolveCredentialSourceShowsProjectEnvShadowingCredentials(t *testing.T
 	loadDotEnv()
 
 	got := ResolveCredentialForRoot(cwd, key)
-	if !got.Set || got.Source.Kind != CredentialSourceProjectEnv {
-		t.Fatalf("source = %+v set=%v, want project .env", got.Source, got.Set)
+	if !got.Set || got.Source.Kind != CredentialSourceCredentials {
+		t.Fatalf("source = %+v set=%v, want Reasonix credentials", got.Source, got.Set)
 	}
-	foundCredentialsShadow := false
+	foundProjectShadow := false
 	for _, source := range got.Shadowed {
-		if source.Kind == CredentialSourceCredentials {
-			foundCredentialsShadow = true
+		if source.Kind == CredentialSourceProjectEnv {
+			foundProjectShadow = true
 		}
 	}
-	if !foundCredentialsShadow {
-		t.Fatalf("shadowed = %+v, want credentials shadowed by project .env", got.Shadowed)
+	if !foundProjectShadow {
+		t.Fatalf("shadowed = %+v, want project .env shadowed by credentials", got.Shadowed)
 	}
 }
 
-func TestResolveCredentialSourceShowsEmptyProjectEnvShadowingCredentials(t *testing.T) {
+func TestResolveCredentialSourceShowsCredentialsShadowingEmptyProjectEnv(t *testing.T) {
 	cwd := t.TempDir()
 	cfgHome := t.TempDir()
 
@@ -175,7 +210,7 @@ func TestResolveCredentialSourceShowsEmptyProjectEnvShadowingCredentials(t *test
 		}
 	}
 	if !foundProjectShadow {
-		t.Fatalf("shadowed = %+v, want empty project .env shadowing credentials", got.Shadowed)
+		t.Fatalf("shadowed = %+v, want empty project .env shadowed by credentials", got.Shadowed)
 	}
 }
 

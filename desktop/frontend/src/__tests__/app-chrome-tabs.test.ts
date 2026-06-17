@@ -5,6 +5,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const testDir = dirname(fileURLToPath(import.meta.url));
+const appSource = readFileSync(resolve(testDir, "../App.tsx"), "utf8");
 const appChromeSource = readFileSync(resolve(testDir, "../components/AppChrome.tsx"), "utf8");
 const stylesSource = readFileSync(resolve(testDir, "../styles.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
 
@@ -103,6 +104,21 @@ ok(
   "AppChrome renders the command search as a fixed chrome tool",
 );
 
+ok(
+  /workbenchChromeHidden\s*=\s*sidebarWorkbench/.test(appSource),
+  "workbench chrome is hidden for every desktop platform",
+);
+
+ok(
+  /\{!workbenchChromeHidden && \(/.test(appSource),
+  "workbench skips rendering the top AppChrome row",
+);
+
+ok(
+  /topicbar__chrome-btn/.test(appSource),
+  "workbench keeps chrome controls in the topic bar",
+);
+
 for (const selector of [
   ".app--darwin .app-chrome--tabs",
   ":root[data-theme-style] .app--darwin .app-chrome--tabs",
@@ -126,6 +142,94 @@ for (const selector of [
     `${selector} reserves right-dock width before rendering tabs`,
   );
 }
+
+for (const selector of [
+  ".layout--workbench-chrome-hidden",
+  ":root[data-theme-style] .layout--workbench-chrome-hidden",
+]) {
+  ok(
+    finalDeclaration(selector, "--app-chrome-height") === "0px" &&
+      finalDeclaration(selector, "grid-template-rows") === "minmax(0, 1fr)" &&
+      finalDeclaration(selector, "background") === "var(--bg)",
+    `${selector} removes the workbench chrome row`,
+  );
+}
+
+ok(
+  finalDeclaration(":root[data-theme-style] .app--darwin .layout--workbench-chrome-hidden", "--app-chrome-height") === "0px" &&
+    finalDeclaration(".app--darwin .layout--workbench-chrome-hidden .sidebar--workbench", "padding-top") === "46px" &&
+    finalDeclaration(".app--darwin .layout--workbench-chrome-hidden.layout--sidebar-collapsed .topicbar", "padding-left") === "96px",
+  "macOS workbench leaves safe space for inset window controls",
+);
+
+ok(
+  finalDeclaration(".app--darwin .layout--workbench-chrome-hidden.layout--workspace-maximized .workbench-dock__tools", "padding-left") === "96px",
+  "macOS maximized workbench dock leaves safe space for inset window controls",
+);
+
+ok(
+  /@media \(max-width: 820px\) \{[\s\S]*\.app--darwin \.layout--workbench-chrome-hidden \.topicbar\s*\{[\s\S]*padding-left:\s*96px;/.test(stylesSource) &&
+    /@media \(max-width: 820px\) \{[\s\S]*\.app--darwin \.layout--workbench-chrome-hidden\.layout--workspace-maximized \.workbench-dock__tools\s*\{[\s\S]*padding-left:\s*96px;/.test(stylesSource),
+  "macOS workbench keeps safe space when responsive CSS hides the sidebar",
+);
+
+ok(
+  finalDeclaration(".workbench-dock__tools", "--wails-draggable") === "drag" &&
+    finalDeclaration(".workbench-dock__tabs", "--wails-draggable") === "no-drag" &&
+    finalDeclaration(".workbench-dock__tab", "--wails-draggable") === "no-drag",
+  "maximized workbench dock keeps a draggable title region while tabs remain clickable",
+);
+
+for (const selector of [
+  ":root[data-theme-style] .layout--workbench-chrome-hidden .topicbar",
+  ":root[data-theme-style] .layout--workbench-chrome-hidden .topicbar__chrome-btn",
+  ":root[data-theme-style] .layout--workbench-chrome-hidden .topicbar__icon-btn",
+  ":root[data-theme-style] .layout--workbench-chrome-hidden .topicbar__action-btn",
+]) {
+  ok(
+    finalDeclaration(selector, "box-shadow") === "none",
+    `${selector} stays flat after removing the workbench chrome row`,
+  );
+}
+
+ok(
+  finalDeclaration(":root[data-theme-style] .layout--workbench-chrome-hidden .topicbar", "background") === "var(--chat-bg)",
+  "workbench topic bar uses a flat chat background",
+);
+
+for (const selector of [
+  ":root[data-theme-style] .layout--workbench-chrome-hidden .topicbar__identity",
+  ":root[data-theme-style] .layout--workbench-chrome-hidden .topicbar__title-row",
+  ":root[data-theme-style] .layout--workbench-chrome-hidden .topicbar__title-row h1",
+  ":root[data-theme-style] .layout--workbench-chrome-hidden .tooltip-trigger:has(.topicbar__icon-btn)",
+]) {
+  ok(
+    finalDeclaration(selector, "background") === "transparent" &&
+      finalDeclaration(selector, "box-shadow") === "none" &&
+      finalDeclaration(selector, "filter") === "none",
+    `${selector} cannot paint residual title-row shadows in workbench mode`,
+  );
+}
+
+for (const selector of [
+  ":root[data-theme-style] .layout--workbench-chrome-hidden .topicbar__icon-btn",
+  ":root[data-theme-style] .layout--workbench-chrome-hidden .topicbar__chrome-btn",
+  ":root[data-theme-style] .layout--workbench-chrome-hidden .topicbar__icon-btn:hover",
+  ":root[data-theme-style] .layout--workbench-chrome-hidden .topicbar__icon-btn:focus-visible",
+  ":root[data-theme-style] .layout--workbench-chrome-hidden .topicbar__chrome-btn:hover:not(.topicbar__chrome-btn--blocked)",
+  ":root[data-theme-style] .layout--workbench-chrome-hidden .topicbar__chrome-btn:focus-visible:not(.topicbar__chrome-btn--blocked)",
+]) {
+  ok(
+    finalDeclaration(selector, "background") === "transparent",
+    `${selector} does not paint a hover block in workbench mode`,
+  );
+}
+
+ok(
+  finalDeclaration(".skip-to-composer", "box-shadow") === "none" &&
+    finalDeclaration(".skip-to-composer:focus-visible", "box-shadow")?.includes("0 12px 28px"),
+  "offscreen skip link does not leak its focus shadow into the workbench title area",
+);
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

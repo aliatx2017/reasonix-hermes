@@ -2,14 +2,21 @@
 import Base from '../layouts/Base.astro';
 
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
-const R2 = 'https://dl.reasonix.io/latest';
+const R2_LATEST = 'https://dl.reasonix.io/latest';
 const repo = 'https://github.com/esengine/DeepSeek-Reasonix';
 
+let desktopVersion = 'v1.1.0';
 let goVer = '1.1.0';
 try {
-  const r = await fetch(`${R2}/latest.json`);
-  if (r.ok) { const d = await r.json(); goVer = String(d.version || '').replace(/^v/, '') || goVer; }
+  const r = await fetch(`${R2_LATEST}/latest.json`);
+  if (r.ok) {
+    const d = await r.json();
+    const version = String(d.version || desktopVersion).replace(/^v?/, 'v');
+    desktopVersion = version;
+    goVer = desktopVersion.replace(/^v/, '') || goVer;
+  }
 } catch {}
+const R2_DESKTOP = `https://dl.reasonix.io/desktop-${desktopVersion}`;
 ---
 <Base
   title="Docs — Reasonix"
@@ -41,6 +48,7 @@ try {
         <span class="gh"><span class="l-en">Getting started</span><span class="l-zh">快速开始</span></span>
         <a href="#install"><span class="l-en">CLI / TUI</span><span class="l-zh">CLI / TUI</span></a>
         <a href="#desktop"><span class="l-en">Desktop app</span><span class="l-zh">桌面端下载</span></a>
+        <a href="#macos-quarantine"><span class="l-en">macOS warning</span><span class="l-zh">macOS 拦截处理</span></a>
         <a href="#quickstart"><span class="l-en">Quick start</span><span class="l-zh">快速上手</span></a>
         <a href="#config"><span class="l-en">Configuration</span><span class="l-zh">配置</span></a>
       </div>
@@ -78,27 +86,41 @@ brew install esengine/reasonix/reasonix</div>
           <li><span class="l-en">Scriptable runs through <code>reasonix run</code>, including piped input and explicit model selection.</span><span class="l-zh">可脚本化的 <code>reasonix run</code>,支持管道输入和显式模型选择。</span></li>
         </ul>
       </div>
-      <div class="callout"><span class="ico">!</span><span><span class="l-en">To install the legacy <strong>0.x</strong> version, run <code>npm i -g reasonix@latest</code>. The commands above, Homebrew, and desktop/release downloads install Reasonix 1.x; the current desktop download build is <strong>v{goVer}</strong>.</span><span class="l-zh">如需安装 legacy <strong>0.x</strong> 版本,命令是: <code>npm i -g reasonix@latest</code>。上方命令、Homebrew 与桌面端/Release 下载对应 Reasonix 1.x；当前桌面端下载构建为 <strong>v{goVer}</strong>。</span></span></div>
+      <div class="callout"><span class="ico">!</span><span><span class="l-en">To install the legacy <strong>0.x</strong> version, run <code>npm i -g reasonix@latest</code>. The commands above, Homebrew, and desktop/release downloads install Reasonix 1.x; the current desktop download build is <strong>v<span class="rxv">{goVer}</span></strong>.</span><span class="l-zh">如需安装 legacy <strong>0.x</strong> 版本,命令是: <code>npm i -g reasonix@latest</code>。上方命令、Homebrew 与桌面端/Release 下载对应 Reasonix 1.x；当前桌面端下载构建为 <strong>v<span class="rxv">{goVer}</span></strong>。</span></span></div>
 
       <h2 id="desktop"><span class="l-en">Desktop app</span><span class="l-zh">桌面端</span></h2>
       <div class="desktop-panel">
         <div class="desktop-panel-head">
-          <span class="desktop-kicker"><span class="l-en">Native app · v{goVer}</span><span class="l-zh">原生桌面端 · v{goVer}</span></span>
+          <span class="desktop-kicker"><span class="l-en">Native app · v<span class="rxv">{goVer}</span></span><span class="l-zh">原生桌面端 · v<span class="rxv">{goVer}</span></span></span>
           <h3><span class="l-en">Use Reasonix with a full desktop workspace</span><span class="l-zh">用完整桌面工作区运行 Reasonix</span></h3>
           <p><span class="l-en">The desktop app runs the same local Reasonix engine as the CLI, with visual sessions, settings, MCP status, memory, checkpoints, tool approvals, and IM bot connections in one place.</span><span class="l-zh">桌面端运行与 CLI 相同的本地 Reasonix 引擎,并把可视化会话、设置、MCP 状态、记忆、检查点、工具审批和 IM Bot 连接集中到一个工作区。</span></p>
         </div>
         <div class="desktop-downloads" aria-label="Desktop downloads">
-          <a class="desktop-download" href={`${R2}/Reasonix-darwin-universal.dmg`} download>
+          <a class="desktop-download" href={`${R2_DESKTOP}/Reasonix-darwin-universal.dmg`} data-desktop-asset="Reasonix-darwin-universal.dmg" download>
             <strong>macOS</strong>
-            <span><span class="l-en">Universal DMG</span><span class="l-zh">通用 DMG</span></span>
+            <span><span class="l-en">Universal DMG · Apple Silicon + Intel</span><span class="l-zh">通用 DMG · Apple Silicon + Intel</span></span>
           </a>
-          <a class="desktop-download" href={`${R2}/Reasonix-windows-amd64-installer.exe`} download>
+          <a class="desktop-download" href={`${R2_DESKTOP}/Reasonix-windows-amd64-installer.exe`} data-desktop-asset="Reasonix-windows-amd64-installer.exe" download>
             <strong>Windows</strong>
             <span><span class="l-en">x64 installer</span><span class="l-zh">x64 安装器</span></span>
           </a>
-          <a class="desktop-download" href={`${R2}/Reasonix-linux-amd64.tar.gz`} download>
+          <a class="desktop-download" href={`${R2_DESKTOP}/Reasonix-linux-amd64.deb`} data-desktop-asset="Reasonix-linux-amd64.deb" download>
             <strong>Linux</strong>
-            <span><span class="l-en">amd64 tarball</span><span class="l-zh">amd64 压缩包</span></span>
+            <span><span class="l-en">Debian / Ubuntu .deb</span><span class="l-zh">Debian / Ubuntu .deb</span></span>
+          </a>
+        </div>
+        <div class="desktop-downloads desktop-downloads--secondary" aria-label="Alternate desktop downloads">
+          <a class="desktop-download" href={`${R2_DESKTOP}/Reasonix-darwin-arm64.zip`} data-desktop-asset="Reasonix-darwin-arm64.zip" download>
+            <strong>macOS</strong>
+            <span>Apple Silicon zip</span>
+          </a>
+          <a class="desktop-download" href={`${R2_DESKTOP}/Reasonix-windows-arm64-installer.exe`} data-desktop-asset="Reasonix-windows-arm64-installer.exe" download>
+            <strong>Windows</strong>
+            <span>ARM64 installer</span>
+          </a>
+          <a class="desktop-download" href={`${R2_DESKTOP}/Reasonix-linux-amd64.tar.gz`} data-desktop-asset="Reasonix-linux-amd64.tar.gz" download>
+            <strong>Linux</strong>
+            <span><span class="l-en">Generic amd64 tarball</span><span class="l-zh">通用 amd64 压缩包</span></span>
           </a>
         </div>
         <ul class="desktop-feature-list">
@@ -107,6 +129,11 @@ brew install esengine/reasonix/reasonix</div>
           <li><span class="l-en">Connect Feishu, Lark, or WeChat bots from Settings and handle remote approvals locally.</span><span class="l-zh">在设置中连接飞书、Lark 或微信 Bot,并在本地处理远程审批。</span></li>
         </ul>
       </div>
+      <h3 id="macos-quarantine"><span class="l-en">macOS quarantine warning</span><span class="l-zh">macOS 隔离属性提示</span></h3>
+      <p><span class="l-en">Use this only when Reasonix was downloaded from the official site or GitHub release, moved to <code>/Applications</code>, and macOS still says the app cannot be opened, cannot be verified, or is damaged. This removes the quarantine flag that macOS attaches to downloaded apps.</span><span class="l-zh">仅在 Reasonix 来自官网或 GitHub Release、已经放入 <code>/Applications</code>,但 macOS 仍提示“无法打开”“无法验证开发者”或“应用已损坏”时使用。它会移除 macOS 给下载应用附加的隔离属性。</span></p>
+      <div class="codeblock"><button data-copy="sudo xattr -rd com.apple.quarantine /Applications/Reasonix.app">Copy</button><span class="c"># Quit Reasonix first, then run in Terminal.</span>
+sudo xattr -rd com.apple.quarantine /Applications/Reasonix.app</div>
+      <div class="callout"><span class="ico">!</span><span><span class="l-en">Only run this for an official Reasonix app you trust. If the app is installed somewhere else, replace <code>/Applications/Reasonix.app</code> with that exact app path, then reopen Reasonix.</span><span class="l-zh">只对可信的官方 Reasonix 应用执行这条命令。如果安装在其他位置,请把 <code>/Applications/Reasonix.app</code> 替换为实际 app 路径,然后重新打开 Reasonix。</span></span></div>
 
       <h2 id="quickstart"><span class="l-en">Quick start</span><span class="l-zh">快速上手</span></h2>
       <p><span class="l-en">First run is minimal — <code>reasonix setup</code> walks you through picking a provider and keys, saving new keys to the configured credential store. Then point Reasonix at a repo and start a session:</span><span class="l-zh">首次运行很简单——<code>reasonix setup</code> 引导你选择 provider 与密钥,新密钥会保存到配置的凭据存储。然后指向仓库、开始会话:</span></p>

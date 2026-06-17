@@ -62,6 +62,18 @@ In a plain browser the native bindings are absent, so `bridge.ts` falls back to 
 exact same event contract — so layout, streaming, markdown, tool cards, and the
 diff seam can all be built without rebuilding Go.
 
+### Frontend UI review checklist
+
+For anchored menus, dropdowns, tooltips, and other portaled UI, review both the
+component code and the CSS positioning contract:
+
+- If a component uses `createPortal` plus `getBoundingClientRect()`, it must
+  handle scrollable ancestors, window resize, and `visualViewport` changes.
+- Add a focused regression test when changing shared positioning primitives such
+  as `AnchoredPopover`, not only the specific menu that exposed the bug.
+- Exercise at least one scrollable container path, such as Settings content, when
+  manually checking dropdown or popover changes.
+
 ## Build
 
 ```sh

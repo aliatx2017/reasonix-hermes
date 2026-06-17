@@ -102,8 +102,60 @@ func TestProviderViewFromEntryShowsKeySource(t *testing.T) {
 	if !view.KeySet {
 		t.Fatal("KeySet = false, want true")
 	}
+	if !view.Configured {
+		t.Fatal("Configured = false, want true from resolved credentials")
+	}
 	if view.KeySource == "" || !strings.Contains(view.KeySource, "credentials") {
 		t.Fatalf("KeySource = %q, want credentials source", view.KeySource)
+	}
+}
+
+func TestProviderViewFromEntryExposesNoAuthAvailability(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	t.Setenv("LOCAL_API_KEY", "")
+	os.Unsetenv("LOCAL_API_KEY")
+
+	noAuth := providerViewFromEntry(config.ProviderEntry{
+		Name:    "local",
+		Kind:    "openai",
+		BaseURL: "http://127.0.0.1:23333/v1",
+		Models:  []string{"model-a"},
+	}, false, true)
+	if noAuth.RequiresKey {
+		t.Fatal("no-auth provider RequiresKey = true, want false")
+	}
+	if !noAuth.Configured {
+		t.Fatal("no-auth provider Configured = false, want true")
+	}
+	if noAuth.KeySet {
+		t.Fatal("no-auth provider KeySet = true, want false")
+	}
+
+	legacyLoopback := providerViewFromEntry(config.ProviderEntry{
+		Name:      "local",
+		Kind:      "openai",
+		BaseURL:   "http://127.0.0.1:23333/v1",
+		Models:    []string{"model-a"},
+		APIKeyEnv: "LOCAL_API_KEY",
+	}, false, true)
+	if legacyLoopback.RequiresKey {
+		t.Fatal("loopback provider with missing legacy key env RequiresKey = true, want false")
+	}
+	if !legacyLoopback.Configured {
+		t.Fatal("loopback provider with missing legacy key env Configured = false, want true")
+	}
+
+	official := providerViewFromEntry(config.ProviderEntry{
+		Name:    "deepseek",
+		Kind:    "openai",
+		BaseURL: "https://api.deepseek.com",
+		Models:  []string{"deepseek-v4-flash"},
+	}, true, true)
+	if !official.RequiresKey {
+		t.Fatal("official provider RequiresKey = false, want true")
+	}
+	if official.Configured {
+		t.Fatal("official provider without key Configured = true, want false")
 	}
 }
 

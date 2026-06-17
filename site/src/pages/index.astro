@@ -3,14 +3,21 @@ import Base from '../layouts/Base.astro';
 import community from '../data/community.json';
 
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
-const R2 = 'https://dl.reasonix.io/latest';
+const R2_LATEST = 'https://dl.reasonix.io/latest';
 const repo = 'https://github.com/esengine/DeepSeek-Reasonix';
 
+let desktopVersion = 'v1.1.0';
 let goVer = '1.1.0';
 try {
-  const r = await fetch(`${R2}/latest.json`);
-  if (r.ok) { const d = await r.json(); goVer = String(d.version || '').replace(/^v/, '') || goVer; }
+  const r = await fetch(`${R2_LATEST}/latest.json`);
+  if (r.ok) {
+    const d = await r.json();
+    const version = String(d.version || desktopVersion).replace(/^v?/, 'v');
+    desktopVersion = version;
+    goVer = desktopVersion.replace(/^v/, '') || goVer;
+  }
 } catch {}
+const R2_DESKTOP = `https://dl.reasonix.io/desktop-${desktopVersion}`;
 
 const fmtN = (n) => Number(n).toLocaleString('en-US');
 const avClass = (i) => 'av' + (i % 5 === 2 ? ' sm' : i % 7 === 3 ? ' lg' : '');
@@ -275,21 +282,40 @@ const ld = {
         <div class="os-grid">
           <div class="os-card" data-os="mac">
             <h4>macOS</h4>
-            <span class="meta">.dmg · universal (Apple Silicon &amp; Intel)</span>
-            <a class="btn btn-light" href={`${R2}/Reasonix-darwin-universal.dmg`} download><span class="l-en">Download · v<span class="rxv">{goVer}</span></span><span class="l-zh">下载 · v<span class="rxv">{goVer}</span></span></a>
+            <span class="meta"><span class="l-en">Universal DMG · Apple Silicon &amp; Intel</span><span class="l-zh">通用 DMG · Apple Silicon 与 Intel</span></span>
+            <a class="btn btn-light" href={`${R2_DESKTOP}/Reasonix-darwin-universal.dmg`} data-desktop-asset="Reasonix-darwin-universal.dmg" download><span class="l-en">Download Universal · v<span class="rxv">{goVer}</span></span><span class="l-zh">下载通用版 · v<span class="rxv">{goVer}</span></span></a>
+            <div class="os-options" aria-label="macOS alternate downloads">
+              <a href={`${R2_DESKTOP}/Reasonix-darwin-arm64.zip`} data-desktop-asset="Reasonix-darwin-arm64.zip" download>Apple Silicon zip</a>
+              <a href={`${R2_DESKTOP}/Reasonix-darwin-amd64.zip`} data-desktop-asset="Reasonix-darwin-amd64.zip" download>Intel zip</a>
+            </div>
           </div>
           <div class="os-card" data-os="win">
             <h4>Windows</h4>
-            <span class="meta">.exe installer · x64 · Windows 10+</span>
-            <a class="btn btn-light" href={`${R2}/Reasonix-windows-amd64-installer.exe`} download><span class="l-en">Download · v<span class="rxv">{goVer}</span></span><span class="l-zh">下载 · v<span class="rxv">{goVer}</span></span></a>
+            <span class="meta"><span class="l-en">Installer · Windows 10+ · x64 / ARM64</span><span class="l-zh">安装器 · Windows 10+ · x64 / ARM64</span></span>
+            <a class="btn btn-light" href={`${R2_DESKTOP}/Reasonix-windows-amd64-installer.exe`} data-desktop-asset="Reasonix-windows-amd64-installer.exe" download><span class="l-en">Download · v<span class="rxv">{goVer}</span></span><span class="l-zh">下载 · v<span class="rxv">{goVer}</span></span></a>
+            <div class="os-options" aria-label="Windows alternate downloads">
+              <a href={`${R2_DESKTOP}/Reasonix-windows-arm64-installer.exe`} data-desktop-asset="Reasonix-windows-arm64-installer.exe" download>ARM64 installer</a>
+              <a href={`${R2_DESKTOP}/Reasonix-windows-amd64.zip`} data-desktop-asset="Reasonix-windows-amd64.zip" download>Portable zip</a>
+            </div>
           </div>
           <div class="os-card" data-os="linux">
             <h4>Linux</h4>
-            <span class="meta">.tar.gz · amd64</span>
-            <a class="btn btn-light" href={`${R2}/Reasonix-linux-amd64.tar.gz`} download><span class="l-en">Download · v<span class="rxv">{goVer}</span></span><span class="l-zh">下载 · v<span class="rxv">{goVer}</span></span></a>
+            <span class="meta"><span class="l-en">Debian / Ubuntu package · amd64</span><span class="l-zh">Debian / Ubuntu 安装包 · amd64</span></span>
+            <a class="btn btn-light" href={`${R2_DESKTOP}/Reasonix-linux-amd64.deb`} data-desktop-asset="Reasonix-linux-amd64.deb" download><span class="l-en">Download .deb · v<span class="rxv">{goVer}</span></span><span class="l-zh">下载 .deb · v<span class="rxv">{goVer}</span></span></a>
+            <div class="os-options" aria-label="Linux alternate downloads">
+              <a href={`${R2_DESKTOP}/Reasonix-linux-amd64.tar.gz`} data-desktop-asset="Reasonix-linux-amd64.tar.gz" download>Generic tar.gz</a>
+              <a href={`${repo}/releases`}><span class="l-en">All releases</span><span class="l-zh">全部版本</span></a>
+            </div>
           </div>
         </div>
         <div class="dl-note"><span class="l-en">v<span class="rxv">{goVer}</span> · built-in auto-updates · same engine as the CLI · <a href={`${repo}/releases`}>all releases →</a></span><span class="l-zh">v<span class="rxv">{goVer}</span> · 内置自动更新 · 与 CLI 同一引擎 · <a href={`${repo}/releases`}>全部版本 →</a></span></div>
+        <div class="dl-help">
+          <strong><span class="l-en">macOS opens with a quarantine warning?</span><span class="l-zh">macOS 提示无法打开或已损坏?</span></strong>
+          <span><span class="l-en">If the app was installed from the official download and placed in <code>/Applications</code>, quit Reasonix, then run:</span><span class="l-zh">如果来自官网下载并已放入 <code>/Applications</code>,先退出 Reasonix,再运行:</span></span>
+          <code>sudo xattr -rd com.apple.quarantine /Applications/Reasonix.app</code>
+          <button type="button" data-copy="sudo xattr -rd com.apple.quarantine /Applications/Reasonix.app">Copy</button>
+          <a href={`${base}/docs/#macos-quarantine`}><span class="l-en">When to use this →</span><span class="l-zh">查看适用场景 →</span></a>
+        </div>
       </div>
     </div>
   </section>

@@ -5,7 +5,7 @@ import { asArray } from "../lib/array";
 import { useDeferredClose } from "../lib/useMountTransition";
 import { app } from "../lib/bridge";
 import { normalizeLangPref, useI18n, useT, type DictKey, type LangPref } from "../lib/i18n";
-import { inferredVisionModels, mergedFetchedProviderModels, providerDefaultModel, providerModelCandidates } from "../lib/providerModels";
+import { apiKeyEnvFromProviderName, inferredVisionModels, mergedFetchedProviderModels, providerApiKeyEnvForSave, providerDefaultModel, providerIsConfigured, providerModelCandidates, providerRequiresKey } from "../lib/providerModels";
 import { useUpdater } from "../lib/useUpdater";
 import {
   THEME_STYLES,
@@ -73,7 +73,7 @@ export function SettingsPanel({
   agentRunning = false,
 }: {
   onClose: () => void;
-  onChanged: () => void;
+  onChanged: (settings?: SettingsView | null) => void;
   initialTab?: SettingsTab;
   initialFocus?: SettingsInitialFocus;
   agentRunning?: boolean;
@@ -94,7 +94,11 @@ export function SettingsPanel({
   // Play the modal exit animation, then let the parent unmount us.
   const { status, requestClose } = useDeferredClose(onClose, 240);
 
-  const reload = async () => setS(normalizeSettingsView(await app.Settings().catch(() => null)));
+  const reload = async () => {
+    const next = normalizeSettingsView(await app.Settings().catch(() => null));
+    setS(next);
+    return next;
+  };
   useEffect(() => {
     void reload();
     if (initialTab) setTab(initialTab === "providers" ? "models" : initialTab);
@@ -114,8 +118,8 @@ export function SettingsPanel({
     setWarning(null);
     try {
       const result = await fn();
-      await reload();
-      onChanged();
+      const next = await reload();
+      onChanged(next);
       if (typeof result === "string" && result.trim()) {
         setWarning(result.trim());
       }
@@ -130,8 +134,8 @@ export function SettingsPanel({
     setWarning(null);
     try {
       await fn();
-      await reload();
-      onChanged();
+      const next = await reload();
+      onChanged(next);
     } catch (e) {
       setErr(String((e as Error)?.message ?? e));
     }
@@ -573,7 +577,7 @@ function ShortcutsSection() {
 function allRefs(s: SettingsView): string[] {
   const out: string[] = [];
   for (const p of s.providers) {
-    if (!p.added || !p.keySet) continue;
+    if (!p.added || !providerIsConfigured(p)) continue;
     for (const m of p.models) out.push(`${p.name}/${m}`);
   }
   return out;
@@ -758,6 +762,7 @@ function normalizeBotMappingScope(scope: unknown, workspaceRoot: unknown): "glob
 
 function normalizeProviderView(p: ProviderView): ProviderView {
   const visionModels = asArray(p.visionModels);
+  const requiresKey = providerRequiresKey(p);
   return {
     ...p,
     builtIn: Boolean(p.builtIn),
@@ -768,6 +773,8 @@ function normalizeProviderView(p: ProviderView): ProviderView {
     modelsUrl: p.modelsUrl ?? "",
     reasoningProtocol: normalizeReasoningProtocol(p.reasoningProtocol),
     supportedEfforts: asArray(p.supportedEfforts),
+    requiresKey,
+    configured: providerIsConfigured({ ...p, requiresKey }),
     keySource: p.keySource ?? "",
     keySourcePath: p.keySourcePath ?? "",
   };
@@ -2970,7 +2977,7 @@ function ModelsSection({ s, busy, apply, backgroundApply }: ModelsSectionProps) 
   const defaultProviderView = s.providers.find((p) => p.name === defaultProvider);
   const modelIssue = !defaultProviderView
     ? t("settings.modelUnavailable", { ref: defaultRef || t("common.none") })
-    : !defaultProviderView.keySet
+    : !providerIsConfigured(defaultProviderView)
       ? t("settings.modelNeedsKey", { provider: modelProviderLabel(defaultProvider, defaultProviderView, t) })
       : "";
   const agent = s.agent ?? { temperature: 0, maxSteps: 0, plannerMaxSteps: 12, systemPrompt: "", coldResumePrune: true, reasoningLanguage: "auto" };
@@ -2983,11 +2990,11 @@ function ModelsSection({ s, busy, apply, backgroundApply }: ModelsSectionProps) 
     const groups = providerAccessGroups(s.providers.filter((p) => p.added), t);
     const candidates = groups
       .map((group) => {
-        const provider = group.providers.find((p) => p.keySet && p.apiKeyEnv && p.baseUrl);
+        const provider = group.providers.find((p) => providerIsConfigured(p) && p.baseUrl);
         return provider ? { group, provider } : null;
       })
       .filter((item): item is { group: ProviderAccessGroup; provider: ProviderView } => Boolean(item));
-    const refreshKey = candidates.map(({ group, provider }) => `${group.id}:${provider.apiKeyEnv}`).join("|");
+    const refreshKey = candidates.map(({ group, provider }) => `${group.id}:${provider.apiKeyEnv || provider.name}:${provider.baseUrl}`).join("|");
     if (!refreshKey || autoRefreshKeyRef.current === refreshKey) return;
     autoRefreshKeyRef.current = refreshKey;
 
@@ -3215,6 +3222,7 @@ function ModelPicker({
           groupID,
           label: firstProvider ? providerGroupLabel(firstProvider, t) : groupID,
           keySet: providerViews.some((p) => p.keySet),
+          requiresKey: providerViews.every((p) => providerRequiresKey(p)),
           options: uniqueModelOptions(options.filter((opt) => modelOptionGroupID(opt) === groupID)),
         };
       })
@@ -3283,7 +3291,7 @@ function ModelPicker({
             <div className="settings-model-picker__group" key={group.groupID}>
               <div className="settings-model-picker__group-title">
                 <span>{group.label}</span>
-                <small>{group.keySet ? t("settings.keySet") : t("settings.noKey")}</small>
+                <small>{providerKeyStatusLabel(group, t)}</small>
               </div>
               {group.options.map((opt) => (
                 <button
@@ -3323,8 +3331,13 @@ function modelOptionFromRef(ref: string, s: SettingsView): ModelPickerOption | n
 }
 
 function modelOptionMeta(option: ModelPickerOption, t: ReturnType<typeof useT>): string {
-  const key = option.providerView?.keySet ? t("settings.keySet") : t("settings.noKey");
+  const key = option.providerView ? providerKeyStatusLabel(option.providerView, t) : t("settings.noKey");
   return `${modelProviderLabel(option.provider, option.providerView, t)} · ${key}`;
+}
+
+function providerKeyStatusLabel(provider: { keySet: boolean; requiresKey?: boolean; apiKeyEnv?: string }, t: ReturnType<typeof useT>): string {
+  if (!providerRequiresKey(provider)) return t("settings.noKeyRequired");
+  return provider.keySet ? t("settings.keySet") : t("settings.noKey");
 }
 
 function modelProviderLabel(provider: string, providerView: ProviderView | undefined, t: ReturnType<typeof useT>): string {
@@ -3627,6 +3640,8 @@ type ProviderAccessGroup = {
   providers: ProviderView[];
   apiKeyEnv: string;
   keySet: boolean;
+  requiresKey: boolean;
+  configured: boolean;
   keySource?: string;
   keySourcePath?: string;
   baseUrl: string;
@@ -3839,7 +3854,7 @@ function ProviderAccessCard({
               {group.builtIn ? t("settings.builtinProviderBadge") : t("settings.customProviderBadge")}
             </span>
             <span className={`badge ${group.keySet ? "badge--project" : "badge--feedback"}`}>
-              {group.keySet ? t("settings.keySet") : t("settings.noKey")}
+              {providerKeyStatusLabel(group, t)}
             </span>
           </div>
           <div className="provider-access-card__desc">{group.description}</div>
@@ -3857,7 +3872,7 @@ function ProviderAccessCard({
           )}
           <button
             className="btn btn--small"
-            disabled={busy || fetching || !group.baseUrl || !group.apiKeyEnv || !group.keySet}
+            disabled={busy || fetching || !group.baseUrl || !group.configured}
             onClick={onRefresh}
           >
             {fetching ? t("settings.fetchingModels") : t("settings.fetchModels")}
@@ -3889,8 +3904,8 @@ function ProviderAccessCard({
       </div>
 
       <div className="provider-card-block">
-        <div className="provider-card-block__label">{t(group.keySet ? "settings.enabledModels" : "settings.modelList")}</div>
-        <div className="provider-model-chips" aria-label={t(group.keySet ? "settings.enabledModels" : "settings.modelList")}>
+        <div className="provider-card-block__label">{t(group.configured ? "settings.enabledModels" : "settings.modelList")}</div>
+        <div className="provider-model-chips" aria-label={t(group.configured ? "settings.enabledModels" : "settings.modelList")}>
           {visibleModels.length > 0 ? visibleModels.map((model) => (
             <span className="provider-model-chip" key={model}>
               {model}
@@ -3902,7 +3917,7 @@ function ProviderAccessCard({
             </span>
           )}
         </div>
-        {!group.keySet && (
+        {!group.configured && group.requiresKey && (
           <div className="provider-card-status provider-card-status--warn">
             {t("settings.modelsRequireKey")}
           </div>
@@ -4069,6 +4084,8 @@ function providerAccessGroups(providers: ProviderView[], t: ReturnType<typeof us
     if (existing) {
       existing.providers.push(p);
       existing.keySet = existing.keySet || p.keySet;
+      existing.requiresKey = existing.requiresKey && providerRequiresKey(p);
+      existing.configured = existing.configured || providerIsConfigured(p);
       if (!existing.keySource && p.keySource) existing.keySource = p.keySource;
       if (!existing.keySourcePath && p.keySourcePath) existing.keySourcePath = p.keySourcePath;
       existing.models = uniqueStrings([...existing.models, ...p.models]);
@@ -4082,6 +4099,8 @@ function providerAccessGroups(providers: ProviderView[], t: ReturnType<typeof us
       providers: [p],
       apiKeyEnv: p.apiKeyEnv,
       keySet: p.keySet,
+      requiresKey: providerRequiresKey(p),
+      configured: providerIsConfigured(p),
       keySource: p.keySource,
       keySourcePath: p.keySourcePath,
       baseUrl: p.baseUrl,
@@ -4182,15 +4201,6 @@ function parseBotListInput(value: string): string[] {
     .filter(Boolean));
 }
 
-function apiKeyEnvFromProviderName(name: string): string {
-  const stem = name
-    .trim()
-    .toUpperCase()
-    .replace(/[^A-Z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "");
-  return stem ? `${stem}_API_KEY` : "CUSTOM_API_KEY";
-}
-
 function ProviderEditor({
   initial,
   kinds,
@@ -4273,7 +4283,7 @@ function ProviderEditor({
     setFetchStatus(null);
     setFetchErr(null);
     try {
-      const effectiveApiKeyEnv = apiKeyEnv.trim() || apiKeyEnvFromProviderName(name);
+      const effectiveApiKeyEnv = providerApiKeyEnvForSave(name, apiKeyEnv, keyDraft);
       if (!apiKeyEnv.trim()) setApiKeyEnv(effectiveApiKeyEnv);
       if (keyDraft.trim()) await app.SetProviderKey(effectiveApiKeyEnv, keyDraft.trim());
       const fetched = await app.FetchProviderModels({
@@ -4315,7 +4325,7 @@ function ProviderEditor({
   const save = async () => {
     const ms = parseProviderListInput(models);
     const vms = parseProviderListInput(visionModels).filter((model) => ms.includes(model));
-    const effectiveApiKeyEnv = apiKeyEnv.trim() || apiKeyEnvFromProviderName(name);
+    const effectiveApiKeyEnv = providerApiKeyEnvForSave(name, apiKeyEnv, keyDraft);
     if (keyDraft.trim()) await app.SetProviderKey(effectiveApiKeyEnv, keyDraft.trim());
     onSave({
       name: name.trim(),
@@ -4378,7 +4388,7 @@ function ProviderEditor({
     .split(",")
     .map((m) => m.trim())
     .filter(Boolean);
-  const canFetch = Boolean(name.trim() && baseUrl.trim() && (keyDraft.trim() || apiKeyEnv.trim()));
+  const canFetch = Boolean(name.trim() && baseUrl.trim());
 
   const protocolField = initial ? (
     <select className="mem-select" value={kind} onChange={(e) => setKind(e.target.value)}>
@@ -4752,7 +4762,7 @@ function ruleListHint(list: string, t: ReturnType<typeof useT>): string {
 
 type HookScope = "global" | "project";
 
-function HooksSection({ onChanged }: { onChanged: () => void }) {
+function HooksSection({ onChanged }: { onChanged: (settings?: SettingsView | null) => void }) {
   const t = useT();
   const [scope, setScope] = useState<HookScope>("global");
   const [view, setView] = useState<HooksSettingsView | null>(null);

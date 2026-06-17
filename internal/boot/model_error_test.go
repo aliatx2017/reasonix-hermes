@@ -82,3 +82,39 @@ api_key_env = "`+keyEnv+`"
 		t.Fatalf("expected a notice naming the unset key env %q; got %v", keyEnv, notices)
 	}
 }
+
+func TestBuildDoesNotNoticeMissingAPIKeyForNoAuthLoopback(t *testing.T) {
+	const keyEnv = "REASONIX_LOCAL_GATEWAY_KEY_FOR_TEST"
+	dir := robustTempDir(t)
+	t.Chdir(dir)
+	t.Setenv(keyEnv, "")
+	writeFile(t, dir, "reasonix.toml", `
+default_model = "local/model-a"
+
+[[providers]]
+name = "local"
+kind = "openai"
+base_url = "http://127.0.0.1:23333/v1"
+models = ["model-a"]
+api_key_env = "`+keyEnv+`"
+`)
+
+	var notices []string
+	ctrl, err := Build(context.Background(), Options{
+		Sink: event.FuncSink(func(e event.Event) {
+			if e.Kind == event.Notice {
+				notices = append(notices, e.Text)
+			}
+		}),
+	})
+	if err != nil {
+		t.Fatalf("Build should allow no-auth loopback provider without a key: %v", err)
+	}
+	defer ctrl.Close()
+
+	for _, n := range notices {
+		if strings.Contains(n, keyEnv) {
+			t.Fatalf("did not expect missing-key notice for loopback no-auth provider; got %v", notices)
+		}
+	}
+}

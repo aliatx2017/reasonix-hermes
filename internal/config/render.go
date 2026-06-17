@@ -773,13 +773,14 @@ func projectScopedConfigForRender(c *Config) *Config {
 		return c
 	}
 	cp := *c
-	cp.Providers = make([]ProviderEntry, 0, len(c.Providers))
+	cp.Providers = make([]ProviderEntry, 0, len(c.Providers)+len(c.shadowedProjectProviders))
 	for _, p := range c.Providers {
 		if c.providerSources[providerMergeKey(p)] == providerSourceUser {
 			continue
 		}
 		cp.Providers = append(cp.Providers, p)
 	}
+	cp.Providers = append(cp.Providers, c.shadowedProjectProviders...)
 	return &cp
 }
 

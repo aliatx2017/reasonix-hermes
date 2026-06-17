@@ -566,6 +566,7 @@ export const zhTW: Record<DictKey, string> = {
   "settings.stepLimit.custom": "自訂",
   "settings.keySet": "已設金鑰",
   "settings.noKey": "無金鑰",
+  "settings.noKeyRequired": "無需金鑰",
   "settings.cantDeleteDefault": "無法刪除預設模型服務",
   "settings.cantRemoveDefault": "無法移除預設模型服務接入",
   "settings.deleteProvider": "刪除模型服務",
