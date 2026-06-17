@@ -5,6 +5,18 @@
 /npm/.stage/
 /reasonix
 /reasonix.exe
+/reasonix-hooks
+/reasonix-hooks.exe
+/reasonix-mcpbridge
+/reasonix-mcpbridge.exe
+/reasonix-memoryserver
+/reasonix-memoryserver.exe
+/reasonix-bot
+/reasonix-bot.exe
+/reasonix-pr-review
+/reasonix-pr-review.exe
+/reasonix-e2ebench
+/reasonix-e2ebench.exe
 
 # Website (Astro) build output
 /site/dist/
