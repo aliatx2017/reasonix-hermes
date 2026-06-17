@@ -127,6 +127,7 @@ skills-hub/            17-skill community registry + static catalog site
 | `.reasonix/skills/research/` (+2 siblings) | Combined research pipeline | `/research <topic>` 5-phase auto-chaining: outline → approve → batch subagents → report → Discord publish (SearXNG + Crawl4AI) |
 | `.reasonix/scripts/discord-publish.sh` | Discord publish script | Webhook-based script posts report.md to Discord channel; auto-loaded from `.reasonix/.discord-webhook` |
 | `internal/cli/eval.go` | `/eval` slash command | Eval-driven development: define, check, report, list, clean subcommands |
+| `internal/cli/learn.go` | `/learn` slash command | Learner pattern detection UI: patterns + trajectories subcommands, Controller-wired |
 | `reasonix-hermes.json` | Install source manifest | `reasonix install-source install --source ...` |
 | `.github/workflows/ci-hermes.yml` | Supplementary CI | Desktop frontend build + Hermes package tests in CI |
 | `.github/workflows/pr-review.yml` | PR review action | Auto-reviews PRs with Reasonix |

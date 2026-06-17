@@ -37,7 +37,7 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 ## Notes
 
 - **Upstream synced**: `v1.9.x` (commit f944dfb, 2026-06-17). 13 syncs total — 64 new commits this session (v1.9.1, plan_mode_allowed_tools, desktop runtime refactor, settings refresh fixes, bash detached fixes). Previous sync: bc83374.
-- **Commit**: session 2026-06-17 (h26) — upstream merge v1.9.1 (f944dfb, 64 commits). 8 conflicts resolved (agent.go, boot.go, config.go, controller.go, theme.ts, windowState.ts, package.json, pnpm-lock.yaml). All Hermes fields preserved: workshop/compress/compressionProv/visionProv/webExtractProv, auxiliary routing, embedding config, scheduler, mesh. Added PlanModeAllowedTools field. Build/vet/test all green (76 packages).
+- **Commit**: session 2026-06-17 (h26) — upstream v1.9.1 merged (f944dfb, 64 commits, 8 conflicts resolved). /learn slash command wired through Controller→boot→CLI TUI with patterns + trajectories subcommands. All 8 binaries rebuilt. Doc-sweep: 6 docs de-staled (v1.8.x→v1.9.x). Build/vet/test/tsc all green (76 packages, verify-session.sh 9/9).
 - **Commit**: session 2026-06-16 (h24-h25) — Research pipeline unified (`/research <topic>` 5-phase auto-chain), REASONIX.md cleanup (3 stale "Next to build" blocks removed, npm verified published v1.8.0), doc-sweep (36 docs verified, EVAL.md enriched 99→198 lines covering all 6 subcommands), 2 upstream merges (94c0fc6 + bc83374, 12 commits). Upstream fetch + merge + build/vet/test all green.
 - **Commit**: session 2026-06-16 (h23) — research workflow e2e verified (SearXNG + Crawl4AI + GitHub API → JSON → report.md), DESKTOP.md enriched (149 lines, 25 components + 24 backend files), macOS code-signing investigation (pipeline fully built, needs Apple credentials), upstream merge (8886dcb, 7 commits). Upstream fetch + merge + build/vet/test all green.
 - **Commit**: session 2026-06-?? (h??) — Deep Research workflow adopted (5 skills from Weizhena/Deep-Research-skills), `/eval` slash command (define/check/report/list/clean), crawl4ai/searxng integration in research pipeline, upstream merge (0706284, 10 commits).
@@ -175,6 +175,10 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 - **Upstream**: Merged 5 commits (a029618). Desktop-v1.8.1 tag.
 ## Next session — ideas & follow-ups
+
+- **Desktop `/learn` widget**: Wire `LearnedPatternView`/`LearnedTrajectoryView` into a Hermes dashboard panel
+- **Discord bot dup "Approved."**: Known race condition, not blocking
+- **Upstream sync**: Check for new commits on `upstream/main-v2`
 
 ### Session 2026-06-13 (expansion plan execution)
 

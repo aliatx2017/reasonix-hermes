@@ -2,6 +2,17 @@
 
 Key milestones in the Hermes fork since June 2026.
 
+## v1.9.x (July 2026)
+
+### Session 2026-06-17 (h26) — upstream v1.9.1, /learn wiring, doc-sweep
+
+- **Upstream merged**: v1.9.1 (f944dfb, 64 commits) — v1.9.0 + v1.9.1 releases, `plan_mode_allowed_tools` config option, desktop runtime refactor (window state/theme), settings refresh lag fix, bash detached fix, no-auth custom model providers, scroll position session switch fix, status bar item fix.
+- **8 conflicts resolved**: agent.go, boot.go, config.go, controller.go, theme.ts, windowState.ts, package.json, pnpm-lock.yaml. All Hermes fields preserved + new PlanModeAllowedTools wired through full chain.
+- **Post-merge TS fixes**: Transcript.tsx `tabId` prop (scroll-pin fix #4584), windowState.ts unused wailsjs imports.
+- **/learn slash command wired**: Learner through Controller→boot→CLI TUI. `/learn patterns` (confidence-badged) + `/learn trajectories` subcommands. New files: `internal/cli/learn.go`, Controller learner field/getter/setter. i18n: `CmdLearn` in all 3 catalogs.
+- **All 8 binaries rebuilt**: Jun 17 timestamps against v1.9.1.
+- **Doc-sweep**: 6 docs de-staled (v1.8.x→v1.9.x) — README, README.zh-CN, HERMES-GUIDE, PROJECT.md, RELEASING.md. SPEC.md §2 verified comprehensive (57 packages, 7 bots).
+
 ## v1.8.x (July 2026)
 
 ### Session 2026-06-16 (h22) — npm publish, upstream merges, token-saving doc
