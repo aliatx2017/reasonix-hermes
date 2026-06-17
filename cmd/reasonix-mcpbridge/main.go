@@ -233,7 +233,7 @@ func (b *Bridge) doctorCheck() (string, error) {
 
 func (b *Bridge) planTask(objective string) (string, error) {
 	systemPrompt := "You are a task planning assistant. Given an objective, produce a structured execution plan with numbered steps. Each step should have: step number, description, files to modify (if any), and dependencies on other steps. Be concise and actionable."
-	plan, err := b.callDeepSeek(systemPrompt, objective)
+	plan, err := b.callDeepSeek(context.Background(), systemPrompt, objective)
 	if err != nil {
 		return "", fmt.Errorf("plan generation failed: %w", err)
 	}
@@ -245,8 +245,13 @@ func (b *Bridge) orchestrateTask(task string) (string, error) {
 		return "", fmt.Errorf("reasonix binary not found in PATH — required for orchestration")
 	}
 
+	// Total orchestration timeout: 15 minutes. Individual steps already
+	// have their own 5-minute timeout via runReasonix.
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
+	defer cancel()
+
 	systemPrompt := "You are a task decomposition assistant. Break the given task into independent sub-tasks that can be executed in parallel. For each sub-task provide: name, description, scope (files to modify). Output as a numbered list. Only decompose if the task naturally splits into independent pieces; for simple tasks, return a single step."
-	decomposition, err := b.callDeepSeek(systemPrompt, task)
+	decomposition, err := b.callDeepSeek(ctx, systemPrompt, task)
 	if err != nil {
 		return "", fmt.Errorf("task decomposition failed: %w", err)
 	}
@@ -301,7 +306,7 @@ func (b *Bridge) orchestrateTask(task string) (string, error) {
 	return sb.String(), nil
 }
 
-func (b *Bridge) callDeepSeek(systemPrompt, userPrompt string) (string, error) {
+func (b *Bridge) callDeepSeek(ctx context.Context, systemPrompt, userPrompt string) (string, error) {
 	apiKey := os.Getenv("DEEPSEEK_API_KEY")
 	if apiKey == "" {
 		return "", fmt.Errorf("DEEPSEEK_API_KEY not set — required for plan generation")
@@ -327,11 +332,11 @@ func (b *Bridge) callDeepSeek(systemPrompt, userPrompt string) (string, error) {
 		return "", fmt.Errorf("marshal request: %w", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	reqCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
 
 	url := strings.TrimRight(b.apiBase, "/") + "/chat/completions"
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(jsonBody))
+	req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, url, bytes.NewReader(jsonBody))
 	if err != nil {
 		return "", fmt.Errorf("create request: %w", err)
 	}
@@ -464,6 +469,9 @@ func (b *Bridge) skillDirs() []string {
 // findSkillFile looks for <name>.md across skill directories.  Also checks
 // the <name>/SKILL.md layout used by upstream install_source.
 func (b *Bridge) findSkillFile(name string) (string, error) {
+	if strings.Contains(name, "..") || strings.ContainsAny(name, "/\\") {
+		return "", fmt.Errorf("invalid skill name %q: path separators not allowed", name)
+	}
 	for _, dir := range b.skillDirs() {
 		path := filepath.Join(dir, name+".md")
 		if _, err := os.Stat(path); err == nil {

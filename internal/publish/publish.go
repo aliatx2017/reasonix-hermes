@@ -142,7 +142,11 @@ func writeMessageHTML(b *strings.Builder, m provider.Message) {
 	b.WriteString("\">\n")
 
 	// Role label
-	label := strings.ToUpper(role[:1]) + role[1:]
+	roleLabel := role
+	if roleLabel == "" {
+		roleLabel = "unknown"
+	}
+	label := strings.ToUpper(roleLabel[:1]) + roleLabel[1:]
 	b.WriteString("<div class=\"role\">")
 	b.WriteString(label)
 	if m.Name != "" {

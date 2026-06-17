@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -671,7 +672,7 @@ func TestNewBridgeServer_CustomAPIBase(t *testing.T) {
 func TestCallDeepSeek_NoAPIKey(t *testing.T) {
 	os.Unsetenv("DEEPSEEK_API_KEY")
 	bs := NewBridge(t.TempDir())
-	_, err := bs.callDeepSeek("system prompt", "user prompt")
+	_, err := bs.callDeepSeek(context.Background(), "system prompt", "user prompt")
 	if err == nil {
 		t.Fatal("expected error without API key")
 	}
@@ -695,7 +696,7 @@ func TestCallDeepSeek_CustomModel(t *testing.T) {
 	bs := NewBridge(t.TempDir())
 	bs.apiBase = ts.URL
 
-	result, err := bs.callDeepSeek("sys", "user")
+	result, err := bs.callDeepSeek(context.Background(), "sys", "user")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -715,7 +716,7 @@ func TestCallDeepSeek_EmptyResponse(t *testing.T) {
 	bs := NewBridge(t.TempDir())
 	bs.apiBase = ts.URL
 
-	_, err := bs.callDeepSeek("sys", "user")
+	_, err := bs.callDeepSeek(context.Background(), "sys", "user")
 	if err == nil {
 		t.Fatal("expected error for empty response")
 	}
@@ -729,7 +730,7 @@ func TestCallDeepSeek_ConnectionError(t *testing.T) {
 	bs := NewBridge(t.TempDir())
 	bs.apiBase = "http://127.0.0.1:1" // unreachable port
 
-	_, err := bs.callDeepSeek("sys", "user")
+	_, err := bs.callDeepSeek(context.Background(), "sys", "user")
 	if err == nil {
 		t.Fatal("expected connection error")
 	}
@@ -930,5 +931,39 @@ func TestServeHTTP_AuthEnabled(t *testing.T) {
 	if resp3.StatusCode != http.StatusMethodNotAllowed && resp3.StatusCode != http.StatusOK {
 		// GET on /mcp may return 405 or 200 depending on handler
 		t.Logf("auth'd /mcp returned %d (acceptable)", resp3.StatusCode)
+	}
+}
+
+func TestFindSkillFileRejectsTraversal(t *testing.T) {
+	t.Parallel()
+	b := &Bridge{workDir: t.TempDir()}
+	os.MkdirAll(filepath.Join(b.workDir, ".reasonix", "skills"), 0o755)
+
+	// Create a legitimate skill file.
+	if err := os.WriteFile(
+		filepath.Join(b.workDir, ".reasonix", "skills", "test-skill.md"),
+		[]byte("# Test Skill"),
+		0o644,
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	// Valid name works.
+	_, err := b.findSkillFile("test-skill")
+	if err != nil {
+		t.Fatalf("valid name should succeed: %v", err)
+	}
+
+	// Path traversal via '..'.
+	for _, name := range []string{
+		"../../etc/passwd",
+		"..\\..\\windows\\system32",
+		"foo/bar",
+		"foo\\bar",
+	} {
+		_, err := b.findSkillFile(name)
+		if err == nil {
+			t.Errorf("traversal %q should be rejected", name)
+		}
 	}
 }

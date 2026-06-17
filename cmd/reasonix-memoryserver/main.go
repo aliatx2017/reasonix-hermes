@@ -400,7 +400,7 @@ func (ms *MemoryStore) Recall(sessionID, query string, limit int) ([]MemoryEntry
 		results = results[:limit]
 	}
 
-	// Increment access counts and boost importance (under same lock, atomic save)
+	// Increment access counts and boost importance (in-memory only; persisted on next Retain/Tidy).
 	if len(results) > 0 {
 		matched := make(map[string]bool, len(results))
 		for _, r := range results {
@@ -415,9 +415,6 @@ func (ms *MemoryStore) Recall(sessionID, query string, limit int) ([]MemoryEntry
 				boost := time.Duration(importanceBoostOnRecall * float64(defaultTTL))
 				ms.entries[i].ExpiresAt = ms.entries[i].ExpiresAt.Add(boost)
 			}
-		}
-		if err := ms.save(); err != nil {
-			logger.Warn("failed to persist access counts", "err", err)
 		}
 	}
 

@@ -4,6 +4,22 @@ Key milestones in the Hermes fork since June 2026.
 
 ## v1.9.x (July 2026)
 
+### Session 2026-06-17 (h27) — upstream sync + 7 audit bug fixes
+
+- **Upstream merged**: v1.9.x (ef1f38c, 6 commits) — tool-call name/args backfill on old-session replay, desktop perf (redundant session reload avoidance), Windows Authenticode signing CI, test additions.
+- **1 conflict resolved**: desktop/app.go — accepted upstream's `OpenChannelSessionForTab` + `setTabReadOnly` (refactored `rebindTabToLoadedSessionPath`), removed Hermes duplicates.
+- **7 audit bug fixes** from the July 2026 deep audit:
+  - §1.2: API key length disclosure already fixed (confirmed)
+  - §2.3: Path traversal in `findSkillFile` — rejects `..`, `/`, `\` in skill names
+  - §1.15: Hooks now exits 1 on errors (was always 0, masking failures)
+  - §1.5: Memory server `Recall` — removed `ms.save()` call on every recall (write amplification); bumps persist on next Retain/Tidy
+  - §1.12: Collab `Start()` — uses `net.Listen` first, returns bind errors to caller
+  - §1.11: Compressor — `turn` field made `atomic.Int32` (no data race); cache capped at 512 with oldest-half eviction
+  - §1.14: Publish — guards against empty role string (was panicking on `role[:1]`)
+  - §4.4: MCP util — `MaxBytesReader` (10 MB) on both HTTP handlers
+  - §4.2: MCP bridge `orchestrateTask` — 15-minute total timeout context; `callDeepSeek` accepts parent context
+- **Build**: All 7 CLI binaries rebuilt. Build/vet/test/tsc all green.
+
 ### Session 2026-06-17 (h26) — upstream v1.9.1, /learn wiring, doc-sweep
 
 - **Upstream merged**: v1.9.1 (f944dfb, 64 commits) — v1.9.0 + v1.9.1 releases, `plan_mode_allowed_tools` config option, desktop runtime refactor (window state/theme), settings refresh lag fix, bash detached fix, no-auth custom model providers, scroll position session switch fix, status bar item fix.

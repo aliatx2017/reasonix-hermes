@@ -56,20 +56,20 @@ var noiseTools = map[string]bool{
 func main() {
 	if len(os.Args) < 2 {
 		fmt.Fprintln(os.Stderr, "usage: reasonix-hooks <retain|reflect>")
-		os.Exit(0)
+		os.Exit(1)
 	}
 	action := os.Args[1]
 
 	data, err := io.ReadAll(os.Stdin)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "[reasonix-hooks] read stdin: %v\n", err)
-		os.Exit(0)
+		os.Exit(1)
 	}
 
 	var payload hookPayload
 	if err := json.Unmarshal(data, &payload); err != nil {
 		fmt.Fprintf(os.Stderr, "[reasonix-hooks] parse payload: %v\n", err)
-		os.Exit(0)
+		os.Exit(1)
 	}
 
 	url := env("HINDSIGHT_URL", "http://localhost:8080")
@@ -83,7 +83,7 @@ func main() {
 		doReflect(url, key, timeout, payload)
 	default:
 		fmt.Fprintf(os.Stderr, "[reasonix-hooks] unknown action: %s\n", action)
-		os.Exit(0)
+		os.Exit(1)
 	}
 }
 

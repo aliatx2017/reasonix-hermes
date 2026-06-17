@@ -134,9 +134,13 @@ func (h *Hub) Start() error {
 		return nil
 	}
 	h.logger.Info("collaboration hub starting", "addr", h.server.Addr)
+	ln, err := net.Listen("tcp", h.server.Addr)
+	if err != nil {
+		return err
+	}
 	go func() {
-		if err := h.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			h.logger.Error("collab hub listen error", "err", err)
+		if err := h.server.Serve(ln); err != nil && err != http.ErrServerClosed {
+			h.logger.Error("collab hub serve error", "err", err)
 		}
 	}()
 	return nil

@@ -35,14 +35,16 @@ import (
 type Compressor struct {
 	mu      sync.RWMutex
 	cache   map[string]cacheEntry // SHA-256 hex → first occurrence
-	turn    int                    // current turn number (updated by caller)
+	turn    atomic.Int32          // current turn number (updated by caller)
 	enabled bool
 
+	maxCache int // max cache entries before eviction (default 512)
+
 	// Atomic stats counters.
-	cacheHits         atomic.Int64
-	linesCollapsed    atomic.Int64
+	cacheHits          atomic.Int64
+	linesCollapsed     atomic.Int64
 	jsonFieldsStripped atomic.Int64
-	bytesSaved        atomic.Int64
+	bytesSaved         atomic.Int64
 }
 
 type cacheEntry struct {
@@ -58,21 +60,22 @@ type Stats struct {
 	BytesSaved        int `json:"bytesSaved"`
 }
 
+const maxCacheDefault = 512
+
 // New creates a compressor. Pass enabled=false to make Compress a no-op
 // (useful when the user disables compression in config).
 func New(enabled bool) *Compressor {
 	return &Compressor{
-		cache:   make(map[string]cacheEntry),
-		enabled: enabled,
+		cache:    make(map[string]cacheEntry),
+		enabled:  enabled,
+		maxCache: maxCacheDefault,
 	}
 }
 
 // SetTurn updates the current turn number. The agent calls this once per turn
 // so cache references can name the turn where content first appeared.
 func (c *Compressor) SetTurn(turn int) {
-	c.mu.Lock()
-	c.turn = turn
-	c.mu.Unlock()
+	c.turn.Store(int32(turn))
 }
 
 // Stats returns a snapshot of compression statistics.
@@ -111,7 +114,8 @@ func (c *Compressor) Compress(toolName, raw string) string {
 	if cached {
 		c.cacheHits.Add(1)
 		c.bytesSaved.Add(int64(len(raw)))
-		if entry.turn == c.turn {
+		currentTurn := int(c.turn.Load())
+		if entry.turn == currentTurn {
 			return fmt.Sprintf("[content unchanged — same as earlier this turn (sha256:%s…)]", hash[:12])
 		}
 		return fmt.Sprintf("[content unchanged since turn %d (sha256:%s…): %s]", entry.turn, hash[:12], entry.summary)
@@ -120,7 +124,7 @@ func (c *Compressor) Compress(toolName, raw string) string {
 	c.mu.Lock()
 	if _, exists := c.cache[hash]; !exists {
 		summary := firstLine(raw, 100)
-		c.cache[hash] = cacheEntry{turn: c.turn, summary: summary}
+		c.cache[hash] = cacheEntry{turn: int(c.turn.Load()), summary: summary}
 	}
 	c.mu.Unlock()
 
@@ -165,6 +169,27 @@ func isErrorOutput(s string) bool {
 func sha256Hex(s string) string {
 	h := sha256.Sum256([]byte(s))
 	return fmt.Sprintf("%x", h)
+}
+
+// evictLocked removes the oldest half of cache entries. Must be called with mu held.
+func (c *Compressor) evictLocked() {
+	target := c.maxCache / 2
+	if target < 1 {
+		target = 1
+	}
+	// Collect entries sorted by turn (oldest first).
+	type item struct {
+		key  string
+		turn int
+	}
+	items := make([]item, 0, len(c.cache))
+	for k, v := range c.cache {
+		items = append(items, item{key: k, turn: v.turn})
+	}
+	sort.Slice(items, func(i, j int) bool { return items[i].turn < items[j].turn })
+	for _, it := range items[:len(items)-target] {
+		delete(c.cache, it.key)
+	}
 }
 
 func firstLine(s string, maxLen int) string {

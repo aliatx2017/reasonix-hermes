@@ -89,6 +89,7 @@ func (s *Server) ServeStdio() error {
 // as an MCP message, and writes the JSON response. Use this to mount the MCP
 // endpoint on a custom mux.
 func (s *Server) HandleHTTP(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 10<<20) // 10 MB limit
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "bad request", http.StatusBadRequest)
@@ -105,6 +106,7 @@ func (s *Server) HandleHTTP(w http.ResponseWriter, r *http.Request) {
 func (s *Server) ServeHTTP(addr, authKeyEnv string) error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/mcp", func(w http.ResponseWriter, r *http.Request) {
+		r.Body = http.MaxBytesReader(w, r.Body, 10<<20) // 10 MB limit
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
 			http.Error(w, "bad request", http.StatusBadRequest)
