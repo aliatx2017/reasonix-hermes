@@ -11,7 +11,6 @@
 // to matter.
 
 import { useEffect, useRef } from "react";
-import { WindowGetPosition, WindowGetSize, WindowIsMaximised } from '../../wailsjs/runtime/runtime';
 import { app } from "./bridge";
 
 export function useWindowStatePersistence() {

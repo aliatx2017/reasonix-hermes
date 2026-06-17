@@ -167,6 +167,7 @@ export function Transcript({
   running = false,
   questionNavigator = true,
   rewindSignal = 0,
+  tabId,
 }: {
   items: Item[];
   live?: LiveStream;
@@ -180,6 +181,7 @@ export function Transcript({
   running?: boolean;
   questionNavigator?: boolean;
   rewindSignal?: number;
+  tabId?: string;
 }) {
   const {
     scrollRef,
