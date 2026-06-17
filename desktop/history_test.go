@@ -306,6 +306,57 @@ func TestResumeSessionForTabDetachesRunningRuntimeForDifferentSessionPath(t *tes
 	waitNotRunning(t, ctrlA)
 }
 
+func TestRebindTabToLoadedSessionReusesPreloadedTranscript(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	root := globalTabWorkspaceRoot()
+	dir := desktopSessionDir(root)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("mkdir session dir: %v", err)
+	}
+
+	currentPath := filepath.Join(dir, "current.jsonl")
+	targetPath := filepath.Join(dir, "target.jsonl")
+	writeHistoryTestSession(t, currentPath, "current prompt")
+	writeHistoryTestSession(t, targetPath, "target prompt")
+
+	loaded, err := agent.LoadSession(targetPath)
+	if err != nil {
+		t.Fatalf("LoadSession: %v", err)
+	}
+	if err := os.Remove(targetPath); err != nil {
+		t.Fatalf("remove target session: %v", err)
+	}
+
+	ctrl := control.New(control.Options{SessionDir: dir, SessionPath: currentPath, Label: "current", Sink: event.Discard})
+	defer ctrl.Close()
+
+	app := NewApp()
+	tab := &WorkspaceTab{
+		ID:            "tab",
+		Scope:         "global",
+		WorkspaceRoot: root,
+		SessionPath:   currentPath,
+		Ctrl:          ctrl,
+		Ready:         true,
+		sink:          &tabEventSink{tabID: "tab", app: app},
+		disabledMCP:   map[string]ServerView{},
+	}
+	app.tabs[tab.ID] = tab
+	app.tabOrder = []string{tab.ID}
+	app.activeTabID = tab.ID
+
+	if err := app.rebindTabToLoadedSessionPath(tab, targetPath, loaded); err != nil {
+		t.Fatalf("rebindTabToLoadedSessionPath: %v", err)
+	}
+	got := app.HistoryForTab(tab.ID)
+	if len(got) != 1 || got[0].Content != "target prompt" {
+		t.Fatalf("rebound history = %+v, want target prompt", got)
+	}
+	if gotPath := app.tabs[tab.ID].Ctrl.SessionPath(); gotPath != targetPath {
+		t.Fatalf("rebound session path = %q, want %q", gotPath, targetPath)
+	}
+}
+
 func writeHistoryTestSession(t *testing.T, path, prompt string) {
 	t.Helper()
 	session := agent.NewSession("")

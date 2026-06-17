@@ -1415,6 +1415,19 @@ func (a *App) startTabControllerBuild(tab *WorkspaceTab) {
 }
 
 func (a *App) buildTabController(tab *WorkspaceTab) {
+	a.buildTabControllerWithLoadedSession(tab, loadedTabSession{})
+}
+
+type loadedTabSession struct {
+	Path    string
+	Session *agent.Session
+}
+
+func (s loadedTabSession) matches(path string) bool {
+	return s.Session != nil && sessionRuntimeKey(s.Path) != "" && sessionRuntimeKey(s.Path) == sessionRuntimeKey(path)
+}
+
+func (a *App) buildTabControllerWithLoadedSession(tab *WorkspaceTab, loadedSession loadedTabSession) {
 	defer a.recoverToPending("buildTabController")
 	wailsCtx := a.ctx
 	buildCtx := a.bootContext()
@@ -1545,7 +1558,7 @@ func (a *App) buildTabController(tab *WorkspaceTab) {
 		// Prefer the exact session file persisted for this tab. Topic lookup is a
 		// compatibility fallback for older desktop-tabs.json files that only stored
 		// topicId and could pick the wrong session when one topic had multiple files.
-		if loaded, pinnedPath, ok := loadPinnedTabSession(dir, tab.SessionPath); ok {
+		if loaded, pinnedPath, ok := loadPinnedTabSessionWithPreload(dir, tab.SessionPath, loadedSession); ok {
 			if loaded != nil {
 				ctrl.Resume(loaded, pinnedPath)
 			} else {
@@ -4083,9 +4096,16 @@ func globalTabWorkspaceRoot() string {
 }
 
 func loadPinnedTabSession(dir, sessionPath string) (*agent.Session, string, bool) {
+	return loadPinnedTabSessionWithPreload(dir, sessionPath, loadedTabSession{})
+}
+
+func loadPinnedTabSessionWithPreload(dir, sessionPath string, preloaded loadedTabSession) (*agent.Session, string, bool) {
 	path, ok := pinnedTabSessionPath(dir, sessionPath)
 	if !ok {
 		return nil, "", false
+	}
+	if preloaded.matches(path) {
+		return preloaded.Session, path, true
 	}
 	loaded, err := agent.LoadSession(path)
 	if err != nil {
