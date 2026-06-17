@@ -114,9 +114,6 @@ func (l *Learner) Observe(task string, toolCalls []ToolCallInfo, skillName, skil
 		l.observations = l.observations[1:]
 	}
 	l.observations = append(l.observations, obs)
-
-	// Detect patterns from the last N observations
-	l.detectPatterns()
 }
 
 // Observations returns a copy of all accumulated turn observations.
@@ -132,6 +129,7 @@ func (l *Learner) Observations() []TurnObservation {
 func (l *Learner) Patterns() []Pattern {
 	l.mu.Lock()
 	defer l.mu.Unlock()
+	l.detectPatterns()
 	out := make([]Pattern, len(l.patterns))
 	copy(out, l.patterns)
 	return out
@@ -142,6 +140,7 @@ func (l *Learner) Patterns() []Pattern {
 func (l *Learner) BuildReflectionPrompt() string {
 	l.mu.Lock()
 	defer l.mu.Unlock()
+	l.detectPatterns()
 
 	if len(l.observations) == 0 && len(l.patterns) == 0 {
 		return ""

@@ -19,9 +19,11 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"reasonix/internal/netclient"
@@ -563,6 +565,14 @@ func main() {
 	if len(os.Args) > 1 && os.Args[1] == "--http" {
 		log.Fatal(srv.ServeHTTP(":"+port, "MCP_API_KEY"))
 	}
+
+	// Graceful shutdown on SIGINT/SIGTERM — the parent may signal before closing stdin.
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-sigCh
+		os.Exit(0)
+	}()
 
 	log.SetPrefix("[reasonix-bridge] ")
 	log.Println("Starting in stdio mode (MCP)...")

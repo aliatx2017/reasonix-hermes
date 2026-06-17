@@ -670,7 +670,7 @@ func main() {
 	}
 
 	// Parse flags: --backend file|sqlite, --http [--port N]
-	backend := "file"
+	backend := "sqlite"
 	for i := 0; i < len(os.Args); i++ {
 		if os.Args[i] == "--backend" && i+1 < len(os.Args) {
 			backend = os.Args[i+1]
