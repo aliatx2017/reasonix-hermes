@@ -166,6 +166,7 @@ var ChineseTraditional = Messages{
 	CmdForget:       "刪除一條已存記憶",
 	CmdMcp:          "MCP 伺服器",
 	CmdHooks:        "管理 hooks",
+	CmdLearn:        "從檢測到的模式中建議技能",
 	CmdPasteImage:   "貼上剪貼簿圖片",
 	CmdOutputStyle:  "列出輸出風格",
 	CmdTheme:        "切換 CLI 主題",

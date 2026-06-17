@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"reasonix/internal/learn"
 	"reasonix/internal/mesh"
 )
 
@@ -16,9 +17,19 @@ func (c *Controller) SetMesh(m *mesh.Mesh) {
 	c.mesh = m
 }
 
+// SetLearner attaches a self-improving learner for pattern detection.
+func (c *Controller) SetLearner(l *learn.Learner) {
+	c.learner = l
+}
+
 // Mesh returns the mesh instance (may be nil).
 func (c *Controller) Mesh() *mesh.Mesh {
 	return c.mesh
+}
+
+// Learner returns the self-improving learner instance (may be nil).
+func (c *Controller) Learner() *learn.Learner {
+	return c.learner
 }
 
 // Council dispatches a task to all mesh peers and returns the consensus.

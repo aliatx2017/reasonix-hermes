@@ -166,6 +166,7 @@ type Messages struct {
 	CmdForget       string // /forget
 	CmdMcp          string // /mcp
 	CmdHooks        string // /hooks
+	CmdLearn        string // /learn
 	CmdPasteImage   string // /paste-image
 	CmdOutputStyle  string // /output-style
 	CmdTheme        string // /theme

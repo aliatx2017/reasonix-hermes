@@ -177,6 +177,7 @@ var English = Messages{
 	CmdForget:       "archive a saved memory",
 	CmdMcp:          "MCP servers",
 	CmdHooks:        "manage hooks",
+	CmdLearn:        "suggest skills from detected patterns",
 	CmdPasteImage:   "paste clipboard image",
 	CmdOutputStyle:  "list output styles",
 	CmdTheme:        "switch CLI theme",

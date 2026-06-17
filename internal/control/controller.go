@@ -40,6 +40,7 @@ import (
 	"reasonix/internal/hook"
 	"reasonix/internal/i18n"
 	"reasonix/internal/jobs"
+	"reasonix/internal/learn"
 	"reasonix/internal/memory"
 	"reasonix/internal/mesh"
 	"reasonix/internal/nilutil"
@@ -78,6 +79,7 @@ type Controller struct {
 	mem               *memory.Set
 	schedule          *scheduler.Scheduler // cron task scheduler (nil = disabled)
 	mesh              *mesh.Mesh          // agent-to-agent MCP delegation (nil = disabled)
+	learner           *learn.Learner      // self-improving pattern detection (nil = disabled)
 	cleanup           func()
 	autoPlan          string
 	reasoningLanguage string
@@ -302,6 +304,8 @@ type Options struct {
 	ScheduleConfig *scheduler.Config
 	// Mesh enables agent-to-agent MCP delegation (nil = disabled).
 	Mesh *mesh.Mesh
+	// Learner enables self-improving pattern detection (nil = disabled).
+	Learner *learn.Learner
 	// PlanModeAllowedTools names tools exempt from the plan-mode read-only gate.
 	// Passed through to the executor agent so user-configured exceptions work.
 	PlanModeAllowedTools []string
@@ -355,6 +359,7 @@ func New(opts Options) *Controller {
 		cpRoot:                 opts.WorkspaceRoot,
 		schedule:               opts.Schedule,
 		mesh:                   opts.Mesh,
+		learner:                opts.Learner,
 		toolApprovalMode:       ToolApprovalAsk,
 		approvals:              map[string]pendingApproval{},
 		asks:                   map[string]pendingAsk{},

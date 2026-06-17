@@ -30,6 +30,7 @@ import (
 	"reasonix/internal/installsource"
 	"reasonix/internal/instruction"
 	"reasonix/internal/jobs"
+	"reasonix/internal/learn"
 	"reasonix/internal/lsp"
 	"reasonix/internal/memory"
 	"reasonix/internal/mesh"
@@ -868,6 +869,18 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 		if m := mesh.New(mesh.Config{Enabled: true, Peers: meshPeers}); m != nil {
 			ctrl.SetMesh(m)
 			reg.Add(builtin.ConfineCouncil(m))
+		}
+	}
+
+	// Learner: self-improving pattern detection. Config at [learn].
+	if cfg.Learn.Enabled {
+		lc := learn.New(learn.Config{
+			Enabled:       cfg.Learn.Enabled,
+			MaxPatterns:   cfg.Learn.MaxPatterns,
+			MinConfidence: cfg.Learn.MinConfidence,
+		})
+		if lc != nil {
+			ctrl.SetLearner(lc)
 		}
 	}
 

@@ -96,7 +96,7 @@ func (m *chatTUI) slashItems() []compItem {
 		{label: "/stats", insert: "/stats", hint: "toggle session statistics panel"},
 		{label: "/cost", insert: "/cost", hint: "show session cost breakdown"},
 		{label: "/council", insert: "/council ", hint: "dispatch task to mesh council peers"},
-		{label: "/learn", insert: "/learn", hint: "suggest skills from detected patterns"},
+		{label: "/learn", insert: "/learn", hint: i18n.M.CmdLearn},
 		{label: "/publish", insert: "/publish", hint: "export session as HTML/JSON"},
 		{label: "/todo", insert: "/todo", hint: "show or update task list"},
 		{label: "/eval", insert: "/eval ", hint: "manage eval-driven development workflow"},

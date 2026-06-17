@@ -178,6 +178,7 @@ var Chinese = Messages{
 	CmdForget:       "归档一条已存记忆",
 	CmdMcp:          "MCP 服务器",
 	CmdHooks:        "管理 hooks",
+	CmdLearn:        "从检测到的模式中建议技能",
 	CmdPasteImage:   "粘贴剪贴板图片",
 	CmdOutputStyle:  "列出输出风格",
 	CmdTheme:        "切换 CLI 主题",
