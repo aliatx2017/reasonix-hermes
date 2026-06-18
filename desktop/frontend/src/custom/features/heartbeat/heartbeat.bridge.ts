@@ -10,7 +10,7 @@ export function heartbeatListTasks(): Promise<HeartbeatTask[]> {
 }
 
 export function heartbeatSaveTasks(tasks: HeartbeatTask[]): Promise<void> {
-  return app.HeartbeatSaveTasks(tasks as unknown);
+  return app.HeartbeatSaveTasks(tasks);
 }
 
 export function heartbeatTriggerNow(id: string): Promise<void> {

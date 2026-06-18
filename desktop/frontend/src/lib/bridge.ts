@@ -45,6 +45,7 @@ import type {
   GoalProgressView,
   GitCommitDetailView,
   GitCommitView,
+  HeartbeatTask,
   HistoryMessage,
   HookConfigView,
   HooksSettingsView,
@@ -130,9 +131,9 @@ interface DesktopWindowState {
 export interface AppBindings {
   Platform(): Promise<string>;
   // ── Heartbeat ──
-  HeartbeatListTasks(): Promise<unknown>;
-  HeartbeatReloadTasks(): Promise<unknown>;
-  HeartbeatSaveTasks(tasks: unknown): Promise<void>;
+  HeartbeatListTasks(): Promise<HeartbeatTask[]>;
+  HeartbeatReloadTasks(): Promise<HeartbeatTask[]>;
+  HeartbeatSaveTasks(tasks: HeartbeatTask[]): Promise<void>;
   HeartbeatTriggerNow(id: string): Promise<void>;
   HeartbeatGenerateID(): Promise<string>;
   Submit(input: string): Promise<void>;
@@ -408,6 +409,11 @@ type KnownMissingFromGenerated =
   | "SkillsSettings"
   | "DownloadUpdate"
   | "InstallUpdate"
+  | "HeartbeatListTasks"
+  | "HeartbeatReloadTasks"
+  | "HeartbeatSaveTasks"
+  | "HeartbeatTriggerNow"
+  | "HeartbeatGenerateID"
   ;
 /**/
 export type _CheckAppToGen = AssertNever<Exclude<Exclude<keyof AppBindings, keyof typeof GeneratedApp>, KnownMissingFromGenerated>>;

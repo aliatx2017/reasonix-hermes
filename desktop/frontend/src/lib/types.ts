@@ -1242,3 +1242,16 @@ export interface LobeHubSyncMeta {
   added: number;
   fetched: number;
 }
+
+export interface HeartbeatTask {
+  id: string;
+  title: string;
+  prompt: string;
+  interval: string;
+  enabled: boolean;
+  scope?: string;
+  workspaceRoot?: string;
+  topicId?: string;
+  lastRunAt?: number;
+  createdAt?: number;
+}
