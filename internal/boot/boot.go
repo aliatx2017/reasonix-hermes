@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"reasonix/internal/agent"
+	"reasonix/internal/billing"
 	"reasonix/internal/command"
 	"reasonix/internal/config"
 	"reasonix/internal/control"
@@ -862,8 +863,12 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	// Apply CNY→USD exchange rate to pricing for display consistency.
 	pricing := entry.Price
 	if pricing != nil && (pricing.Currency == "¥" || pricing.Currency == "CNY" || pricing.Currency == "RMB") && pricing.ExchangeRate == 0 {
-		clone := *pricing // shallow copy — no pointer fields
-		clone.ExchangeRate = 0.14
+		clone := *pricing
+		rate := billing.DefaultCNYToUSD
+		if cfg.Billing.AutoExchangeRate {
+			rate = billing.FetchCNYToUSD()
+		}
+		clone.ExchangeRate = rate
 		pricing = &clone
 	}
 

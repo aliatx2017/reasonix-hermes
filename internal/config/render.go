@@ -667,6 +667,13 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 		b.WriteString("\n")
 	}
 
+	// [billing] — exchange rate and cost display.
+	if c.Billing != (BillingConfig{}) || scope != RenderScopeProject {
+		b.WriteString("[billing]\n")
+		fmt.Fprintf(&b, "auto_exchange_rate = %v   # fetch live CNY→USD exchange rate on startup\n", c.Billing.AutoExchangeRate)
+		b.WriteString("\n")
+	}
+
 	b.WriteString("# External MCP servers. type: \"stdio\" (default, a subprocess) | \"http\" | \"sse\".\n")
 	b.WriteString("# ${VAR} / ${VAR:-default} are expanded from the environment in command/args/env/url/headers.\n")
 	if len(c.Plugins) == 0 {

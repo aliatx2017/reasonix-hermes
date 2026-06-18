@@ -69,6 +69,7 @@ type Config struct {
 	Collab             CollabConfig              `toml:"collab"`
 	Marketplace        MarketplaceConfig         `toml:"marketplace"`
 	Embedding          EmbeddingConfig           `toml:"embedding"`
+	Billing            BillingConfig             `toml:"billing"`
 	CredentialsStore string              `toml:"credentials_store"`
 
 	providerSources          map[string]providerSourceScope
@@ -550,6 +551,11 @@ type LearnConfig struct {
 	MaxPatterns     int  `toml:"max_patterns"`     // max patterns to detect (default 20)
 	MinConfidence   int  `toml:"min_confidence"`    // observations before pattern forms (default 3)
 	MaxObservations int  `toml:"max_observations"`  // ring buffer cap (default 200)
+}
+
+// BillingConfig is the [billing] section.
+type BillingConfig struct {
+	AutoExchangeRate bool `toml:"auto_exchange_rate"` // fetch live CNY→USD rate on startup
 }
 
 // MeshConfig is the [mesh] section for agent-to-agent MCP delegation.
