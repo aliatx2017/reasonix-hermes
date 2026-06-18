@@ -66,7 +66,7 @@ func TestToWire(t *testing.T) {
 				LogRewriteVersion:   1,
 			},
 		})
-		if w.Usage == nil || w.Usage.TotalTokens != 1200 || w.Usage.Cost <= 0 || w.Usage.CostUSD <= 0 || w.Usage.Currency != "¥" {
+		if w.Usage == nil || w.Usage.TotalTokens != 1200 || w.Usage.Cost <= 0 || w.Usage.CostUSD <= 0 || w.Usage.Currency != "$" {
 			t.Errorf("usage = %+v", w.Usage)
 		}
 		if w.Usage.Source != event.UsageSourceTitle {

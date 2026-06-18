@@ -364,10 +364,10 @@ func (p *Pricing) Cost(u *Usage) float64 {
 		float64(u.CompletionTokens)*p.Output) / 1e6
 }
 
-// Symbol returns the currency display symbol, defaulting to "¥".
+// Symbol returns the currency display symbol, defaulting to "$".
 func (p *Pricing) Symbol() string {
 	if p == nil || p.Currency == "" {
-		return "¥"
+		return "$"
 	}
 	return currencySymbol(p.Currency)
 }
@@ -375,7 +375,7 @@ func (p *Pricing) Symbol() string {
 func currencySymbol(currency string) string {
 	value := strings.TrimSpace(currency)
 	if value == "" {
-		return "¥"
+		return "$"
 	}
 	switch strings.ToLower(value) {
 	case "cny", "rmb", "yuan", "renminbi", "cnh":
