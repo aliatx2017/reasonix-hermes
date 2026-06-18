@@ -1576,6 +1576,12 @@ func (c *Controller) ClearSession() error {
 	if running {
 		return fmt.Errorf("cannot clear while a turn is running")
 	}
+	preMarkedCleanup := c.hasUnfinishedSessionJobs(oldPath)
+	if preMarkedCleanup {
+		if err := agent.MarkCleanupPending(oldPath, "clear"); err != nil {
+			return err
+		}
+	}
 	destroy := c.BeginDestroySession(oldPath)
 	if !destroy.Async {
 		if err := removeSessionArtifacts(oldPath); err != nil {
@@ -1600,7 +1606,13 @@ func (c *Controller) ClearSession() error {
 	c.hooks.SessionStart(context.Background())
 	if destroy.Async {
 		go func() {
-			destroy.Wait()
+			result := destroy.Wait()
+			if result.HasTimedOut() && destroy.WaitAll != nil {
+				if err := agent.MarkCleanupPending(oldPath, "clear"); err != nil {
+					c.sink.Emit(event.Event{Kind: event.Notice, Level: event.LevelWarn, Text: "mark cleanup pending failed: " + err.Error()})
+				}
+				destroy.WaitAll()
+			}
 			if err := removeSessionArtifacts(oldPath); err != nil {
 				c.sink.Emit(event.Event{Kind: event.Notice, Level: event.LevelWarn, Text: "clear session cleanup failed: " + err.Error()})
 			}
@@ -1608,6 +1620,13 @@ func (c *Controller) ClearSession() error {
 		}()
 	}
 	return nil
+}
+
+func (c *Controller) hasUnfinishedSessionJobs(sessionPath string) bool {
+	if c.jobs == nil {
+		return false
+	}
+	return c.jobs.HasUnfinishedForSession(agent.BranchID(sessionPath))
 }
 
 func removeSessionArtifacts(path string) error {
@@ -1633,7 +1652,18 @@ func removeSessionArtifacts(path string) error {
 	if err := agent.DeleteSubagentsByParent(filepath.Dir(path), agent.BranchID(path)); err != nil {
 		return err
 	}
+	if err := agent.ClearCleanupPending(path); err != nil {
+		return err
+	}
 	return nil
+}
+
+// ReconcileCleanupPending retries physical cleanup for logically removed
+// sessions that were left behind by a previous process.
+func ReconcileCleanupPending(dir string) error {
+	return agent.ReconcileCleanupPending(dir, func(item agent.CleanupPendingInfo) error {
+		return removeSessionArtifacts(item.SessionPath)
+	})
 }
 
 // RewindScope selects what a Rewind restores.
@@ -1891,6 +1921,9 @@ func (c *Controller) SwitchBranch(ref string) (agent.BranchInfo, error) {
 	match, err := resolveBranch(branches, ref)
 	if err != nil {
 		return agent.BranchInfo{}, c.rewindFail(err)
+	}
+	if !agent.IsVisibleSession(match.Path) {
+		return agent.BranchInfo{}, c.rewindFail(fmt.Errorf("branch %q not found", ref))
 	}
 	loaded, err := agent.LoadSession(match.Path)
 	if err != nil {
@@ -2154,9 +2187,10 @@ func (c *Controller) SetSessionPath(p string) {
 // SessionDestroyHandle separates waiting for cancelled jobs from ending the
 // destroy window, so callers can move/delete persistent artifacts in between.
 type SessionDestroyHandle struct {
-	Wait   func()
-	Finish func()
-	Async  bool
+	Wait    func() jobs.TeardownResult
+	WaitAll func()
+	Finish  func()
+	Async   bool
 }
 
 // BeginDestroySession marks a session as leaving active use and cancels its
@@ -2165,20 +2199,24 @@ type SessionDestroyHandle struct {
 func (c *Controller) BeginDestroySession(sessionPath string) SessionDestroyHandle {
 	parentSession := agent.BranchID(sessionPath)
 	if c.jobs == nil || parentSession == "" {
+		wait := func() jobs.TeardownResult { return jobs.TeardownResult{} }
 		noop := func() {}
-		return SessionDestroyHandle{Wait: noop, Finish: noop}
+		return SessionDestroyHandle{Wait: wait, WaitAll: noop, Finish: noop}
 	}
-	done := c.jobs.DestroySession(parentSession)
+	teardown := c.jobs.BeginDestroySession(parentSession)
 	return SessionDestroyHandle{
-		Wait: func() {
-			for _, ch := range done {
+		Wait: func() jobs.TeardownResult {
+			return c.jobs.WaitTeardown(context.Background(), teardown, c.jobs.TeardownGrace())
+		},
+		WaitAll: func() {
+			for _, ch := range teardown.DoneChannels() {
 				<-ch
 			}
 		},
 		Finish: func() {
 			c.jobs.FinishDestroySession(parentSession)
 		},
-		Async: len(done) > 0,
+		Async: teardown.Async(),
 	}
 }
 
@@ -2636,16 +2674,31 @@ func (c *Controller) InheritLifecycleFrom(prev *Controller) {
 // firing SessionEnd. Use it only when replacing the controller for the same
 // logical session.
 func (c *Controller) ReleaseResources() {
-	c.close(false)
+	c.close(false, closeJobsWithGrace)
 }
 
 // Close stops plugin subprocesses and releases resources. A session that ever
 // started fires SessionEnd so a teardown hook runs.
 func (c *Controller) Close() {
-	c.close(true)
+	c.close(true, closeJobsWithGrace)
 }
 
-func (c *Controller) close(fireSessionEnd bool) {
+// CloseAfterDestroy releases controller resources after the caller has already
+// begun session-specific job teardown. It avoids a second synchronous job grace
+// wait while still cancelling the manager root and reaping temporary artifacts
+// once every job goroutine finally exits.
+func (c *Controller) CloseAfterDestroy() {
+	c.close(true, closeJobsAsync)
+}
+
+type closeJobsMode int
+
+const (
+	closeJobsWithGrace closeJobsMode = iota
+	closeJobsAsync
+)
+
+func (c *Controller) close(fireSessionEnd bool, jobsMode closeJobsMode) {
 	c.mu.Lock()
 	started := c.startedOnce
 	c.mu.Unlock()
@@ -2653,7 +2706,12 @@ func (c *Controller) close(fireSessionEnd bool) {
 		c.hooks.SessionEnd(context.Background())
 	}
 	if c.jobs != nil {
-		c.jobs.Close() // cancel any still-running background jobs
+		switch jobsMode {
+		case closeJobsAsync:
+			c.jobs.CloseAsync()
+		default:
+			c.jobs.Close() // cancel any still-running background jobs
+		}
 	}
 	if c.cleanup != nil {
 		c.cleanup()

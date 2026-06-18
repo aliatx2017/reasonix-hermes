@@ -442,6 +442,38 @@ func TestInstallCapabilityBuiltinIsInlineWithExpectedMetadata(t *testing.T) {
 	}
 }
 
+func TestAutoResearchBuiltinIsInlineWithStateProtocol(t *testing.T) {
+	st := New(Options{HomeDir: t.TempDir()})
+	sk, ok := st.Read("auto-research")
+	if !ok {
+		t.Fatal("auto-research builtin skill must be registered")
+	}
+	if sk.Scope != ScopeBuiltin {
+		t.Errorf("auto-research scope = %s, want builtin", sk.Scope)
+	}
+	if sk.RunAs != RunInline {
+		t.Errorf("auto-research runAs = %s, want inline", sk.RunAs)
+	}
+	for _, want := range []string{
+		".reasonix/autoresearch/",
+		"progress.json",
+		"findings.jsonl",
+		"directions_tried.json",
+		"YYYYMMDD-HHMMSS-slug",
+		"20260618-224530-cache-audit",
+		"stale_count >= 2",
+		"stable prompt prefix",
+		"Do not dump raw logs unless asked",
+	} {
+		if !strings.Contains(sk.Body, want) {
+			t.Errorf("auto-research body missing %q", want)
+		}
+	}
+	if _, listed := find(st.List(), "auto-research"); !listed {
+		t.Error("auto-research should appear in List() so it reaches Settings and the slash menu")
+	}
+}
+
 func TestDisabledSkillsAreFilteredFromListAndRead(t *testing.T) {
 	home := t.TempDir()
 	writeSkill(t, home, ".reasonix/skills/active.md", "---\ndescription: active\n---\nbody")

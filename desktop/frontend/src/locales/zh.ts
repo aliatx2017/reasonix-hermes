@@ -1576,4 +1576,6 @@ export const zh: Record<DictKey, string> = {
   "mock.changedFile2Prompt": "记录项目上下文",
   "mock.changedFile1Path": "docs/dev-standard.md",
   "mock.changedFile2Path": ".reasonix/project.md",
+  "modelSwitcher.searchPlaceholder": "搜索模型…",
+  "modelSwitcher.noMatches": "没有匹配的模型",
 };

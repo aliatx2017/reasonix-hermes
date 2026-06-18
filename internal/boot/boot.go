@@ -105,6 +105,10 @@ type Options struct {
 	// SessionDir overrides where persisted chat transcripts are written. When
 	// empty, the shared CLI/global session directory is used.
 	SessionDir string
+	// CleanupPendingReconciler retries delayed physical cleanup for session
+	// artifacts left by a previous process. Nil uses the core physical-delete
+	// reconciler; frontends with different deletion semantics can override it.
+	CleanupPendingReconciler func(sessionDir string) error
 }
 
 // Build loads config, resolves the model(s), and returns a Controller wrapping a
@@ -173,6 +177,13 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	sessionDir := opts.SessionDir
 	if sessionDir == "" {
 		sessionDir = config.SessionDir()
+	}
+	reconcileCleanupPending := opts.CleanupPendingReconciler
+	if reconcileCleanupPending == nil {
+		reconcileCleanupPending = control.ReconcileCleanupPending
+	}
+	if err := reconcileCleanupPending(sessionDir); err != nil {
+		sink.Emit(event.Event{Kind: event.Notice, Level: event.LevelWarn, Text: "cleanup-pending reconciliation failed: " + err.Error()})
 	}
 
 	proxySpec := cfg.NetworkProxySpec()

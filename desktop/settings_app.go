@@ -205,6 +205,21 @@ type ProfileView struct {
 	Yolo        bool   `json:"yolo"`
 }
 
+// DesktopStartupSettingsView is the lightweight Settings subset needed during
+// frontend startup. It deliberately excludes providers and credential state so
+// slow keychain/env resolution stays off the first-render path.
+type DesktopStartupSettingsView struct {
+	Bot                BotSettingsView `json:"bot"`
+	DesktopLanguage    string          `json:"desktopLanguage"`
+	DesktopLayoutStyle string          `json:"desktopLayoutStyle"`
+	DesktopTheme       string          `json:"desktopTheme"`
+	DesktopThemeStyle  string          `json:"desktopThemeStyle"`
+	DisplayMode        string          `json:"displayMode"`
+	StatusBarStyle     string          `json:"statusBarStyle"`
+	StatusBarItems     []string        `json:"statusBarItems"`
+	CheckUpdates       bool            `json:"checkUpdates"`
+}
+
 func nonNil(s []string) []string {
 	if s == nil {
 		return []string{}
@@ -346,13 +361,20 @@ func providerViewFromEntry(p config.ProviderEntry, builtIn, added bool) Provider
 }
 
 func providerViewFromEntryForRoot(p config.ProviderEntry, builtIn, added bool, root string) ProviderView {
+	return providerViewFromEntryForRootWithResolver(p, builtIn, added, root, nil)
+}
+
+func providerViewFromEntryForRootWithResolver(p config.ProviderEntry, builtIn, added bool, root string, resolver *config.CredentialResolver) ProviderView {
 	models := p.ChatModelList()
 	visionModels := p.VisionModels
 	visionModelsSet := p.Vision || p.VisionModels != nil
 	if p.Vision {
 		visionModels = models
 	}
-	key := config.ResolveCredentialForRootGlobalFirst(root, p.APIKeyEnv)
+	if resolver == nil {
+		resolver = config.NewCredentialResolverForRoot(root)
+	}
+	key := resolver.ResolveGlobalFirst(p.APIKeyEnv)
 	requiresKey := p.RequiresAPIKey()
 	return ProviderView{
 		Name: p.Name, BuiltIn: builtIn, Added: added, Kind: p.Kind, BaseURL: p.BaseURL,
@@ -376,14 +398,21 @@ func officialProviderViews(added map[string]bool, pricingLanguage string) []Prov
 }
 
 func officialProviderViewsForRoot(added map[string]bool, pricingLanguage, root string) []ProviderView {
+	return officialProviderViewsForRootWithResolver(added, pricingLanguage, root, nil)
+}
+
+func officialProviderViewsForRootWithResolver(added map[string]bool, pricingLanguage, root string, resolver *config.CredentialResolver) []ProviderView {
 	var out []ProviderView
+	if resolver == nil {
+		resolver = config.NewCredentialResolverForRoot(root)
+	}
 	for _, kind := range []string{"deepseek", "mimo-api", "mimo-token-plan"} {
 		entries, _, err := officialProviderTemplate(kind, pricingLanguage)
 		if err != nil {
 			continue
 		}
 		for _, entry := range entries {
-			out = append(out, providerViewFromEntryForRoot(entry, true, added[entry.Name], root))
+			out = append(out, providerViewFromEntryForRootWithResolver(entry, true, added[entry.Name], root, resolver))
 		}
 	}
 	return out
@@ -405,6 +434,43 @@ func officialProviderAddedSet(cfg *config.Config) map[string]bool {
 		}
 	}
 	return out
+}
+
+func desktopStartupSettingsFromConfig(cfg *config.Config) DesktopStartupSettingsView {
+	if cfg == nil {
+		return DesktopStartupSettingsView{
+			Bot:                botSettingsView(config.BotConfig{}),
+			DesktopLayoutStyle: "workbench",
+			DesktopTheme:       "auto",
+			DesktopThemeStyle:  "graphite",
+			DisplayMode:        "standard",
+			StatusBarStyle:     "text",
+			StatusBarItems:     config.DefaultDesktopStatusBarItems(),
+			CheckUpdates:       true,
+		}
+	}
+	return DesktopStartupSettingsView{
+		Bot:                botSettingsView(cfg.Bot),
+		DesktopLanguage:    cfg.DesktopLanguage(),
+		DesktopLayoutStyle: cfg.DesktopLayoutStyle(),
+		DesktopTheme:       cfg.DesktopTheme(),
+		DesktopThemeStyle:  cfg.DesktopThemeStyle(),
+		DisplayMode:        cfg.DesktopDisplayMode(),
+		StatusBarStyle:     cfg.DesktopStatusBarStyle(),
+		StatusBarItems:     cfg.DesktopStatusBarItems(),
+		CheckUpdates:       cfg.DesktopCheckUpdates(),
+	}
+}
+
+// DesktopStartupSettings returns only the desktop chrome preferences needed at
+// app startup. Keep provider/key status in Settings(), where the Settings panel
+// actually needs it.
+func (a *App) DesktopStartupSettings() DesktopStartupSettingsView {
+	cfg, _, err := a.loadDesktopUserConfigForView()
+	if err != nil {
+		return desktopStartupSettingsFromConfig(nil)
+	}
+	return desktopStartupSettingsFromConfig(cfg)
 }
 
 // Settings returns the current configuration for the Settings panel.
@@ -504,10 +570,11 @@ func (a *App) Settings() SettingsView {
 	}
 	added := providerAccessSet(cfg.Desktop.ProviderAccess)
 	root := a.activeWorkspaceRoot()
-	v.OfficialProviders = officialProviderViewsForRoot(officialProviderAddedSet(cfg), cfg.DeepSeekOfficialPricingLanguage(), root)
+	resolver := config.NewCredentialResolverForRoot(root)
+	v.OfficialProviders = officialProviderViewsForRootWithResolver(officialProviderAddedSet(cfg), cfg.DeepSeekOfficialPricingLanguage(), root, resolver)
 	for i := range cfg.Providers {
 		p := &cfg.Providers[i]
-		v.Providers = append(v.Providers, providerViewFromEntryForRoot(*p, isOfficialBuiltInProvider(*p), added[p.Name], root))
+		v.Providers = append(v.Providers, providerViewFromEntryForRootWithResolver(*p, isOfficialBuiltInProvider(*p), added[p.Name], root, resolver))
 	}
 	return v
 }
@@ -619,6 +686,20 @@ func (a *App) ensureActiveTabRebuildAllowed(setting string) error {
 	}
 	if controllerHasActiveRuntimeWork(tab.Ctrl) {
 		return rebuildControllerActiveWorkError(setting)
+	}
+	return nil
+}
+
+func (a *App) ensureLiveControllersRuntimeMutationAllowed(setting string) error {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	for _, tab := range a.tabs {
+		if tab == nil {
+			continue
+		}
+		if controllerHasActiveRuntimeWork(tab.Ctrl) {
+			return rebuildControllerActiveWorkError(setting)
+		}
 	}
 	return nil
 }
@@ -863,11 +944,12 @@ func (a *App) rebuild() error {
 	}
 	ctrl, err := boot.Build(a.bootContext(), boot.Options{
 		Model: model, RequireKey: false,
-		Sink:           tab.sink,
-		WorkspaceRoot:  tab.WorkspaceRoot,
-		SessionDir:     tabSessionDir(tab),
-		EffortOverride: cloneStringPtr(tab.effort),
-		TokenMode:      currentTabTokenMode(tab),
+		Sink:                     tab.sink,
+		WorkspaceRoot:            tab.WorkspaceRoot,
+		SessionDir:               tabSessionDir(tab),
+		EffortOverride:           cloneStringPtr(tab.effort),
+		TokenMode:                currentTabTokenMode(tab),
+		CleanupPendingReconciler: reconcileDesktopCleanupPending,
 	})
 	if err != nil {
 		a.mu.Lock()
@@ -1193,6 +1275,9 @@ func (a *App) AddOfficialProviderAccess(kind, key string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if err := a.ensureActiveTabRebuildAllowed("provider access"); err != nil {
+		return "", err
+	}
 	keyWarning := ""
 	if strings.TrimSpace(key) != "" && keyEnv != "" {
 		var err error
@@ -1333,6 +1418,11 @@ func (a *App) removeBuiltInProviderAccessAndRetargetTabs(name string) error {
 		a.mu.RUnlock()
 	}
 
+	if len(affected) == 0 {
+		if err := a.ensureActiveTabRebuildAllowed("provider access"); err != nil {
+			return err
+		}
+	}
 	retargetProviderReferences(cfg, name, fallbackRef)
 	removeProviderAccess(cfg, name)
 	if err := cfg.SaveTo(path); err != nil {
@@ -1408,6 +1498,11 @@ func (a *App) deleteProviderAndRetargetTabs(name string) error {
 
 	if len(affected) > 0 && fallbackRef == "" {
 		return fmt.Errorf("remove provider: %q is used by open tabs and no other configured provider exists", name)
+	}
+	if len(affected) == 0 {
+		if err := a.ensureActiveTabRebuildAllowed("provider"); err != nil {
+			return err
+		}
 	}
 	if err := cfg.RemoveProvider(name); err != nil {
 		return err
@@ -1780,6 +1875,9 @@ func (a *App) SetColdResumePrune(enabled bool) error {
 }
 
 func (a *App) SetReasoningLanguage(lang string) error {
+	if err := a.ensureLiveControllersRuntimeMutationAllowed("reasoning language"); err != nil {
+		return err
+	}
 	cfg, path, err := a.loadDesktopUserConfigForEdit()
 	if err != nil {
 		return err

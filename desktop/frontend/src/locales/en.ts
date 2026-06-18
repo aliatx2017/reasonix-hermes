@@ -1574,6 +1574,8 @@ export const en = {
   "mock.changedFile2Prompt": "Record project context",
   "mock.changedFile1Path": "docs/dev-standard.md",
   "mock.changedFile2Path": ".reasonix/project.md",
+  "modelSwitcher.searchPlaceholder": "Search models…",
+  "modelSwitcher.noMatches": "No matching models",
 };
 
 export type DictKey = keyof typeof en;

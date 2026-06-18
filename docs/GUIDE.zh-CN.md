@@ -283,6 +283,30 @@ Review the staged diff. Focus on $ARGUMENTS, list bugs with file:line.
 `$ARGUMENTS` 展开为全部空格分隔参数，`$1`…`$N` 为位置参数。MCP prompts 也以
 `/mcp__<server>__<prompt>` 形式出现在这里。
 
+## 内置 Auto Research 技能
+
+`auto-research` 是一个面向长周期任务的内置 inline skill。它会出现在 Skills 列表、
+桌面端 Settings -> Skills（scope 为 `builtin`）以及斜杠菜单里的 `/auto-research`。
+Reasonix 不会在 App 启动时自动运行它，它也不是隐藏的后台 daemon。它会在这些场景生效：
+用户明确输入 `/auto-research`；模型调用
+`run_skill({ "name": "auto-research", ... })`；或者当前请求明显是长周期目标，例如
+“帮我彻底实现并优化好”“持续研究这个问题”“多轮排查直到根因明确”“不要原地打转”
+“长期跑实验/验证/修复”“把这个方向完整做成方案并验证”。
+
+加载后，agent 会把任务当成有状态的研究循环，而不是只靠聊天上下文续写。它会创建或复用
+项目级 `.reasonix/autoresearch/<task-id>/` 目录。新任务默认使用
+`YYYYMMDD-HHMMSS-slug` 作为 id，例如 `20260618-224530-cache-audit`；创建前会先检查
+当前项目目录，只有同名已存在时才追加后缀。任务状态包括 `task_spec.md`、`progress.json`、
+`findings.jsonl`、`directions_tried.json`，记录每轮方向、证据、验证结果和卡住原因，并用
+`stale_count` 判断是否在低质量重复。连续停滞时，它会要求结构性 pivot，例如换证据源、
+入口、测试 oracle、拆解方式、benchmark 或 worker 策略，而不是继续重复同一种尝试。
+
+worker/subagent 可以独立探索，但 canonical state 由 orchestrator 负责写入。完成前必须
+对照 `task_spec.md` 的 success criteria 做逐项证据审计；窄范围检查通过不能证明宽范围需求
+完成。动态运行态只写进 `.reasonix/autoresearch/...`，不写入 `REASONIX.md`、`AGENTS.md`、
+tool schema 或 cache-stable system prompt。公开发布、破坏性操作、凭证、付款和外部通知仍然
+遵守正常的 approval、privacy 与 cache gate。
+
 ## @ 引用
 
 在消息里写 `@` 引用，Reasonix 会在发送前解析成带标签的上下文块：`@path/to/file`（或

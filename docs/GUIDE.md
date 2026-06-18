@@ -320,6 +320,39 @@ Review the staged diff. Focus on $ARGUMENTS, list bugs with file:line.
 `$ARGUMENTS` expands to all space-separated args, `$1`…`$N` to positional ones.
 MCP prompts also appear here as `/mcp__<server>__<prompt>`.
 
+## Built-in Auto Research skill
+
+`auto-research` is a built-in inline skill for long-horizon work. It is available
+from the Skills list, Settings -> Skills (scope `builtin`), and the slash menu as
+`/auto-research`. The host does not start it automatically at app launch and it
+does not run as a hidden daemon. It becomes active when the user explicitly
+invokes `/auto-research`, when the model calls
+`run_skill({ "name": "auto-research", ... })`, or when the current request is
+clearly a long-running objective such as "implement and optimize this
+thoroughly", "keep researching this", "debug until the root cause is clear",
+"do not spin in circles", "run experiments and verification over time", or "turn
+this direction into a complete, verified plan".
+
+When loaded, the skill makes the agent treat the task as a stateful research
+loop instead of a chat-only continuation. It creates or reuses a project-local
+`.reasonix/autoresearch/<task-id>/` directory. For new tasks, the default id
+shape is `YYYYMMDD-HHMMSS-slug`, such as `20260618-224530-cache-audit`; Reasonix
+checks the project directory first and appends a suffix only if that id already
+exists. The task state includes `task_spec.md`, `progress.json`,
+`findings.jsonl`, and `directions_tried.json`, records each iteration's
+direction, evidence, verification result, and blocker, and uses `stale_count` to
+detect repeated weak progress. Repeated stalls force a structural pivot, such as
+changing evidence source, entrypoint, test oracle, decomposition, benchmark, or
+worker strategy, rather than retrying the same tactic.
+
+Workers and subagents may explore independently, but the orchestrator owns the
+canonical state files. Completion requires a requirement-by-requirement evidence
+audit against `task_spec.md`; a passing narrow check is not treated as proof of a
+broad requirement. Dynamic run state stays in `.reasonix/autoresearch/...`, not
+in `REASONIX.md`, `AGENTS.md`, tool schemas, or the cache-stable system prompt.
+Public publishing, destructive operations, credentials, payments, and external
+notifications still follow the normal approval, privacy, and cache gates.
+
 ## @ references
 
 Embed `@` references in a message and Reasonix resolves them before sending, as

@@ -1572,4 +1572,6 @@ export const zhTW: Record<DictKey, string> = {
   "performanceReport.dismiss": "關閉",
   "performanceReport.privacyNote": "上傳前桌面端會移除路徑與密鑰；診斷資訊只用於記錄耗時、記憶體、網路狀態、近期 breadcrumbs、應用版本和作業系統。",
   "mock.topicSysException": "異常處理與恢復演練",
+  "modelSwitcher.searchPlaceholder": "搜尋模型…",
+  "modelSwitcher.noMatches": "沒有匹配的模型",
 };

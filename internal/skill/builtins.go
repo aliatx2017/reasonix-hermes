@@ -8,9 +8,10 @@ import (
 )
 
 // Built-in skills ship with Reasonix and back the dedicated subagent tools
-// (explore / research / review / security_review) plus the inline `test`
-// playbook. A user/project file with the same name overrides the built-in (see
-// Store.List / Store.Read). Tool names in the bodies match internal/tool/builtin.
+// (explore / research / review / security_review) plus inline playbooks such as
+// test and auto-research. A user/project file with the same name overrides the
+// built-in (see Store.List / Store.Read). Tool names in the bodies match
+// internal/tool/builtin.
 
 // negativeClaimRule keeps subagents honest about "found nothing" answers.
 const negativeClaimRule = `When you claim something does NOT exist (no caller, no usage, not implemented), say which searches you ran to reach that conclusion — a negative claim is only as trustworthy as the search behind it.`
@@ -189,6 +190,184 @@ Rules:
 - Don't fabricate conventions the code doesn't demonstrate.
 - After writing, summarize in one or two lines what you captured and tell the user to review and edit it.`
 
+const builtinAutoResearchBody = `This skill is INLINED. Use it when the user asks Reasonix to keep pursuing a broad research, debugging, optimization, documentation, or implementation goal across many iterations. It adapts long-horizon autonomous research loops to Reasonix's cache-first architecture and safety model.
+
+Core contract:
+1. Keep dynamic state out of REASONIX.md, AGENTS.md, system prompts, tool schemas, and project memory. Write run state under .reasonix/autoresearch/.
+2. Work autonomously inside the user's authorized scope, but do not bypass Reasonix safety boundaries. Ask before public publishing, destructive data changes, credential use, payments, external notifications, or anything the active approval policy requires.
+3. Persist progress to files before relying on conversation memory. Every meaningful decision, finding, pivot, test result, and blocker gets a durable record.
+4. Prefer fresh context for new iterations. Use state files as the handoff, not long chat history. Resume only for short recovery or human inspection.
+5. Separate doing from judging. A worker can propose progress; the orchestrator accepts, rejects, or marks stale based on evidence in the state files.
+6. When a loop appears stuck, pivot the structure of the approach rather than merely tweaking the same tactic.
+
+State layout:
+.reasonix/autoresearch/<task-id>/
+|-- state/
+|   |-- task_spec.md
+|   |-- progress.json
+|   |-- findings.jsonl
+|   |-- directions_tried.json
+|   +-- iteration_log.jsonl
++-- logs/
+    |-- orchestrator.jsonl
+    |-- workers.jsonl
+    +-- heartbeat.jsonl
+
+Use a collision-resistant project-local task id in the form YYYYMMDD-HHMMSS-slug, such as 20260618-224530-cache-audit. Build the slug from the goal in lowercase kebab case, keep it short, and check .reasonix/autoresearch/ before creating the directory. If the generated id already exists, append -2, -3, and so on. If the user supplies an existing task directory, use it exactly.
+
+Start or resume:
+1. Inspect the workspace and existing .reasonix/autoresearch/ tasks.
+2. For a new goal, create the task directory and write:
+   - state/task_spec.md with goal, scope, non-goals, allowed operations, success criteria, verification gates, and escalation conditions.
+   - state/progress.json with schema_version=1, status="running", iteration=0, stale_count=0, total_findings=0, accepted_directions=0, last_seen=<timestamp>, last_direction="", last_evidence="", blocked_reason="", completion_summary="".
+   - state/directions_tried.json with schema_version=1, task_id, and an empty directions array.
+   - empty JSONL logs for findings, iterations, workers, orchestrator, and heartbeat.
+3. For an existing goal, read all state files first. Treat files as authoritative over the chat transcript.
+4. Append a heartbeat line immediately after loading state. A callback that does not update its own liveness before analysis is already unreliable.
+
+task_spec.md template:
+# <task title>
+
+Task id: <task-id>
+Created: <RFC3339 timestamp>
+Owner: user
+
+## Goal
+<one concrete paragraph>
+
+## Scope
+- <included surface>
+
+## Non-Goals
+- <explicit exclusions>
+
+## Allowed Operations
+- <local commands, file edits, research, tests, subagents>
+
+## Success Criteria
+- [ ] <verifiable requirement>
+
+## Verification Gates
+- <command/check/artifact required before completion>
+
+## Escalation Conditions
+- <external dependency or approval boundary>
+
+Iteration loop:
+1. Heartbeat: append to logs/heartbeat.jsonl with timestamp, source, task id, iteration, and current status.
+2. State audit: read progress.json, recent iteration_log.jsonl, recent findings.jsonl, and directions_tried.json.
+3. Choose direction: select a direction that differs materially from every prior direction. If stale_count >= 2, change a structural constraint: evidence source, entrypoint, implementation boundary, test oracle, benchmark, decomposition, environment, or platform.
+4. Execute: do the smallest valuable chunk that can produce evidence. Use a subagent or background task only when it reduces parent-context noise or handles independent work.
+5. Verify: run the narrowest meaningful check for the chunk. Broaden only when shared behavior or release confidence requires it.
+6. Evaluate: accept progress only when there is evidence: a verified finding, a changed artifact, a reproduced failure, a passing test, a ruled-out direction backed by searches, or a decision that narrows the problem.
+7. Persist: update JSON/JSONL state before reporting. Use atomic rewrites for JSON files and append-only writes for JSONL files.
+
+State schemas:
+- progress.json status values: running, waiting_external, blocked, complete, paused. Update last_seen at the start of every callback or iteration. Update last_iteration_at only after the iteration result is persisted.
+- directions_tried.json directions entries should include id, iteration, started_at, title, hypothesis, structural_axis, result, and evidence.
+- findings.jsonl entries should include id, ts, iteration, direction_id, type, claim, evidence, confidence, and accepted. Types: finding, decision, artifact, negative_result, test_result, blocker.
+- iteration_log.jsonl entries should include iteration, ts, direction_id, summary, new_findings, verification, stale, and next.
+- logs/*.jsonl entries should use {"ts":"...","source":"orchestrator|worker|heartbeat","level":"debug|info|warn|error|decision","event":"...","detail":"..."}.
+
+Negative claims require search evidence: commands or tools used, searched terms, and why the absence matters.
+
+Direction diversity:
+A direction is materially different when it changes at least one structural axis: evidence source, entrypoint/user path, implementation boundary, test oracle, benchmark, decomposition, external reference set, environment/platform, or adversarial/refutation angle. It is not materially different when it only changes phrasing, searches adjacent keywords, tunes the same parameter, or reruns the same command without a new reason.
+
+Stall detection:
+- Increment stale_count when an iteration has no accepted finding, no verified artifact change, no new failing/passing signal, or repeats a previously tried direction.
+- Reset stale_count to 0 when a verified finding or deliverable moves the task materially closer to success criteria.
+- stale_count == 1: keep working, but record why the attempt was weak.
+- stale_count >= 2: force a structural pivot.
+- stale_count >= 4: stop autonomous digging, write a concise owner-facing report, and ask for the smallest external input needed.
+
+Pivot strategies:
+- switch from implementation to reproduction;
+- switch from reproduction to test oracle design;
+- inspect a different entrypoint or frontend/backend boundary;
+- replace broad search with call graph or symbol references;
+- compare against upstream docs/specs;
+- run an independent refutation worker;
+- minimize the failing case;
+- build a small verifier script or fixture;
+- change the benchmark or data sample;
+- reduce scope to one success criterion and finish that slice.
+
+Worker/subagent rules:
+Use workers for independent code exploration, independent web/paper research, refutation checks, long-running commands or experiments, and post-iteration evidence audits.
+
+Worker prompts must include:
+- task id and working directory;
+- exact question or deliverable;
+- current direction and forbidden repeated directions;
+- file/read limits;
+- required evidence format;
+- completion criteria;
+- instruction to write no canonical state files unless explicitly designated as the writer.
+
+The orchestrator owns canonical state writes. Workers may return JSON snippets or draft log lines, but the orchestrator validates and appends them.
+
+Worker prompt template:
+Task id: <task-id>
+Workspace: <absolute workspace path>
+Task spec: .reasonix/autoresearch/<task-id>/state/task_spec.md
+
+You are a worker for one iteration only.
+
+Direction:
+<direction title and hypothesis>
+
+Avoid repeating:
+<short list of prior direction titles and structural axes>
+
+Deliverable:
+<specific output expected>
+
+Evidence requirements:
+- cite files with line numbers when making code claims;
+- include commands and summarized outputs for test/build claims;
+- for negative claims, list exact searches run;
+- return proposed JSONL finding objects, but do not write canonical state files.
+
+Limits:
+- inspect at most 5 large files unless the evidence demands more;
+- stop after the deliverable is satisfied;
+- do not publish, push, delete, or contact external systems.
+
+Verification ladder:
+1. Static source check: file/line evidence, schema check, search result.
+2. Focused unit test or type check.
+3. Package-level test.
+4. UI/browser/manual verification.
+5. Full suite or release gate.
+
+Do not use a narrow check to prove a broad requirement. If the requirement is cross-module, run a cross-module verification.
+
+Safety and cache gate before public/shared changes:
+1. Is this within the user's latest explicit scope?
+2. Could it reveal private paths, local usernames, secrets, tokens, personal data, or internal-only URLs?
+3. Could it change the stable prompt prefix, tool schema order, provider request serialization, or memory documents?
+4. Is approval required by the active Reasonix mode or by the operation's blast radius?
+
+If yes to privacy or cache risk, stop and choose the safer route. If approval is required, ask a concise question rather than treating zero-interaction as a permission override.
+
+Completion checklist:
+The task is complete only when the success criteria in state/task_spec.md are proven by current evidence.
+1. Build a requirement-by-requirement checklist from task_spec.md.
+2. Map each requirement to direct evidence: file paths, commands, test output, benchmark output, citations, screenshots, PR state, or state log entries.
+3. Mark each item proven, contradicted, incomplete, or unverified. Only proven counts as complete.
+4. If anything is not proven, continue or write an explicit owner-facing partial-status report. Do not relabel partial completion as done.
+5. Append final accepted findings or artifact entries, append an iteration_log line with stale=false and next="complete", then rewrite progress.json with status="complete", completed_at, final total_findings, completion_summary, and last_seen.
+
+Progress update template:
+Iteration <n>, direction: <title>.
+Found/changed: <one sentence>.
+Verification: <command/check and result>.
+Next: <continue/pivot/complete/escalate>.
+State: .reasonix/autoresearch/<task-id>/
+
+Do not dump raw logs unless asked. Summarize evidence and point to the state directory.`
+
 // CodeGraphReadTools returns read-only tool names that look like an installed
 // codegraph MCP surface. Writable or untrusted tools stay out of subagents.
 func CodeGraphReadTools(reg *tool.Registry) []string {
@@ -313,6 +492,14 @@ func builtinSkills() []Skill {
 			Name:        "install-capability",
 			Description: "Install or uninstall Reasonix MCP servers and skills from a URL, GitHub/raw file, local path/folder, .mcp.json, executable, or package name. Plans with install_source (op=install or op=uninstall) before applying, surfacing per-action riskLevel.",
 			Body:        builtinInstallCapabilityBody,
+			Scope:       ScopeBuiltin,
+			Path:        "(builtin)",
+			RunAs:       RunInline,
+		},
+		{
+			Name:        "auto-research",
+			Description: "Run long-horizon Reasonix work with durable state files, stall detection, pivots, and cache-safe progress tracking.",
+			Body:        builtinAutoResearchBody,
 			Scope:       ScopeBuiltin,
 			Path:        "(builtin)",
 			RunAs:       RunInline,
