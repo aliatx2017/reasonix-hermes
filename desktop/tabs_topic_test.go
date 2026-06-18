@@ -512,6 +512,53 @@ func TestBuildTabControllerRestoresPinnedSessionBeforeTopicFallback(t *testing.T
 	}
 }
 
+func TestBuildTabControllerUsesPinnedSessionMetaWorkspace(t *testing.T) {
+	isolateDesktopUserDirs(t)
+
+	projectA := t.TempDir()
+	projectB := t.TempDir()
+	if err := addProject(projectA, "Project A"); err != nil {
+		t.Fatalf("add project A: %v", err)
+	}
+	if err := addProject(projectB, "Project B"); err != nil {
+		t.Fatalf("add project B: %v", err)
+	}
+
+	topicID := "topic_restore_workspace"
+	topicTitle := "Restore workspace"
+	sessionDirA := desktopSessionDir(projectA)
+	if err := os.MkdirAll(sessionDirA, 0o755); err != nil {
+		t.Fatalf("mkdir project A sessions: %v", err)
+	}
+	pinned := writeTopicSessionWithPrompt(t, sessionDirA, "project-a.jsonl", topicID, topicTitle, projectA, "project A prompt", time.Now())
+
+	app := NewApp()
+	tab := app.createTabEntryWithID("project", projectB, topicID, "tab_stale_workspace")
+	tab.TopicTitle = topicTitle
+	tab.SessionPath = pinned
+	tab.sink = &tabEventSink{tabID: tab.ID, app: app}
+	app.tabs[tab.ID] = tab
+	app.tabOrder = []string{tab.ID}
+	app.activeTabID = tab.ID
+
+	app.buildTabController(tab)
+	if tab.Ctrl == nil {
+		t.Fatalf("tab controller was not built: %s", tab.StartupErr)
+	}
+	defer tab.Ctrl.Close()
+
+	if got := filepath.Clean(tab.Ctrl.SessionPath()); got != filepath.Clean(pinned) {
+		t.Fatalf("restored session path = %q, want pinned %q", got, pinned)
+	}
+	if got := normalizeProjectRoot(tab.WorkspaceRoot); got != normalizeProjectRoot(projectA) {
+		t.Fatalf("tab workspace root = %q, want project A %q", got, normalizeProjectRoot(projectA))
+	}
+	history := tab.Ctrl.History()
+	if len(history) == 0 || history[0].Content != "project A prompt" {
+		t.Fatalf("restored history = %+v, want project A prompt", history)
+	}
+}
+
 func TestBuildTabControllerIgnoresStaleSessionModelWhenTabModelResolves(t *testing.T) {
 	isolateDesktopUserDirs(t)
 	t.Setenv("REASONIX_TEST_KEY", "sk-test")

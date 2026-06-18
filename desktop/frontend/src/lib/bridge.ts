@@ -98,6 +98,16 @@ import type {
 
 const GLOBAL_PROJECT_ORDER_KEY = "__global__";
 
+function stripGoalResearchFlags(arg: string): string {
+  const parts = arg.trim().split(/\s+/).filter(Boolean);
+  while (parts.length > 0) {
+    const flag = parts[0].toLowerCase();
+    if (flag !== "--research" && flag !== "--auto-research" && flag !== "--deep" && flag !== "--simple" && flag !== "--no-research") break;
+    parts.shift();
+  }
+  return parts.join(" ");
+}
+
 // AppBindings is derived from the Wails-generated Go → TS method signatures, so
 // the compiler catches drift between the Go binding surface and the frontend mock.
 // Run `wails generate module` after adding/renaming a bound method on App, then
@@ -1433,7 +1443,7 @@ function makeMockApp(): AppBindings {
       const trimmedInput = input.trim().toLowerCase();
       const goalMatch = /^\/goal(?:\s+([\s\S]*))?$/.exec(input.trim());
       if (goalMatch) {
-        const arg = (goalMatch[1] ?? "").trim();
+        const arg = stripGoalResearchFlags((goalMatch[1] ?? "").trim());
         const lowered = arg.toLowerCase();
         const active = mockTabs.find((tab) => tab.active);
         if (!arg || lowered === "status") {

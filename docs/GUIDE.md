@@ -174,7 +174,7 @@ Mode and display shortcuts:
 | `Ctrl+O` | Toggles verbose reasoning display | Also available through `/verbose`. |
 | `Ctrl+B` | Expands or collapses long shell output | Same action as clicking the collapsed shell-output hint. |
 | Ask / Auto | No keyboard cycle | Ask is the default interactive base. Auto is not entered through `Shift+Tab`; use clients or APIs that expose the tool approval posture directly. |
-| `/goal <objective>`, `/goal status`, `/goal clear` | Starts, checks, or clears Goal | Goal is not in any keyboard cycle. |
+| `/goal <objective>`, `/goal --research <objective>`, `/goal --simple <objective>`, `/goal status`, `/goal clear` | Starts, checks, or clears Goal | Goal is not in any keyboard cycle; clearly long-horizon goals automatically enable AutoResearch. Ordinary prompts with strong AutoResearch signals are also upgraded into Goal. |
 
 Picker and approval shortcuts:
 
@@ -279,7 +279,7 @@ convenient.
 In an interactive `reasonix` session, built-in commands (`/compact`, `/new`, `/clear`, `/rewind`,
 `/tree`, `/branch`, `/switch`, `/todo`, `/model`, `/mcp`, `/skills`, `/hooks`,
 `/memory`, `/output-style`, `/sandbox`, `/language`, `/auto-plan`, `/goal`,
-`/effort`, `/diff-fold`, `/reasoning-language`, `/help`) run
+`/reasoning-language`, `/help`) run
 locally — `/help` lists them all. `/new` starts a new session while saving the
 previous transcript for history/resume; `/clear` asks for confirmation, then
 discards the current context without saving it. `/effort low|medium|high|max`
@@ -320,38 +320,51 @@ Review the staged diff. Focus on $ARGUMENTS, list bugs with file:line.
 `$ARGUMENTS` expands to all space-separated args, `$1`…`$N` to positional ones.
 MCP prompts also appear here as `/mcp__<server>__<prompt>`.
 
-## Built-in Auto Research skill
+## Goal and AutoResearch
 
-`auto-research` is a built-in inline skill for long-horizon work. It is available
-from the Skills list, Settings -> Skills (scope `builtin`), and the slash menu as
-`/auto-research`. The host does not start it automatically at app launch and it
-does not run as a hidden daemon. It becomes active when the user explicitly
-invokes `/auto-research`, when the model calls
-`run_skill({ "name": "auto-research", ... })`, or when the current request is
-clearly a long-running objective such as "implement and optimize this
-thoroughly", "keep researching this", "debug until the root cause is clear",
-"do not spin in circles", "run experiments and verification over time", or "turn
-this direction into a complete, verified plan".
+Goal is the unified runtime for long-running objectives. Ordinary `/goal`
+objectives stay lightweight: Reasonix keeps working until the goal is complete,
+blocked, or cleared. When a goal is clearly long-horizon, Goal automatically
+enables the AutoResearch strategy instead of requiring a separate
+`/auto-research` skill; `auto-research` is not listed as a standalone built-in
+skill in Settings -> Skills or the slash menu. If an ordinary chat prompt has a
+very strong long-horizon signal, the host also upgrades it into the equivalent
+of `/goal --research <original prompt>`.
 
-When loaded, the skill makes the agent treat the task as a stateful research
+AutoResearch is enabled for goals with strong signals such as "keep
+researching", "long-running", "thoroughly", "debug until the root cause is
+clear", "do not spin", "run experiments", "verify repeatedly", or "turn this
+into a complete plan". It can also trigger when the objective combines multiple
+phases such as research/diagnosis, implementation/fixing, verification/testing,
+optimization/documentation/release, or when the user names an existing
+`.reasonix/autoresearch/<task-id>/` directory. Advanced users can force it with
+`/goal --research <objective>` or force lightweight Goal with
+`/goal --simple <objective>`. Ordinary-chat auto-upgrade is more conservative
+than `/goal`'s internal classification: standalone phrases such as "long term",
+"optimize", "research this", or "verify this" do not create AutoResearch tasks
+by themselves.
+
+Once AutoResearch is active, the agent treats the goal as a stateful research
 loop instead of a chat-only continuation. It creates or reuses a project-local
 `.reasonix/autoresearch/<task-id>/` directory. For new tasks, the default id
 shape is `YYYYMMDD-HHMMSS-slug`, such as `20260618-224530-cache-audit`; Reasonix
-checks the project directory first and appends a suffix only if that id already
-exists. The task state includes `task_spec.md`, `progress.json`,
-`findings.jsonl`, and `directions_tried.json`, records each iteration's
-direction, evidence, verification result, and blocker, and uses `stale_count` to
-detect repeated weak progress. Repeated stalls force a structural pivot, such as
-changing evidence source, entrypoint, test oracle, decomposition, benchmark, or
-worker strategy, rather than retrying the same tactic.
+checks the project directory first and appends `-2`, `-3`, and so on only if
+that id already exists. The task state includes `task_spec.md`, `progress.json`,
+`findings.jsonl`, `directions_tried.json`, and `iteration_log.jsonl`, records
+each iteration's direction, evidence, verification result, and blocker, and uses
+`stale_count` to detect repeated weak progress. Repeated stalls force a
+structural pivot, such as changing evidence source, entrypoint, test oracle,
+decomposition, benchmark, or worker strategy, rather than retrying the same
+tactic.
 
 Workers and subagents may explore independently, but the orchestrator owns the
 canonical state files. Completion requires a requirement-by-requirement evidence
 audit against `task_spec.md`; a passing narrow check is not treated as proof of a
 broad requirement. Dynamic run state stays in `.reasonix/autoresearch/...`, not
-in `REASONIX.md`, `AGENTS.md`, tool schemas, or the cache-stable system prompt.
-Public publishing, destructive operations, credentials, payments, and external
-notifications still follow the normal approval, privacy, and cache gates.
+in `REASONIX.md`, `AGENTS.md`, project memory, tool schemas, or the cache-stable
+system prompt. Public publishing, destructive operations, credentials, payments,
+and external notifications still follow the normal approval, privacy, and cache
+gates.
 
 ## @ references
 

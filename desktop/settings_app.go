@@ -942,6 +942,7 @@ func (a *App) rebuild() error {
 			model = resolved
 		}
 	}
+	sharedHost := a.lookupSharedHost(tab.SharedHostKey)
 	ctrl, err := boot.Build(a.bootContext(), boot.Options{
 		Model: model, RequireKey: false,
 		Sink:                     tab.sink,
@@ -949,6 +950,7 @@ func (a *App) rebuild() error {
 		SessionDir:               tabSessionDir(tab),
 		EffortOverride:           cloneStringPtr(tab.effort),
 		TokenMode:                currentTabTokenMode(tab),
+		SharedHost:               sharedHost,
 		CleanupPendingReconciler: reconcileDesktopCleanupPending,
 	})
 	if err != nil {

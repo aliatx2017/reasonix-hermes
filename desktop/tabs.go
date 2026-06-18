@@ -36,6 +36,7 @@ type WorkspaceTab struct {
 	ID            string              // stable random id
 	Scope         string              // "project" | "global"
 	WorkspaceRoot string              // project root dir (empty for global)
+	SharedHostKey string              // opaque key for the shared plugin host (set by buildTabController)
 	TopicID       string              // topic within the project
 	TopicTitle    string              // display title
 	SessionPath   string              // exact .jsonl file this tab continues
@@ -246,6 +247,7 @@ func cloneDetachedRuntimeTab(tab *WorkspaceTab, key string) *WorkspaceTab {
 		ID:               detachedRuntimeTabID(key),
 		Scope:            tab.Scope,
 		WorkspaceRoot:    tab.WorkspaceRoot,
+		SharedHostKey:    tab.SharedHostKey,
 		TopicID:          tab.TopicID,
 		TopicTitle:       tab.TopicTitle,
 		SessionPath:      key,
@@ -310,6 +312,7 @@ func applyRuntimeTab(target, source *WorkspaceTab, key string, wailsCtx context.
 	target.Ctrl = source.Ctrl
 	target.sink = source.sink
 	target.SessionPath = key
+	target.SharedHostKey = source.SharedHostKey
 	target.Label = source.Label
 	target.Ready = true
 	target.StartupErr = ""
@@ -1453,6 +1456,10 @@ func (a *App) CloseTab(tabID string) error {
 		a.quiesceTabAutosave(tab)   // wait for any in-flight snapshot to finish
 		tab.Ctrl.Cancel()
 		tab.Ctrl.Close()
+		// Release the shared plugin host reference. The host stays alive as
+		// long as any other tab for the same workspace root holds a reference;
+		// on the last release the host is closed and its subprocesses exit.
+		a.releaseTabSharedHost(tab)
 	}
 	if tab.sink != nil {
 		tab.sink.clearContext() // stop further emissions (nil ctx -> Emit becomes no-op)
@@ -1488,6 +1495,8 @@ func (a *App) buildTabControllerWithLoadedSession(tab *WorkspaceTab, loadedSessi
 	defer a.recoverToPending("buildTabController")
 	wailsCtx := a.ctx
 	buildCtx := a.bootContext()
+
+	a.reconcileTabWithPinnedSessionMeta(tab)
 
 	root := tab.WorkspaceRoot
 	if root == "" {
@@ -1575,6 +1584,15 @@ func (a *App) buildTabControllerWithLoadedSession(tab *WorkspaceTab, loadedSessi
 	a.saveTabsLocked()
 	a.mu.Unlock()
 
+	// Acquire a shared plugin host for this workspace root so MCP processes
+	// are launched once per root, not once per tab.
+	rootKey := tab.WorkspaceRoot
+	if rootKey == "" {
+		rootKey = "__global__" // stable key for global workspace tabs
+	}
+	tab.SharedHostKey = rootKey
+	sharedHost := a.acquireSharedHost(rootKey)
+
 	ctrl, err := boot.Build(buildCtx, boot.Options{
 		Model:                    model,
 		RequireKey:               false,
@@ -1583,12 +1601,14 @@ func (a *App) buildTabControllerWithLoadedSession(tab *WorkspaceTab, loadedSessi
 		SessionDir:               sessionDir,
 		EffortOverride:           cloneStringPtr(tab.effort),
 		TokenMode:                currentTabTokenMode(tab),
+		SharedHost:               sharedHost,
 		CleanupPendingReconciler: reconcileDesktopCleanupPending,
 	})
 	if err != nil {
 		a.mu.Lock()
 		tab.StartupErr = err.Error()
 		tab.Ready = true
+		a.releaseTabSharedHost(tab)
 		a.mu.Unlock()
 		a.emitReady(wailsCtx)
 		return
@@ -1657,6 +1677,7 @@ func (a *App) buildTabControllerWithLoadedSession(tab *WorkspaceTab, loadedSessi
 			}
 			if a.attachExistingSessionRuntime(tab, path, wailsCtx) {
 				ctrl.Close()
+				a.releaseSharedHost(rootKey)
 				a.emitReady(wailsCtx)
 				return
 			}
@@ -1670,6 +1691,103 @@ func (a *App) buildTabControllerWithLoadedSession(tab *WorkspaceTab, loadedSessi
 	tab.StartupErr = ""
 	a.mu.Unlock()
 	a.emitReady(wailsCtx)
+}
+
+func (a *App) reconcileTabWithPinnedSessionMeta(tab *WorkspaceTab) {
+	if tab == nil || strings.TrimSpace(tab.SessionPath) == "" {
+		return
+	}
+	path, meta, ok := a.pinnedSessionMeta(tab.SessionPath)
+	if !ok {
+		return
+	}
+
+	scope := meta.DefaultScope()
+	workspaceRoot := ""
+	if scope == "project" {
+		workspaceRoot = normalizeProjectRoot(meta.WorkspaceRoot)
+		if workspaceRoot == "" {
+			return
+		}
+		_ = addProject(workspaceRoot, "")
+	} else {
+		workspaceRoot = globalTabWorkspaceRoot()
+	}
+
+	topicID := strings.TrimSpace(meta.TopicID)
+	topicTitle := strings.TrimSpace(meta.TopicTitle)
+	if topicTitle == "" && topicID != "" {
+		topicTitle = topicTitleForTab(scope, workspaceRoot, topicID)
+	}
+
+	a.mu.Lock()
+	current := a.tabs[tab.ID]
+	if current != nil && current != tab {
+		a.mu.Unlock()
+		return
+	}
+	changed := tab.Scope != scope ||
+		tab.WorkspaceRoot != workspaceRoot ||
+		canonicalTabSessionPath(tab.SessionPath) != canonicalTabSessionPath(path)
+	tab.Scope = scope
+	tab.WorkspaceRoot = workspaceRoot
+	tab.SessionPath = canonicalTabSessionPath(path)
+	if topicID != "" {
+		changed = changed || tab.TopicID != topicID
+		tab.TopicID = topicID
+	}
+	if topicTitle != "" {
+		changed = changed || tab.TopicTitle != topicTitle
+		tab.TopicTitle = topicTitle
+	}
+	if changed && current == tab {
+		a.saveTabsLocked()
+	}
+	a.mu.Unlock()
+}
+
+func (a *App) pinnedSessionMeta(sessionPath string) (string, agent.BranchMeta, bool) {
+	sessionPath = strings.TrimSpace(sessionPath)
+	if sessionPath == "" {
+		return "", agent.BranchMeta{}, false
+	}
+	for _, dir := range a.knownSessionDirs() {
+		path, _, err := validateSessionPath(dir, sessionPath)
+		if err != nil {
+			continue
+		}
+		if meta, ok, err := agent.LoadBranchMeta(path); err == nil && ok {
+			return path, meta, true
+		}
+	}
+
+	if !filepath.IsAbs(sessionPath) {
+		return "", agent.BranchMeta{}, false
+	}
+	path, err := filepath.Abs(sessionPath)
+	if err != nil {
+		return "", agent.BranchMeta{}, false
+	}
+	meta, ok, err := agent.LoadBranchMeta(path)
+	if err != nil || !ok {
+		return "", agent.BranchMeta{}, false
+	}
+
+	var candidateDirs []string
+	if meta.DefaultScope() == "project" {
+		if root := normalizeProjectRoot(meta.WorkspaceRoot); root != "" {
+			candidateDirs = append(candidateDirs, desktopSessionDir(root))
+		}
+	} else {
+		candidateDirs = append(candidateDirs, desktopSessionDir(globalWorkspaceRoot()), config.SessionDir())
+	}
+	for _, dir := range candidateDirs {
+		validPath, _, err := validateSessionPath(dir, path)
+		if err == nil {
+			return validPath, meta, true
+		}
+	}
+	return "", agent.BranchMeta{}, false
 }
 
 // --- active tab helpers -----------------------------------------------------

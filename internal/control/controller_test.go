@@ -315,6 +315,29 @@ func TestSetSessionPathAdoptsTemporaryBackgroundJobs(t *testing.T) {
 	}
 }
 
+func TestGoalStatePersistsNextToSessionPath(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "session.jsonl")
+	sess := agent.NewSession("sys")
+	exec := agent.New(nil, nil, sess, agent.Options{}, event.Discard)
+	c := New(Options{Executor: exec, SessionDir: dir, SessionPath: path, Label: "test"})
+
+	c.SetGoalWithResearchMode("fix the typo", GoalResearchOn)
+	c.GoalStrict(true)
+
+	data, err := os.ReadFile(goalStatePath(path))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var state goalState
+	if err := json.Unmarshal(data, &state); err != nil {
+		t.Fatal(err)
+	}
+	if state.Goal != "fix the typo" || state.Status != GoalStatusRunning || state.ResearchMode != GoalResearchOn || !state.Strict {
+		t.Fatalf("goal state = %+v, want running strict research goal", state)
+	}
+}
+
 func TestRunTurnRecordsDisplayForPersistedUserMessage(t *testing.T) {
 	sess := agent.NewSession("sys")
 	exec := agent.New(nil, nil, sess, agent.Options{}, event.Discard)
