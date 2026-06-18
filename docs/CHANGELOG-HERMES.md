@@ -4,6 +4,18 @@ Key milestones in the Hermes fork since June 2026.
 
 ## v1.9.x (July 2026)
 
+### Session 2026-06-18 (h31) — learner wiring, exchange rates, agent logging, Discord fix
+
+- **Upstream**: merged ×2 — ebea82b (6 commits, heartbeat task system) + ba7a50b (50 commits, goal enforcement, parallel_tasks, /prometheus interview, shared MCP host, cache-impact guard). 3 conflicts resolved across CONTRIBUTING.md, GUIDE.md, chat_tui.go. 18 syncs total (~352 commits).
+- **Learner Observe wired**: `agent.Run()` calls `learner.Observe()` via defer with collected tool calls. `boot.go` passes `Learner` to `agent.Options`. Desktop `LearnedPatterns()` stub replaced — now reads from `ctrl.Learner().Patterns()`/`.Trajectories()`.
+- **MaxObservations config**: added to `LearnConfig`, plumbed through `boot.go` + `render.go`.
+- **Discord dup "Approved." fix**: removed explicit `"Approved."`/`"Denied."` sends from `gateway.go` `handleSlashCommand`. Agent's natural output now provides acknowledgment.
+- **Currency display**: default symbol `¥` → `$`. Added `ExchangeRate` field to `Pricing` — CNY costs multiply by rate for USD display.
+- **Live CNY→USD exchange rate**: `internal/billing/exchange.go` fetches live rate from `api.exchangerate-api.com` on startup when `[billing] auto_exchange_rate = true`. Falls back to `0.14` on error. Zero new dependencies.
+- **Agent operational logging**: `internal/agentlog/` — structured JSON logging via `slog` to stderr (and file via `AGENT_LOG` env). Covers boot, API calls (`model`, `in`/`out`/`total` tokens, `cache_hit`, `latency_ms`), and tool execution (`tool`, `duration_ms`, `result_bytes`).
+- **Doc-sweep**: fixed package counts (AGENTS.md 75→69, SPEC.md 55→69), added agentlog to architecture tree + SPEC §2, enriched HERMES-GUIDE §16.9 (exchange rate), §16.16 (Observe wiring), new §16.23 (operational logging).
+- **Files**: 15 changed, 3 new (`agentlog.go`, `agentlog_test.go`, `exchange.go`).
+
 ### Session 2026-06-18 (h30) — doc-sweep, upstream sync (a3e63f5)
 
 - **Upstream**: a3e63f5 (5 commits) — blank tab title fixes, project tree folder UX. Clean auto-merge.

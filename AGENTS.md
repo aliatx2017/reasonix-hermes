@@ -125,6 +125,8 @@ skills-hub/            17-skill community registry + static catalog site
 | `npm/hermes/` | npm package | One-line install: `npm i -g reasonix-hermes` (7 sub-packages) |
 | `deploy/` | Helm chart + docker-compose | One-command deploy to K8s or $5 VPS |
 | `desktop/` | Wails v2 desktop app | React 19 frontend + Go kernel; Hermes dashboard; live data push |
+| `internal/agentlog/` | Operational agent logging | Structured JSON logging via slog; api_call + tool_exec telemetry |
+| `internal/billing/exchange.go` | Live exchange rate | CNY→USD live fetch from exchangerate-api.com; [billing] config |
 | `.reasonix/skills/research/` (+2 siblings) | Combined research pipeline | `/research <topic>` 5-phase auto-chaining: outline → approve → batch subagents → report → Discord publish (SearXNG + Crawl4AI) |
 | `.reasonix/scripts/discord-publish.sh` | Discord publish script | Webhook-based script posts report.md to Discord channel; auto-loaded from `.reasonix/.discord-webhook` |
 | `internal/cli/eval.go` | `/eval` slash command | Eval-driven development: define, check, report, list, clean subcommands |
