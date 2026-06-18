@@ -256,7 +256,9 @@ type HermesDashboardEvent struct {
 	Schedule      ScheduleDashboardView  `json:"schedule"`
 	Collab        CollabView              `json:"collab"`
 	Council       CouncilDashboardView    `json:"council"`
-	Compress      CompressStatsView       `json:"compress"`
+	Compress          CompressStatsView       `json:"compress"`
+	LearnPatterns     []LearnedPatternView    `json:"learnPatterns"`
+	LearnTrajectories []LearnedTrajectoryView `json:"learnTrajectories"`
 }
 
 // SessionTokensView carries cumulative token and turn counts.
@@ -536,6 +538,7 @@ func (a *App) startHermesEventLoop(ctx context.Context) {
 					Council:       a.CouncilDashboard(),
 					Compress:      a.CompressStats(),
 				}
+				ev.LearnPatterns, ev.LearnTrajectories = a.LearnedPatterns()
 				runtime.EventsEmit(ctx, "hermes:dashboard", ev)
 			}
 		}
