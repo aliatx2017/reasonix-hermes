@@ -24,6 +24,7 @@ import {
   Settings as SettingsIcon,
   Pencil,
   Trash2,
+  AlarmClock,
   Brain,
   Cpu,
   Palette,
@@ -54,6 +55,8 @@ import { OnboardingOverlay } from "./components/OnboardingOverlay";
 import { AppChrome } from "./components/AppChrome";
 import { ShortcutsCheatsheet } from "./components/ShortcutsCheatsheet";
 import { ProjectTree } from "./components/ProjectTree";
+import { HeartbeatPanel } from "./custom/features/heartbeat/HeartbeatPanel";
+import "./custom/features/heartbeat/heartbeat.css";
 import { CopyButton } from "./components/CopyButton";
 import { parseTodos } from "./lib/tools";
 import { shouldShowTodoPanel, todoDismissalKey } from "./lib/todoVisibility";
@@ -857,6 +860,7 @@ export default function App() {
   const [imTopicSources, setImTopicSources] = useState<Record<string, SidebarImTopicSource>>({});
   const [sidebarImDetailConnectionId, setSidebarImDetailConnectionId] = useState("");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(loadSidebarCollapsed);
+  const [heartbeatOpen, setHeartbeatOpen] = useState(false);
   type TimeFilter = "all" | "10" | "20" | "1h" | "3h" | "5h" | "1d";
   const [topicTimeFilter, setTopicTimeFilter] = useState<TimeFilter>(() => {
     try {
@@ -2453,6 +2457,16 @@ export default function App() {
                     <span className="sr-only">{t("sidebar.trash")}</span>
                   </button>
                 </Tooltip>
+                <Tooltip label={t("heartbeat.scheduler")} fill side="top">
+                  <button
+                    className="sidebar__utility-button"
+                    type="button"
+                    onClick={() => setHeartbeatOpen(true)}
+                  >
+                    <AlarmClock size={16} aria-hidden="true" />
+                    <span className="sr-only">{t("sidebar.automation")}</span>
+                  </button>
+                </Tooltip>
                 <Tooltip label={t("topbar.settings")} fill side="top">
                   <button
                     className="sidebar__utility-button"
@@ -2486,6 +2500,15 @@ export default function App() {
                 >
                   <Trash2 size={15} />
                   <span>{t("sidebar.trash")}</span>
+                </button>
+              </Tooltip>
+              <Tooltip label={t("heartbeat.scheduler")} fill side="right" disabled={sidebarNavTooltipDisabled}>
+                <button
+                  className="sidebar__navitem"
+                  onClick={() => setHeartbeatOpen(true)}
+                >
+                  <AlarmClock size={15} />
+                  <span>{t("sidebar.automation")}</span>
                 </button>
               </Tooltip>
               <Tooltip label={t("topbar.settings")} fill side="right" disabled={sidebarNavTooltipDisabled}>
@@ -3007,6 +3030,14 @@ export default function App() {
       )}
 
       {needsOnboarding && <OnboardingOverlay onComplete={() => setNeedsOnboarding(false)} />}
+
+      <HeartbeatPanel open={heartbeatOpen} onClose={() => setHeartbeatOpen(false)} onOpenTopic={(scope, workspaceRoot, topicId) => {
+        if (scope === "project" && workspaceRoot) {
+          openProjectTab(workspaceRoot, topicId);
+        } else {
+          openGlobalTab(topicId);
+        }
+      }} />
     </div>
     </ShellExpandProvider>
   );

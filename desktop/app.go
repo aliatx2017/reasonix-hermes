@@ -123,6 +123,8 @@ type App struct {
 
 	skillRootsMu    sync.Mutex
 	skillRootsCache skillRootsCache
+
+	heartbeat *HeartbeatEngine // scheduled heartbeat tasks; nil until startup
 }
 
 type skillRootsCache struct {
@@ -332,6 +334,9 @@ func (a *App) startup(ctx context.Context) {
 		a.recordSettingsMetricsSnapshot(cfg)
 	}
 
+	a.heartbeat = newHeartbeatEngine(a)
+	a.heartbeat.Start()
+
 	go a.restoreOrBuildTabs()
 	a.goSafe("refreshBotRuntime", a.refreshBotRuntime)
 	a.goSafe("sendStartupPing", a.sendStartupPing)
@@ -532,6 +537,9 @@ func (a *App) snapshotAllTabs() {
 
 // shutdown snapshots all tabs, saves the final window geometry, and closes tabs.
 func (a *App) shutdown(context.Context) {
+	if a.heartbeat != nil {
+		a.heartbeat.Stop()
+	}
 	a.stopBotRuntime()
 	a.stopTray()
 	// Save window geometry synchronously from Go so it's persisted even if the
@@ -614,6 +622,18 @@ func (a *App) SubmitToTab(tabID, input string) {
 	if ctrl := a.ctrlByTabID(tabID); ctrl != nil {
 		ctrl.SubmitDisplay(input, input)
 	}
+}
+
+func (a *App) submitUserTurnToTab(tabID, input string) bool {
+	if a.tabReadOnly(tabID) {
+		return false
+	}
+	ctrl := a.ctrlByTabID(tabID)
+	if ctrl == nil {
+		return false
+	}
+	ctrl.SubmitUserTurn(input, input)
+	return true
 }
 
 // RunShell executes a shell command directly (bypassing the model) and streams

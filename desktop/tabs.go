@@ -957,6 +957,33 @@ func (a *App) OpenProjectTab(workspaceRoot, topicID string) (TabMeta, error) {
 }
 
 func (a *App) openTopicTab(scope, workspaceRoot, topicID, sessionPath string) (TabMeta, error) {
+	return a.openTopicTabWithActivation(scope, workspaceRoot, topicID, sessionPath, true)
+}
+
+func (a *App) openProjectTabInactive(workspaceRoot, topicID string) (TabMeta, error) {
+	if workspaceRoot == "" {
+		return TabMeta{}, fmt.Errorf("workspaceRoot is required")
+	}
+	if abs, err := filepath.Abs(workspaceRoot); err == nil {
+		workspaceRoot = abs
+	}
+	_ = addProject(workspaceRoot, "")
+
+	sessionPath, _ := a.findTopicSessionForTarget("project", workspaceRoot, topicID)
+	return a.openTopicTabWithActivation("project", workspaceRoot, topicID, sessionPath, false)
+}
+
+func (a *App) openGlobalTabInactive(topicID string) (TabMeta, error) {
+	globalRoot := globalWorkspaceRoot()
+	if err := os.MkdirAll(globalRoot, 0o755); err != nil {
+		return TabMeta{}, fmt.Errorf("create global workspace: %w", err)
+	}
+
+	sessionPath, _ := a.findTopicSessionForTarget("global", "", topicID)
+	return a.openTopicTabWithActivation("global", "", topicID, sessionPath, false)
+}
+
+func (a *App) openTopicTabWithActivation(scope, workspaceRoot, topicID, sessionPath string, activate bool) (TabMeta, error) {
 	actualRoot := workspaceRoot
 	if scope == "global" {
 		actualRoot = globalWorkspaceRoot()
@@ -970,8 +997,10 @@ func (a *App) openTopicTab(scope, workspaceRoot, topicID, sessionPath string) (T
 				continue
 			}
 			if sessionRuntimeKey(tab.currentSessionPath()) == targetKey {
-				a.activeTabID = tab.ID
-				meta := a.tabMeta(tab, true)
+				if activate {
+					a.activeTabID = tab.ID
+				}
+				meta := a.tabMeta(tab, tab.ID == a.activeTabID)
 				a.saveTabsLocked()
 				a.mu.Unlock()
 				return enrichTabMeta(meta), nil
@@ -981,9 +1010,11 @@ func (a *App) openTopicTab(scope, workspaceRoot, topicID, sessionPath string) (T
 
 	for _, tab := range a.tabs {
 		if tabMatchesTopicTarget(tab, scope, workspaceRoot, topicID) {
-			a.activeTabID = tab.ID
+			if activate {
+				a.activeTabID = tab.ID
+			}
 			sameSession := targetKey == "" || sessionRuntimeKey(tab.currentSessionPath()) == targetKey
-			meta := a.tabMeta(tab, true)
+			meta := a.tabMeta(tab, tab.ID == a.activeTabID)
 			a.saveTabsLocked()
 			a.mu.Unlock()
 			if sameSession {
@@ -993,7 +1024,7 @@ func (a *App) openTopicTab(scope, workspaceRoot, topicID, sessionPath string) (T
 				return TabMeta{}, err
 			}
 			a.mu.RLock()
-			meta = a.tabMeta(tab, true)
+			meta = a.tabMeta(tab, tab.ID == a.activeTabID)
 			a.mu.RUnlock()
 			return enrichTabMeta(meta), nil
 		}
@@ -1017,15 +1048,18 @@ func (a *App) openTopicTab(scope, workspaceRoot, topicID, sessionPath string) (T
 
 	a.tabs[tabID] = tab
 	a.tabOrder = append(a.tabOrder, tabID)
-	a.activeTabID = tabID
+	if activate {
+		a.activeTabID = tabID
+	}
 	a.saveTabsLocked()
+	meta := a.tabMeta(tab, tab.ID == a.activeTabID)
 	a.mu.Unlock()
 
 	a.startTabControllerBuild(tab)
 	if scope == "project" {
 		a.emitProjectTreeChanged()
 	}
-	return enrichTabMeta(a.tabMeta(tab, true)), nil
+	return enrichTabMeta(meta), nil
 }
 
 // OpenGlobalTab opens a new global-scope tab (no project root). The global

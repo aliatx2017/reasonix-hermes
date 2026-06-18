@@ -129,6 +129,12 @@ interface DesktopWindowState {
 // to AppBindings, then run `pnpm typecheck` to verify.
 export interface AppBindings {
   Platform(): Promise<string>;
+  // ── Heartbeat ──
+  HeartbeatListTasks(): Promise<unknown>;
+  HeartbeatReloadTasks(): Promise<unknown>;
+  HeartbeatSaveTasks(tasks: unknown): Promise<void>;
+  HeartbeatTriggerNow(id: string): Promise<void>;
+  HeartbeatGenerateID(): Promise<string>;
   Submit(input: string): Promise<void>;
   SubmitToTab(tabID: string, input: string): Promise<void>;
   SubmitDisplay(display: string, input: string): Promise<void>;
@@ -2689,6 +2695,12 @@ function makeMockApp(): AppBindings {
       const normalized = lang === "zh" || lang === "en" ? lang : "auto";
       settings.agent = { ...settings.agent, reasoningLanguage: normalized };
     },
+    // ── Heartbeat mock ──
+    async HeartbeatListTasks() { return []; },
+    async HeartbeatReloadTasks() { return []; },
+    async HeartbeatSaveTasks(_tasks: unknown) {},
+    async HeartbeatTriggerNow(_id: string) {},
+    async HeartbeatGenerateID() { return "mock-" + Date.now().toString(36); },
     async SetTrayLocale(_locale: "en" | "zh" | "zh-TW") {},
     async SetDesktopHotbar(_h: HotbarView) {},
     async SetProfiles(_profiles: Record<string, ProfileView>) {},

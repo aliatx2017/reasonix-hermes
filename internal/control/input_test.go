@@ -385,6 +385,30 @@ func TestSubmitUnknownSlashCommandStillReportsNotice(t *testing.T) {
 	}
 }
 
+func TestSubmitUserTurnBypassesCommandDispatch(t *testing.T) {
+	runner := &fakeTurnRunner{}
+	events := make(chan event.Event, 4)
+	c := New(Options{
+		AutoPlan: "off",
+		Runner:   runner,
+		Sink: event.FuncSink(func(e event.Event) {
+			events <- e
+		}),
+	})
+
+	for _, input := range []string{"!echo should stay a prompt", "/clear"} {
+		c.SubmitUserTurn(input, input)
+		waitForTurnDone(t, events)
+	}
+
+	if len(runner.inputs) != 2 {
+		t.Fatalf("SubmitUserTurn should start model turns, inputs=%q", runner.inputs)
+	}
+	if runner.inputs[0] != "!echo should stay a prompt" || runner.inputs[1] != "/clear" {
+		t.Fatalf("SubmitUserTurn inputs = %q", runner.inputs)
+	}
+}
+
 func TestSubmitRememberCommandQuickAddsMemory(t *testing.T) {
 	dir := t.TempDir()
 	runner := &fakeTurnRunner{}

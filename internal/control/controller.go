@@ -826,6 +826,13 @@ func (c *Controller) SubmitDisplay(display, input string) {
 	c.submit(input, display)
 }
 
+// SubmitUserTurn starts a normal model turn without interpreting shell or slash
+// commands. It still resolves references, so callers can submit trusted
+// user-authored prompt text without expanding the command surface.
+func (c *Controller) SubmitUserTurn(input, display string) {
+	c.runRefTurn(input, display)
+}
+
 func (c *Controller) submit(input, display string) {
 	trimmed := strings.TrimSpace(input)
 	if note, ok := MemoryQuickAddNote(trimmed); ok {
