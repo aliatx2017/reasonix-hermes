@@ -605,7 +605,6 @@ func (gw *BotGateway) handleSlashCommand(ctx context.Context, adapter Adapter, k
 		gw.forgetPendingApproval(key, approvalID)
 		gw.mu.Unlock()
 		gw.sessions.ForceRelease(key) // drain queued messages so they don't replay
-		_ = gw.sendText(ctx, adapter, msg, "Approved.")
 
 	case strings.HasPrefix(msg.Text, "/deny") || strings.HasPrefix(msg.Text, "deny "):
 		parts := strings.Fields(msg.Text)
@@ -632,7 +631,6 @@ func (gw *BotGateway) handleSlashCommand(ctx context.Context, adapter Adapter, k
 		gw.forgetPendingApproval(key, approvalID)
 		gw.mu.Unlock()
 		gw.sessions.ForceRelease(key) // drain queued messages so they don't replay
-		_ = gw.sendText(ctx, adapter, msg, "Denied.")
 
 	case strings.HasPrefix(msg.Text, "/answer"):
 		parts := strings.Fields(msg.Text)

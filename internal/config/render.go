@@ -575,6 +575,9 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 		if c.Learn.MinConfidence > 0 {
 			fmt.Fprintf(&b, "min_confidence = %d   # observations before pattern forms (default 3)\n", c.Learn.MinConfidence)
 		}
+		if c.Learn.MaxObservations > 0 {
+			fmt.Fprintf(&b, "max_observations = %d   # ring buffer cap (default 200)\n", c.Learn.MaxObservations)
+		}
 		b.WriteString("\n")
 	}
 

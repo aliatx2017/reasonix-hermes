@@ -847,6 +847,18 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 		})
 	}
 
+	// Learner: self-improving pattern detection. Config at [learn].
+	// Created early so it can be passed to both the agent and controller.
+	var lc *learn.Learner
+	if cfg.Learn.Enabled {
+		lc = learn.New(learn.Config{
+			Enabled:         cfg.Learn.Enabled,
+			MaxPatterns:     cfg.Learn.MaxPatterns,
+			MinConfidence:   cfg.Learn.MinConfidence,
+			MaxObservations: cfg.Learn.MaxObservations,
+		})
+	}
+
 	execSess := agent.NewSession(finalizeSystemPrompt(sysPrompt, cfg.Language))
 	executor := agent.New(execProv, reg, execSess, agent.Options{
 		MaxSteps:             maxSteps,
@@ -871,6 +883,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 		KeepPolicy:           keepPolicy,
 		ReasoningLanguage:    cfg.ReasoningLanguage(),
 		PlanModeAllowedTools: cfg.Agent.PlanModeAllowedTools,
+		Learner:              lc,
 	}, sink)
 
 	var runner agent.Runner = executor
@@ -979,16 +992,9 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 		}
 	}
 
-	// Learner: self-improving pattern detection. Config at [learn].
-	if cfg.Learn.Enabled {
-		lc := learn.New(learn.Config{
-			Enabled:       cfg.Learn.Enabled,
-			MaxPatterns:   cfg.Learn.MaxPatterns,
-			MinConfidence: cfg.Learn.MinConfidence,
-		})
-		if lc != nil {
-			ctrl.SetLearner(lc)
-		}
+	// Learner: wire into controller for CLI / desktop readout.
+	if lc != nil {
+		ctrl.SetLearner(lc)
 	}
 
 	return ctrl, nil

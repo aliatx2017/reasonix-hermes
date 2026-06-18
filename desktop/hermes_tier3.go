@@ -168,10 +168,36 @@ type LearnedTrajectoryView struct {
 func (a *App) LearnedPatterns() ([]LearnedPatternView, []LearnedTrajectoryView) {
 	tab := a.activeTab()
 	if tab == nil || tab.Ctrl == nil {
-		return nil, nil
+		return []LearnedPatternView{}, []LearnedTrajectoryView{}
 	}
-	// Learner is not yet wired through the controller; return empty for now.
-	// When [learn].enabled=true and the agent observes turns, patterns and
-	// trajectories will be available here.
-	return nil, nil
+	lr := tab.Ctrl.Learner()
+	if lr == nil {
+		return []LearnedPatternView{}, []LearnedTrajectoryView{}
+	}
+
+	// Convert learn.Pattern → LearnedPatternView
+	patterns := lr.Patterns()
+	pvs := make([]LearnedPatternView, 0, len(patterns))
+	for _, p := range patterns {
+		pvs = append(pvs, LearnedPatternView{
+			Name:       p.Name,
+			Trigger:    p.Trigger,
+			Action:     p.Action,
+			Confidence: p.Confidence,
+			Draft:      "", // SuggestSkill not wired here; agent can generate later
+		})
+	}
+
+	// Convert learn.MultiTurnTrajectory → LearnedTrajectoryView
+	trajs := lr.Trajectories()
+	tvs := make([]LearnedTrajectoryView, 0, len(trajs))
+	for _, t := range trajs {
+		tvs = append(tvs, LearnedTrajectoryView{
+			Label: t.Label,
+			Turns: t.Turns,
+			Count: t.Count,
+		})
+	}
+
+	return pvs, tvs
 }

@@ -20,6 +20,7 @@ import (
 	"reasonix/internal/hook"
 	"reasonix/internal/instruction"
 	"reasonix/internal/jobs"
+	"reasonix/internal/learn"
 	"reasonix/internal/memory"
 	"reasonix/internal/nilutil"
 	"reasonix/internal/provider"
@@ -219,6 +220,7 @@ type Agent struct {
 	temperature          float64
 	pricing              *provider.Pricing
 	compress             *compress.Compressor // tool output token compressor (nil = disabled)
+	learner              *learn.Learner       // turn-pattern observer (nil = disabled)
 
 	// Auxiliary providers handle background jobs with cheaper models, leaving the
 	// main provider free for real reasoning. When nil the main provider is used.
@@ -751,6 +753,9 @@ type Options struct {
 	// returns false. Use sparingly; the caller is responsible for ensuring the
 	// tool invocation is safe in a read-only context (e.g. bash for git status).
 	PlanModeAllowedTools []string
+
+	// Learner receives turn observations after each Run completes. nil disables.
+	Learner *learn.Learner
 }
 
 func stringSet(ss []string) map[string]bool {
@@ -825,6 +830,7 @@ func New(prov provider.Provider, tools *tool.Registry, session *Session, opts Op
 		webExtractProv:       opts.WebExtractProv,
 		keepPolicy:           opts.KeepPolicy,
 		planModeAllowedTools: stringSet(opts.PlanModeAllowedTools),
+		learner:              opts.Learner,
 	}
 	a.SetReasoningLanguage(opts.ReasoningLanguage)
 	return a
@@ -846,6 +852,12 @@ func usageSourceOrDefault(source, fallback string) string {
 // a resumable notice when hit.
 func (a *Agent) Run(ctx context.Context, input string) error {
 	defer a.clearSteerQueue()
+	var observedCalls []learn.ToolCallInfo
+	defer func() {
+		if a.learner != nil {
+			a.learner.Observe(input, observedCalls, "", "")
+		}
+	}()
 	a.steerMu.Lock()
 	a.steerConsumed = false
 	a.steerMu.Unlock()
@@ -979,6 +991,11 @@ func (a *Agent) Run(ctx context.Context, input string) error {
 		usedAnyTool = true
 
 		results := a.executeBatch(ctx, calls)
+		for _, call := range calls {
+			observedCalls = append(observedCalls, learn.ToolCallInfo{
+				Name: call.Name,
+			})
+		}
 		for i, call := range calls {
 			a.session.Add(provider.Message{
 				Role:       provider.RoleTool,

@@ -546,9 +546,10 @@ type ScheduleTaskConfig struct {
 // behaviour across turns, detects repeated tool/skill patterns, and enables a
 // post-session reflection turn to generate new SKILL.md files.
 type LearnConfig struct {
-	Enabled       bool `toml:"enabled"`
-	MaxPatterns   int  `toml:"max_patterns"`   // max patterns to detect (default 20)
-	MinConfidence int  `toml:"min_confidence"`  // observations before pattern forms (default 3)
+	Enabled         bool `toml:"enabled"`
+	MaxPatterns     int  `toml:"max_patterns"`     // max patterns to detect (default 20)
+	MinConfidence   int  `toml:"min_confidence"`    // observations before pattern forms (default 3)
+	MaxObservations int  `toml:"max_observations"`  // ring buffer cap (default 200)
 }
 
 // MeshConfig is the [mesh] section for agent-to-agent MCP delegation.
