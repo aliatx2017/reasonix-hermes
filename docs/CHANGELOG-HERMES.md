@@ -4,6 +4,20 @@ Key milestones in the Hermes fork since June 2026.
 
 ## v1.9.x (July 2026)
 
+### Session 2026-06-18 (h30) — doc-sweep, upstream sync (a3e63f5)
+
+- **Upstream**: a3e63f5 (5 commits) — blank tab title fixes, project tree folder UX. Clean auto-merge.
+- **Helm**: image tag v1.8.2 → v1.9.1
+- **Doc-sweep**: cross-linked HOWTO-FORCE-ENGLISH.md + HOWTO-TOKEN-SAVING.md + TOKEN-SAVINGS-ANALYSIS.md from README and HERMES-GUIDE. Verified: all 55 packages in SPEC.md accurate, no stale binary names, 11 v1.8.1 references are historical (feature-introduction dates, not stale).
+- **Files**: 3 changed (+34/-1).
+
+### Session 2026-06-18 (h29) — learn live-push + Discord deny TOCTOU
+
+- **Upstream synced**: fb4c0c5 (5 commits) — auto research skill, desktop startup settings perf, bundle split, SettingsPanel CPU fix, MarkdownRenderer. 2 conflicts (ModelSwitcher.tsx, bridge.ts) + 2 i18n keys added.
+- **Learn live-push**: `LearnPatterns`/`LearnTrajectories` fields added to `HermesDashboardEvent` struct (Go) and `HermesLiveData`/`HermesDashboardPayload` (TS). Wired into Wails event loop + polling fallback in `useHermesLiveData.ts`.
+- **Discord deny TOCTOU**: `gateway.go` — deny handler now holds lock through `Approve()` (was releasing between check and call, causing "No pending action found" to fire alongside valid approvals).
+- **Files**: 3 changed (+21/-5).
+
 ### Session 2026-06-17 (h27) — upstream sync + 7 audit bug fixes
 
 - **Upstream merged**: v1.9.x (ef1f38c, 6 commits) — tool-call name/args backfill on old-session replay, desktop perf (redundant session reload avoidance), Windows Authenticode signing CI, test additions.
