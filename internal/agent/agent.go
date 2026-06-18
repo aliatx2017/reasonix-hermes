@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -1374,6 +1375,7 @@ func (a *Agent) stream(ctx context.Context, turn int) (string, string, string, [
 		a.sink.Emit(event.Event{Kind: event.Retrying, RetryAttempt: info.Attempt, RetryMax: info.Max})
 	})
 	p := a.selectStreamProvider()
+	start := time.Now()
 	ch, err := p.Stream(ctx, provider.Request{
 		Messages:    a.session.Messages,
 		Tools:       a.tools.Schemas(),
@@ -1471,6 +1473,17 @@ func (a *Agent) stream(ctx context.Context, turn int) (string, string, string, [
 	if text.Len() > 0 || display != "" {
 		a.sink.Emit(event.Event{Kind: event.Message, Text: StripGoalMarkers(text.String()), Reasoning: display})
 	}
+	// Log API call telemetry.
+	if usage != nil && usage.TotalTokens > 0 {
+		slog.Info("api_call",
+			"model", a.prov.Name(),
+			"in", usage.PromptTokens,
+			"out", usage.CompletionTokens,
+			"total", usage.TotalTokens,
+			"cache_hit", usage.CacheHitTokens,
+			"latency_ms", time.Since(start).Milliseconds(),
+		)
+	}
 	return text.String(), stored, signature, calls, usage, false, false, nil
 }
 
@@ -1541,6 +1554,11 @@ func (a *Agent) executeBatch(ctx context.Context, calls []provider.ToolCall) []s
 
 	for i, c := range calls {
 		o := outcomes[i]
+		slog.Info("tool_exec",
+			"tool", c.Name,
+			"duration_ms", durations[i],
+			"result_bytes", len(o.output),
+		)
 		t, ok := a.tools.Get(c.Name)
 		a.sink.Emit(event.Event{Kind: event.ToolResult, Tool: event.Tool{
 			ID:         c.ID,

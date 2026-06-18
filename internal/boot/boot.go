@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"reasonix/internal/agent"
+	"reasonix/internal/agentlog"
 	"reasonix/internal/billing"
 	"reasonix/internal/command"
 	"reasonix/internal/config"
@@ -122,6 +123,7 @@ type Options struct {
 // returned controller owns plugin subprocesses; call Close (via Controller.Close)
 // to release them.
 func Build(ctx context.Context, opts Options) (*control.Controller, error) {
+	agentlog.Init()
 	stderr := opts.Stderr
 	if stderr == nil {
 		stderr = os.Stderr
@@ -147,6 +149,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 		return nil, fmt.Errorf("%w %q (configured: %s); note: defining [[providers]] replaces the built-in presets, so add a [[providers]] entry for it or use a configured name, or run `reasonix setup` to reconfigure", ErrUnknownModel, modelName, providerNames(cfg))
 	}
 	modelRef := entry.Name + "/" + entry.Model
+	slog.Info("boot.model", "ref", modelRef, "provider", entry.Kind)
 	if opts.EffortOverride != nil {
 		entry.Effort = *opts.EffortOverride
 		if entry.Kind == "anthropic" && strings.TrimSpace(entry.Effort) != "" && strings.TrimSpace(entry.Thinking) == "" {
@@ -442,6 +445,8 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	registerDeferred(lazySpecs, false)
 	registerDeferred(bgSpecs, true)
 
+	slog.Info("boot.mcp", "eager", len(eagerSpecs), "lazy", len(lazySpecs), "background", len(bgSpecs), "tools", reg.Len())
+
 	for _, msg := range demoteMessages {
 		sink.Emit(event.Event{Kind: event.Notice, Level: event.LevelInfo, Text: msg})
 	}
@@ -480,6 +485,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	if opts.MaxSteps > 0 {
 		maxSteps = opts.MaxSteps
 	}
+	slog.Info("boot.config", "max_steps", maxSteps, "temperature", cfg.Agent.Temperature)
 	subagentStore, err := newSubagentStore(sessionDir)
 	if err != nil {
 		return nil, err
@@ -1008,6 +1014,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	// Learner: wire into controller for CLI / desktop readout.
 	if lc != nil {
 		ctrl.SetLearner(lc)
+		slog.Info("boot.learner", "enabled", true)
 	}
 
 	return ctrl, nil
