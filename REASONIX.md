@@ -36,7 +36,7 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 ## Notes
 
-- **Upstream synced**: `v1.9.x` (commit ef1f38c, 2026-06-17). 14 syncs total — 6 new commits this session (tool-call backfill, desktop perf, Windows signing). Previous sync: f944dfb.
+- **Upstream synced**: `v1.9.x` (commit fb4c0c5, 2026-06-18). 15 syncs total — 5 new commits (auto research skill, desktop startup settings perf, bundle split, SettingsPanel CPU fix, MarkdownRenderer). Previous sync: ef1f38c.
 - **Commit**: session 2026-06-17 (h27) — upstream v1.9.x merged (ef1f38c, 6 commits, 1 conflict resolved). 7 audit fixes applied: path traversal guard in findSkillFile, hooks exit(1) on errors, memory server Recall write amplification removed, collab Start() bind-error propagation, compressor atomic turn + cache eviction, publish empty-role guard, mcputil MaxBytesReader, orchestrateTask total timeout. All 7 CLI binaries rebuilt. Build/vet/test/tsc all green.
 - **Commit**: session 2026-06-16 (h24-h25) — Research pipeline unified (`/research <topic>` 5-phase auto-chain), REASONIX.md cleanup (3 stale "Next to build" blocks removed, npm verified published v1.8.0), doc-sweep (36 docs verified, EVAL.md enriched 99→198 lines covering all 6 subcommands), 2 upstream merges (94c0fc6 + bc83374, 12 commits). Upstream fetch + merge + build/vet/test all green.
 - **Commit**: session 2026-06-16 (h23) — research workflow e2e verified (SearXNG + Crawl4AI + GitHub API → JSON → report.md), DESKTOP.md enriched (149 lines, 25 components + 24 backend files), macOS code-signing investigation (pipeline fully built, needs Apple credentials), upstream merge (8886dcb, 7 commits). Upstream fetch + merge + build/vet/test all green.
