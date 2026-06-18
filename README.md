@@ -263,6 +263,8 @@ commands, `@` references, and two-model setup are all in the
 | **[Marketplace](./docs/MARKETPLACE.md)** | Community skill registry + LobeHub sync (360k+ skills) |
 | **[Constitution](./docs/CONSTITUTION.md)** | Project invariants — principles, constraints, and code-level rules |
 | **[Session Eval](./docs/EVAL.md)** | Compare two agent sessions for eval-driven development |
+| **[Force English](./docs/HOWTO-FORCE-ENGLISH.md)** | Hard language enforcement — stop the model from switching to Chinese |
+| **[Token Saving](./docs/HOWTO-TOKEN-SAVING.md)** | Step-by-step guide for grafting the sqz compressor into any Reasonix fork |
 | **[Migrating from 0.x](./docs/MIGRATING.md)** | Moving from legacy TypeScript releases to the 1.0 Go rewrite |
 | **[Checkpoints & rewind](./docs/CHECKPOINTS.md)** | Snapshot-based edit safety net (Esc-Esc / `/rewind`) |
 | **[Changelog](./docs/CHANGELOG-HERMES.md)** | Hermes fork milestones, expansion packs, bot platforms |

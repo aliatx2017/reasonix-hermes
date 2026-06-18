@@ -93,6 +93,8 @@
     - 16.14 [Session Publishing & Export](#1614-session-publishing--export)
     - 16.15 [Session Evaluation & Comparison](#1615-session-evaluation--comparison)
     - 16.16 [Constitution System](#1616-constitution-system)
+    - 16.17 [How-To: Force English Only](#1617-how-to-force-english-only)
+    - 16.18 [How-To: Token Saving](#1618-how-to-token-saving)
 17. [Desktop App](#17-desktop-app)
 18. [Bot Gateway (Multi-Platform)](#18-bot-gateway-multi-platform)
 19. [Troubleshooting & FAQ](#19-troubleshooting--faq)
@@ -1534,6 +1536,35 @@ reasonix marketplace sync      # sync from LobeHub
 ```
 
 See `docs/MARKETPLACE.md`.
+
+### 16.17 How-To: Force English Only
+
+Hard language enforcement — stops the model from switching to Chinese even when
+the user writes in Chinese. Injects a `CRITICAL`-level instruction at the end of
+the system prompt + a cache-safe reasoning-language block on each turn.
+
+```toml
+[agent]
+language = "en"
+reasoning_language = "en"
+```
+
+See `docs/HOWTO-FORCE-ENGLISH.md` for the full two-layer approach and design rationale.
+
+### 16.18 How-To: Token Saving
+
+Step-by-step guide for grafting the **sqz** token compressor into any Reasonix
+fork. Covers SHA-256 content caching, repeated-line collapsing, JSON minification,
+and entropy-safe mode.
+
+```bash
+# Enable the compressor (set via config):
+[compress]
+enabled = true
+```
+
+See `docs/HOWTO-TOKEN-SAVING.md` for the implementation walkthrough. See also
+`docs/TOKEN-SAVINGS-ANALYSIS.md` for a quantitative analysis of compression rates.
 
 ---
 
