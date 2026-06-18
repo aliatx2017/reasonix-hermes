@@ -1431,7 +1431,13 @@ Per-session cost accumulation via `provider.Pricing` (per 1M token rates). Cost
 is displayed in:
 - Desktop Hermes dashboard (live via `HermesDashboardEvent`)
 - CLI `/stats` panel (`/cost` alias)
-- CLI status line (session cost badge)
+- CLI status line (session cost badge, e.g. `$0.42`)
+
+**CNY→USD exchange rate**: `internal/billing/exchange.go` fetches a live
+exchange rate from `api.exchangerate-api.com` on startup when
+`[billing] auto_exchange_rate = true`. The rate multiplies `Pricing.Cost()` so
+DeepSeek's native CNY pricing displays as USD. Falls back to `0.14` on network
+error. Set `AGENT_LOG` to see the fetched rate in the operational log.
 
 ### 16.10 CLI: `reasonix models`
 
@@ -1481,8 +1487,11 @@ Hermes dashboard.
 ### 16.16 Self-Improving Skill Loops
 
 `internal/learn/` observes agent turn patterns, detects repeated tool sequences
-(edit-then-test, write-then-build), and generates skill suggestions. Enable via
-`[learn].enabled = true`. Use `/learn` in the CLI.
+(edit-then-test, write-then-build), and generates skill suggestions. The agent
+calls `Observe()` automatically after each turn (wired via `agent.Run()` →
+`learner.Observe()`). Enable via `[learn].enabled = true`. Use `/learn` or
+`/learn patterns` / `/learn trajectories` in the CLI. The desktop
+`LearnedPatternsPanel` surfaces patterns in real time.
 
 ### 16.17 Token Compressor
 
@@ -1565,6 +1574,36 @@ enabled = true
 
 See `docs/HOWTO-TOKEN-SAVING.md` for the implementation walkthrough. See also
 `docs/TOKEN-SAVINGS-ANALYSIS.md` for a quantitative analysis of compression rates.
+
+### 16.23 Operational Agent Logging
+
+Structured JSON logging for debugging and observability. `internal/agentlog/`
+replaces the default `slog` handler with JSON output to stderr (and optionally
+a file) so every boot, API call, and tool execution is traceable:
+
+```bash
+# Log to stderr (default — interleaved with CLI output):
+reasonix chat
+
+# Persist to a file:
+AGENT_LOG=/tmp/agent.log reasonix chat
+
+# Filter with jq:
+grep api_call /tmp/agent.log | jq '.latency_ms'
+```
+
+**Log categories:**
+
+| Category | Data |
+|----------|------|
+| `boot.model` | model ref, provider kind |
+| `boot.mcp` | eager/lazy/bg server counts, total tools |
+| `boot.config` | max_steps, temperature |
+| `boot.learner` | learning enabled status |
+| `api_call` | model, tokens in/out/total, cache_hit, latency_ms |
+| `tool_exec` | tool name, duration_ms, result_bytes |
+
+No additional dependencies — uses Go's stdlib `log/slog`.
 
 ---
 

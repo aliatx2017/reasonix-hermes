@@ -18,7 +18,7 @@ const TARGETS = [
 
 const tag = process.argv[2] ?? process.env.GITHUB_REF_NAME;
 if (!tag) {
-  console.error("usage: node npm/build-hermes.mjs <tag>   (e.g. v1.8.0)");
+  console.error("usage: node npm/build-hermes.mjs <tag>   (e.g. v1.9.0)");
   process.exit(1);
 }
 const version = tag.replace(/^(hermes-)?npm-v/, "").replace(/^v/, "");

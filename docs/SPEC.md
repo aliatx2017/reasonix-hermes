@@ -43,6 +43,7 @@ reasonix/
 └── internal/
     ├── acp/                # Agent Client Protocol — stdio JSON-RPC 2.0 adapter for editors
     ├── agent/              # Core agent loop: wires Provider + Tool Registry + Session
+    ├── agentlog/           # [Hermes] Structured operational logging (slog → stderr + AGENT_LOG env var)
     ├── billing/            # provider wallet balance queries for the status line
     ├── boot/               # assembles a control.Controller from config (one Controller behind every frontend)
     ├── bot/                # multi-platform IM bot gateway (Discord/QQ/Feishu/WeChat/Telegram/Line/Slack)
@@ -122,7 +123,7 @@ reasonix/
 ```
 
 [Hermes] = Reasonix-Hermes custom additions (not present in upstream esengine/deepseek-reasonix).
-Total: 55 internal packages.
+Total: 69 internal packages.
 
 Dependency direction (acyclic): `cli → {agent, plugin, config} → {tool, provider}`.
 Built-in subpackages (`provider/openai`, `tool/builtin`) import their parent to
