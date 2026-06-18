@@ -859,11 +859,19 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 		})
 	}
 
+	// Apply CNY→USD exchange rate to pricing for display consistency.
+	pricing := entry.Price
+	if pricing != nil && (pricing.Currency == "¥" || pricing.Currency == "CNY" || pricing.Currency == "RMB") && pricing.ExchangeRate == 0 {
+		clone := *pricing // shallow copy — no pointer fields
+		clone.ExchangeRate = 0.14
+		pricing = &clone
+	}
+
 	execSess := agent.NewSession(finalizeSystemPrompt(sysPrompt, cfg.Language))
 	executor := agent.New(execProv, reg, execSess, agent.Options{
 		MaxSteps:             maxSteps,
 		Temperature:          cfg.Agent.Temperature,
-		Pricing:              entry.Price,
+		Pricing:              pricing,
 		Gate:                 headlessGate,
 		Hooks:                hookRunner,
 		Jobs:                 jm,

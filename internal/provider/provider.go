@@ -340,14 +340,16 @@ type Usage struct {
 
 // Pricing is a provider's per-1M-token rates, used to estimate spend. Currency
 // is a display symbol or ISO-like code (default "¥"). toml tags let config decode it.
+// ExchangeRate converts native currency to display currency (default 1.0 = no conversion).
 type Pricing struct {
-	CacheHit float64 `toml:"cache_hit"` // per 1M cached prompt tokens
-	Input    float64 `toml:"input"`     // per 1M uncached prompt tokens
-	Output   float64 `toml:"output"`    // per 1M completion tokens
-	Currency string  `toml:"currency"`
+	CacheHit     float64 `toml:"cache_hit"`     // per 1M cached prompt tokens
+	Input        float64 `toml:"input"`         // per 1M uncached prompt tokens
+	Output       float64 `toml:"output"`        // per 1M completion tokens
+	Currency     string  `toml:"currency"`
+	ExchangeRate float64 `toml:"exchange_rate"` // multiply Cost by this (e.g. 0.14 for CNY→USD)
 }
 
-// Cost estimates the spend for a usage record.
+// Cost estimates the spend for a usage record. Multiplies by ExchangeRate when set.
 func (p *Pricing) Cost(u *Usage) float64 {
 	if p == nil || u == nil {
 		return 0
@@ -359,9 +361,13 @@ func (p *Pricing) Cost(u *Usage) float64 {
 	} else if miss == 0 && hit > 0 && u.PromptTokens > hit {
 		miss = u.PromptTokens - hit
 	}
-	return (float64(hit)*p.CacheHit +
+	raw := (float64(hit)*p.CacheHit +
 		float64(miss)*p.Input +
 		float64(u.CompletionTokens)*p.Output) / 1e6
+	if p.ExchangeRate > 0 {
+		return raw * p.ExchangeRate
+	}
+	return raw
 }
 
 // Symbol returns the currency display symbol, defaulting to "$".
