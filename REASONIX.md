@@ -36,7 +36,7 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 ## Notes
 
-- **Upstream synced**: `v1.9.x` (commit ebea82b, 2026-06-18). 17 syncs total — 6 new commits (heartbeat task system, 8 Codex review fixes, gofmt/lint). Previous sync: a3e63f5.
+- **Upstream synced**: `v1.9.x` (commit ba7a50b, 2026-06-18). 18 syncs total — 50 new commits (goal enforcement, parallel_tasks, /prometheus interview, shared MCP host, TUI divider fix, cache-impact guard). Previous sync: ebea82b.
 - **Commit**: session 2026-06-18 (h30) — doc-sweep: Helm tag v1.8.2→v1.9.1, cross-linked HOWTO-FORCE-ENGLISH + HOWTO-TOKEN-SAVING + TOKEN-SAVINGS-ANALYSIS from README + HERMES-GUIDE. CHANGELOG-HERMES.md enriched with h29+h30. AGENTS.md sync count updated. All 9 verify checks green.
 - **Commit**: session 2026-06-18 (h29) — learn live-push wiring (HermesDashboardEvent + useHermesLiveData), Discord deny TOCTOU fix (hold lock through Approve). Upstream merged fb4c0c5 (5 commits, 2 conflicts resolved, 2 i18n keys added). 3 files changed, +21/-5.
 - **Commit**: session 2026-06-17 (h27) — upstream v1.9.x merged (ef1f38c, 6 commits, 1 conflict resolved). 7 audit fixes applied: path traversal guard in findSkillFile, hooks exit(1) on errors, memory server Recall write amplification removed, collab Start() bind-error propagation, compressor atomic turn + cache eviction, publish empty-role guard, mcputil MaxBytesReader, orchestrateTask total timeout. All 7 CLI binaries rebuilt. Build/vet/test/tsc all green.
