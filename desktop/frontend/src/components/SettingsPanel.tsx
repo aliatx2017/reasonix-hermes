@@ -53,8 +53,10 @@ import { SoundSelect } from "./SoundSelect";
 import { getSuccessPreference, setSuccessPreference, getAttentionPreference, setAttentionPreference, playSuccessChime, playAttentionChime, type SoundWavPref } from "../lib/sound";
 import { ModalCloseButton } from "./ModalCloseButton";
 import { ShortcutComboDisplay } from "./ShortcutComboDisplay";
+import { HermesSettings } from "./hermes/HermesSettings";
+import { useHermesLiveData } from "./hermes/useHermesLiveData";
 
-const SETTINGS_TABS: SettingsTab[] = ["general", "models", "bots", "mcp", "skills", "memory", "hooks", "shortcuts", "permissions", "sandbox", "network", "appearance", "updates"];
+const SETTINGS_TABS: SettingsTab[] = ["general", "models", "bots", "mcp", "skills", "memory", "hooks", "shortcuts", "permissions", "sandbox", "network", "appearance", "updates", "hermes"];
 export type SettingsInitialFocus = { target: "bot-allowlist"; connectionId?: string };
 
 const MCPServersSettingsPage = lazy(() => import("./CapabilitiesPanel").then((module) => ({ default: module.MCPServersSettingsPage })));
@@ -153,7 +155,7 @@ export function SettingsPanel({
   // The settings-reliant pages (general, models, network, permissions,
   // sandbox, appearance, updates) need SettingsView loaded. MCP, Skills, and Memory
   // load their own data and render regardless.
-  const needsSettings = tab === "general" || tab === "models" || tab === "bots" || tab === "network" || tab === "permissions" || tab === "sandbox" || tab === "appearance" || tab === "updates";
+  const needsSettings = tab === "general" || tab === "models" || tab === "bots" || tab === "network" || tab === "permissions" || tab === "sandbox" || tab === "appearance" || tab === "updates" || tab === "hermes";
   const lazySettingsPageFallback = <div className="empty">{t("settings.loading")}</div>;
 
   return (
@@ -252,6 +254,7 @@ export function SettingsPanel({
                     />
                   </SettingsPageShell>
                 )}
+                {tab === "hermes" && s && <HermesLiveSection key={tab} s={s} apply={apply} />}
               </>
             )}
           </main>
@@ -410,6 +413,8 @@ function settingsTabLabel(id: SettingsTab, t: ReturnType<typeof useT>): string {
       return t("settings.tab.appearance");
     case "updates":
       return t("settings.tab.updates");
+    case "hermes":
+      return "Hermes";
     default:
       return id;
   }
@@ -445,6 +450,8 @@ function settingsTabMeta(id: SettingsTab, s: SettingsView, t: ReturnType<typeof 
       return t("settings.appearanceMeta");
     case "updates":
       return t("settings.updatesMeta");
+    case "hermes":
+      return "Hermes dashboard";
     default:
       return id;
   }
@@ -5481,5 +5488,39 @@ function UpdatesSection({
         </Tooltip>
       )}
     </SettingsSection>
+  );
+}
+
+// ── HermesLiveSection ──────────────────────────────────────────────────────
+
+function HermesLiveSection({
+  s,
+  apply,
+}: { s: SettingsView; apply: (fn: () => Promise<unknown>) => Promise<void> }) {
+  const live = useHermesLiveData(undefined, true);
+  return (
+    <SettingsPageShell
+      s={s}
+      tab="hermes"
+      busy={false}
+      apply={async (fn) => {
+        await apply(fn);
+      }}
+    >
+      <HermesSettings
+        s={s}
+        onHotbarChange={() => {}}
+        onProfileSelect={() => {}}
+        cache={live.cache}
+        bot={live.bot}
+        goal={live.goal}
+        cost={live.cost}
+        tokens={live.tokens}
+        compress={live.compress}
+        schedule={live.schedule}
+        collab={live.collab}
+        council={live.council}
+      />
+    </SettingsPageShell>
   );
 }

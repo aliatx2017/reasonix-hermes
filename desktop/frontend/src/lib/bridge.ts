@@ -339,10 +339,10 @@ export interface AppBindings {
   BotLiveStatus(): Promise<BotLiveStatusView>;
   CacheEconomy(): Promise<CacheEconomyView>;
   CacheEconomyForTab(tabID: string): Promise<CacheEconomyView>;
-  CheckpointFileList(tabID: string): Promise<CheckpointFileSnap[]>;
-  CheckpointFileDiff(tabID: string, path: string): Promise<CheckpointFileDiff>;
+  CheckpointFileList(turn: number): Promise<CheckpointFileSnap[]>;
+  CheckpointFileDiff(turn: number, path: string): Promise<CheckpointFileDiff>;
   CollabDashboard(): Promise<CollabView>;
-  CompactionHistory(tabID: string): Promise<CompactionEvent[]>;
+  CompactionHistory(tabID?: string): Promise<CompactionEvent[]>;
   CompareSessions(pathA: string, pathB: string): Promise<any>;
   CompressStats(): Promise<CompressStatsView>;
   CompressStatsForTab(tabID: string): Promise<CompressStatsView>;
@@ -360,19 +360,19 @@ export interface AppBindings {
   MarketplaceRegistry(): Promise<any>;
   MemoryDashboard(): Promise<any>;
   MemoryFacts(): Promise<any>;
-  PublishSessionHTML(tabID: string): Promise<string>;
-  PublishSessionJSON(tabID: string): Promise<string>;
+  PublishSessionHTML(): Promise<string>;
+  PublishSessionJSON(): Promise<string>;
   ReadMarkdownFile(name: string): Promise<string>;
   SaveMarkdownFile(name: string, content: string): Promise<void>;
   ScheduleDashboard(): Promise<any>;
   SessionTokens(): Promise<SessionTokensView>;
   SessionTokensForTab(tabID: string): Promise<SessionTokensView>;
-  SubagentTree(tabID: string): Promise<any>;
-  SyncLobeHubMarketplace(): Promise<any>;
-  TurnTimeline(tabID: string): Promise<any>;
-  TurnUsageHistory(tabID: string): Promise<any>;
+  SubagentTree(tabID?: string): Promise<any>;
+  SyncLobeHubMarketplace(provider?: string, model?: string): Promise<any>;
+  TurnTimeline(tabID?: string): Promise<any>;
+  TurnUsageHistory(tabID?: string): Promise<any>;
   UpdateTrayIcon(style: string): Promise<void>;
-  AddScheduledTask(task: any): Promise<void>;
+  AddScheduledTask(name: string, cron: string, prompt: string, model?: string, enabled?: boolean): Promise<void>;
   RemoveScheduledTask(id: string): Promise<void>;
   ExportSession(tabId: string): Promise<string>;
   SetDesktopHotbar(hotbar: any): Promise<void>;
@@ -3066,10 +3066,10 @@ function makeMockApp(): AppBindings {
     async BotLiveStatus(): Promise<BotLiveStatusView> { return { platforms: [] } as any; },
     async CacheEconomy(): Promise<CacheEconomyView> { return { hitRate: 0, hits: 0, misses: 0, totalTokens: 0, savedTokens: 0 } as any; },
     async CacheEconomyForTab(_tabID: string): Promise<CacheEconomyView> { return { hitRate: 0, hits: 0, misses: 0, totalTokens: 0, savedTokens: 0 } as any; },
-    async CheckpointFileList(_tabID: string): Promise<CheckpointFileSnap[]> { return []; },
-    async CheckpointFileDiff(_tabID: string, _path: string): Promise<CheckpointFileDiff> { return {} as any; },
+    async CheckpointFileList(_turn: number): Promise<CheckpointFileSnap[]> { return []; },
+    async CheckpointFileDiff(_turn: number, _path: string): Promise<CheckpointFileDiff> { return {} as any; },
     async CollabDashboard(): Promise<CollabView> { return {} as any; },
-    async CompactionHistory(_tabID: string): Promise<CompactionEvent[]> { return []; },
+    async CompactionHistory(_tabID?: string): Promise<CompactionEvent[]> { return []; },
     async CompareSessions(_pathA: string, _pathB: string) { return {}; },
     async CompressStats(): Promise<CompressStatsView> { return { bytesSaved: 0, tokensSaved: 0 } as any; },
     async CompressStatsForTab(_tabID: string): Promise<CompressStatsView> { return { bytesSaved: 0, tokensSaved: 0 } as any; },
@@ -3087,19 +3087,19 @@ function makeMockApp(): AppBindings {
     async MarketplaceRegistry() { return []; },
     async MemoryDashboard() { return {}; },
     async MemoryFacts() { return []; },
-    async PublishSessionHTML(_tabID: string): Promise<string> { return ""; },
-    async PublishSessionJSON(_tabID: string): Promise<string> { return ""; },
+    async PublishSessionHTML(): Promise<string> { return ""; },
+    async PublishSessionJSON(): Promise<string> { return ""; },
     async ReadMarkdownFile(_name: string): Promise<string> { return ""; },
     async SaveMarkdownFile(_name: string, _content: string): Promise<void> {},
     async ScheduleDashboard() { return { tasks: [] }; },
     async SessionTokens(): Promise<SessionTokensView> { return {} as any; },
     async SessionTokensForTab(_tabID: string): Promise<SessionTokensView> { return {} as any; },
-    async SubagentTree(_tabID: string) { return {}; },
-    async SyncLobeHubMarketplace() { return {}; },
-    async TurnTimeline(_tabID: string) { return []; },
-    async TurnUsageHistory(_tabID: string) { return []; },
+    async SubagentTree(_tabID?: string) { return {}; },
+    async SyncLobeHubMarketplace(_provider?: string, _model?: string) { return {}; },
+    async TurnTimeline(_tabID?: string) { return []; },
+    async TurnUsageHistory(_tabID?: string) { return []; },
     async UpdateTrayIcon(_style: string): Promise<void> {},
-    async AddScheduledTask(_task: any): Promise<void> {},
+    async AddScheduledTask(_name: string, _cron: string, _prompt: string, _model?: string, _enabled?: boolean): Promise<void> {},
     async RemoveScheduledTask(_id: string): Promise<void> {},
     async ExportSession(_tabId: string): Promise<string> { return ""; },
     async SetDesktopHotbar(_hotbar: any): Promise<void> {},
