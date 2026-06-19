@@ -7925,6 +7925,90 @@ a[href] {
   background: var(--surface);
   color: var(--text);
 }
+
+/* Workspace selector dropdown — matches settings-subtab height (30px) */
+.memory-tabs-row__spacer {
+  flex: 1;
+}
+.mem-ws-select {
+  position: relative;
+  flex: 0 1 auto;
+}
+.mem-ws-select__trigger {
+  --wails-draggable: no-drag;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+  font-size: var(--font-control-small);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.mem-ws-select__trigger:hover {
+  border-color: var(--border-strong);
+  background: var(--bg-elev-1);
+}
+.mem-ws-select__label {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mem-ws-select__chev {
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+}
+.mem-ws-select__chev--open {
+  transform: rotate(180deg);
+}
+.mem-ws-select__menu {
+  min-width: 180px;
+  max-width: min(90vw, 320px);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-elev);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.24);
+  padding: 4px;
+}
+.mem-ws-select__list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.mem-ws-select__option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  font-size: var(--font-control-small);
+  cursor: pointer;
+  text-align: left;
+}
+.mem-ws-select__option:hover {
+  background: var(--button-bg-hover);
+}
+.mem-ws-select__label--single {
+  min-height: 30px;
+  display: flex;
+  align-items: center;
+  padding: 5px 10px;
+  color: var(--fg-dim);
+}
+.mem-ws-select__option--selected {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
 .mem-section {
   min-width: 0;
 }

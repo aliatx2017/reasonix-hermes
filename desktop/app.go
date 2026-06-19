@@ -1967,6 +1967,7 @@ func (a *App) RenameSession(path, title string) error {
 		return err
 	}
 	a.invalidatePromptHistoryCache()
+	a.emitProjectTreeChanged()
 	return nil
 }
 

@@ -127,6 +127,7 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 			renderHotbarKey(&b, "6", c.Desktop.Hotbar.Key6, "sidebar")
 			renderHotbarKey(&b, "7", c.Desktop.Hotbar.Key7, "settings")
 		}
+		fmt.Fprintf(&b, "display_mode = %q   # desktop: standard|compact transcript display mode\n", c.DesktopDisplayMode())
 		b.WriteString("\n")
 
 		b.WriteString("[notifications]\n")
