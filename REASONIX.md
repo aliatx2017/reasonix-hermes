@@ -36,9 +36,8 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 ## Notes
 
-<<<<<<< HEAD
 - **Upstream synced**: `v1.9.x` (commit 7032f39, 2026-06-19). 22 syncs total — merged: db43de8 (h39, 33 commits) + 7032f39 (h39, 5 commits: skill scripts directory listing). Previous sync: 6d6e1e8 (h38).
-- **Commit**: session 2026-06-19 (h39) — upstream merge 6d6e1e8→db43de8 (33 commits). 15 conflicts resolved across Go/TSX/CSS. 3 Go conflicts: save.go (SaveMeta + auto-save flow), session.go (SessionMeta fields + normalizedDirty). HljsDiff.tsx type fix (stale diffRowsFromUnifiedDiff import). 9 binaries rebuilt. All tests pass.
+- **Commit**: session 2026-06-19 (h39) — upstream merges: db43de8 (33 commits: list_sessions/read_session tools, MCP session reinit, history normalization, todo panel fixes, crash stats, credential hardening) + 7032f39 (5 commits: skill scripts listing). 15 conflicts resolved (3 Go, 12 TSX/CSS). HljsDiff.tsx type fix (stale diffRowsFromUnifiedDiff import). doc-sweep: 6 stale claims fixed (SPEC.md 69→71 packages + sessiontool entry, AGENTS.md test counts, PROJECT.md 75→71, README binary list). GH issues #13,#14,#15 closed. 9 binaries rebuilt. All tests pass.
 - **Commit**: session 2026-06-18 (h30) — doc-sweep: Helm tag v1.8.2→v1.9.1, cross-linked HOWTO-FORCE-ENGLISH + HOWTO-TOKEN-SAVING + TOKEN-SAVINGS-ANALYSIS from README + HERMES-GUIDE. CHANGELOG-HERMES.md enriched with h29+h30. AGENTS.md sync count updated. All 9 verify checks green.
 - **Commit**: session 2026-06-18 (h31) — learner Observe wired into agent loop, desktop LearnedPatterns() fixed, MaxObservations config, Discord dup Approved./Denied. removed, currency symbol ¥→$, live CNY→USD exchange rate (billing/exchange.go), agent operational logging (agentlog/), doc-sweep (package counts, SPEC §2, HERMES-GUIDE §16.9/16.16/16.23). 2 upstream merges (ebea82b + ba7a50b, 56 commits). 15 files changed, 3 new.
 - **Commit**: session 2026-06-18 (h32) — agentlog stderr bleed fix (removed os.Stderr, file/io.Discard only), currency symbol fix (Symbol() returns "$" when ExchangeRate > 0, config currency → "CNY"), agent log enrichment (cache_miss, err, truncated fields). 3 files changed.
