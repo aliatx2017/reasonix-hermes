@@ -1,13 +1,13 @@
 // ContextPanel shows the active tab's context gauge and token usage.
 // All visible text is routed through the i18n dictionary.
-import { useCallback, useEffect, useRef, useState } from "react";
-import { FileText } from "lucide-react";
-import { asArray } from "../lib/array";
-import { app } from "../lib/bridge";
-import { useI18n, type Translator } from "../lib/i18n";
-import { formatMoneyLocalized } from "../lib/money";
-import type { DictKey } from "../locales/en";
-import type { ContextInfo, ContextPanelInfo, UsageSourceStats, WireUsage } from "../lib/types";
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { FileText } from 'lucide-react';
+import { asArray } from '../lib/array';
+import { app } from '../lib/bridge';
+import { useI18n, type Translator } from '../lib/i18n';
+import { formatMoneyLocalized } from '../lib/money';
+import type { DictKey } from '../locales/en';
+import type { ContextInfo, ContextPanelInfo, UsageSourceStats, WireUsage } from '../lib/types';
 
 type ContextFileRow = { key?: string; path: string; meta?: string; time?: string; detail?: string };
 
@@ -48,7 +48,7 @@ function fmtDuration(ms: number, t: Translator): string {
 
 export function formatCacheHitRate(hitTokens: number, missTokens: number): string {
   const denom = hitTokens + missTokens;
-  if (denom <= 0) return "-";
+  if (denom <= 0) return '-';
   return `${((hitTokens / denom) * 100).toFixed(2)}%`;
 }
 
@@ -192,25 +192,37 @@ function contextHealth(usagePct: number, cachePct: number, readCount: number): H
   };
 }
 
-const SOURCE_ORDER = ["executor", "planner", "subagent", "compaction", "classifier", "title"];
+const SOURCE_ORDER = ['executor', 'planner', 'subagent', 'compaction', 'classifier', 'title'];
 
 function sourceLabel(source: string, t: Translator): string {
   switch (source) {
-    case "executor": return t("context.sourceExecutor");
-    case "planner": return t("context.sourcePlanner");
-    case "subagent": return t("context.sourceSubagent");
-    case "compaction": return t("context.sourceCompaction");
-    case "classifier": return t("context.sourceClassifier");
-    case "title": return t("context.sourceTitle");
-    default: return source;
+    case 'executor':
+      return t('context.sourceExecutor');
+    case 'planner':
+      return t('context.sourcePlanner');
+    case 'subagent':
+      return t('context.sourceSubagent');
+    case 'compaction':
+      return t('context.sourceCompaction');
+    case 'classifier':
+      return t('context.sourceClassifier');
+    case 'title':
+      return t('context.sourceTitle');
+    default:
+      return source;
   }
 }
 
 function sourceCost(stats: UsageSourceStats): number {
-  return stats.sessionCost && stats.sessionCost > 0 ? stats.sessionCost : stats.sessionCostUsd ?? 0;
+  return stats.sessionCost && stats.sessionCost > 0
+    ? stats.sessionCost
+    : (stats.sessionCostUsd ?? 0);
 }
 
-function sourceRows(info: ContextPanelInfo | null, sessionCurrency?: string): Array<{ source: string; label: string; cost: number; currency?: string; requests: number }> {
+function sourceRows(
+  info: ContextPanelInfo | null,
+  sessionCurrency?: string,
+): Array<{ source: string; label: string; cost: number; currency?: string; requests: number }> {
   const entries = Object.entries(info?.sources ?? {});
   if (entries.length === 0) return [];
   return entries
@@ -218,7 +230,8 @@ function sourceRows(info: ContextPanelInfo | null, sessionCurrency?: string): Ar
     .sort(([a], [b]) => {
       const ia = SOURCE_ORDER.indexOf(a);
       const ib = SOURCE_ORDER.indexOf(b);
-      if (ia >= 0 || ib >= 0) return (ia >= 0 ? ia : SOURCE_ORDER.length) - (ib >= 0 ? ib : SOURCE_ORDER.length);
+      if (ia >= 0 || ib >= 0)
+        return (ia >= 0 ? ia : SOURCE_ORDER.length) - (ib >= 0 ? ib : SOURCE_ORDER.length);
       return a.localeCompare(b);
     })
     .map(([source, stats]) => ({
@@ -308,7 +321,8 @@ export function ContextPanel({
     : (usage?.cacheMissTokens ?? 0);
   const cost = contextCostDisplay({ info, sessionCost, sessionCurrency, usage });
   const costSources = sourceRows(info, sessionCurrency);
-  const showCostSources = costSources.some((row) => row.source !== "executor") || costSources.length > 1;
+  const showCostSources =
+    costSources.some((row) => row.source !== 'executor') || costSources.length > 1;
   const readFiles = asArray(info?.readFiles);
   const changedFiles = asArray(info?.changedFiles);
 
@@ -318,7 +332,13 @@ export function ContextPanel({
   const cacheDenom = cacheHitTokens + cacheMissTokens;
   const cachePct = cacheDenom > 0 ? (cacheHitTokens / cacheDenom) * 100 : 0;
   const cachePctDisplay = formatCacheHitRate(cacheHitTokens, cacheMissTokens);
-  const breakdown = contextBreakdown(usedTokens, windowTokens, promptTokens, completionTokens, reasoningTokens);
+  const breakdown = contextBreakdown(
+    usedTokens,
+    windowTokens,
+    promptTokens,
+    completionTokens,
+    reasoningTokens,
+  );
   const donutStyle = {
     background: `conic-gradient(#13a7a5 0 ${breakdown.promptPct}%, #2f6df6 ${breakdown.promptPct}% ${breakdown.completionPct}%, #f97316 ${breakdown.completionPct}% ${breakdown.reasoningPct}%, var(--border) ${breakdown.reasoningPct}% ${breakdown.otherPct}%, var(--border-soft) ${breakdown.otherPct}% 100%)`,
   };
@@ -393,24 +413,36 @@ export function ContextPanel({
           <section className="context-panel__section">
             <SectionHeading title={t('context.runtimeMetrics')} />
             <div className="context-panel__stats">
-              <MetricCard label={t("context.time")} value={fmtDuration(elapsed, t)} />
-              <MetricCard label={t("context.requests")} value={requestCount > 0 ? String(requestCount) : "-"} />
-              <MetricCard label={t("context.sessionTokens")} value={totalTokens > 0 ? totalTokens.toLocaleString() : "-"} wide />
+              <MetricCard label={t('context.time')} value={fmtDuration(elapsed, t)} />
+              <MetricCard
+                label={t('context.requests')}
+                value={requestCount > 0 ? String(requestCount) : '-'}
+              />
+              <MetricCard
+                label={t('context.sessionTokens')}
+                value={totalTokens > 0 ? totalTokens.toLocaleString() : '-'}
+                wide
+              />
             </div>
           </section>
           <section className="context-panel__section">
             <SectionHeading title={t('context.costMetrics')} />
             <div className="context-panel__stats">
-              <MetricCard label={t("context.cacheHit")} value={cachePctDisplay} tone="accent" />
-              <MetricCard label={t("context.sessionCost")} value={formatMoneyLocalized(cost.amount, cost.currency, { locale, empty: "dash" })} />
+              <MetricCard label={t('context.cacheHit')} value={cachePctDisplay} tone="accent" />
+              <MetricCard
+                label={t('context.sessionCost')}
+                value={formatMoneyLocalized(cost.amount, cost.currency, { locale, empty: 'dash' })}
+              />
             </div>
             {showCostSources && (
-              <div className="context-panel__source-list" aria-label={t("context.costBreakdown")}>
+              <div className="context-panel__source-list" aria-label={t('context.costBreakdown')}>
                 {costSources.map((row) => (
                   <div className="context-panel__source-row" key={row.source}>
                     <span>{sourceLabel(row.label, t)}</span>
-                    <strong>{formatMoneyLocalized(row.cost, row.currency, { locale, empty: "dash" })}</strong>
-                    <em>{t("context.sourceRequests", { count: row.requests })}</em>
+                    <strong>
+                      {formatMoneyLocalized(row.cost, row.currency, { locale, empty: 'dash' })}
+                    </strong>
+                    <em>{t('context.sourceRequests', { count: row.requests })}</em>
                   </div>
                 ))}
               </div>
@@ -518,9 +550,14 @@ function TokenLegend({ label, value, color }: { label: string; value: number; co
   );
 }
 
-function MetricCard({ label, value, tone, wide }: { label: string; value: string; tone?: "accent" | "good" | "notice" | "warn"; wide?: boolean }) {
-  const toneClass = tone ? ` context-panel__metric--${tone}` : "";
-  const wideClass = wide ? " context-panel__metric--wide" : "";
+function MetricCard({
+  label,
+  value,
+  tone,
+  wide,
+}: { label: string; value: string; tone?: 'accent' | 'good' | 'notice' | 'warn'; wide?: boolean }) {
+  const toneClass = tone ? ` context-panel__metric--${tone}` : '';
+  const wideClass = wide ? ' context-panel__metric--wide' : '';
   return (
     <div className={`context-panel__metric${toneClass}${wideClass}`}>
       <span>{label}</span>

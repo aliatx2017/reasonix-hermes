@@ -97,35 +97,74 @@ eq(
 // Inside \begin{array}{c|c} the | means "draw a vertical rule" — it must
 // NOT be rewritten to \vert, or KaTeX fails with "Unknown column alignment:
 // \vert". The whole {...} preamble is copied verbatim.
-eq(latexNormalizeForKatex("\\begin{array}{c|c} a & b \\\\ c & d \\end{array}"),
-  "\\begin{array}{c|c} a & b \\\\ c & d \\end{array}", "array column-spec | preserved (c|c)");
-eq(latexNormalizeForKatex("\\begin{array}{|c|c|} a & b \\end{array}"),
-  "\\begin{array}{|c|c|} a & b \\end{array}", "array column-spec ||| preserved");
-eq(latexNormalizeForKatex("\\begin{array}{cc|c} a & b & c \\end{array}"),
-  "\\begin{array}{cc|c} a & b & c \\end{array}", "array column-spec cc|c preserved");
-eq(latexNormalizeForKatex("\\begin{array}{c|c} a & b \\end{array} |x|"),
-  "\\begin{array}{c|c} a & b \\end{array} \\vert x\\vert", "pipe OUTSIDE array still → \\vert");
-eq(latexNormalizeForKatex("\\begin{tabular}{c|c} a & b \\end{tabular}"),
-  "\\begin{tabular}{c|c} a & b \\end{tabular}", "tabular column-spec | preserved");
+eq(
+  latexNormalizeForKatex('\\begin{array}{c|c} a & b \\\\ c & d \\end{array}'),
+  '\\begin{array}{c|c} a & b \\\\ c & d \\end{array}',
+  'array column-spec | preserved (c|c)',
+);
+eq(
+  latexNormalizeForKatex('\\begin{array}{|c|c|} a & b \\end{array}'),
+  '\\begin{array}{|c|c|} a & b \\end{array}',
+  'array column-spec ||| preserved',
+);
+eq(
+  latexNormalizeForKatex('\\begin{array}{cc|c} a & b & c \\end{array}'),
+  '\\begin{array}{cc|c} a & b & c \\end{array}',
+  'array column-spec cc|c preserved',
+);
+eq(
+  latexNormalizeForKatex('\\begin{array}{c|c} a & b \\end{array} |x|'),
+  '\\begin{array}{c|c} a & b \\end{array} \\vert x\\vert',
+  'pipe OUTSIDE array still → \\vert',
+);
+eq(
+  latexNormalizeForKatex('\\begin{tabular}{c|c} a & b \\end{tabular}'),
+  '\\begin{tabular}{c|c} a & b \\end{tabular}',
+  'tabular column-spec | preserved',
+);
 
 // ── latexNormalizeForKatex — ket-pipe disambiguation (regression) ─────────────
 // In GFM Markdown tables, | is the column delimiter, so kets are written as
 // \|uud\rangle. But \| is the "parallel-to" double bar ‖ in LaTeX, not a ket
 // bar. We convert \| to \vert when it's a ket opener (\|...\rangle) or bra
 // closer (\langle...\|), but leave matched \|...\| norms alone.
-eq(latexNormalizeForKatex("\\|uud\\rangle"), "\\vert uud\\rangle", "ket \\|uud\\rangle → \\vert");
-eq(latexNormalizeForKatex("\\|\\alpha\\rangle"), "\\vert \\alpha\\rangle", "ket \\|\\alpha\\rangle → \\vert");
-eq(latexNormalizeForKatex("\\|u\\uparrow d\\rangle"), "\\vert u\\uparrow d\\rangle", "ket with content → \\vert");
-eq(latexNormalizeForKatex("\\frac{1}{\\sqrt{2}}\\|\\psi\\rangle"), "\\frac{1}{\\sqrt{2}}\\vert \\psi\\rangle", "ket in fraction → \\vert");
-eq(latexNormalizeForKatex("\\|a\\rangle + \\|b\\rangle"), "\\vert a\\rangle + \\vert b\\rangle", "two kets both → \\vert");
+eq(latexNormalizeForKatex('\\|uud\\rangle'), '\\vert uud\\rangle', 'ket \\|uud\\rangle → \\vert');
+eq(
+  latexNormalizeForKatex('\\|\\alpha\\rangle'),
+  '\\vert \\alpha\\rangle',
+  'ket \\|\\alpha\\rangle → \\vert',
+);
+eq(
+  latexNormalizeForKatex('\\|u\\uparrow d\\rangle'),
+  '\\vert u\\uparrow d\\rangle',
+  'ket with content → \\vert',
+);
+eq(
+  latexNormalizeForKatex('\\frac{1}{\\sqrt{2}}\\|\\psi\\rangle'),
+  '\\frac{1}{\\sqrt{2}}\\vert \\psi\\rangle',
+  'ket in fraction → \\vert',
+);
+eq(
+  latexNormalizeForKatex('\\|a\\rangle + \\|b\\rangle'),
+  '\\vert a\\rangle + \\vert b\\rangle',
+  'two kets both → \\vert',
+);
 // Norms (matched \|...\| pair) must KEEP the double bar
-eq(latexNormalizeForKatex("\\|x\\|"), "\\|x\\|", "norm \\|x\\| preserved (double bar)");
-eq(latexNormalizeForKatex("\\|v\\|^2"), "\\|v\\|^2", "norm \\|v\\|^2 preserved");
-eq(latexNormalizeForKatex("\\|\\vec{v}\\|"), "\\|\\vec{v}\\|", "norm with content preserved");
+eq(latexNormalizeForKatex('\\|x\\|'), '\\|x\\|', 'norm \\|x\\| preserved (double bar)');
+eq(latexNormalizeForKatex('\\|v\\|^2'), '\\|v\\|^2', 'norm \\|v\\|^2 preserved');
+eq(latexNormalizeForKatex('\\|\\vec{v}\\|'), '\\|\\vec{v}\\|', 'norm with content preserved');
 // Bra closers (\langle...\|)
-eq(latexNormalizeForKatex("\\langle\\psi\\|"), "\\langle\\psi\\vert", "bra \\langle\\psi\\| → \\vert");
+eq(
+  latexNormalizeForKatex('\\langle\\psi\\|'),
+  '\\langle\\psi\\vert',
+  'bra \\langle\\psi\\| → \\vert',
+);
 // Inner product: \langle x \| y \rangle — the \| between bra and ket content
-eq(latexNormalizeForKatex("\\langle x \\| y \\rangle"), "\\langle x \\vert  y \\rangle", "inner product \\| → \\vert");
+eq(
+  latexNormalizeForKatex('\\langle x \\| y \\rangle'),
+  '\\langle x \\vert  y \\rangle',
+  'inner product \\| → \\vert',
+);
 
 // ── latexNormalizeForKatex — \tag → align conversion (regression for KaTeX "Multiple \tag") ──
 eq(

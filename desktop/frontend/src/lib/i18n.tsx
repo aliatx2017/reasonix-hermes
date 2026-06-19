@@ -10,63 +10,112 @@
 // the user-level [desktop] config; localStorage is only read once for legacy
 // migration from older desktop builds.
 
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
-import type { ReactNode } from "react";
-import { en, type DictKey } from "../locales/en";
-import { zh } from "../locales/zh";
-import { zhTW } from "../locales/zh-TW";
+import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import type { ReactNode } from 'react';
+import { en, type DictKey } from '../locales/en';
+import { zh } from '../locales/zh';
+import { zhTW } from '../locales/zh-TW';
 
-export type Locale = "en" | "zh" | "zh-TW";
+export type Locale = 'en' | 'zh' | 'zh-TW';
 export type { DictKey };
 // LangPref is the stored preference: "" means auto-detect from the OS.
-export type LangPref = "" | "en" | "zh" | "zh-TW";
+export type LangPref = '' | 'en' | 'zh' | 'zh-TW';
 
-const DICTS: Record<Locale, Record<DictKey, string>> = { en, zh, "zh-TW": zhTW };
-const STORAGE_KEY = "reasonix-lang";
+const DICTS: Record<Locale, Record<DictKey, string>> = { en, zh, 'zh-TW': zhTW };
+const STORAGE_KEY = 'reasonix-lang';
 
 // currentLocale mirrors the active locale for callers outside React (lib/tools.ts).
-let currentLocale: Locale = "en";
+let currentLocale: Locale = 'en';
 
 // Whimsical present-participles cycled in the status line while a turn runs. Kept
 // out of the dict (it's an array, and purely decorative) but localized all the same.
 export const SPINNER_WORDS: Record<Locale, string[]> = {
   en: [
-    "Frolicking", "Pondering", "Noodling", "Brewing", "Conjuring", "Cogitating",
-    "Percolating", "Ruminating", "Simmering", "Synthesizing", "Tinkering",
-    "Marinating", "Crunching", "Hatching", "Mulling", "Whirring", "Forging",
-    "Spelunking", "Puttering", "Vibing",
+    'Frolicking',
+    'Pondering',
+    'Noodling',
+    'Brewing',
+    'Conjuring',
+    'Cogitating',
+    'Percolating',
+    'Ruminating',
+    'Simmering',
+    'Synthesizing',
+    'Tinkering',
+    'Marinating',
+    'Crunching',
+    'Hatching',
+    'Mulling',
+    'Whirring',
+    'Forging',
+    'Spelunking',
+    'Puttering',
+    'Vibing',
   ],
   zh: [
-    "嬉游中", "沉思中", "鼓捣中", "酝酿中", "施法中", "苦思中",
-    "渗滤中", "反刍中", "文火慢炖", "合成中", "修补中",
-    "腌制入味", "嘎吱运算", "孵化中", "盘算中", "嗡嗡运转", "锻造中",
-    "探洞中", "摆弄中", "来感觉了",
+    '嬉游中',
+    '沉思中',
+    '鼓捣中',
+    '酝酿中',
+    '施法中',
+    '苦思中',
+    '渗滤中',
+    '反刍中',
+    '文火慢炖',
+    '合成中',
+    '修补中',
+    '腌制入味',
+    '嘎吱运算',
+    '孵化中',
+    '盘算中',
+    '嗡嗡运转',
+    '锻造中',
+    '探洞中',
+    '摆弄中',
+    '来感觉了',
   ],
-  "zh-TW": [
-    "嬉遊中", "沉思中", "鼓搗中", "醞釀中", "施法中", "苦思中",
-    "滲濾中", "反芻中", "文火慢燉", "合成中", "修補中",
-    "醃製入味", "嘎吱運算", "孵化中", "盤算中", "嗡嗡運轉", "鍛造中",
-    "探洞中", "擺弄中", "來感覺了",
+  'zh-TW': [
+    '嬉遊中',
+    '沉思中',
+    '鼓搗中',
+    '醞釀中',
+    '施法中',
+    '苦思中',
+    '滲濾中',
+    '反芻中',
+    '文火慢燉',
+    '合成中',
+    '修補中',
+    '醃製入味',
+    '嘎吱運算',
+    '孵化中',
+    '盤算中',
+    '嗡嗡運轉',
+    '鍛造中',
+    '探洞中',
+    '擺弄中',
+    '來感覺了',
   ],
 };
 
 export function detectLocale(pref: LangPref): Locale {
-  if (pref === "en" || pref === "zh" || pref === "zh-TW") return pref;
-  const nav = typeof navigator !== "undefined" ? navigator.language.toLowerCase() : "en";
-  if (nav.startsWith("zh-tw") || nav.startsWith("zh-hant") || nav === "zh-hk" || nav === "zh-mo") return "zh-TW";
-  return nav.startsWith("zh") ? "zh" : "en";
+  if (pref === 'en' || pref === 'zh' || pref === 'zh-TW') return pref;
+  const nav = typeof navigator !== 'undefined' ? navigator.language.toLowerCase() : 'en';
+  if (nav.startsWith('zh-tw') || nav.startsWith('zh-hant') || nav === 'zh-hk' || nav === 'zh-mo')
+    return 'zh-TW';
+  return nav.startsWith('zh') ? 'zh' : 'en';
 }
 
 function readPref(): LangPref {
-  return "";
+  return '';
 }
 
 export function normalizeLangPref(v: unknown): LangPref {
-  return v === "en" || v === "zh" || v === "zh-TW" ? v : "";
+  return v === 'en' || v === 'zh' || v === 'zh-TW' ? v : '';
 }
 
 export function readLegacyLangPref(): LangPref {
-  const v = typeof localStorage !== "undefined" ? localStorage.getItem(STORAGE_KEY) : null;
+  const v = typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_KEY) : null;
   return normalizeLangPref(v);
 }
 
@@ -113,8 +162,8 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
   currentLocale = locale; // keep the mirror fresh for non-React callers
 
   useEffect(() => {
-    if (typeof document === "undefined") return;
-    document.documentElement.lang = locale === "zh" ? "zh-CN" : "en";
+    if (typeof document === 'undefined') return;
+    document.documentElement.lang = locale === 'zh' ? 'zh-CN' : 'en';
   }, [locale]);
 
   // setPref updates only the live UI; persistence is handled by desktop config.
@@ -122,14 +171,19 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
     setPrefState(normalizeLangPref(next));
   }, []);
 
-  const tt = useCallback<Translator>((key, vars) => translate(detectLocale(pref), key, vars), [pref]);
+  const tt = useCallback<Translator>(
+    (key, vars) => translate(detectLocale(pref), key, vars),
+    [pref],
+  );
 
-  return <I18nContext.Provider value={{ locale, pref, setPref, t: tt }}>{children}</I18nContext.Provider>;
+  return (
+    <I18nContext.Provider value={{ locale, pref, setPref, t: tt }}>{children}</I18nContext.Provider>
+  );
 }
 
 export function useI18n(): I18nValue {
   const ctx = useContext(I18nContext);
-  if (!ctx) throw new Error("useI18n must be used within a LocaleProvider");
+  if (!ctx) throw new Error('useI18n must be used within a LocaleProvider');
   return ctx;
 }
 

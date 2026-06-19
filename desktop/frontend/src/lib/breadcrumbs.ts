@@ -18,13 +18,13 @@ export function snapshotBreadcrumbs(): Breadcrumb[] {
 }
 
 export function dumpBreadcrumbs(): string {
-  if (!ring.length) return "";
+  if (!ring.length) return '';
   const now = Date.now();
-  return ring.map((b) => `-${((now - b.t) / 1000).toFixed(1)}s [${b.cat}] ${b.msg}`).join("\n");
+  return ring.map((b) => `-${((now - b.t) / 1000).toFixed(1)}s [${b.cat}] ${b.msg}`).join('\n');
 }
 
 function stringifyArg(a: unknown): string {
-  if (typeof a === "string") return a;
+  if (typeof a === 'string') return a;
   if (a instanceof Error) return a.message;
   try {
     return JSON.stringify(a);
@@ -36,17 +36,19 @@ function stringifyArg(a: unknown): string {
 export function installBreadcrumbConsoleHook(): void {
   if (!browserHooksInstalled) {
     browserHooksInstalled = true;
-    addBreadcrumb("app", "start");
-    if (typeof window !== "undefined") {
-      window.addEventListener("online", () => addBreadcrumb("network", "online"));
-      window.addEventListener("offline", () => addBreadcrumb("network", "offline"));
-      document.addEventListener("visibilitychange", () => addBreadcrumb("view", document.visibilityState));
+    addBreadcrumb('app', 'start');
+    if (typeof window !== 'undefined') {
+      window.addEventListener('online', () => addBreadcrumb('network', 'online'));
+      window.addEventListener('offline', () => addBreadcrumb('network', 'offline'));
+      document.addEventListener('visibilitychange', () =>
+        addBreadcrumb('view', document.visibilityState),
+      );
     }
   }
-  for (const level of ["error", "warn"] as const) {
+  for (const level of ['error', 'warn'] as const) {
     const orig = console[level].bind(console);
     console[level] = (...args: unknown[]) => {
-      addBreadcrumb(`console.${level}`, args.map(stringifyArg).join(" "));
+      addBreadcrumb(`console.${level}`, args.map(stringifyArg).join(' '));
       orig(...args);
     };
   }

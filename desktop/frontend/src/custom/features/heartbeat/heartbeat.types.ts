@@ -4,11 +4,11 @@ export interface HeartbeatTask {
   id: string;
   title: string;
   prompt: string;
-  interval: string;   // e.g. "5m", "1h", "30s"
+  interval: string; // e.g. "5m", "1h", "30s"
   enabled: boolean;
-  scope?: string;      // "global" or "project"
+  scope?: string; // "global" or "project"
   workspaceRoot?: string;
   topicId?: string;
-  lastRunAt?: number;  // unix millis
+  lastRunAt?: number; // unix millis
   createdAt?: number;
 }

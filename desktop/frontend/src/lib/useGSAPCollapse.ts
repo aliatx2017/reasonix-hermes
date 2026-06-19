@@ -1,6 +1,6 @@
-import { useLayoutEffect, useRef } from "react";
-import gsap from "gsap";
-import { DUR_BASE, EASE_OUT, prefersReducedMotion } from "./gsapAnimations";
+import { useLayoutEffect, useRef } from 'react';
+import gsap from 'gsap';
+import { DUR_BASE, EASE_OUT, prefersReducedMotion } from './gsapAnimations';
 
 /**
  * useGSAPCollapse — animate a container's height between 0 and its
@@ -47,7 +47,7 @@ export function useGSAPCollapse(
     // gsap.set property resolution.
     if (prevOpen.current === null) {
       prevOpen.current = open;
-      el.style.height = open ? "auto" : "0px";
+      el.style.height = open ? 'auto' : '0px';
       return;
     }
 
@@ -65,7 +65,7 @@ export function useGSAPCollapse(
 
     if (open) {
       // Phase 1 — measure the target (auto) height without visible change.
-      gsap.set(el, { height: "auto" });
+      gsap.set(el, { height: 'auto' });
       const targetHeight = el.scrollHeight;
       // Phase 2 — animate from current (which is 0 or whatever the kill
       // left us at) to the measured target height; then clear the inline
@@ -77,16 +77,17 @@ export function useGSAPCollapse(
           height: targetHeight,
           duration: dur,
           ease,
-          clearProps: "height",
+          clearProps: 'height',
           onComplete: () => onOpenRef.current?.(),
         },
       );
     } else {
       // Close: if caller provided a pre-swap height use it as the start,
       // otherwise measure the current (already-swapped) scrollHeight.
-      const startHeight = opts?.prevHeight && opts.prevHeight > 0
-        ? opts.prevHeight
-        : (gsap.set(el, { height: "auto" }), el.scrollHeight);
+      const startHeight =
+        opts?.prevHeight && opts.prevHeight > 0
+          ? opts.prevHeight
+          : (gsap.set(el, { height: 'auto' }), el.scrollHeight);
       gsap.fromTo(
         el,
         { height: startHeight },

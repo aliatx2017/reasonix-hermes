@@ -11,13 +11,13 @@
 // search UI and a keybinding the OS doesn't already take. The arrow
 // navigation is the common case and is the smallest useful addition.
 
-import { app } from "./bridge";
-import type { PromptHistoryEntry, PromptHistoryResult } from "./types";
+import { app } from './bridge';
+import type { PromptHistoryEntry, PromptHistoryResult } from './types';
 
 // currentNonce identifies the backend tape. olderCursor points to the next
 // unread segment; cachedEntries are only the entries the user has reached.
-let currentNonce = "";
-let olderCursor = "";
+let currentNonce = '';
+let olderCursor = '';
 let hasOlder = true;
 let cachedEntries: PromptHistoryEntry[] = [];
 let generation = 0;
@@ -43,44 +43,51 @@ function asEntries(value: unknown): PromptHistoryEntry[] {
   return Array.isArray(value) ? (value as PromptHistoryEntry[]) : [];
 }
 
-function maybeTupleResult(result: unknown): { entries: PromptHistoryEntry[] | null; nonce: string } | null {
+function maybeTupleResult(
+  result: unknown,
+): { entries: PromptHistoryEntry[] | null; nonce: string } | null {
   if (!Array.isArray(result)) return null;
-  if (result.length >= 2 && typeof result[1] === "string") {
+  if (result.length >= 2 && typeof result[1] === 'string') {
     return { entries: result[0] === null ? null : asEntries(result[0]), nonce: result[1] };
   }
   return null;
 }
 
-function maybeTupleMapResult(result: unknown): { entries: PromptHistoryEntry[] | null; nonce: string } | null {
-  if (typeof result !== "object" || result === null) return null;
+function maybeTupleMapResult(
+  result: unknown,
+): { entries: PromptHistoryEntry[] | null; nonce: string } | null {
+  if (typeof result !== 'object' || result === null) return null;
   const map = result as Record<string, unknown>;
-  if (!("0" in map) || !("1" in map)) return null;
-  if (typeof map["1"] !== "string") return null;
-  return { entries: map["0"] === null ? null : asEntries(map["0"]), nonce: map["1"] };
+  if (!('0' in map) || !('1' in map)) return null;
+  if (typeof map['1'] !== 'string') return null;
+  return { entries: map['0'] === null ? null : asEntries(map['0']), nonce: map['1'] };
 }
 
 function normalizePageResult(result: ScanPromptHistoryResult): NormalizedPromptHistoryPage {
   const tuple = maybeTupleResult(result) ?? maybeTupleMapResult(result);
   if (tuple !== null) {
-    return { entries: tuple.entries, nonce: tuple.nonce, olderCursor: "", hasOlder: false };
+    return { entries: tuple.entries, nonce: tuple.nonce, olderCursor: '', hasOlder: false };
   }
 
   if (Array.isArray(result)) {
-    return { entries: asEntries(result), nonce: currentNonce, olderCursor: "", hasOlder: false };
+    return { entries: asEntries(result), nonce: currentNonce, olderCursor: '', hasOlder: false };
   }
 
-  if (typeof result === "object" && result !== null) {
-    if ("entries" in result) {
+  if (typeof result === 'object' && result !== null) {
+    if ('entries' in result) {
       const rawEntries = (result as { entries?: unknown }).entries;
-      const nextNonce = typeof (result as { nonce?: unknown }).nonce === "string"
-        ? (result as { nonce: string }).nonce
-        : currentNonce;
-      const nextOlderCursor = typeof (result as { olderCursor?: unknown }).olderCursor === "string"
-        ? (result as { olderCursor: string }).olderCursor
-        : "";
-      const nextHasOlder = typeof (result as { hasOlder?: unknown }).hasOlder === "boolean"
-        ? (result as { hasOlder: boolean }).hasOlder
-        : nextOlderCursor !== "";
+      const nextNonce =
+        typeof (result as { nonce?: unknown }).nonce === 'string'
+          ? (result as { nonce: string }).nonce
+          : currentNonce;
+      const nextOlderCursor =
+        typeof (result as { olderCursor?: unknown }).olderCursor === 'string'
+          ? (result as { olderCursor: string }).olderCursor
+          : '';
+      const nextHasOlder =
+        typeof (result as { hasOlder?: unknown }).hasOlder === 'boolean'
+          ? (result as { hasOlder: boolean }).hasOlder
+          : nextOlderCursor !== '';
       return {
         entries: rawEntries === null || rawEntries === undefined ? null : asEntries(rawEntries),
         nonce: nextNonce,
@@ -89,22 +96,27 @@ function normalizePageResult(result: ScanPromptHistoryResult): NormalizedPromptH
       };
     }
 
-    if (typeof (result as { nonce?: unknown }).nonce === "string") {
-      return { entries: null, nonce: (result as { nonce: string }).nonce, olderCursor: "", hasOlder: false };
+    if (typeof (result as { nonce?: unknown }).nonce === 'string') {
+      return {
+        entries: null,
+        nonce: (result as { nonce: string }).nonce,
+        olderCursor: '',
+        hasOlder: false,
+      };
     }
   }
 
   if (result === null || result === undefined) {
-    return { entries: [], nonce: currentNonce, olderCursor: "", hasOlder: false };
+    return { entries: [], nonce: currentNonce, olderCursor: '', hasOlder: false };
   }
-  return { entries: asEntries(result), nonce: currentNonce, olderCursor: "", hasOlder: false };
+  return { entries: asEntries(result), nonce: currentNonce, olderCursor: '', hasOlder: false };
 }
 
 // invalidateCache resets the tape so the next loadOlder() call starts from the
 // current active session. Call this after any session mutation.
 export function invalidateCache(): void {
-  currentNonce = "";
-  olderCursor = "";
+  currentNonce = '';
+  olderCursor = '';
   hasOlder = true;
   cachedEntries = [];
   generation++;
@@ -115,7 +127,7 @@ export function cacheGeneration(): number {
 }
 
 export async function loadOlder(): Promise<PromptHistoryEntry[]> {
-  if (!hasOlder && olderCursor === "") return [];
+  if (!hasOlder && olderCursor === '') return [];
   try {
     const request = JSON.stringify({
       nonce: currentNonce,
@@ -138,7 +150,7 @@ export async function loadOlder(): Promise<PromptHistoryEntry[]> {
 }
 
 export function hasMoreOlder(): boolean {
-  return hasOlder || olderCursor !== "";
+  return hasOlder || olderCursor !== '';
 }
 
 // snapshot returns a defensive copy of the entries loaded so far. If nothing has

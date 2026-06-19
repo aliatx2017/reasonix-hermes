@@ -8,36 +8,57 @@
  *   值："off" | "synth" | "positive" | "correct" | "start" | "back"
  */
 
-export type SoundWavPref = "off" | "synth" | "positive" | "correct" | "start" | "back";
+export type SoundWavPref = 'off' | 'synth' | 'positive' | 'correct' | 'start' | 'back';
 
-const SUCCESS_KEY = "notificationSoundSuccess";
-const ATTENTION_KEY = "notificationSoundAttention";
+const SUCCESS_KEY = 'notificationSoundSuccess';
+const ATTENTION_KEY = 'notificationSoundAttention';
 
 function readPref(key: string): SoundWavPref {
-  if (typeof localStorage === "undefined") return "off";
+  if (typeof localStorage === 'undefined') return 'off';
   const val = localStorage.getItem(key);
-  if (val === "off" || val === "synth" || val === "positive" || val === "correct" || val === "start" || val === "back") return val;
-  return "off";
+  if (
+    val === 'off' ||
+    val === 'synth' ||
+    val === 'positive' ||
+    val === 'correct' ||
+    val === 'start' ||
+    val === 'back'
+  )
+    return val;
+  return 'off';
 }
 
 function writePref(key: string, pref: SoundWavPref): void {
-  if (typeof localStorage !== "undefined") {
+  if (typeof localStorage !== 'undefined') {
     localStorage.setItem(key, pref);
   }
 }
 
-export function getSuccessPreference(): SoundWavPref { return readPref(SUCCESS_KEY); }
-export function setSuccessPreference(pref: SoundWavPref): void { writePref(SUCCESS_KEY, pref); }
-export function getAttentionPreference(): SoundWavPref { return readPref(ATTENTION_KEY); }
-export function setAttentionPreference(pref: SoundWavPref): void { writePref(ATTENTION_KEY, pref); }
+export function getSuccessPreference(): SoundWavPref {
+  return readPref(SUCCESS_KEY);
+}
+export function setSuccessPreference(pref: SoundWavPref): void {
+  writePref(SUCCESS_KEY, pref);
+}
+export function getAttentionPreference(): SoundWavPref {
+  return readPref(ATTENTION_KEY);
+}
+export function setAttentionPreference(pref: SoundWavPref): void {
+  writePref(ATTENTION_KEY, pref);
+}
 
 function soundFilePath(pref: SoundWavPref): string {
   switch (pref) {
-    case "positive": return "./sounds/mixkit-positive-notification-951.wav";
-    case "correct":  return "./sounds/mixkit-correct-answer-tone-2870.wav";
-    case "start":    return "./sounds/mixkit-software-interface-start-2574.wav";
-    case "back":     return "./sounds/mixkit-software-interface-back-2575.wav";
-    default:         return "";
+    case 'positive':
+      return './sounds/mixkit-positive-notification-951.wav';
+    case 'correct':
+      return './sounds/mixkit-correct-answer-tone-2870.wav';
+    case 'start':
+      return './sounds/mixkit-software-interface-start-2574.wav';
+    case 'back':
+      return './sounds/mixkit-software-interface-back-2575.wav';
+    default:
+      return '';
   }
 }
 
@@ -71,9 +92,16 @@ function playBuffer(ctx: AudioContext, buffer: AudioBuffer, volume: number): voi
 
 // ── Synthesised sounds ───────────────────────────────────────────────────────
 
-function playSynthNote(ctx: AudioContext, dest: AudioNode, freq: number, startTime: number, duration: number, volume: number): void {
+function playSynthNote(
+  ctx: AudioContext,
+  dest: AudioNode,
+  freq: number,
+  startTime: number,
+  duration: number,
+  volume: number,
+): void {
   const osc = ctx.createOscillator();
-  osc.type = "sine";
+  osc.type = 'sine';
   osc.frequency.setValueAtTime(freq, startTime);
   const gain = ctx.createGain();
   gain.gain.setValueAtTime(0, startTime);
@@ -85,7 +113,7 @@ function playSynthNote(ctx: AudioContext, dest: AudioNode, freq: number, startTi
   osc.stop(startTime + duration);
 
   const shimmer = ctx.createOscillator();
-  shimmer.type = "sine";
+  shimmer.type = 'sine';
   shimmer.frequency.setValueAtTime(freq * 4, startTime);
   const sGain = ctx.createGain();
   sGain.gain.setValueAtTime(0, startTime);
@@ -98,19 +126,23 @@ function playSynthNote(ctx: AudioContext, dest: AudioNode, freq: number, startTi
 }
 
 function playSynthSuccess(ctx: AudioContext): void {
-  playSynthNote(ctx, ctx.destination, 1318.5, 0, 0.20, 0.12);
-  playSynthNote(ctx, ctx.destination, 1568.0, 0.07, 0.22, 0.10);
-  playSynthNote(ctx, ctx.destination, 2093.0, 0.14, 0.30, 0.08);
+  playSynthNote(ctx, ctx.destination, 1318.5, 0, 0.2, 0.12);
+  playSynthNote(ctx, ctx.destination, 1568.0, 0.07, 0.22, 0.1);
+  playSynthNote(ctx, ctx.destination, 2093.0, 0.14, 0.3, 0.08);
 }
 
 function playSynthAttention(ctx: AudioContext): void {
-  playSynthNote(ctx, ctx.destination, 1760.0, 0, 0.14, 0.10);
+  playSynthNote(ctx, ctx.destination, 1760.0, 0, 0.14, 0.1);
   playSynthNote(ctx, ctx.destination, 1318.5, 0.09, 0.22, 0.08);
 }
 
 // ── Play helpers ─────────────────────────────────────────────────────────────
 
-async function playWav(pref: SoundWavPref, volume: number, fallback: (ctx: AudioContext) => void): Promise<void> {
+async function playWav(
+  pref: SoundWavPref,
+  volume: number,
+  fallback: (ctx: AudioContext) => void,
+): Promise<void> {
   const url = soundFilePath(pref);
   if (!url) return;
   const ctx = new AudioContext();
@@ -131,13 +163,15 @@ async function playWav(pref: SoundWavPref, volume: number, fallback: (ctx: Audio
 
 export function playSuccessChime(): void {
   const pref = getSuccessPreference();
-  if (pref === "off") return;
-  if (pref === "synth") {
+  if (pref === 'off') return;
+  if (pref === 'synth') {
     try {
       const ctx = new AudioContext();
       playSynthSuccess(ctx);
       setTimeout(() => ctx.close(), 600);
-    } catch { /* silent */ }
+    } catch {
+      /* silent */
+    }
   } else {
     void playWav(pref, 0.35, playSynthSuccess);
   }
@@ -145,13 +179,15 @@ export function playSuccessChime(): void {
 
 export function playAttentionChime(): void {
   const pref = getAttentionPreference();
-  if (pref === "off") return;
-  if (pref === "synth") {
+  if (pref === 'off') return;
+  if (pref === 'synth') {
     try {
       const ctx = new AudioContext();
       playSynthAttention(ctx);
       setTimeout(() => ctx.close(), 500);
-    } catch { /* silent */ }
+    } catch {
+      /* silent */
+    }
   } else {
     void playWav(pref, 0.25, playSynthAttention);
   }

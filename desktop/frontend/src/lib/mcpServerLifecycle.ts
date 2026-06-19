@@ -1,4 +1,4 @@
-import type { ServerView } from "./types";
+import type { ServerView } from './types';
 
 export function mcpServerLifecycleActions(s: ServerView): {
   enabled: boolean;
@@ -7,9 +7,9 @@ export function mcpServerLifecycleActions(s: ServerView): {
   canReconnect: boolean;
 } {
   return {
-    enabled: s.status === "connected" || s.status === "deferred" || s.status === "initializing",
-    showRetryInRow: s.status === "failed" || s.status === "initializing",
-    canConnectNow: s.status === "deferred" || s.status === "disabled",
-    canReconnect: s.status === "connected" || s.status === "initializing",
+    enabled: s.status === 'connected' || s.status === 'deferred' || s.status === 'initializing',
+    showRetryInRow: s.status === 'failed' || s.status === 'initializing',
+    canConnectNow: s.status === 'deferred' || s.status === 'disabled',
+    canReconnect: s.status === 'connected' || s.status === 'initializing',
   };
 }

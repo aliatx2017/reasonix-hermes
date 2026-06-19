@@ -13,9 +13,9 @@ import {
   type TabMeta,
   type TokenMode,
   type ToolApprovalMode,
-} from "./types";
+} from './types';
 
-export type ComposerProfileField = "collaborationMode" | "toolApprovalMode" | "tokenMode" | "goal";
+export type ComposerProfileField = 'collaborationMode' | 'toolApprovalMode' | 'tokenMode' | 'goal';
 
 export type ComposerProfilePending = Partial<Record<ComposerProfileField, true>>;
 
@@ -30,25 +30,33 @@ export interface ComposerProfile {
 
 export type ComposerProfilesByTab = Record<string, ComposerProfile>;
 
-const profileFields: ComposerProfileField[] = ["collaborationMode", "toolApprovalMode", "tokenMode", "goal"];
+const profileFields: ComposerProfileField[] = [
+  'collaborationMode',
+  'toolApprovalMode',
+  'tokenMode',
+  'goal',
+];
 
 export const defaultComposerProfile: ComposerProfile = Object.freeze({
-  collaborationMode: "normal",
+  collaborationMode: 'normal',
   goalDraftMode: false,
-  toolApprovalMode: "ask",
-  tokenMode: "full",
-  goal: "",
+  toolApprovalMode: 'ask',
+  tokenMode: 'full',
+  goal: '',
   pending: {},
 });
 
 function activeGoal(goal?: string, status?: GoalStatus): string {
-  const trimmed = (goal ?? "").trim();
-  if (!trimmed) return "";
-  if (status && status !== "running") return "";
+  const trimmed = (goal ?? '').trim();
+  if (!trimmed) return '';
+  if (status && status !== 'running') return '';
   return trimmed;
 }
 
-function profileWithPending(profile: Omit<ComposerProfile, "pending">, pending: ComposerProfilePending = {}): ComposerProfile {
+function profileWithPending(
+  profile: Omit<ComposerProfile, 'pending'>,
+  pending: ComposerProfilePending = {},
+): ComposerProfile {
   return { ...profile, pending };
 }
 
@@ -59,7 +67,11 @@ export function composerProfileFromTab(tab?: TabMeta | null): ComposerProfile {
   return profileWithPending({
     collaborationMode: normalizeCollaborationMode(tab.collaborationMode, goal, legacyMode),
     goalDraftMode: false,
-    toolApprovalMode: normalizeToolApprovalMode(tab.toolApprovalMode, legacyMode, tab.toolApprovalMode === "yolo"),
+    toolApprovalMode: normalizeToolApprovalMode(
+      tab.toolApprovalMode,
+      legacyMode,
+      tab.toolApprovalMode === 'yolo',
+    ),
     tokenMode: normalizeTokenMode(tab.tokenMode),
     goal,
   });
@@ -69,7 +81,11 @@ export function composerProfileFromMeta(meta?: Meta | null, legacyMode?: Mode): 
   if (!meta) return { ...defaultComposerProfile, pending: {} };
   const fallbackMode = normalizeMode(legacyMode);
   const goal = activeGoal(meta.goal, meta.goalStatus);
-  const toolApprovalMode = normalizeToolApprovalMode(meta.toolApprovalMode, fallbackMode, meta.autoApproveTools ?? meta.bypass);
+  const toolApprovalMode = normalizeToolApprovalMode(
+    meta.toolApprovalMode,
+    fallbackMode,
+    meta.autoApproveTools ?? meta.bypass,
+  );
   return profileWithPending({
     collaborationMode: normalizeCollaborationMode(meta.collaborationMode, goal, fallbackMode),
     goalDraftMode: false,
@@ -85,16 +101,16 @@ function fieldValue(profile: ComposerProfile, field: ComposerProfileField): stri
 
 function assignField(profile: ComposerProfile, field: ComposerProfileField, value: string) {
   switch (field) {
-    case "collaborationMode":
+    case 'collaborationMode':
       profile.collaborationMode = value as CollaborationMode;
       return;
-    case "toolApprovalMode":
+    case 'toolApprovalMode':
       profile.toolApprovalMode = value as ToolApprovalMode;
       return;
-    case "tokenMode":
+    case 'tokenMode':
       profile.tokenMode = value as TokenMode;
       return;
-    case "goal":
+    case 'goal':
       profile.goal = value;
       return;
   }
@@ -102,15 +118,20 @@ function assignField(profile: ComposerProfile, field: ComposerProfileField, valu
 
 function profilesEqual(a: ComposerProfile | undefined, b: ComposerProfile | undefined): boolean {
   if (!a || !b) return a === b;
-  return a.collaborationMode === b.collaborationMode
-    && a.goalDraftMode === b.goalDraftMode
-    && a.toolApprovalMode === b.toolApprovalMode
-    && a.tokenMode === b.tokenMode
-    && a.goal === b.goal
-    && profileFields.every((field) => Boolean(a.pending[field]) === Boolean(b.pending[field]));
+  return (
+    a.collaborationMode === b.collaborationMode &&
+    a.goalDraftMode === b.goalDraftMode &&
+    a.toolApprovalMode === b.toolApprovalMode &&
+    a.tokenMode === b.tokenMode &&
+    a.goal === b.goal &&
+    profileFields.every((field) => Boolean(a.pending[field]) === Boolean(b.pending[field]))
+  );
 }
 
-export function reconcileComposerProfile(current: ComposerProfile | undefined, backend: ComposerProfile): ComposerProfile {
+export function reconcileComposerProfile(
+  current: ComposerProfile | undefined,
+  backend: ComposerProfile,
+): ComposerProfile {
   if (!current) return { ...backend, pending: {} };
 
   const pending: ComposerProfilePending = {};
@@ -133,7 +154,10 @@ export function reconcileComposerProfile(current: ComposerProfile | undefined, b
   return next;
 }
 
-export function hydrateComposerProfilesFromTabs(current: ComposerProfilesByTab, tabs: TabMeta[]): ComposerProfilesByTab {
+export function hydrateComposerProfilesFromTabs(
+  current: ComposerProfilesByTab,
+  tabs: TabMeta[],
+): ComposerProfilesByTab {
   const next: ComposerProfilesByTab = {};
   let changed = false;
 
@@ -150,9 +174,16 @@ export function hydrateComposerProfilesFromTabs(current: ComposerProfilesByTab, 
   return changed ? next : current;
 }
 
-export function hydrateComposerProfileFromMeta(current: ComposerProfilesByTab, tabId: string, meta: Meta): ComposerProfilesByTab {
+export function hydrateComposerProfileFromMeta(
+  current: ComposerProfilesByTab,
+  tabId: string,
+  meta: Meta,
+): ComposerProfilesByTab {
   const previous = current[tabId];
-  const backend = composerProfileFromMeta(meta, previous ? composerProfileMode(previous) : undefined);
+  const backend = composerProfileFromMeta(
+    meta,
+    previous ? composerProfileMode(previous) : undefined,
+  );
   const profile = reconcileComposerProfile(previous, backend);
   if (profilesEqual(previous, profile)) return current;
   return { ...current, [tabId]: profile };
@@ -162,7 +193,7 @@ export function patchComposerProfile(
   current: ComposerProfilesByTab,
   tabId: string,
   base: ComposerProfile | undefined,
-  patch: Partial<Omit<ComposerProfile, "pending">>,
+  patch: Partial<Omit<ComposerProfile, 'pending'>>,
   pendingFields: ComposerProfileField[],
 ): ComposerProfilesByTab {
   const previous = current[tabId] ?? base ?? defaultComposerProfile;
@@ -181,24 +212,28 @@ export function patchComposerProfile(
 }
 
 export function composerProfileMode(profile: ComposerProfile): Mode {
-  return modeFromAxes(profile.collaborationMode === "plan", profile.toolApprovalMode === "yolo");
+  return modeFromAxes(profile.collaborationMode === 'plan', profile.toolApprovalMode === 'yolo');
 }
 
-export function displayedComposerProfileCollaborationMode(profile: ComposerProfile): CollaborationMode {
-  if (profile.goalDraftMode) return "goal";
+export function displayedComposerProfileCollaborationMode(
+  profile: ComposerProfile,
+): CollaborationMode {
+  if (profile.goalDraftMode) return 'goal';
   return profile.collaborationMode;
 }
 
-export function controllerComposerProfileCollaborationMode(profile: ComposerProfile): CollaborationMode {
+export function controllerComposerProfileCollaborationMode(
+  profile: ComposerProfile,
+): CollaborationMode {
   const displayed = displayedComposerProfileCollaborationMode(profile);
-  return displayed === "goal" && !profile.goal ? "normal" : displayed;
+  return displayed === 'goal' && !profile.goal ? 'normal' : displayed;
 }
 
-export function composerProfileWithMode(mode: Mode): Partial<Omit<ComposerProfile, "pending">> {
+export function composerProfileWithMode(mode: Mode): Partial<Omit<ComposerProfile, 'pending'>> {
   return {
-    collaborationMode: modeHasPlan(mode) ? "plan" : "normal",
+    collaborationMode: modeHasPlan(mode) ? 'plan' : 'normal',
     goalDraftMode: false,
-    toolApprovalMode: modeHasAutoApproveTools(mode) ? "yolo" : "ask",
-    goal: "",
+    toolApprovalMode: modeHasAutoApproveTools(mode) ? 'yolo' : 'ask',
+    goal: '',
   };
 }

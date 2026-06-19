@@ -1,6 +1,6 @@
 // Run: tsx src/__tests__/bridge-drag-rejection.test.ts
 
-import { isWailsNonFileDragError, isWailsNonFileDragErrorEvent } from "../lib/bridge";
+import { isWailsNonFileDragError, isWailsNonFileDragErrorEvent } from '../lib/bridge';
 
 let passed = 0;
 let failed = 0;
@@ -10,53 +10,68 @@ function eq(a: unknown, b: unknown, label: string) {
     process.stdout.write(`  PASS  ${label}\n`);
     passed += 1;
   } else {
-    process.stdout.write(`  FAIL  ${label}: expected ${JSON.stringify(b)}, got ${JSON.stringify(a)}\n`);
+    process.stdout.write(
+      `  FAIL  ${label}: expected ${JSON.stringify(b)}, got ${JSON.stringify(a)}\n`,
+    );
     failed += 1;
   }
 }
 
-console.log("\nbridge drag rejection filtering");
+console.log('\nbridge drag rejection filtering');
 
 eq(
-  isWailsNonFileDragError(new Error("additional File object is not a file on the disk")),
+  isWailsNonFileDragError(new Error('additional File object is not a file on the disk')),
   true,
   "suppresses Wails' explicit non-file drag error",
 );
-eq(isWailsNonFileDragError(new Error("invalid argument")), false, "does not suppress generic invalid argument");
 eq(
-  isWailsNonFileDragError(new Error("invalid argument"), true),
+  isWailsNonFileDragError(new Error('invalid argument')),
+  false,
+  'does not suppress generic invalid argument',
+);
+eq(
+  isWailsNonFileDragError(new Error('invalid argument'), true),
   true,
-  "suppresses invalid argument only after a native file drag",
+  'suppresses invalid argument only after a native file drag',
 );
 eq(
-  isWailsNonFileDragError(new TypeError("invalid argument"), false),
+  isWailsNonFileDragError(new TypeError('invalid argument'), false),
   false,
-  "keeps non-drag TypeError invalid argument visible",
+  'keeps non-drag TypeError invalid argument visible',
 );
 eq(
-  isWailsNonFileDragError("network invalid argument", true),
+  isWailsNonFileDragError('network invalid argument', true),
   false,
-  "does not suppress broader messages that merely contain invalid argument",
+  'does not suppress broader messages that merely contain invalid argument',
 );
 eq(
-  isWailsNonFileDragError("Uncaught TypeError: invalid argument", true),
+  isWailsNonFileDragError('Uncaught TypeError: invalid argument', true),
   true,
   "normalizes Chromium's window.error message prefix",
 );
 eq(
-  isWailsNonFileDragErrorEvent({ message: "Uncaught TypeError: invalid argument", error: undefined }, true),
+  isWailsNonFileDragErrorEvent(
+    { message: 'Uncaught TypeError: invalid argument', error: undefined },
+    true,
+  ),
   true,
-  "suppresses invalid argument delivered through ErrorEvent.message",
+  'suppresses invalid argument delivered through ErrorEvent.message',
 );
 eq(
-  isWailsNonFileDragErrorEvent({ message: "Uncaught TypeError: invalid argument", error: new TypeError("invalid argument") }, true),
+  isWailsNonFileDragErrorEvent(
+    { message: 'Uncaught TypeError: invalid argument', error: new TypeError('invalid argument') },
+    true,
+  ),
   true,
-  "suppresses invalid argument delivered through ErrorEvent.error.message",
+  'suppresses invalid argument delivered through ErrorEvent.error.message',
 );
 eq(
-  isWailsNonFileDragErrorEvent({ message: "Uncaught TypeError: invalid argument", error: new TypeError("invalid argument") }, false),
+  isWailsNonFileDragErrorEvent(
+    { message: 'Uncaught TypeError: invalid argument', error: new TypeError('invalid argument') },
+    false,
+  ),
   false,
-  "keeps ErrorEvent invalid argument visible without a recent native file drag",
+  'keeps ErrorEvent invalid argument visible without a recent native file drag',
 );
 
 console.log(`\n${passed} passed, ${failed} failed`);

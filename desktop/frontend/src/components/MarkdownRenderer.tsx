@@ -1,13 +1,13 @@
-import { memo, useMemo, useRef } from "react";
-import ReactMarkdown from "react-markdown";
-import type { Components } from "react-markdown";
-import remarkGfm from "remark-gfm";
-import remarkMath from "remark-math";
-import rehypeKatex from "rehype-katex";
-import "katex/dist/katex.min.css";
-import { CodeViewer } from "./CodeViewer";
-import { normalizeMath } from "./mathNormalize";
-import { openExternal } from "../lib/bridge";
+import { memo, useMemo, useRef } from 'react';
+import ReactMarkdown from 'react-markdown';
+import type { Components } from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+import 'katex/dist/katex.min.css';
+import { CodeViewer } from './CodeViewer';
+import { normalizeMath } from './mathNormalize';
+import { openExternal } from '../lib/bridge';
 
 // Markdown rendering via react-markdown + remark-gfm (tables, task lists,
 // strike, autolinks) and remark-math + rehype-katex for $/$$ KaTeX math.
@@ -22,11 +22,11 @@ import { openExternal } from "../lib/bridge";
 const components: Components = {
   pre: ({ children }) => <>{children}</>,
   code: ({ className, children }) => {
-    const text = String(children ?? "");
-    const match = /language-([\w-]+)/.exec(className ?? "");
-    const isBlock = match !== null || text.includes("\n");
+    const text = String(children ?? '');
+    const match = /language-([\w-]+)/.exec(className ?? '');
+    const isBlock = match !== null || text.includes('\n');
     if (isBlock) {
-      return <CodeViewer value={text.replace(/\n$/, "")} language={match?.[1]} maxHeight={360} />;
+      return <CodeViewer value={text.replace(/\n$/, '')} language={match?.[1]} maxHeight={360} />;
     }
     return <code className="md-code">{children}</code>;
   },

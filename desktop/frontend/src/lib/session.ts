@@ -1,4 +1,4 @@
-import type { ProjectNode, SessionMeta } from "./types";
+import type { ProjectNode, SessionMeta } from './types';
 
 export function sessionActivityTime(session: SessionMeta): number {
   return session.lastActivityAt ?? session.modTime;

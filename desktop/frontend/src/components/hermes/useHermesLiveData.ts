@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
-import { app } from "../../lib/bridge";
+import { useState, useEffect, useCallback } from 'react';
+import { app } from '../../lib/bridge';
 import type {
   CacheEconomyView,
   SessionTokensView,
@@ -13,7 +13,7 @@ import type {
   CouncilDashboardView,
   LearnedPatternView,
   LearnedTrajectoryView,
-} from "../../lib/types";
+} from '../../lib/types';
 
 interface HermesLiveData {
   cache: CacheEconomyView | null;
@@ -46,11 +46,22 @@ interface HermesDashboardPayload {
 }
 
 const POLL_MS = 5000;
-const EVENT_CHANNEL = "hermes:dashboard";
+const EVENT_CHANNEL = 'hermes:dashboard';
 
 export function useHermesLiveData(tabId: string | undefined, enabled: boolean): HermesLiveData {
   const [data, setData] = useState<HermesLiveData>({
-    cache: null, bot: null, goal: null, memory: null, cost: null, tokens: null, compress: null, schedule: null, collab: null, council: null, learnPatterns: [], learnTrajectories: [],
+    cache: null,
+    bot: null,
+    goal: null,
+    memory: null,
+    cost: null,
+    tokens: null,
+    compress: null,
+    schedule: null,
+    collab: null,
+    council: null,
+    learnPatterns: [],
+    learnTrajectories: [],
   });
 
   // Prefer Wails push events; fall back to polling.
@@ -80,7 +91,13 @@ export function useHermesLiveData(tabId: string | undefined, enabled: boolean): 
         });
         // Initial fetch in case the first event hasn't fired yet.
         pollOnce();
-        return () => { try { unsub(); } catch { /* ignore */ } };
+        return () => {
+          try {
+            unsub();
+          } catch {
+            /* ignore */
+          }
+        };
       }
     } catch {
       // Events not available — fall through to polling.
@@ -95,8 +112,21 @@ export function useHermesLiveData(tabId: string | undefined, enabled: boolean): 
   const pollOnce = useCallback(async () => {
     if (!enabled) return;
     try {
-      const tid = tabId ?? "";
-      const [cache, bot, goal, memory, cost, tokens, compress, schedule, collab, council, learnPatterns, learnTrajectories] = await Promise.all([
+      const tid = tabId ?? '';
+      const [
+        cache,
+        bot,
+        goal,
+        memory,
+        cost,
+        tokens,
+        compress,
+        schedule,
+        collab,
+        council,
+        learnPatterns,
+        learnTrajectories,
+      ] = await Promise.all([
         tid ? app.CacheEconomyForTab(tid) : app.CacheEconomy(),
         app.BotLiveStatus(),
         tid ? app.GoalProgressForTab(tid) : app.GoalProgress(),
@@ -110,7 +140,20 @@ export function useHermesLiveData(tabId: string | undefined, enabled: boolean): 
         app.LearnedPatterns().then(([p, _t]) => p ?? []),
         app.LearnedPatterns().then(([_p, t]) => t ?? []),
       ]);
-      setData({ cache, bot, goal, memory, cost, tokens, compress, schedule, collab, council, learnPatterns, learnTrajectories });
+      setData({
+        cache,
+        bot,
+        goal,
+        memory,
+        cost,
+        tokens,
+        compress,
+        schedule,
+        collab,
+        council,
+        learnPatterns,
+        learnTrajectories,
+      });
     } catch {
       // silent — bridge may not be ready
     }

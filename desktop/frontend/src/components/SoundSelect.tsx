@@ -1,9 +1,9 @@
-import { useRef, useState } from "react";
-import { Check, ChevronDown, Play } from "lucide-react";
-import { AnchoredPopover } from "./AnchoredPopover";
-import { useT } from "../lib/i18n";
-import type { DictKey } from "../lib/i18n";
-import type { SoundWavPref } from "../lib/sound";
+import { useRef, useState } from 'react';
+import { Check, ChevronDown, Play } from 'lucide-react';
+import { AnchoredPopover } from './AnchoredPopover';
+import { useT } from '../lib/i18n';
+import type { DictKey } from '../lib/i18n';
+import type { SoundWavPref } from '../lib/sound';
 
 type SoundOption = {
   value: SoundWavPref;
@@ -11,12 +11,12 @@ type SoundOption = {
 };
 
 const OPTIONS: SoundOption[] = [
-  { value: "off", labelKey: "settings.notificationSound.off" },
-  { value: "synth", labelKey: "settings.notificationSound.synth" },
-  { value: "positive", labelKey: "settings.notificationSound.positive" },
-  { value: "correct", labelKey: "settings.notificationSound.correct" },
-  { value: "start", labelKey: "settings.notificationSound.start" },
-  { value: "back", labelKey: "settings.notificationSound.back" },
+  { value: 'off', labelKey: 'settings.notificationSound.off' },
+  { value: 'synth', labelKey: 'settings.notificationSound.synth' },
+  { value: 'positive', labelKey: 'settings.notificationSound.positive' },
+  { value: 'correct', labelKey: 'settings.notificationSound.correct' },
+  { value: 'start', labelKey: 'settings.notificationSound.start' },
+  { value: 'back', labelKey: 'settings.notificationSound.back' },
 ];
 
 export function SoundSelect({
@@ -46,11 +46,17 @@ export function SoundSelect({
         <span className="sound-select__label">{t(selected.labelKey)}</span>
         <ChevronDown
           size={16}
-          className={`sound-select__chev${open ? " sound-select__chev--open" : ""}`}
+          className={`sound-select__chev${open ? ' sound-select__chev--open' : ''}`}
         />
       </button>
       {!previewDisabled && (
-        <button className="chip chip--icon" type="button" title={t("settings.notificationSoundPreview")} aria-label={t("settings.notificationSoundPreview")} onClick={onPreview}>
+        <button
+          className="chip chip--icon"
+          type="button"
+          title={t('settings.notificationSoundPreview')}
+          aria-label={t('settings.notificationSoundPreview')}
+          onClick={onPreview}
+        >
           <Play size={13} aria-hidden="true" />
         </button>
       )}
@@ -65,7 +71,7 @@ export function SoundSelect({
           {OPTIONS.map((opt) => (
             <button
               key={opt.value}
-              className={`sound-select__option${opt.value === value ? " sound-select__option--selected" : ""}`}
+              className={`sound-select__option${opt.value === value ? ' sound-select__option--selected' : ''}`}
               role="option"
               aria-selected={opt.value === value}
               type="button"

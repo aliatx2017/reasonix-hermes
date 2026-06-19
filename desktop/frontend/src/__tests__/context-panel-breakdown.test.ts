@@ -1,7 +1,11 @@
 // Run: tsx src/__tests__/context-panel-breakdown.test.ts
 
-import { contextBreakdown, contextCostDisplay, formatCacheHitRate } from "../components/ContextPanel";
-import { currencySymbol, formatMoney, formatMoneyLocalized } from "../lib/money";
+import {
+  contextBreakdown,
+  contextCostDisplay,
+  formatCacheHitRate,
+} from '../components/ContextPanel';
+import { currencySymbol, formatMoney, formatMoneyLocalized } from '../lib/money';
 
 let passed = 0;
 let failed = 0;
@@ -28,7 +32,7 @@ function ok(condition: boolean, label: string) {
   }
 }
 
-console.log("\ncontext panel breakdown");
+console.log('\ncontext panel breakdown');
 
 const mock = contextBreakdown(42_124, 128_000, 22_134, 12_345, 7_521);
 eq(
@@ -93,23 +97,45 @@ const infoCost = contextCostDisplay({
   sessionCurrency: '¥',
   usage: { cost: 0, costUsd: 0, currency: '¥' },
 });
-eq(infoCost, { amount: 0.1759, currency: "$" }, "panel cost keeps the panel currency instead of state default");
-eq(formatMoney(infoCost.amount, infoCost.currency, "dash"), "$0.1759", "USD panel cost renders with dollar sign");
-eq(currencySymbol("楼"), "¥", "unexpected currency text does not leak into money values");
-eq(currencySymbol("aud"), "AUD ", "unknown ISO currency codes stay readable");
-eq(currencySymbol("A$"), "A$", "compact multi-character currency symbols are preserved");
-const usdLocalized = formatMoneyLocalized(0.1759, "USD", { locale: "en" });
-ok(/\$|USD|US\$/.test(usdLocalized) && usdLocalized.includes("0.1759"), "ISO USD cost renders with locale-aware currency formatting");
-const cnyLocalized = formatMoneyLocalized(12.3, "CNY", { locale: "zh" });
-ok(/¥|CNY|CN¥/.test(cnyLocalized) && cnyLocalized.includes("12.30"), "ISO CNY cost renders with locale-aware currency formatting");
-eq(formatMoneyLocalized(0.1759, "A$", { locale: "en" }), "A$0.1759", "symbol currency remains symbol-based");
-eq(formatMoneyLocalized(0, "USD", { locale: "en", empty: "dash" }), "-", "localized money preserves dash empty state");
+eq(
+  infoCost,
+  { amount: 0.1759, currency: '$' },
+  'panel cost keeps the panel currency instead of state default',
+);
+eq(
+  formatMoney(infoCost.amount, infoCost.currency, 'dash'),
+  '$0.1759',
+  'USD panel cost renders with dollar sign',
+);
+eq(currencySymbol('楼'), '¥', 'unexpected currency text does not leak into money values');
+eq(currencySymbol('aud'), 'AUD ', 'unknown ISO currency codes stay readable');
+eq(currencySymbol('A$'), 'A$', 'compact multi-character currency symbols are preserved');
+const usdLocalized = formatMoneyLocalized(0.1759, 'USD', { locale: 'en' });
+ok(
+  /\$|USD|US\$/.test(usdLocalized) && usdLocalized.includes('0.1759'),
+  'ISO USD cost renders with locale-aware currency formatting',
+);
+const cnyLocalized = formatMoneyLocalized(12.3, 'CNY', { locale: 'zh' });
+ok(
+  /¥|CNY|CN¥/.test(cnyLocalized) && cnyLocalized.includes('12.30'),
+  'ISO CNY cost renders with locale-aware currency formatting',
+);
+eq(
+  formatMoneyLocalized(0.1759, 'A$', { locale: 'en' }),
+  'A$0.1759',
+  'symbol currency remains symbol-based',
+);
+eq(
+  formatMoneyLocalized(0, 'USD', { locale: 'en', empty: 'dash' }),
+  '-',
+  'localized money preserves dash empty state',
+);
 
-console.log("\ncontext panel cache rate");
+console.log('\ncontext panel cache rate');
 
-eq(formatCacheHitRate(99_950, 50), "99.95%", "cache hit rate preserves two decimal places");
-eq(formatCacheHitRate(0, 10_000), "0.00%", "cache hit rate shows zero when usage data exists");
-eq(formatCacheHitRate(0, 0), "-", "cache hit rate stays empty before usage data exists");
+eq(formatCacheHitRate(99_950, 50), '99.95%', 'cache hit rate preserves two decimal places');
+eq(formatCacheHitRate(0, 10_000), '0.00%', 'cache hit rate shows zero when usage data exists');
+eq(formatCacheHitRate(0, 0), '-', 'cache hit rate stays empty before usage data exists');
 
 console.log(`\n${passed} passed, ${failed} failed, ${passed + failed} total`);
 if (failed > 0) process.exit(1);

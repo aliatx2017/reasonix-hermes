@@ -300,7 +300,7 @@ export function WorkspacePanel({
   const dismissedFileListRequestIdRef = useRef<number | null>(null);
   const lastChangeListRequestIdRef = useRef<number | null>(null);
   const dismissedChangeListRequestIdRef = useRef<number | null>(null);
-  const lastWorkspaceTabIdRef = useRef(tabId ?? "");
+  const lastWorkspaceTabIdRef = useRef(tabId ?? '');
   const workspaceChangesRequestIdRef = useRef(0);
   const gitHistoryRequestIdRef = useRef(0);
   const commitDetailRequestIdRef = useRef(0);
@@ -318,19 +318,28 @@ export function WorkspacePanel({
 
   const loadGitHistory = useCallback(async () => {
     const requestId = ++gitHistoryRequestIdRef.current;
-    const requestTabId = tabId ?? "";
+    const requestTabId = tabId ?? '';
     setLoadingHistory(true);
     try {
-      const result = await app.WorkspaceGitHistory(requestTabId, selectedPath || "");
-      if (gitHistoryRequestIdRef.current === requestId && lastWorkspaceTabIdRef.current === requestTabId) {
+      const result = await app.WorkspaceGitHistory(requestTabId, selectedPath || '');
+      if (
+        gitHistoryRequestIdRef.current === requestId &&
+        lastWorkspaceTabIdRef.current === requestTabId
+      ) {
         setGitHistory(result || []);
       }
     } catch (err) {
-      if (gitHistoryRequestIdRef.current === requestId && lastWorkspaceTabIdRef.current === requestTabId) {
+      if (
+        gitHistoryRequestIdRef.current === requestId &&
+        lastWorkspaceTabIdRef.current === requestTabId
+      ) {
         setGitHistory([]);
       }
     } finally {
-      if (gitHistoryRequestIdRef.current === requestId && lastWorkspaceTabIdRef.current === requestTabId) {
+      if (
+        gitHistoryRequestIdRef.current === requestId &&
+        lastWorkspaceTabIdRef.current === requestTabId
+      ) {
         setLoadingHistory(false);
       }
     }
@@ -338,14 +347,20 @@ export function WorkspacePanel({
 
   const loadWorkspaceChanges = useCallback(async () => {
     const requestId = ++workspaceChangesRequestIdRef.current;
-    const requestTabId = tabId ?? "";
+    const requestTabId = tabId ?? '';
     try {
       const result = await app.WorkspaceChanges(requestTabId);
-      if (workspaceChangesRequestIdRef.current === requestId && lastWorkspaceTabIdRef.current === requestTabId) {
+      if (
+        workspaceChangesRequestIdRef.current === requestId &&
+        lastWorkspaceTabIdRef.current === requestTabId
+      ) {
         setWorkspaceChanges(result.files && result.files.length > 0 ? result.files : null);
       }
     } catch {
-      if (workspaceChangesRequestIdRef.current === requestId && lastWorkspaceTabIdRef.current === requestTabId) {
+      if (
+        workspaceChangesRequestIdRef.current === requestId &&
+        lastWorkspaceTabIdRef.current === requestTabId
+      ) {
         setWorkspaceChanges(null);
       }
     }
@@ -366,23 +381,35 @@ export function WorkspacePanel({
     if (!open) return;
     if (expandedCommit) {
       const requestId = ++commitDetailRequestIdRef.current;
-      const requestTabId = tabId ?? "";
+      const requestTabId = tabId ?? '';
       let live = true;
       setLoadingCommit(true);
       app
-        .WorkspaceGitCommitDetail(requestTabId, expandedCommit, selectedPath || "")
+        .WorkspaceGitCommitDetail(requestTabId, expandedCommit, selectedPath || '')
         .then((detail) => {
-          if (live && commitDetailRequestIdRef.current === requestId && lastWorkspaceTabIdRef.current === requestTabId) {
+          if (
+            live &&
+            commitDetailRequestIdRef.current === requestId &&
+            lastWorkspaceTabIdRef.current === requestTabId
+          ) {
             setCommitDetail(detail);
           }
         })
         .catch(() => {
-          if (live && commitDetailRequestIdRef.current === requestId && lastWorkspaceTabIdRef.current === requestTabId) {
+          if (
+            live &&
+            commitDetailRequestIdRef.current === requestId &&
+            lastWorkspaceTabIdRef.current === requestTabId
+          ) {
             setCommitDetail(null);
           }
         })
         .finally(() => {
-          if (live && commitDetailRequestIdRef.current === requestId && lastWorkspaceTabIdRef.current === requestTabId) {
+          if (
+            live &&
+            commitDetailRequestIdRef.current === requestId &&
+            lastWorkspaceTabIdRef.current === requestTabId
+          ) {
             setLoadingCommit(false);
           }
         });
@@ -441,7 +468,7 @@ export function WorkspacePanel({
 
   useEffect(() => {
     if (!open) return;
-    const nextTabId = tabId ?? "";
+    const nextTabId = tabId ?? '';
     if (lastWorkspaceTabIdRef.current === nextTabId) return;
     lastWorkspaceTabIdRef.current = nextTabId;
     workspaceChangesRequestIdRef.current += 1;
@@ -456,7 +483,7 @@ export function WorkspacePanel({
     dismissedChangeRevealRequestIdRef.current = null;
     lastChangeListRequestIdRef.current = null;
     dismissedChangeListRequestIdRef.current = null;
-    if (viewMode === "changed") {
+    if (viewMode === 'changed') {
       setSelectedPath(null);
       setOpenTabs([]);
       setPreview(null);

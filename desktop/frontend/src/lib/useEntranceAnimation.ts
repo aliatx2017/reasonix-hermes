@@ -1,6 +1,6 @@
-import { useEffect, useRef } from "react";
-import gsap from "gsap";
-import { DUR_SLOW, EASE_OUT, prefersReducedMotion } from "./gsapAnimations";
+import { useEffect, useRef } from 'react';
+import gsap from 'gsap';
+import { DUR_SLOW, EASE_OUT, prefersReducedMotion } from './gsapAnimations';
 
 // Animates each data-entrance element in once. First mount (and every
 // resetKey change) pre-seeds the seen set so restored history never animates;
@@ -8,7 +8,7 @@ import { DUR_SLOW, EASE_OUT, prefersReducedMotion } from "./gsapAnimations";
 export function useEntranceAnimation<T extends HTMLElement>(
   resetKey?: unknown,
   deps?: unknown,
-  selector = "[data-entrance]",
+  selector = '[data-entrance]',
 ) {
   const ref = useRef<T | null>(null);
   const seen = useRef(new Set<string>());
@@ -36,7 +36,7 @@ export function useEntranceAnimation<T extends HTMLElement>(
 
     const entries: HTMLElement[] = [];
     container.querySelectorAll(selector).forEach((el) => {
-      const id = el.getAttribute("data-entrance");
+      const id = el.getAttribute('data-entrance');
       if (id && !seen.current.has(id)) {
         seen.current.add(id);
         // First run: just record IDs, don't animate history items.
@@ -54,7 +54,7 @@ export function useEntranceAnimation<T extends HTMLElement>(
 
     const reduced = prefersReducedMotion();
     if (reduced) {
-      gsap.set(entries, { opacity: 1, clearProps: "transform" });
+      gsap.set(entries, { opacity: 1, clearProps: 'transform' });
       return;
     }
 
@@ -71,7 +71,7 @@ export function useEntranceAnimation<T extends HTMLElement>(
           duration: DUR_SLOW,
           ease: EASE_OUT,
           stagger: itemsStagger(entries.length),
-          clearProps: "transform",
+          clearProps: 'transform',
         },
       );
     }, 16);

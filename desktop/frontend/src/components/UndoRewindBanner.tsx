@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useT } from "../lib/i18n";
+import { useState } from 'react';
+import { useT } from '../lib/i18n';
 
 export interface UndoRewindMeta {
   /** How many conversation turns were lost. */
@@ -17,15 +17,21 @@ export function UndoRewindBanner({ meta }: { meta: UndoRewindMeta }) {
   const [confirm, setConfirm] = useState(false);
 
   const parts: string[] = [];
-  if (meta.turns > 0) parts.push(t("undoRewind.turns", { n: meta.turns }));
+  if (meta.turns > 0) parts.push(t('undoRewind.turns', { n: meta.turns }));
   if (meta.filesRestored.length > 0)
-    parts.push(t("undoRewind.filesRestored", { n: meta.filesRestored.length }));
+    parts.push(t('undoRewind.filesRestored', { n: meta.filesRestored.length }));
   if (meta.filesRemoved.length > 0)
-    parts.push(t("undoRewind.filesRemoved", { n: meta.filesRemoved.length }));
-  const summary = parts.join(" · ");
+    parts.push(t('undoRewind.filesRemoved', { n: meta.filesRemoved.length }));
+  const summary = parts.join(' · ');
 
   const files = [...new Set([...meta.filesRestored, ...meta.filesRemoved])];
-  const fileList = files.length > 0 ? files.slice(0, 3).map((f) => f.split(/[/\\]/).pop() || f).join(", ") + (files.length > 3 ? ` +${files.length - 3}` : "") : "";
+  const fileList =
+    files.length > 0
+      ? files
+          .slice(0, 3)
+          .map((f) => f.split(/[/\\]/).pop() || f)
+          .join(', ') + (files.length > 3 ? ` +${files.length - 3}` : '')
+      : '';
 
   return (
     <div className="undo-rewind">
@@ -35,7 +41,7 @@ export function UndoRewindBanner({ meta }: { meta: UndoRewindMeta }) {
       </div>
       <button
         type="button"
-        className={`undo-rewind__btn${confirm ? " undo-rewind__btn--confirm" : ""}`}
+        className={`undo-rewind__btn${confirm ? ' undo-rewind__btn--confirm' : ''}`}
         onClick={() => {
           if (confirm) {
             meta.onUndo();
@@ -45,7 +51,7 @@ export function UndoRewindBanner({ meta }: { meta: UndoRewindMeta }) {
           }
         }}
       >
-        {confirm ? t("undoRewind.confirm") : t("undoRewind.undo")}
+        {confirm ? t('undoRewind.confirm') : t('undoRewind.undo')}
       </button>
     </div>
   );

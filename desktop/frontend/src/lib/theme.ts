@@ -16,10 +16,18 @@ import {
 
 import { app } from './bridge';
 
-export type Theme = "auto" | "light" | "dark";
-export type ResolvedTheme = Exclude<Theme, "auto">;
+export type Theme = 'auto' | 'light' | 'dark';
+export type ResolvedTheme = Exclude<Theme, 'auto'>;
 
-export const THEME_STYLES = ['graphite', 'aurora', 'slate', 'carbon', 'nocturne', 'amber', 'hermes'] as const;
+export const THEME_STYLES = [
+  'graphite',
+  'aurora',
+  'slate',
+  'carbon',
+  'nocturne',
+  'amber',
+  'hermes',
+] as const;
 
 export type ThemeStyle = (typeof THEME_STYLES)[number];
 
@@ -34,12 +42,12 @@ const LEGACY_STYLE_MAP: Record<string, ThemeStyle> = {
   glacier: 'slate',
 };
 
-const DEFAULT_THEME_STYLE: ThemeStyle = "graphite";
-const DEFAULT_THEME: Theme = "auto";
+const DEFAULT_THEME_STYLE: ThemeStyle = 'graphite';
+const DEFAULT_THEME: Theme = 'auto';
 
-const THEME_KEY = "reasonix-theme";
-const STYLE_KEY = "reasonix-theme-style";
-const AUTO_THEME_MEDIA_QUERY = "(prefers-color-scheme: light)";
+const THEME_KEY = 'reasonix-theme';
+const STYLE_KEY = 'reasonix-theme-style';
+const AUTO_THEME_MEDIA_QUERY = '(prefers-color-scheme: light)';
 let currentTheme: Theme = DEFAULT_THEME;
 let currentThemeStyle: ThemeStyle = DEFAULT_THEME_STYLE;
 let autoThemeMediaQuery: MediaQueryList | null = null;
@@ -74,9 +82,10 @@ export function getTheme(): Theme {
 }
 
 export function getResolvedTheme(theme: Theme = getTheme()): ResolvedTheme {
-  if (theme === "light" || theme === "dark") return theme;
-  if (typeof window !== "undefined" && window.matchMedia?.(AUTO_THEME_MEDIA_QUERY).matches) return "light";
-  return "dark";
+  if (theme === 'light' || theme === 'dark') return theme;
+  if (typeof window !== 'undefined' && window.matchMedia?.(AUTO_THEME_MEDIA_QUERY).matches)
+    return 'light';
+  return 'dark';
 }
 
 // Direction is orthogonal to theme, but keep this helper so callers that
@@ -127,14 +136,18 @@ export function applyTheme(
 
   // Update tray icon to match theme.
   if (typeof window !== 'undefined' && window.runtime) {
-    try { app.UpdateTrayIcon(); } catch { /* tray may not be ready */ }
+    try {
+      app.UpdateTrayIcon();
+    } catch {
+      /* tray may not be ready */
+    }
   }
 
   // Sync the native window theme (title bar, traffic lights) to match.
-  const runtime = typeof window !== "undefined" ? window.runtime : undefined;
+  const runtime = typeof window !== 'undefined' ? window.runtime : undefined;
   if (runtime) {
     syncAutoThemeBackgroundListener(theme);
-    if (theme === "auto") {
+    if (theme === 'auto') {
       WindowSetSystemDefaultTheme();
     } else if (theme === 'light') {
       WindowSetLightTheme();
@@ -148,14 +161,14 @@ export function applyTheme(
 }
 
 function syncAutoThemeBackgroundListener(theme: Theme): void {
-  if (theme !== "auto") {
+  if (theme !== 'auto') {
     clearAutoThemeBackgroundListener();
     return;
   }
-  if (autoThemeMediaQuery || typeof window === "undefined" || !window.matchMedia) return;
+  if (autoThemeMediaQuery || typeof window === 'undefined' || !window.matchMedia) return;
   autoThemeMediaQuery = window.matchMedia(AUTO_THEME_MEDIA_QUERY);
-  if (typeof autoThemeMediaQuery.addEventListener === "function") {
-    autoThemeMediaQuery.addEventListener("change", syncAutoThemeBackground);
+  if (typeof autoThemeMediaQuery.addEventListener === 'function') {
+    autoThemeMediaQuery.addEventListener('change', syncAutoThemeBackground);
   } else {
     autoThemeMediaQuery.addListener(syncAutoThemeBackground);
   }
@@ -163,8 +176,8 @@ function syncAutoThemeBackgroundListener(theme: Theme): void {
 
 function clearAutoThemeBackgroundListener(): void {
   if (!autoThemeMediaQuery) return;
-  if (typeof autoThemeMediaQuery.removeEventListener === "function") {
-    autoThemeMediaQuery.removeEventListener("change", syncAutoThemeBackground);
+  if (typeof autoThemeMediaQuery.removeEventListener === 'function') {
+    autoThemeMediaQuery.removeEventListener('change', syncAutoThemeBackground);
   } else {
     autoThemeMediaQuery.removeListener(syncAutoThemeBackground);
   }
@@ -172,13 +185,18 @@ function clearAutoThemeBackgroundListener(): void {
 }
 
 function syncAutoThemeBackground(): void {
-  if (currentTheme === "auto" && typeof window !== "undefined" && window.runtime) {
-    syncNativeWindowBackground("auto");
+  if (currentTheme === 'auto' && typeof window !== 'undefined' && window.runtime) {
+    syncNativeWindowBackground('auto');
   }
 }
 
-export function readLegacyThemePreference(): { theme: Theme; style: ThemeStyle; hasValue: boolean } {
-  if (typeof localStorage === "undefined") return { theme: DEFAULT_THEME, style: DEFAULT_THEME_STYLE, hasValue: false };
+export function readLegacyThemePreference(): {
+  theme: Theme;
+  style: ThemeStyle;
+  hasValue: boolean;
+} {
+  if (typeof localStorage === 'undefined')
+    return { theme: DEFAULT_THEME, style: DEFAULT_THEME_STYLE, hasValue: false };
   let rawTheme: string | null = null;
   let rawStyle: string | null = null;
   try {
@@ -219,14 +237,19 @@ export function initTheme(): void {
 }
 
 function syncNativeWindowBackground(theme: Theme): void {
-  const runtime = typeof window !== "undefined" ? window.runtime : undefined;
+  const runtime = typeof window !== 'undefined' ? window.runtime : undefined;
   if (!runtime?.WindowSetBackgroundColour) return;
   const resolved = getResolvedTheme(theme);
   const style = getThemeStyle(theme);
   if (style === 'hermes') {
     // Hermes accent: gold-tinted shell (dark: #1e1c13, light: #faf7ef).
-    WindowSetBackgroundColour(resolved === 'light' ? 250 : 30, resolved === 'light' ? 247 : 28, resolved === 'light' ? 239 : 19, 255);
-  } else if (resolved === "light") {
+    WindowSetBackgroundColour(
+      resolved === 'light' ? 250 : 30,
+      resolved === 'light' ? 247 : 28,
+      resolved === 'light' ? 239 : 19,
+      255,
+    );
+  } else if (resolved === 'light') {
     // Light shell: matches graphite --bg (#f4f3ef).
     runtime.WindowSetBackgroundColour(244, 243, 239, 255);
   } else {

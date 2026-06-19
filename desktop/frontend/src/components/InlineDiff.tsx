@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
-import { Check, Copy, ChevronDown, ChevronRight } from "lucide-react";
-import { diffLines, type DiffRow } from "../lib/diff";
+import { useMemo, useState } from 'react';
+import { Check, Copy, ChevronDown, ChevronRight } from 'lucide-react';
+import { diffLines, type DiffRow } from '../lib/diff';
 
 // InlineDiff is a compact, expandable diff view for tool results that
 // showed a before/after pair (Edit, MultiEdit, sed-style bash). It
@@ -33,11 +33,13 @@ export function InlineDiff({
   const visible = open ? rows : rows.slice(0, maxRows);
   const hidden = rows.length - visible.length;
 
-  const addCount = rows.filter((r) => r.type === "add").length;
-  const delCount = rows.filter((r) => r.type === "del").length;
+  const addCount = rows.filter((r) => r.type === 'add').length;
+  const delCount = rows.filter((r) => r.type === 'del').length;
 
   const copy = async () => {
-    const text = rows.map((r) => (r.type === "add" ? "+ " : r.type === "del" ? "- " : "  ") + r.text).join("\n");
+    const text = rows
+      .map((r) => (r.type === 'add' ? '+ ' : r.type === 'del' ? '- ' : '  ') + r.text)
+      .join('\n');
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
@@ -51,7 +53,7 @@ export function InlineDiff({
     <div className="inline-diff">
       <header className="inline-diff__head">
         <span className="inline-diff__file" title={filename}>
-          {filename ?? "diff"}
+          {filename ?? 'diff'}
         </span>
         <span className="inline-diff__stats">
           <span className="inline-diff__add">+{addCount}</span>
@@ -60,7 +62,7 @@ export function InlineDiff({
         <span className="inline-diff__spacer" />
         <button type="button" className="inline-diff__btn" onClick={copy} title="Copy diff">
           {copied ? <Check size={11} /> : <Copy size={11} />}
-          <span>{copied ? "Copied" : "Copy"}</span>
+          <span>{copied ? 'Copied' : 'Copy'}</span>
         </button>
       </header>
       <pre className="inline-diff__body">
@@ -68,11 +70,13 @@ export function InlineDiff({
           {visible.map((r, i) => (
             <span key={i} className={`inline-diff__row inline-diff__row--${r.type}`}>
               <span className="inline-diff__gutter">
-                <span className="inline-diff__line">{r.oldLine ?? ""}</span>
-                <span className="inline-diff__line">{r.newLine ?? ""}</span>
-                <span className="inline-diff__sign">{r.type === "add" ? "+" : r.type === "del" ? "−" : " "}</span>
+                <span className="inline-diff__line">{r.oldLine ?? ''}</span>
+                <span className="inline-diff__line">{r.newLine ?? ''}</span>
+                <span className="inline-diff__sign">
+                  {r.type === 'add' ? '+' : r.type === 'del' ? '−' : ' '}
+                </span>
               </span>
-              <span className="inline-diff__text">{r.text || " "}</span>
+              <span className="inline-diff__text">{r.text || ' '}</span>
             </span>
           ))}
         </span>

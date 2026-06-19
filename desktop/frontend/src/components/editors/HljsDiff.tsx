@@ -9,7 +9,7 @@ import type { DiffProps } from '../DiffView';
 const SIGN: Record<'ctx' | 'add' | 'del', string> = { ctx: ' ', add: '+', del: '-' };
 
 function lineNo(n?: number): string {
-  return typeof n === "number" ? String(n) : "";
+  return typeof n === 'number' ? String(n) : '';
 }
 
 export default function HljsDiff({ original, modified, language, maxHeight }: DiffProps) {

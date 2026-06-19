@@ -74,29 +74,42 @@ export function replaceAttachmentRefsForDisplay(text: string): string {
 }
 
 export function restoreAttachmentRefsForSubmit(text: string): string {
-  return text.replace(namedAttachmentRefRe, (_full, lead: string, _label: string, token: string) => {
-    const { core, suffix } = splitTrailingPunctuation(token);
-    if (!core || !isDisplayReference(core)) return _full;
-    return `${lead}@${core}${suffix}`;
-  });
+  return text.replace(
+    namedAttachmentRefRe,
+    (_full, lead: string, _label: string, token: string) => {
+      const { core, suffix } = splitTrailingPunctuation(token);
+      if (!core || !isDisplayReference(core)) return _full;
+      return `${lead}@${core}${suffix}`;
+    },
+  );
 }
 
 function displayRefName(name: string): string {
-  return name.replace(/[\[\]\(\)\r\n]+/g, " ").replace(/\s+/g, " ").trim() || "attachment";
+  return (
+    name
+      .replace(/[\[\]\(\)\r\n]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim() || 'attachment'
+  );
 }
 
-export function formatAttachmentRefForDisplay(attachment: Pick<DisplayAttachment, "path" | "name" | "source">): string {
-  if (attachment.source === "attachment") {
-    return `@[${displayRefName(attachment.name || baseName(attachment.path) || "attachment")}](${attachment.path})`;
+export function formatAttachmentRefForDisplay(
+  attachment: Pick<DisplayAttachment, 'path' | 'name' | 'source'>,
+): string {
+  if (attachment.source === 'attachment') {
+    return `@[${displayRefName(attachment.name || baseName(attachment.path) || 'attachment')}](${attachment.path})`;
   }
   return `@${attachment.path}`;
 }
 
-export function formatAttachmentRefForSubmit(attachment: Pick<DisplayAttachment, "path">): string {
+export function formatAttachmentRefForSubmit(attachment: Pick<DisplayAttachment, 'path'>): string {
   return `@${attachment.path}`;
 }
 
-export function parseAttachmentRefsForDisplay(text: string): { text: string; attachments: DisplayAttachment[] } {
+export function parseAttachmentRefsForDisplay(text: string): {
+  text: string;
+  attachments: DisplayAttachment[];
+} {
   const attachments: DisplayAttachment[] = [];
   const cleaned = text
     .replace(namedAttachmentRefRe, (_full, lead: string, label: string, token: string) => {

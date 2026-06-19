@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useRef } from "react";
-import gsap from "gsap";
-import { DUR_FAST, EASE_OUT, prefersReducedMotion } from "./gsapAnimations";
+import { useCallback, useEffect, useRef } from 'react';
+import gsap from 'gsap';
+import { DUR_FAST, EASE_OUT, prefersReducedMotion } from './gsapAnimations';
 
 /**
  * useScrollManager — GSAP-driven auto-scroll for the transcript container.
@@ -71,10 +71,10 @@ export function useScrollManager() {
       if (!stick.current) return;
       const reduced = prefersReducedMotion();
       gsap.to(el, {
-        scrollTo: { y: "max" },
+        scrollTo: { y: 'max' },
         duration: reduced ? 0.001 : DUR_FAST,
-        ease: "none",
-        overwrite: "auto",
+        ease: 'none',
+        overwrite: 'auto',
       });
     });
   }, []);

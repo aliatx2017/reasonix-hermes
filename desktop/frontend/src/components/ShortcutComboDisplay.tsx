@@ -1,28 +1,28 @@
-import { Fragment } from "react";
+import { Fragment } from 'react';
 import {
   formatShortcutCombo,
   formatShortcutComboParts,
   type ShortcutCombo,
   type ShortcutPlatform,
-} from "../lib/keyboardShortcuts";
+} from '../lib/keyboardShortcuts';
 
 export function ShortcutComboDisplay({
   combo,
   platform,
-  as = "span",
+  as = 'span',
   className,
 }: {
   combo: ShortcutCombo;
   platform: ShortcutPlatform;
-  as?: "span" | "kbd";
+  as?: 'span' | 'kbd';
   className?: string;
 }) {
   const Tag = as;
   const label = formatShortcutCombo(combo, platform);
   const parts = formatShortcutComboParts(combo, platform);
-  const separator = platform === "darwin" ? null : "+";
+  const separator = platform === 'darwin' ? null : '+';
   return (
-    <Tag className={`shortcut-combo${className ? ` ${className}` : ""}`} aria-label={label}>
+    <Tag className={`shortcut-combo${className ? ` ${className}` : ''}`} aria-label={label}>
       {parts.map((part, index) => (
         <Fragment key={`${part}-${index}`}>
           {index > 0 && separator && (

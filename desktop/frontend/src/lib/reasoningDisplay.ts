@@ -30,7 +30,7 @@ export function displayReasoningText(
   if (maxLines > 0) {
     const lines = text.split(/\r?\n/);
     if (lines.length > maxLines) {
-      text = lines.slice(-maxLines).join("\n");
+      text = lines.slice(-maxLines).join('\n');
       truncated = true;
     }
   }

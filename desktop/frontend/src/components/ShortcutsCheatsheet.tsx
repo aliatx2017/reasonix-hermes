@@ -1,21 +1,21 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from 'react';
 import {
   resolvedShortcutCombo,
   shortcutDefinitions,
   type ShortcutPlatform,
   type ShortcutSection,
-} from "../lib/keyboardShortcuts";
-import type { DictKey, Translator } from "../lib/i18n";
-import { ModalCloseButton } from "./ModalCloseButton";
-import { ShortcutComboDisplay } from "./ShortcutComboDisplay";
+} from '../lib/keyboardShortcuts';
+import type { DictKey, Translator } from '../lib/i18n';
+import { ModalCloseButton } from './ModalCloseButton';
+import { ShortcutComboDisplay } from './ShortcutComboDisplay';
 
-const SECTION_ORDER: ShortcutSection[] = ["global", "session", "view", "tools", "help"];
+const SECTION_ORDER: ShortcutSection[] = ['global', 'session', 'view', 'tools', 'help'];
 const SECTION_LABEL_KEYS: Record<ShortcutSection, DictKey> = {
-  global: "shortcuts.section.global",
-  session: "shortcuts.section.session",
-  view: "shortcuts.section.view",
-  tools: "shortcuts.section.tools",
-  help: "shortcuts.section.help",
+  global: 'shortcuts.section.global',
+  session: 'shortcuts.section.session',
+  view: 'shortcuts.section.view',
+  tools: 'shortcuts.section.tools',
+  help: 'shortcuts.section.help',
 };
 
 export function ShortcutsCheatsheet({
@@ -40,7 +40,8 @@ export function ShortcutsCheatsheet({
 
   useEffect(() => {
     if (open) {
-      restoreFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      restoreFocusRef.current =
+        document.activeElement instanceof HTMLElement ? document.activeElement : null;
       requestAnimationFrame(() => closeRef.current?.focus());
       return;
     }
@@ -51,18 +52,22 @@ export function ShortcutsCheatsheet({
   useEffect(() => {
     if (!open) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
+      if (event.key !== 'Escape') return;
       event.preventDefault();
       onClose();
     };
-    document.addEventListener("keydown", onKey, { capture: true });
-    return () => document.removeEventListener("keydown", onKey, { capture: true });
+    document.addEventListener('keydown', onKey, { capture: true });
+    return () => document.removeEventListener('keydown', onKey, { capture: true });
   }, [open, onClose]);
 
   if (!open) return null;
 
   return (
-    <div className="drawer-backdrop shortcuts-cheatsheet-backdrop" onClick={onClose} role="presentation">
+    <div
+      className="drawer-backdrop shortcuts-cheatsheet-backdrop"
+      onClick={onClose}
+      role="presentation"
+    >
       <aside
         className="drawer drawer--wide shortcuts-cheatsheet"
         role="dialog"
@@ -73,11 +78,11 @@ export function ShortcutsCheatsheet({
         <header className="drawer__head">
           <div>
             <div id="shortcuts-cheatsheet-title" className="drawer__title">
-              {t("shortcuts.cheatsheetTitle")}
+              {t('shortcuts.cheatsheetTitle')}
             </div>
-            <div className="drawer__summary">{t("shortcuts.cheatsheetSummary")}</div>
+            <div className="drawer__summary">{t('shortcuts.cheatsheetSummary')}</div>
           </div>
-          <ModalCloseButton ref={closeRef} label={t("common.close")} onClick={onClose} />
+          <ModalCloseButton ref={closeRef} label={t('common.close')} onClick={onClose} />
         </header>
         <div className="drawer__body shortcuts-cheatsheet__body">
           {groups.map((group) => (
@@ -93,7 +98,9 @@ export function ShortcutsCheatsheet({
                     />
                     <div>
                       <strong>{t(definition.labelKey)}</strong>
-                      <span className="shortcuts-cheatsheet__desc">{t(definition.descriptionKey)}</span>
+                      <span className="shortcuts-cheatsheet__desc">
+                        {t(definition.descriptionKey)}
+                      </span>
                     </div>
                   </div>
                 ))}

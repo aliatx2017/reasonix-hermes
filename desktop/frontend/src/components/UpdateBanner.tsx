@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
-import { useT } from "../lib/i18n";
-import { useUpdater } from "../lib/useUpdater";
+import { useEffect, useState } from 'react';
+import { useT } from '../lib/i18n';
+import { useUpdater } from '../lib/useUpdater';
 
 const MB = 1024 * 1024;
 const mb = (n: number) => (n / MB).toFixed(1);
@@ -24,56 +24,62 @@ export function UpdateBanner({ enabled = true }: { enabled?: boolean }) {
   if (!enabled) return null;
 
   switch (status.kind) {
-    case "available": {
+    case 'available': {
       const info = status.info;
       if (info.latest === dismissed) return null;
       return (
         <div className="banner banner--update">
-          <span className="banner__msg">{t("updater.available", { v: info.latest })}</span>
-          {!info.canSelfUpdate && <span className="banner__hint">{info.manualReason || t("updater.macHint")}</span>}
+          <span className="banner__msg">{t('updater.available', { v: info.latest })}</span>
+          {!info.canSelfUpdate && (
+            <span className="banner__hint">{info.manualReason || t('updater.macHint')}</span>
+          )}
           <span className="banner__spacer" />
           <button className="btn btn--small btn--primary" onClick={() => download(info)}>
-            {info.canSelfUpdate ? t("updater.downloadUpdate") : t("updater.goToDownload")}
+            {info.canSelfUpdate ? t('updater.downloadUpdate') : t('updater.goToDownload')}
           </button>
           <button className="btn btn--small" onClick={() => setDismissed(info.latest)}>
-            {t("updater.dismiss")}
+            {t('updater.dismiss')}
           </button>
         </div>
       );
     }
-    case "downloading": {
+    case 'downloading': {
       const pct = status.total > 0 ? Math.round((status.received / status.total) * 100) : 0;
       return (
         <div className="banner banner--update">
           <span className="banner__msg">
-            {t("updater.downloading", { done: mb(status.received), total: mb(status.total), pct })}
+            {t('updater.downloading', { done: mb(status.received), total: mb(status.total), pct })}
           </span>
           <span className="banner__spacer" />
-          <progress className="banner__progress" value={status.received} max={status.total || undefined} />
+          <progress
+            className="banner__progress"
+            value={status.received}
+            max={status.total || undefined}
+          />
         </div>
       );
     }
-    case "verifying":
-      return <div className="banner banner--update">{t("updater.verifying")}</div>;
-    case "downloaded":
+    case 'verifying':
+      return <div className="banner banner--update">{t('updater.verifying')}</div>;
+    case 'downloaded':
       return (
         <div className="banner banner--update">
-          <span className="banner__msg">{t("updater.downloaded", { v: status.info.latest })}</span>
+          <span className="banner__msg">{t('updater.downloaded', { v: status.info.latest })}</span>
           <span className="banner__spacer" />
           <button className="btn btn--small btn--primary" onClick={install}>
-            {t("updater.restartInstall")}
+            {t('updater.restartInstall')}
           </button>
           <button className="btn btn--small" onClick={reset}>
-            {t("updater.dismiss")}
+            {t('updater.dismiss')}
           </button>
         </div>
       );
-    case "installing":
-      return <div className="banner banner--update">{t("updater.installing")}</div>;
-    case "done":
-      return <div className="banner banner--update">{t("updater.done")}</div>;
-    case "error":
-      const failedMessage = t("updater.failed", { msg: status.message });
+    case 'installing':
+      return <div className="banner banner--update">{t('updater.installing')}</div>;
+    case 'done':
+      return <div className="banner banner--update">{t('updater.done')}</div>;
+    case 'error':
+      const failedMessage = t('updater.failed', { msg: status.message });
       return (
         <div className="banner banner--update banner--error banner--actionable">
           <span className="banner__msg" title={failedMessage}>
@@ -81,10 +87,10 @@ export function UpdateBanner({ enabled = true }: { enabled?: boolean }) {
           </span>
           <span className="banner__spacer" />
           <button className="btn btn--small btn--primary" onClick={() => void check()}>
-            {t("updater.retry")}
+            {t('updater.retry')}
           </button>
           <button className="btn btn--small" onClick={reset}>
-            {t("updater.dismiss")}
+            {t('updater.dismiss')}
           </button>
         </div>
       );

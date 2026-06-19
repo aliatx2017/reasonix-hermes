@@ -1,29 +1,30 @@
-import { FileDown, FileJson } from "lucide-react";
-import { useState } from "react";
-import { app } from "../../lib/bridge";
+import { FileDown, FileJson } from 'lucide-react';
+import { useState } from 'react';
+import { app } from '../../lib/bridge';
 
 export function PublishWidget() {
-  const [loading, setLoading] = useState<"html" | "json" | null>(null);
+  const [loading, setLoading] = useState<'html' | 'json' | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
 
-  const handleExport = async (format: "html" | "json") => {
+  const handleExport = async (format: 'html' | 'json') => {
     setLoading(format);
     try {
-      const content = format === "html"
-        ? await app.PublishSessionHTML()
-        : await app.PublishSessionJSON();
+      const content =
+        format === 'html' ? await app.PublishSessionHTML() : await app.PublishSessionJSON();
       if (content) {
         setPreview(content);
         // Copy to clipboard
         try {
           await navigator.clipboard.writeText(content);
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
         // Also trigger download
         const blob = new Blob([content], {
-          type: format === "html" ? "text/html" : "application/json",
+          type: format === 'html' ? 'text/html' : 'application/json',
         });
         const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
+        const a = document.createElement('a');
         a.href = url;
         a.download = `session-export.${format}`;
         a.click();
@@ -37,33 +38,40 @@ export function PublishWidget() {
   };
 
   return (
-    <div className="hermes-widget" style={{ padding: "8px 0" }}>
-      <h4 style={{ fontSize: 13, fontWeight: 600, margin: "0 0 8px", color: "var(--color-text-muted)" }}>
-        <FileDown size={13} style={{ marginRight: 4, verticalAlign: "middle" }} />
+    <div className="hermes-widget" style={{ padding: '8px 0' }}>
+      <h4
+        style={{
+          fontSize: 13,
+          fontWeight: 600,
+          margin: '0 0 8px',
+          color: 'var(--color-text-muted)',
+        }}
+      >
+        <FileDown size={13} style={{ marginRight: 4, verticalAlign: 'middle' }} />
         Export Session
       </h4>
-      <p style={{ fontSize: 11, color: "var(--color-text-muted)", marginBottom: 8 }}>
-        Export the current session transcript as a self-contained HTML document or
-        JSON data file. The HTML includes inline CSS and syntax-highlighted code blocks.
+      <p style={{ fontSize: 11, color: 'var(--color-text-muted)', marginBottom: 8 }}>
+        Export the current session transcript as a self-contained HTML document or JSON data file.
+        The HTML includes inline CSS and syntax-highlighted code blocks.
       </p>
-      <div style={{ display: "flex", gap: 8 }}>
+      <div style={{ display: 'flex', gap: 8 }}>
         <button
           className="btn btn-sm"
-          onClick={() => handleExport("html")}
+          onClick={() => handleExport('html')}
           disabled={loading !== null}
-          style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}
+          style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}
         >
           <FileDown size={14} />
-          {loading === "html" ? "Exporting..." : "Export HTML"}
+          {loading === 'html' ? 'Exporting...' : 'Export HTML'}
         </button>
         <button
           className="btn btn-sm"
-          onClick={() => handleExport("json")}
+          onClick={() => handleExport('json')}
           disabled={loading !== null}
-          style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}
+          style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}
         >
           <FileJson size={14} />
-          {loading === "json" ? "Exporting..." : "Export JSON"}
+          {loading === 'json' ? 'Exporting...' : 'Export JSON'}
         </button>
       </div>
       {preview && (
@@ -72,9 +80,9 @@ export function PublishWidget() {
             marginTop: 8,
             padding: 8,
             borderRadius: 6,
-            background: "var(--color-bg-secondary)",
+            background: 'var(--color-bg-secondary)',
             fontSize: 11,
-            color: "var(--color-success, #22c55e)",
+            color: 'var(--color-success, #22c55e)',
           }}
         >
           Exported and copied to clipboard ✓

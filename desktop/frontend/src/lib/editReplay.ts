@@ -1,4 +1,4 @@
-import { restoreAttachmentRefsForSubmit } from "./attachmentDisplay";
+import { restoreAttachmentRefsForSubmit } from './attachmentDisplay';
 
 export function replaySubmitText(
   originalSubmitText: string | undefined,
@@ -6,7 +6,7 @@ export function replaySubmitText(
   nextDisplayText: string,
   fallbackSubmitText: string,
 ): string {
-  const originalSubmit = (originalSubmitText ?? "").trim();
+  const originalSubmit = (originalSubmitText ?? '').trim();
   const originalDisplay = originalDisplayText.trim();
   const nextDisplay = nextDisplayText.trim();
   const fallbackSubmit = fallbackSubmitText.trim();

@@ -341,15 +341,24 @@
 }
 
 @keyframes heartbeat-keyframe-pulse {
-  0%, 100% { opacity: 0.3; transform: scale(1); }
-  50% { opacity: 0.7; transform: scale(1.08); }
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.08);
+  }
 }
 .heartbeat-pulse {
   animation: heartbeat-keyframe-pulse 1.2s ease-in-out infinite;
 }
 
 @keyframes heartbeat-keyframe-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 .heartbeat-spin {
   animation: heartbeat-keyframe-spin 0.8s linear infinite;
@@ -368,7 +377,7 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 4px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 .heartbeat-filter-menu__option {
   display: flex;
@@ -385,7 +394,7 @@
   width: 100%;
 }
 .heartbeat-filter-menu__option:hover {
-  background: var(--accent-soft, rgba(128,128,128,0.1));
+  background: var(--accent-soft, rgba(128, 128, 128, 0.1));
 }
 .heartbeat-filter-menu__option--selected {
   color: var(--accent);

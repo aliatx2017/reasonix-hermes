@@ -1,7 +1,7 @@
 // Run: tsx src/__tests__/send-failed.test.ts
 
-import { initialState, reducer, replayPendingPromptsForActiveTab } from "../lib/useController";
-import type { WireEvent } from "../lib/types";
+import { initialState, reducer, replayPendingPromptsForActiveTab } from '../lib/useController';
+import type { WireEvent } from '../lib/types';
 
 let passed = 0;
 let failed = 0;
@@ -30,23 +30,33 @@ eq(
 eq(sent.running, true, 'submit marks the turn running');
 eq(sent.pendingUser, 'hello', 'submit tracks the optimistic bubble');
 
-const hiddenSubmit = reducer({ ...initialState }, { type: "user", text: "display prompt", submitText: "hidden context\ndisplay prompt", seq: 0 });
+const hiddenSubmit = reducer(
+  { ...initialState },
+  { type: 'user', text: 'display prompt', submitText: 'hidden context\ndisplay prompt', seq: 0 },
+);
 eq(
-  hiddenSubmit.items[0].kind === "user" && hiddenSubmit.items[0].submitText,
-  "hidden context\ndisplay prompt",
-  "optimistic user bubble preserves submit-only context",
+  hiddenSubmit.items[0].kind === 'user' && hiddenSubmit.items[0].submitText,
+  'hidden context\ndisplay prompt',
+  'optimistic user bubble preserves submit-only context',
 );
 
-const hiddenSubmit = reducer({ ...initialState }, { type: "user", text: "display prompt", submitText: "hidden context\ndisplay prompt", seq: 0 });
+const hiddenSubmit = reducer(
+  { ...initialState },
+  { type: 'user', text: 'display prompt', submitText: 'hidden context\ndisplay prompt', seq: 0 },
+);
 eq(
-  hiddenSubmit.items[0].kind === "user" && hiddenSubmit.items[0].submitText,
-  "hidden context\ndisplay prompt",
-  "optimistic user bubble preserves submit-only context",
+  hiddenSubmit.items[0].kind === 'user' && hiddenSubmit.items[0].submitText,
+  'hidden context\ndisplay prompt',
+  'optimistic user bubble preserves submit-only context',
 );
 
-const confirmed = reducer(sent, { type: "event", e: { kind: "text", text: "hi" } as WireEvent });
-eq(confirmed.items.filter((it) => it.kind === "user").length, 1, "first backend event confirms without duplicating");
-eq(confirmed.pendingUser, undefined, "confirmation clears the pending marker");
+const confirmed = reducer(sent, { type: 'event', e: { kind: 'text', text: 'hi' } as WireEvent });
+eq(
+  confirmed.items.filter((it) => it.kind === 'user').length,
+  1,
+  'first backend event confirms without duplicating',
+);
+eq(confirmed.pendingUser, undefined, 'confirmation clears the pending marker');
 
 const failedState = reducer(sent, {
   type: 'send_failed',
@@ -76,20 +86,20 @@ replayPendingPromptsForActiveTab(undefined, () => {
   replayCalls += 1;
   return Promise.resolve();
 });
-eq(replayCalls, 0, "no active tab does not replay pending prompts");
+eq(replayCalls, 0, 'no active tab does not replay pending prompts');
 
-replayPendingPromptsForActiveTab("tab-a", () => {
+replayPendingPromptsForActiveTab('tab-a', () => {
   replayCalls += 1;
   return Promise.resolve();
 });
-eq(replayCalls, 1, "active tab switch replays pending prompts");
+eq(replayCalls, 1, 'active tab switch replays pending prompts');
 
-replayPendingPromptsForActiveTab("tab-b", () => {
+replayPendingPromptsForActiveTab('tab-b', () => {
   replayCalls += 1;
-  return Promise.reject(new Error("bridge unavailable"));
+  return Promise.reject(new Error('bridge unavailable'));
 });
 await new Promise((resolve) => setTimeout(resolve, 0));
-eq(replayCalls, 2, "replay bridge failures are swallowed by the tab-switch effect");
+eq(replayCalls, 2, 'replay bridge failures are swallowed by the tab-switch effect');
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

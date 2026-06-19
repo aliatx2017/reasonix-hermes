@@ -1,39 +1,54 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent, ReactNode } from "react";
-import { createPortal } from "react-dom";
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import type {
+  KeyboardEvent as ReactKeyboardEvent,
+  MouseEvent as ReactMouseEvent,
+  ReactNode,
+} from 'react';
+import { createPortal } from 'react-dom';
 
 export type ContextMenuPoint = { left: number; top: number };
 
 export type ContextMenuItem =
   | {
-      type?: "item";
+      type?: 'item';
       key: string;
       icon?: ReactNode;
       label: ReactNode;
       disabled?: boolean;
       danger?: boolean;
-      variant?: "section";
+      variant?: 'section';
       onSelect: () => void;
     }
   | {
-      type: "separator";
+      type: 'separator';
       key: string;
     };
 
 const EDGE_GAP = 8;
 
-function clampMenuPoint(left: number, top: number, width: number, height: number): ContextMenuPoint {
-  if (typeof window === "undefined") return { left, top };
+function clampMenuPoint(
+  left: number,
+  top: number,
+  width: number,
+  height: number,
+): ContextMenuPoint {
+  if (typeof window === 'undefined') return { left, top };
   return {
-    left: Math.min(Math.max(EDGE_GAP, left), Math.max(EDGE_GAP, window.innerWidth - width - EDGE_GAP)),
-    top: Math.min(Math.max(EDGE_GAP, top), Math.max(EDGE_GAP, window.innerHeight - height - EDGE_GAP)),
+    left: Math.min(
+      Math.max(EDGE_GAP, left),
+      Math.max(EDGE_GAP, window.innerWidth - width - EDGE_GAP),
+    ),
+    top: Math.min(
+      Math.max(EDGE_GAP, top),
+      Math.max(EDGE_GAP, window.innerHeight - height - EDGE_GAP),
+    ),
   };
 }
 
 export function contextMenuPointFromEvent(
   event: ReactMouseEvent<HTMLElement> | ReactKeyboardEvent<HTMLElement>,
 ): ContextMenuPoint {
-  if ("clientX" in event && event.clientX > 0 && event.clientY > 0) {
+  if ('clientX' in event && event.clientX > 0 && event.clientY > 0) {
     return { left: event.clientX, top: event.clientY };
   }
   const rect = event.currentTarget.getBoundingClientRect();
@@ -46,7 +61,7 @@ export function ContextMenu({
   items,
   onClose,
   minWidth = 180,
-  ariaLabel = "Context menu",
+  ariaLabel = 'Context menu',
 }: {
   open: boolean;
   point: ContextMenuPoint | null;
@@ -77,15 +92,15 @@ export function ContextMenu({
     };
     const close = () => onClose();
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === 'Escape') onClose();
     };
-    window.addEventListener("pointerdown", closeOnOutsidePointerDown, true);
-    window.addEventListener("resize", close);
-    window.addEventListener("keydown", closeOnEscape);
+    window.addEventListener('pointerdown', closeOnOutsidePointerDown, true);
+    window.addEventListener('resize', close);
+    window.addEventListener('keydown', closeOnEscape);
     return () => {
-      window.removeEventListener("pointerdown", closeOnOutsidePointerDown, true);
-      window.removeEventListener("resize", close);
-      window.removeEventListener("keydown", closeOnEscape);
+      window.removeEventListener('pointerdown', closeOnOutsidePointerDown, true);
+      window.removeEventListener('resize', close);
+      window.removeEventListener('keydown', closeOnEscape);
     };
   }, [open, onClose]);
 
@@ -109,7 +124,7 @@ export function ContextMenu({
       }}
     >
       {items.map((item) => {
-        if (item.type === "separator") {
+        if (item.type === 'separator') {
           return <div key={item.key} className="context-menu__separator" role="separator" />;
         }
         return (
@@ -118,7 +133,7 @@ export function ContextMenu({
             type="button"
             role="menuitem"
             disabled={item.disabled}
-            className={`context-menu__item${item.danger ? " context-menu__item--danger" : ""}${item.variant ? ` context-menu__item--${item.variant}` : ""}`}
+            className={`context-menu__item${item.danger ? ' context-menu__item--danger' : ''}${item.variant ? ` context-menu__item--${item.variant}` : ''}`}
             onClick={(event) => {
               event.stopPropagation();
               if (!item.disabled) item.onSelect();

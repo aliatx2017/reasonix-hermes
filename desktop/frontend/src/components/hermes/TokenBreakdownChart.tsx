@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
-import { BarChart3 } from "lucide-react";
-import { app } from "../../lib/bridge";
+import { useState, useEffect } from 'react';
+import { BarChart3 } from 'lucide-react';
+import { app } from '../../lib/bridge';
 
 interface TurnUsagePoint {
   turn: number;
@@ -27,22 +27,50 @@ export function TokenBreakdownChart() {
     try {
       const w = window as any;
       if (w.runtime?.EventsOn) {
-        const unsub = w.runtime.EventsOn("hermes:dashboard", (payload: HermesDashboardPayload) => {
+        const unsub = w.runtime.EventsOn('hermes:dashboard', (payload: HermesDashboardPayload) => {
           if (payload?.turnUsage) setPoints(payload.turnUsage);
         });
-        app.TurnUsageHistory().then(setPoints).catch(() => {});
-        return () => { try { unsub(); } catch { /* ignore */ } };
+        app
+          .TurnUsageHistory()
+          .then(setPoints)
+          .catch(() => {});
+        return () => {
+          try {
+            unsub();
+          } catch {
+            /* ignore */
+          }
+        };
       }
-    } catch { /* fall through */ }
+    } catch {
+      /* fall through */
+    }
 
-    app.TurnUsageHistory().then(setPoints).catch(() => {});
-    const id = setInterval(() => app.TurnUsageHistory().then(setPoints).catch(() => {}), 5000);
+    app
+      .TurnUsageHistory()
+      .then(setPoints)
+      .catch(() => {});
+    const id = setInterval(
+      () =>
+        app
+          .TurnUsageHistory()
+          .then(setPoints)
+          .catch(() => {}),
+      5000,
+    );
     return () => clearInterval(id);
   }, []);
 
   if (!points || points.length === 0) {
     return (
-      <div style={{ fontSize: 13, color: "var(--color-text-muted)", fontStyle: "italic", padding: "8px 0" }}>
+      <div
+        style={{
+          fontSize: 13,
+          color: 'var(--color-text-muted)',
+          fontStyle: 'italic',
+          padding: '8px 0',
+        }}
+      >
         No token data yet. Run a few turns to see the breakdown.
       </div>
     );
@@ -54,32 +82,31 @@ export function TokenBreakdownChart() {
 
   const cacheHitRate =
     points.reduce((s, p) => s + p.cacheHitTokens, 0) /
-    Math.max(points.reduce((s, p) => s + p.cacheHitTokens + p.cacheMissTokens, 0), 1);
+    Math.max(
+      points.reduce((s, p) => s + p.cacheHitTokens + p.cacheMissTokens, 0),
+      1,
+    );
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       {/* Summary row */}
-      <div style={{ display: "flex", gap: 16, fontSize: 11, color: "var(--color-text-muted)" }}>
+      <div style={{ display: 'flex', gap: 16, fontSize: 11, color: 'var(--color-text-muted)' }}>
         <span>
           <BarChart3 size={11} style={{ marginRight: 4, verticalAlign: -1 }} />
           {points.length} turns
         </span>
-        <span>
-          Cache: {(cacheHitRate * 100).toFixed(1)}%
-        </span>
-        <span>
-          Peak: {maxTokens.toLocaleString()} tok
-        </span>
+        <span>Cache: {(cacheHitRate * 100).toFixed(1)}%</span>
+        <span>Peak: {maxTokens.toLocaleString()} tok</span>
       </div>
 
       {/* Sparkline bars */}
       <div
         style={{
-          display: "flex",
-          alignItems: "flex-end",
+          display: 'flex',
+          alignItems: 'flex-end',
           gap: BAR_GAP,
           height: CHART_HEIGHT,
-          padding: "2px 0",
+          padding: '2px 0',
         }}
       >
         {visible.map((p, i) => {
@@ -91,9 +118,9 @@ export function TokenBreakdownChart() {
               key={i}
               title={`Turn ${p.turn}: ${p.promptTokens.toLocaleString()} prompt + ${p.completionTokens.toLocaleString()} completion (${p.cacheHitTokens.toLocaleString()} cached)`}
               style={{
-                display: "flex",
-                flexDirection: "column",
-                justifyContent: "flex-end",
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'flex-end',
                 width: BAR_WIDTH,
                 height: CHART_HEIGHT,
                 opacity: isLast ? 1 : 0.65,
@@ -102,17 +129,17 @@ export function TokenBreakdownChart() {
               <div
                 style={{
                   height: `${Math.max(completionH, 0.5)}px`,
-                  background: "var(--accent)",
-                  borderRadius: "1px 1px 0 0",
-                  transition: "height 0.2s",
+                  background: 'var(--accent)',
+                  borderRadius: '1px 1px 0 0',
+                  transition: 'height 0.2s',
                 }}
               />
               <div
                 style={{
                   height: `${Math.max(promptH, 0.5)}px`,
-                  background: "var(--accent-soft)",
-                  borderRadius: "1px 1px 0 0",
-                  transition: "height 0.2s",
+                  background: 'var(--accent-soft)',
+                  borderRadius: '1px 1px 0 0',
+                  transition: 'height 0.2s',
                 }}
               />
             </div>
@@ -121,13 +148,15 @@ export function TokenBreakdownChart() {
       </div>
 
       {/* Legend */}
-      <div style={{ display: "flex", gap: 10, fontSize: 10, color: "var(--color-text-muted)" }}>
-        <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
-          <span style={{ width: 8, height: 8, background: "var(--accent)", borderRadius: 2 }} />
+      <div style={{ display: 'flex', gap: 10, fontSize: 10, color: 'var(--color-text-muted)' }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+          <span style={{ width: 8, height: 8, background: 'var(--accent)', borderRadius: 2 }} />
           Completion
         </span>
-        <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
-          <span style={{ width: 8, height: 8, background: "var(--accent-soft)", borderRadius: 2 }} />
+        <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+          <span
+            style={{ width: 8, height: 8, background: 'var(--accent-soft)', borderRadius: 2 }}
+          />
           Prompt
         </span>
       </div>

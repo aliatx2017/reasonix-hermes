@@ -1,6 +1,6 @@
-import { lazy, memo, Suspense } from "react";
+import { lazy, memo, Suspense } from 'react';
 
-const MarkdownRenderer = lazy(() => import("./MarkdownRenderer"));
+const MarkdownRenderer = lazy(() => import('./MarkdownRenderer'));
 
 export const Markdown = memo(function Markdown({
   text,

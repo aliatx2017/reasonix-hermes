@@ -10,14 +10,14 @@
 // event may not land; the 5s poll and the Go shutdown hook make this unlikely
 // to matter.
 
-import { useEffect, useRef } from "react";
-import { app } from "./bridge";
+import { useEffect, useRef } from 'react';
+import { app } from './bridge';
 
 export function useWindowStatePersistence() {
   const lastState = useRef('');
 
   useEffect(() => {
-    const runtime = typeof window !== "undefined" ? window.runtime : undefined;
+    const runtime = typeof window !== 'undefined' ? window.runtime : undefined;
     if (!runtime?.WindowGetSize || !runtime.WindowGetPosition || !runtime.WindowIsMaximised) return;
     const { WindowGetSize, WindowGetPosition, WindowIsMaximised } = runtime;
 
@@ -76,14 +76,14 @@ export function useWindowStatePersistence() {
 
 export function useViewportHeightVar() {
   useEffect(() => {
-    if (typeof window === "undefined" || typeof document === "undefined") return;
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
 
     let frame = 0;
     const root = document.documentElement;
     const setHeight = () => {
       frame = 0;
       const height = Math.round(window.visualViewport?.height ?? window.innerHeight);
-      if (height > 0) root.style.setProperty("--app-viewport-height", `${height}px`);
+      if (height > 0) root.style.setProperty('--app-viewport-height', `${height}px`);
     };
     const schedule = () => {
       if (frame) window.cancelAnimationFrame(frame);
@@ -91,17 +91,17 @@ export function useViewportHeightVar() {
     };
 
     schedule();
-    window.addEventListener("resize", schedule);
-    window.addEventListener("orientationchange", schedule);
-    document.addEventListener("fullscreenchange", schedule);
-    window.visualViewport?.addEventListener("resize", schedule);
+    window.addEventListener('resize', schedule);
+    window.addEventListener('orientationchange', schedule);
+    document.addEventListener('fullscreenchange', schedule);
+    window.visualViewport?.addEventListener('resize', schedule);
 
     return () => {
       if (frame) window.cancelAnimationFrame(frame);
-      window.removeEventListener("resize", schedule);
-      window.removeEventListener("orientationchange", schedule);
-      document.removeEventListener("fullscreenchange", schedule);
-      window.visualViewport?.removeEventListener("resize", schedule);
+      window.removeEventListener('resize', schedule);
+      window.removeEventListener('orientationchange', schedule);
+      document.removeEventListener('fullscreenchange', schedule);
+      window.visualViewport?.removeEventListener('resize', schedule);
     };
   }, []);
 }

@@ -1,13 +1,38 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Activity, Circle, CircleDollarSign, CircleGauge, Cpu, Database, Folder, GitBranch, Layers, MessageCircle, Percent, RefreshCw, Wallet, Zap } from "lucide-react";
-import { Tooltip } from "./Tooltip";
-import { useI18n, type Translator } from "../lib/i18n";
-import { app } from "../lib/bridge";
-import { formatMoneyLocalized } from "../lib/money";
-import { normalizeStatusBarItems, type StatusBarItemId } from "../lib/statusBarItems";
-import { type BalanceInfo, type BotLiveStatusView, type CacheEconomyView, type CollaborationMode, type CompressStatsView, type ContextInfo, type JobView, type ToolApprovalMode, type WireUsage } from "../lib/types";
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  Activity,
+  Circle,
+  CircleDollarSign,
+  CircleGauge,
+  Cpu,
+  Database,
+  Folder,
+  GitBranch,
+  Layers,
+  MessageCircle,
+  Percent,
+  RefreshCw,
+  Wallet,
+  Zap,
+} from 'lucide-react';
+import { Tooltip } from './Tooltip';
+import { useI18n, type Translator } from '../lib/i18n';
+import { app } from '../lib/bridge';
+import { formatMoneyLocalized } from '../lib/money';
+import { normalizeStatusBarItems, type StatusBarItemId } from '../lib/statusBarItems';
+import {
+  type BalanceInfo,
+  type BotLiveStatusView,
+  type CacheEconomyView,
+  type CollaborationMode,
+  type CompressStatsView,
+  type ContextInfo,
+  type JobView,
+  type ToolApprovalMode,
+  type WireUsage,
+} from '../lib/types';
 
-type StatusBarLabelStyle = "icon" | "text";
+type StatusBarLabelStyle = 'icon' | 'text';
 
 // JobsChip is the status-bar background-jobs indicator: a count that opens an
 // upward popover listing the running jobs (id · label · status), mirroring the
@@ -25,23 +50,23 @@ function JobsChip({ jobs }: { jobs: JobView[] }) {
       if (wrapRef.current?.contains(target)) return;
       setOpen(false);
     };
-    document.addEventListener("click", closeOnOutsideClick);
-    return () => document.removeEventListener("click", closeOnOutsideClick);
+    document.addEventListener('click', closeOnOutsideClick);
+    return () => document.removeEventListener('click', closeOnOutsideClick);
   }, [open]);
   if (jobs.length === 0) {
     return null;
   }
   return (
     <div className="statusbar__jobswrap" ref={wrapRef}>
-      <Tooltip label={t("status.jobsTitle")}>
+      <Tooltip label={t('status.jobsTitle')}>
         <button className="stat stat--jobs statusbar__jobs" onClick={() => setOpen((v) => !v)}>
-          <span className="stat__label">{t("status.jobsLabel")}</span>
+          <span className="stat__label">{t('status.jobsLabel')}</span>
           <b>{jobs.length}</b>
         </button>
       </Tooltip>
       {open && (
         <div className="modelsw__menu jobsmenu" role="listbox">
-          <div className="jobsmenu__head">{t("status.jobsTitle")}</div>
+          <div className="jobsmenu__head">{t('status.jobsTitle')}</div>
           {jobs.map((j) => (
             <div className="jobsmenu__item" key={j.id} role="option">
               <span className="jobsmenu__id">{j.id}</span>
@@ -80,55 +105,75 @@ function avgRate(u?: WireUsage): string | null {
 }
 
 function rateValueClass(rate: string | null): string {
-  if (rate === null) return "stat__value--empty";
+  if (rate === null) return 'stat__value--empty';
   const pct = Number.parseFloat(rate);
-  if (!Number.isFinite(pct)) return "";
-  if (pct >= 80) return "statusbar__rate-value--good";
-  if (pct >= 50) return "statusbar__rate-value--notice";
-  return "statusbar__rate-value--critical";
+  if (!Number.isFinite(pct)) return '';
+  if (pct >= 80) return 'statusbar__rate-value--good';
+  if (pct >= 50) return 'statusbar__rate-value--notice';
+  return 'statusbar__rate-value--critical';
 }
 
 function formatTokenCount(tokens?: number): string {
-  if (typeof tokens !== "number" || tokens <= 0) return "-";
+  if (typeof tokens !== 'number' || tokens <= 0) return '-';
   return tokens.toLocaleString();
 }
 
 function formatTurnCount(turns: number | undefined, t: Translator): string {
-  if (typeof turns !== "number" || turns < 0) return "-";
-  return t(turns === 1 ? "history.turnOne" : "history.turnOther", { n: turns });
+  if (typeof turns !== 'number' || turns < 0) return '-';
+  return t(turns === 1 ? 'history.turnOne' : 'history.turnOther', { n: turns });
 }
 
-function MetricLabel({ style, icon, label }: { style: StatusBarLabelStyle; icon: ReactNode; label: string }) {
+function MetricLabel({
+  style,
+  icon,
+  label,
+}: { style: StatusBarLabelStyle; icon: ReactNode; label: string }) {
   return (
-    <span className={`stat__label stat__label--${style}`} aria-hidden={style === "icon" ? "true" : undefined}>
-      {style === "icon" ? icon : label}
+    <span
+      className={`stat__label stat__label--${style}`}
+      aria-hidden={style === 'icon' ? 'true' : undefined}
+    >
+      {style === 'icon' ? icon : label}
     </span>
   );
 }
 
 function compactPath(path?: string, fallback?: string): string {
-  const value = (path || fallback || "").trim();
-  if (!value) return "";
-  const normalized = value.replace(/\\/g, "/");
+  const value = (path || fallback || '').trim();
+  if (!value) return '';
+  const normalized = value.replace(/\\/g, '/');
   const homeMatch = normalized.match(/^~\/?(.+)?$/);
-  const parts = (homeMatch ? homeMatch[1] ?? "" : normalized).split("/").filter(Boolean);
+  const parts = (homeMatch ? (homeMatch[1] ?? '') : normalized).split('/').filter(Boolean);
   if (parts.length === 0) return normalized;
   if (parts.length === 1) return parts[0];
-  return `…/${parts.slice(-2).join("/")}`;
+  return `…/${parts.slice(-2).join('/')}`;
 }
 
-function workspaceTooltip(t: Translator, displayPath: string, workspacePath?: string, gitBranch?: string) {
+function workspaceTooltip(
+  t: Translator,
+  displayPath: string,
+  workspacePath?: string,
+  gitBranch?: string,
+) {
   const workspace = (workspacePath || displayPath).trim();
-  const branch = (gitBranch || "").trim();
+  const branch = (gitBranch || '').trim();
   if (branch) {
     return (
       <span className="statusbar__tooltip-stack">
-        {workspace && <span>{t("status.workspaceTitle")}: {workspace}</span>}
-        {branch && <span>{t("status.gitBranchTitle")}: {branch}</span>}
+        {workspace && (
+          <span>
+            {t('status.workspaceTitle')}: {workspace}
+          </span>
+        )}
+        {branch && (
+          <span>
+            {t('status.gitBranchTitle')}: {branch}
+          </span>
+        )}
       </span>
     );
   }
-  return `${t("status.workspaceTitle")}: ${workspace}`;
+  return `${t('status.workspaceTitle')}: ${workspace}`;
 }
 
 export function StatusBar({
@@ -146,7 +191,7 @@ export function StatusBar({
   cost,
   currency,
   modelLabel,
-  labelStyle = "text",
+  labelStyle = 'text',
   items,
   workspacePath,
   workspaceName,
@@ -173,7 +218,9 @@ export function StatusBar({
   gitBranch?: string;
 }) {
   const { locale, t } = useI18n();
-  const pct = context.window ? Math.min(100, Math.round((context.used / context.window) * 100)) : null;
+  const pct = context.window
+    ? Math.min(100, Math.round((context.used / context.window) * 100))
+    : null;
   const compactPct = context.compactRatio ? Math.round(context.compactRatio * 100) : null;
   const compactNear = pct !== null && compactPct !== null && pct >= Math.max(0, compactPct - 10);
   const compactReached = pct !== null && compactPct !== null && pct >= compactPct;
@@ -182,23 +229,25 @@ export function StatusBar({
   const jobsList = jobs ?? [];
   const turnCostLabel = formatMoneyLocalized(turnCost, currency, { locale });
   const costLabel = formatMoneyLocalized(cost, currency, { locale });
-  const displayWorkspacePath = (workspacePath || workspaceName || "").trim();
+  const displayWorkspacePath = (workspacePath || workspaceName || '').trim();
   const workspaceLabel = compactPath(displayWorkspacePath, workspaceName);
-  const branchLabel = (gitBranch || "").trim();
-  const workspaceTitle = displayWorkspacePath ? workspaceTooltip(t, displayWorkspacePath, workspacePath, branchLabel) : "";
+  const branchLabel = (gitBranch || '').trim();
+  const workspaceTitle = displayWorkspacePath
+    ? workspaceTooltip(t, displayWorkspacePath, workspacePath, branchLabel)
+    : '';
   const turnLabel = formatTurnCount(sessionTurns, t);
   const tokenLabel = formatTokenCount(sessionTokens);
   const turnTokenLabel = formatTokenCount(turnTokens);
-  const balanceLabel = balance?.available && balance.display ? balance.display : "-";
-  const planMode = collaborationMode === "plan";
-  const goalMode = collaborationMode === "goal";
-  const metricLabelStyle = labelStyle === "text" ? "text" : "icon";
+  const balanceLabel = balance?.available && balance.display ? balance.display : '-';
+  const planMode = collaborationMode === 'plan';
+  const goalMode = collaborationMode === 'goal';
+  const metricLabelStyle = labelStyle === 'text' ? 'text' : 'icon';
   const visibleItems = normalizeStatusBarItems(items);
   const itemRenderers: Record<StatusBarItemId, ReactNode> = {
     model: (
-      <Tooltip label={t("status.modelTitle")}>
+      <Tooltip label={t('status.modelTitle')}>
         <span className="stat stat--model">
-          <span className={`statusbar__dot ${running ? "statusbar__dot--busy" : ""}`} />
+          <span className={`statusbar__dot ${running ? 'statusbar__dot--busy' : ''}`} />
           {modelLabel && <span className="statusbar__model">{modelLabel}</span>}
         </span>
       </Tooltip>
@@ -206,103 +255,190 @@ export function StatusBar({
     workspace: workspaceLabel ? (
       <Tooltip label={workspaceTitle} className="statusbar__metric statusbar__metric--workspace">
         <span className="stat statusbar__workspace">
-          <span className="stat__label stat__label--icon" aria-hidden="true"><Folder size={12} /></span>
+          <span className="stat__label stat__label--icon" aria-hidden="true">
+            <Folder size={12} />
+          </span>
           <b>{workspaceLabel}</b>
         </span>
       </Tooltip>
     ) : null,
     git_branch: branchLabel ? (
-      <Tooltip label={`${t("status.gitBranchTitle")}: ${branchLabel}`} className="statusbar__metric statusbar__metric--branch">
+      <Tooltip
+        label={`${t('status.gitBranchTitle')}: ${branchLabel}`}
+        className="statusbar__metric statusbar__metric--branch"
+      >
         <span className="stat statusbar__branch">
-          <span className="stat__label stat__label--icon" aria-hidden="true"><GitBranch size={12} /></span>
+          <span className="stat__label stat__label--icon" aria-hidden="true">
+            <GitBranch size={12} />
+          </span>
           <b>{branchLabel}</b>
         </span>
       </Tooltip>
     ) : null,
     cache: (
-      <Tooltip label={t("status.cacheTitle")} className="statusbar__metric statusbar__metric--cache">
+      <Tooltip
+        label={t('status.cacheTitle')}
+        className="statusbar__metric statusbar__metric--cache"
+      >
         <span className="stat statusbar__cache">
-          <MetricLabel style={metricLabelStyle} icon={<Percent size={12} />} label={t("status.cacheLabel")} />
-          <b className={rateValueClass(nowPct) || undefined}>{nowPct !== null ? `${nowPct}%` : "-"}</b>
+          <MetricLabel
+            style={metricLabelStyle}
+            icon={<Percent size={12} />}
+            label={t('status.cacheLabel')}
+          />
+          <b className={rateValueClass(nowPct) || undefined}>
+            {nowPct !== null ? `${nowPct}%` : '-'}
+          </b>
         </span>
       </Tooltip>
     ),
     cache_avg: (
-      <Tooltip label={t("status.cacheAvgTitle")} className="statusbar__metric statusbar__metric--avg">
+      <Tooltip
+        label={t('status.cacheAvgTitle')}
+        className="statusbar__metric statusbar__metric--avg"
+      >
         <span className="stat statusbar__avg">
-          <MetricLabel style={metricLabelStyle} icon={<Activity size={12} />} label={t("status.cacheAvgLabel")} />
-          <b className={rateValueClass(avgPct) || undefined}>{avgPct !== null ? `${avgPct}%` : "-"}</b>
+          <MetricLabel
+            style={metricLabelStyle}
+            icon={<Activity size={12} />}
+            label={t('status.cacheAvgLabel')}
+          />
+          <b className={rateValueClass(avgPct) || undefined}>
+            {avgPct !== null ? `${avgPct}%` : '-'}
+          </b>
         </span>
       </Tooltip>
     ),
     session_tokens: (
-      <Tooltip label={t("status.sessionTokensTitle")} className="statusbar__metric statusbar__metric--tokens">
+      <Tooltip
+        label={t('status.sessionTokensTitle')}
+        className="statusbar__metric statusbar__metric--tokens"
+      >
         <span className="stat statusbar__tokens">
-          <MetricLabel style={metricLabelStyle} icon={<Database size={12} />} label={t("status.sessionTokensLabel")} />
-          <b className={tokenLabel === "-" ? "stat__value--empty" : undefined}>{tokenLabel}</b>
+          <MetricLabel
+            style={metricLabelStyle}
+            icon={<Database size={12} />}
+            label={t('status.sessionTokensLabel')}
+          />
+          <b className={tokenLabel === '-' ? 'stat__value--empty' : undefined}>{tokenLabel}</b>
         </span>
       </Tooltip>
     ),
     turn_tokens: (
-      <Tooltip label={t("status.turnTokensTitle")} className="statusbar__metric statusbar__metric--turn-tokens">
+      <Tooltip
+        label={t('status.turnTokensTitle')}
+        className="statusbar__metric statusbar__metric--turn-tokens"
+      >
         <span className="stat statusbar__turn-tokens">
-          <MetricLabel style={metricLabelStyle} icon={<Zap size={12} />} label={t("status.turnTokensLabel")} />
-          <b className={turnTokenLabel === "-" ? "stat__value--empty" : undefined}>{turnTokenLabel}</b>
+          <MetricLabel
+            style={metricLabelStyle}
+            icon={<Zap size={12} />}
+            label={t('status.turnTokensLabel')}
+          />
+          <b className={turnTokenLabel === '-' ? 'stat__value--empty' : undefined}>
+            {turnTokenLabel}
+          </b>
         </span>
       </Tooltip>
     ),
     turn_cost: (
-      <Tooltip label={t("status.turnCostTitle")} className="statusbar__metric statusbar__metric--turn-cost">
+      <Tooltip
+        label={t('status.turnCostTitle')}
+        className="statusbar__metric statusbar__metric--turn-cost"
+      >
         <span className="stat statusbar__turn-cost">
-          <MetricLabel style={metricLabelStyle} icon={<CircleDollarSign size={12} />} label={t("status.turnCostLabel")} />
+          <MetricLabel
+            style={metricLabelStyle}
+            icon={<CircleDollarSign size={12} />}
+            label={t('status.turnCostLabel')}
+          />
           <b>{turnCostLabel}</b>
         </span>
       </Tooltip>
     ),
     session_turns: (
-      <Tooltip label={t("status.sessionTurnsTitle")} className="statusbar__metric statusbar__metric--turns">
+      <Tooltip
+        label={t('status.sessionTurnsTitle')}
+        className="statusbar__metric statusbar__metric--turns"
+      >
         <span className="stat statusbar__turns">
-          <MetricLabel style={metricLabelStyle} icon={<RefreshCw size={12} />} label={t("status.sessionTurnsLabel")} />
-          <b className={turnLabel === "-" ? "stat__value--empty" : undefined}>{turnLabel}</b>
+          <MetricLabel
+            style={metricLabelStyle}
+            icon={<RefreshCw size={12} />}
+            label={t('status.sessionTurnsLabel')}
+          />
+          <b className={turnLabel === '-' ? 'stat__value--empty' : undefined}>{turnLabel}</b>
         </span>
       </Tooltip>
     ),
     context: (
-      <Tooltip label={t("status.ctxTitle")} className="statusbar__metric statusbar__metric--ctx">
+      <Tooltip label={t('status.ctxTitle')} className="statusbar__metric statusbar__metric--ctx">
         <span className="stat statusbar__ctx">
-          <MetricLabel style={metricLabelStyle} icon={<CircleGauge size={12} />} label={t("status.ctxLabel")} />
-          <b className={pct === null ? "stat__value--empty" : undefined}>{pct !== null ? `${pct}%` : "-"}</b>
+          <MetricLabel
+            style={metricLabelStyle}
+            icon={<CircleGauge size={12} />}
+            label={t('status.ctxLabel')}
+          />
+          <b className={pct === null ? 'stat__value--empty' : undefined}>
+            {pct !== null ? `${pct}%` : '-'}
+          </b>
         </span>
       </Tooltip>
     ),
     compact: (
-      <Tooltip label={t("status.compactTitle")} className="statusbar__metric statusbar__metric--compact">
+      <Tooltip
+        label={t('status.compactTitle')}
+        className="statusbar__metric statusbar__metric--compact"
+      >
         <span className="stat statusbar__compact">
-          <MetricLabel style={metricLabelStyle} icon={<Layers size={12} />} label={t("status.compactLabel")} />
+          <MetricLabel
+            style={metricLabelStyle}
+            icon={<Layers size={12} />}
+            label={t('status.compactLabel')}
+          />
           <b
-            className={[
-              compactPct === null ? "stat__value--empty" : undefined,
-              compactReached ? "statusbar__compact-value--critical" : compactNear ? "statusbar__compact-value--warn" : undefined,
-            ].filter(Boolean).join(" ") || undefined}
+            className={
+              [
+                compactPct === null ? 'stat__value--empty' : undefined,
+                compactReached
+                  ? 'statusbar__compact-value--critical'
+                  : compactNear
+                    ? 'statusbar__compact-value--warn'
+                    : undefined,
+              ]
+                .filter(Boolean)
+                .join(' ') || undefined
+            }
           >
-            {compactPct !== null ? `${compactPct}%` : "-"}
+            {compactPct !== null ? `${compactPct}%` : '-'}
           </b>
         </span>
       </Tooltip>
     ),
     cost: (
-      <Tooltip label={t("status.spendTitle")} className="statusbar__metric statusbar__metric--cost">
+      <Tooltip label={t('status.spendTitle')} className="statusbar__metric statusbar__metric--cost">
         <span className="stat statusbar__cost">
-          <MetricLabel style={metricLabelStyle} icon={<CircleDollarSign size={12} />} label={t("status.costLabel")} />
+          <MetricLabel
+            style={metricLabelStyle}
+            icon={<CircleDollarSign size={12} />}
+            label={t('status.costLabel')}
+          />
           <b>{costLabel}</b>
         </span>
       </Tooltip>
     ),
     balance: (
-      <Tooltip label={t("status.balanceTitle")} className="statusbar__metric statusbar__metric--balance">
+      <Tooltip
+        label={t('status.balanceTitle')}
+        className="statusbar__metric statusbar__metric--balance"
+      >
         <span className="stat stat--balance statusbar__balance">
-          <MetricLabel style={metricLabelStyle} icon={<Wallet size={12} />} label={t("status.balanceLabel")} />
-          <b className={balanceLabel === "-" ? "stat__value--empty" : undefined}>{balanceLabel}</b>
+          <MetricLabel
+            style={metricLabelStyle}
+            icon={<Wallet size={12} />}
+            label={t('status.balanceLabel')}
+          />
+          <b className={balanceLabel === '-' ? 'stat__value--empty' : undefined}>{balanceLabel}</b>
         </span>
       </Tooltip>
     ),
@@ -311,16 +447,24 @@ export function StatusBar({
     .map((id) => ({ id, node: itemRenderers[id] }))
     .filter(({ node }) => node !== null && node !== undefined && node !== false);
   const modeIndicators = [
-    planMode ? <span className="statusbar__plan" key="plan">{t("status.plan")}</span> : null,
-    goalMode ? <span className="statusbar__plan" key="goal">{t("composer.goalMode")}</span> : null,
-    toolApprovalMode === "auto" ? (
-      <Tooltip label={t("composer.accessAutoTitle")} key="auto">
-        <span className="statusbar__yolo">{t("composer.accessAuto")}</span>
+    planMode ? (
+      <span className="statusbar__plan" key="plan">
+        {t('status.plan')}
+      </span>
+    ) : null,
+    goalMode ? (
+      <span className="statusbar__plan" key="goal">
+        {t('composer.goalMode')}
+      </span>
+    ) : null,
+    toolApprovalMode === 'auto' ? (
+      <Tooltip label={t('composer.accessAutoTitle')} key="auto">
+        <span className="statusbar__yolo">{t('composer.accessAuto')}</span>
       </Tooltip>
     ) : null,
-    toolApprovalMode === "yolo" ? (
-      <Tooltip label={t("status.yoloTitle")} key="yolo">
-        <span className="statusbar__yolo">{t("composer.accessYolo")}</span>
+    toolApprovalMode === 'yolo' ? (
+      <Tooltip label={t('status.yoloTitle')} key="yolo">
+        <span className="statusbar__yolo">{t('composer.accessYolo')}</span>
       </Tooltip>
     ) : null,
   ].filter(Boolean);
@@ -334,13 +478,18 @@ export function StatusBar({
           </span>
         ))}
       </div>
-      {modeIndicators.length > 0 && <div className="statusbar__group statusbar__group--modes">{modeIndicators}</div>}
+      {modeIndicators.length > 0 && (
+        <div className="statusbar__group statusbar__group--modes">{modeIndicators}</div>
+      )}
       {jobsList.length > 0 && (
         <div className="statusbar__group statusbar__group--jobs">
           <JobsChip jobs={jobsList} />
         </div>
       )}
-      <div className="statusbar__group statusbar__group--hermes" style={{ display: "flex", gap: 6, alignItems: "center" }}>
+      <div
+        className="statusbar__group statusbar__group--hermes"
+        style={{ display: 'flex', gap: 6, alignItems: 'center' }}
+      >
         <DiscordMonitorCompact />
         <CacheGaugeCompact />
         <CompressGaugeCompact />
@@ -349,7 +498,6 @@ export function StatusBar({
   );
 }
 
-
 function DiscordMonitorCompact() {
   const [status, setStatus] = useState<BotLiveStatusView | null>(null);
   useEffect(() => {
@@ -357,14 +505,30 @@ function DiscordMonitorCompact() {
     try {
       const w = window as any;
       if (w.runtime?.EventsOn) {
-        const unsub = w.runtime.EventsOn("hermes:dashboard", (payload: any) => {
+        const unsub = w.runtime.EventsOn('hermes:dashboard', (payload: any) => {
           if (payload?.bot) setStatus(payload.bot);
         });
-        app.BotLiveStatus().then(setStatus).catch(() => {});
-        return () => { try { unsub(); } catch { /* ignore */ } };
+        app
+          .BotLiveStatus()
+          .then(setStatus)
+          .catch(() => {});
+        return () => {
+          try {
+            unsub();
+          } catch {
+            /* ignore */
+          }
+        };
       }
-    } catch { /* fall through */ }
-    const poll = () => { app.BotLiveStatus().then(setStatus).catch(() => {}); };
+    } catch {
+      /* fall through */
+    }
+    const poll = () => {
+      app
+        .BotLiveStatus()
+        .then(setStatus)
+        .catch(() => {});
+    };
     poll();
     const id = setInterval(poll, 10000);
     return () => clearInterval(id);
@@ -372,9 +536,21 @@ function DiscordMonitorCompact() {
   if (!status || !status.running) return null;
   const platforms = status.platforms || [];
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 11, color: "var(--color-text-muted)" }}>
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 3,
+        fontSize: 11,
+        color: 'var(--color-text-muted)',
+      }}
+    >
       {platforms.map((p) => (
-        <span key={p.platform} title={`${p.platform}: ${p.activeSessions} sessions${p.webhookURL ? " · Webhook: " + p.webhookURL : ""}`} style={{ display: "inline-flex", alignItems: "center", gap: 1 }}>
+        <span
+          key={p.platform}
+          title={`${p.platform}: ${p.activeSessions} sessions${p.webhookURL ? ' · Webhook: ' + p.webhookURL : ''}`}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}
+        >
           <MessageCircle size={10} />
           <Circle size={4} fill="var(--color-green)" color="var(--color-green)" />
           {p.activeSessions > 0 && p.activeSessions}
@@ -391,22 +567,46 @@ function CacheGaugeCompact() {
     try {
       const w = window as any;
       if (w.runtime?.EventsOn) {
-        const unsub = w.runtime.EventsOn("hermes:dashboard", (payload: any) => {
+        const unsub = w.runtime.EventsOn('hermes:dashboard', (payload: any) => {
           if (payload?.cache) setCache(payload.cache);
         });
-        app.CacheEconomy().then(setCache).catch(() => {});
-        return () => { try { unsub(); } catch { /* ignore */ } };
+        app
+          .CacheEconomy()
+          .then(setCache)
+          .catch(() => {});
+        return () => {
+          try {
+            unsub();
+          } catch {
+            /* ignore */
+          }
+        };
       }
-    } catch { /* fall through */ }
-    const poll = () => { app.CacheEconomy().then(setCache).catch(() => {}); };
+    } catch {
+      /* fall through */
+    }
+    const poll = () => {
+      app
+        .CacheEconomy()
+        .then(setCache)
+        .catch(() => {});
+    };
     poll();
     const id = setInterval(poll, 15000);
     return () => clearInterval(id);
   }, []);
   if (!cache || cache.totalTokens === 0) return null;
-  const color = cache.hitRate >= 75 ? "var(--color-green)" : cache.hitRate >= 50 ? "var(--color-yellow)" : "var(--color-warn)";
+  const color =
+    cache.hitRate >= 75
+      ? 'var(--color-green)'
+      : cache.hitRate >= 50
+        ? 'var(--color-yellow)'
+        : 'var(--color-warn)';
   return (
-    <span title={`Cache: ${cache.hitRate.toFixed(1)}% (${cache.hitTokens} hit / ${cache.totalTokens} total)`} style={{ display: "inline-flex", alignItems: "center", gap: 2, fontSize: 11, color }}>
+    <span
+      title={`Cache: ${cache.hitRate.toFixed(1)}% (${cache.hitTokens} hit / ${cache.totalTokens} total)`}
+      style={{ display: 'inline-flex', alignItems: 'center', gap: 2, fontSize: 11, color }}
+    >
       <Cpu size={11} />
       {cache.hitRate.toFixed(0)}%
     </span>
@@ -420,14 +620,30 @@ function CompressGaugeCompact() {
     try {
       const w = window as any;
       if (w.runtime?.EventsOn) {
-        const unsub = w.runtime.EventsOn("hermes:dashboard", (payload: any) => {
+        const unsub = w.runtime.EventsOn('hermes:dashboard', (payload: any) => {
           if (payload?.compress) setCS(payload.compress);
         });
-        app.CompressStats().then(setCS).catch(() => {});
-        return () => { try { unsub(); } catch { /* ignore */ } };
+        app
+          .CompressStats()
+          .then(setCS)
+          .catch(() => {});
+        return () => {
+          try {
+            unsub();
+          } catch {
+            /* ignore */
+          }
+        };
       }
-    } catch { /* fall through */ }
-    const poll = () => { app.CompressStats().then(setCS).catch(() => {}); };
+    } catch {
+      /* fall through */
+    }
+    const poll = () => {
+      app
+        .CompressStats()
+        .then(setCS)
+        .catch(() => {});
+    };
     poll();
     const id = setInterval(poll, 30000);
     return () => clearInterval(id);
@@ -435,13 +651,22 @@ function CompressGaugeCompact() {
   if (!cs || (cs.bytesSaved === 0 && cs.auxTokens === 0)) return null;
 
   const fmtBytes = (n: number): string => {
-    if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + "M";
-    if (n >= 1_000) return (n / 1_000).toFixed(1) + "K";
+    if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
+    if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K';
     return n.toString();
   };
 
   return (
-    <span title={`Compressor: ${fmtBytes(cs.bytesSaved)} saved · ${cs.cacheHits} cache hits · ${cs.linesCollapsed} lines collapsed · ${cs.jsonFieldsStripped} JSON fields · ${cs.auxTokens} aux tokens`} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--color-text-muted)" }}>
+    <span
+      title={`Compressor: ${fmtBytes(cs.bytesSaved)} saved · ${cs.cacheHits} cache hits · ${cs.linesCollapsed} lines collapsed · ${cs.jsonFieldsStripped} JSON fields · ${cs.auxTokens} aux tokens`}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 4,
+        fontSize: 11,
+        color: 'var(--color-text-muted)',
+      }}
+    >
       <Zap size={11} />
       {cs.bytesSaved > 0 && <span>sqz&nbsp;↓{fmtBytes(cs.bytesSaved)}</span>}
       {cs.auxTokens > 0 && <span>aux&nbsp;↓{cs.auxTokens.toLocaleString()}</span>}

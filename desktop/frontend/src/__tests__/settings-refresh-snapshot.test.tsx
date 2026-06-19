@@ -1,13 +1,13 @@
 // Run: tsx src/__tests__/settings-refresh-snapshot.test.tsx
 
-import { JSDOM } from "jsdom";
-import React from "react";
-import { act } from "react";
-import { createRoot } from "react-dom/client";
-import { SettingsPanel } from "../components/SettingsPanel";
-import { LocaleProvider } from "../lib/i18n";
-import type { AppBindings } from "../lib/bridge";
-import type { SettingsView } from "../lib/types";
+import { JSDOM } from 'jsdom';
+import React from 'react';
+import { act } from 'react';
+import { createRoot } from 'react-dom/client';
+import { SettingsPanel } from '../components/SettingsPanel';
+import { LocaleProvider } from '../lib/i18n';
+import type { AppBindings } from '../lib/bridge';
+import type { SettingsView } from '../lib/types';
 
 let passed = 0;
 let failed = 0;
@@ -34,59 +34,91 @@ function flushPromises(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
-function baseSettings(displayMode: "standard" | "compact" = "standard"): SettingsView {
+function baseSettings(displayMode: 'standard' | 'compact' = 'standard'): SettingsView {
   return {
-    defaultModel: "",
-    plannerModel: "",
-    subagentModel: "",
-    subagentEffort: "",
-    autoPlan: "off",
+    defaultModel: '',
+    plannerModel: '',
+    subagentModel: '',
+    subagentEffort: '',
+    autoPlan: 'off',
     providers: [],
     officialProviders: [],
-    permissions: { mode: "ask", allow: [], ask: [], deny: [] },
-    sandbox: { bash: "enforce", network: false, workspaceRoot: "", allowWrite: [], shell: "auto" },
-    network: { proxyMode: "auto", proxyUrl: "", noProxy: "", proxy: { type: "socks5", server: "", port: 0, username: "", password: "" } },
-    agent: { temperature: 0, maxSteps: 0, plannerMaxSteps: 12, systemPrompt: "", coldResumePrune: true, reasoningLanguage: "auto" },
+    permissions: { mode: 'ask', allow: [], ask: [], deny: [] },
+    sandbox: { bash: 'enforce', network: false, workspaceRoot: '', allowWrite: [], shell: 'auto' },
+    network: {
+      proxyMode: 'auto',
+      proxyUrl: '',
+      noProxy: '',
+      proxy: { type: 'socks5', server: '', port: 0, username: '', password: '' },
+    },
+    agent: {
+      temperature: 0,
+      maxSteps: 0,
+      plannerMaxSteps: 12,
+      systemPrompt: '',
+      coldResumePrune: true,
+      reasoningLanguage: 'auto',
+    },
     bot: {
       enabled: false,
-      model: "",
-      toolApprovalMode: "",
+      model: '',
+      toolApprovalMode: '',
       maxSteps: 0,
       debounceMs: 0,
-      allowlist: { enabled: false, allowAll: false, qqUsers: [], feishuUsers: [], weixinUsers: [], qqGroups: [], feishuGroups: [], weixinGroups: [] },
-      qq: { enabled: false, appId: "", appSecretEnv: "", secretSet: false, sandbox: false },
-      feishu: { enabled: false, domain: "feishu", appId: "", appSecretEnv: "", secretSet: false, verificationToken: "", mode: "webhook", webhookPort: 0, requireMention: false },
-      weixin: { enabled: false, accountId: "", tokenEnv: "", tokenSet: false, apiBase: "" },
+      allowlist: {
+        enabled: false,
+        allowAll: false,
+        qqUsers: [],
+        feishuUsers: [],
+        weixinUsers: [],
+        qqGroups: [],
+        feishuGroups: [],
+        weixinGroups: [],
+      },
+      qq: { enabled: false, appId: '', appSecretEnv: '', secretSet: false, sandbox: false },
+      feishu: {
+        enabled: false,
+        domain: 'feishu',
+        appId: '',
+        appSecretEnv: '',
+        secretSet: false,
+        verificationToken: '',
+        mode: 'webhook',
+        webhookPort: 0,
+        requireMention: false,
+      },
+      weixin: { enabled: false, accountId: '', tokenEnv: '', tokenSet: false, apiBase: '' },
       connections: [],
     },
-    desktopLanguage: "en",
-    desktopLayoutStyle: "workbench",
-    desktopTheme: "auto",
-    desktopThemeStyle: "graphite",
-    closeBehavior: "background",
+    desktopLanguage: 'en',
+    desktopLayoutStyle: 'workbench',
+    desktopTheme: 'auto',
+    desktopThemeStyle: 'graphite',
+    closeBehavior: 'background',
     displayMode,
-    statusBarStyle: "text",
-    statusBarItems: ["model", "workspace", "git_branch", "cache", "balance"],
+    statusBarStyle: 'text',
+    statusBarItems: ['model', 'workspace', 'git_branch', 'cache', 'balance'],
     checkUpdates: true,
     telemetry: true,
     metrics: true,
-    configPath: "/tmp/reasonix/config.toml",
+    configPath: '/tmp/reasonix/config.toml',
     providerKinds: [],
     autoApproveTools: false,
     bypass: false,
   };
 }
 
-console.log("\nsettings refresh snapshot");
+console.log('\nsettings refresh snapshot');
 
-const dom = new JSDOM("<!doctype html><html><body><div id=\"root\"></div></body></html>", {
+const dom = new JSDOM('<!doctype html><html><body><div id="root"></div></body></html>', {
   pretendToBeVisual: true,
-  url: "http://localhost/",
+  url: 'http://localhost/',
 });
-(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT =
+  true;
 globalThis.window = dom.window as unknown as Window & typeof globalThis;
 globalThis.document = dom.window.document;
-Object.defineProperty(globalThis, "navigator", { configurable: true, value: dom.window.navigator });
+Object.defineProperty(globalThis, 'navigator', { configurable: true, value: dom.window.navigator });
 globalThis.Node = dom.window.Node;
 globalThis.HTMLElement = dom.window.HTMLElement;
 globalThis.Event = dom.window.Event;
@@ -98,7 +130,7 @@ globalThis.requestAnimationFrame = dom.window.requestAnimationFrame.bind(dom.win
 globalThis.cancelAnimationFrame = dom.window.cancelAnimationFrame.bind(dom.window);
 window.scrollTo = () => {};
 
-const settingsSnapshots = [baseSettings("standard"), baseSettings("compact")];
+const settingsSnapshots = [baseSettings('standard'), baseSettings('compact')];
 let settingsCalls = 0;
 let setDisplayModeCalls = 0;
 let onChangedSettings: SettingsView | undefined;
@@ -106,7 +138,8 @@ let onChangedSettings: SettingsView | undefined;
 window.go = {
   main: {
     App: {
-      Settings: async () => settingsSnapshots[Math.min(settingsCalls++, settingsSnapshots.length - 1)],
+      Settings: async () =>
+        settingsSnapshots[Math.min(settingsCalls++, settingsSnapshots.length - 1)],
       SetDisplayMode: async () => {
         setDisplayModeCalls += 1;
       },
@@ -114,8 +147,8 @@ window.go = {
   },
 };
 
-const rootEl = document.getElementById("root");
-if (!rootEl) throw new Error("missing root");
+const rootEl = document.getElementById('root');
+if (!rootEl) throw new Error('missing root');
 const root = createRoot(rootEl);
 
 await act(async () => {
@@ -133,17 +166,22 @@ await act(async () => {
   await flushPromises();
 });
 
-const compactButton = Array.from(document.querySelectorAll("button")).find((button) => button.textContent?.trim() === "Compact") as HTMLButtonElement | undefined;
-if (!compactButton) throw new Error("compact display mode button did not render");
+const compactButton = Array.from(document.querySelectorAll('button')).find(
+  (button) => button.textContent?.trim() === 'Compact',
+) as HTMLButtonElement | undefined;
+if (!compactButton) throw new Error('compact display mode button did not render');
 
 await act(async () => {
   compactButton.click();
   await flushPromises();
 });
 
-eq(setDisplayModeCalls, 1, "display mode mutation is invoked once");
-eq(settingsCalls, 2, "settings panel reads Settings only for initial load and post-save reload");
-ok(onChangedSettings?.displayMode === "compact", "onChanged receives the post-save SettingsView snapshot");
+eq(setDisplayModeCalls, 1, 'display mode mutation is invoked once');
+eq(settingsCalls, 2, 'settings panel reads Settings only for initial load and post-save reload');
+ok(
+  onChangedSettings?.displayMode === 'compact',
+  'onChanged receives the post-save SettingsView snapshot',
+);
 
 await act(async () => {
   root.unmount();

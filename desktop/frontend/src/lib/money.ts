@@ -31,25 +31,29 @@ export function formatMoney(
 
 interface MoneyFormatOptions {
   locale?: string;
-  empty?: "zero" | "dash";
+  empty?: 'zero' | 'dash';
 }
 
 function isoCurrencyCode(currency?: string): string | null {
-  const value = (currency || "").trim();
+  const value = (currency || '').trim();
   if (!/^[a-z]{3}$/i.test(value)) return null;
   const code = value.toUpperCase();
   try {
-    new Intl.NumberFormat("en", { style: "currency", currency: code }).format(0);
+    new Intl.NumberFormat('en', { style: 'currency', currency: code }).format(0);
     return code;
   } catch {
     return null;
   }
 }
 
-export function formatMoneyLocalized(amount?: number, currency?: string, options: MoneyFormatOptions = {}): string {
-  const empty = options.empty ?? "zero";
-  if (typeof amount !== "number" || amount <= 0) {
-    return empty === "dash" ? "-" : formatMoney(0, currency, empty);
+export function formatMoneyLocalized(
+  amount?: number,
+  currency?: string,
+  options: MoneyFormatOptions = {},
+): string {
+  const empty = options.empty ?? 'zero';
+  if (typeof amount !== 'number' || amount <= 0) {
+    return empty === 'dash' ? '-' : formatMoney(0, currency, empty);
   }
 
   const code = isoCurrencyCode(currency);
@@ -57,7 +61,7 @@ export function formatMoneyLocalized(amount?: number, currency?: string, options
 
   const digits = amount < 1 ? 4 : 2;
   return new Intl.NumberFormat(options.locale, {
-    style: "currency",
+    style: 'currency',
     currency: code,
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,

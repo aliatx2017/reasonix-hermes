@@ -25,8 +25,8 @@
 
 const MAX_ROWS = 64;
 const MAX_CELLS = 512;
-const EMPTY_CELL = "\\square";
-const SKEW_CELL = "\\hphantom{\\boxed{x}}";
+const EMPTY_CELL = '\\square';
+const SKEW_CELL = '\\hphantom{\\boxed{x}}';
 
 function boxedCell(cell: string): string {
   return `\\boxed{${cell}}`;
@@ -35,14 +35,14 @@ function boxedCell(cell: string): string {
 function splitAtTopLevel(s: string, sep: string): string[] {
   const out: string[] = [];
   let depth = 0;
-  let buf = "";
+  let buf = '';
   for (let i = 0; i < s.length; i++) {
     const ch = s[i];
-    if (ch === "{") depth++;
-    else if (ch === "}") depth = Math.max(0, depth - 1);
+    if (ch === '{') depth++;
+    else if (ch === '}') depth = Math.max(0, depth - 1);
     if (depth === 0 && s.startsWith(sep, i)) {
       out.push(buf);
-      buf = "";
+      buf = '';
       i += sep.length - 1;
       continue;
     }
@@ -52,8 +52,8 @@ function splitAtTopLevel(s: string, sep: string): string[] {
   return out;
 }
 
-function parseShape(s: string, sep: "comma" | "space"): number[] | null {
-  const re = sep === "comma" ? /\s*,\s*/ : /\s+/;
+function parseShape(s: string, sep: 'comma' | 'space'): number[] | null {
+  const re = sep === 'comma' ? /\s*,\s*/ : /\s+/;
   const parts = s.trim().split(re).filter(Boolean);
   if (parts.length === 0 || parts.length > MAX_ROWS) return null;
 
@@ -72,17 +72,13 @@ function parseShape(s: string, sep: "comma" | "space"): number[] | null {
 }
 
 function renderRows(cells: string[][]): string {
-  const arrRows = cells.map((row) => row.join(" \\! "));
+  const arrRows = cells.map((row) => row.join(' \\! '));
   // Use `{l}` (left) instead of `{c}` (centered): a Young diagram has
   // every row's first cell at the same horizontal position — the
   // shorter rows just have fewer cells to the right. `{c}` would
   // centre each row relative to the widest row, which doesn't look
   // like a Young diagram.
-  return (
-    "\\begin{array}{l}" +
-    arrRows.join(" \\\\[-0.525em] ") +
-    "\\end{array}"
-  );
+  return '\\begin{array}{l}' + arrRows.join(' \\\\[-0.525em] ') + '\\end{array}';
 }
 
 function expandShape(rows: number[], content: string | undefined): string | null {
@@ -90,20 +86,18 @@ function expandShape(rows: number[], content: string | undefined): string | null
   // 2D array of cell content. Each cell is `\square` by default
   // (visible Unicode white-square) so the diagram has uniform width
   // AND is actually visible to the reader.
-  const cells: string[][] = Array.from({ length: rows.length }, () =>
-    Array(maxN).fill(EMPTY_CELL),
-  );
+  const cells: string[][] = Array.from({ length: rows.length }, () => Array(maxN).fill(EMPTY_CELL));
 
   if (content) {
     // Parse content: rows separated by `\\`, cells separated by `&`.
     // The content may contain nested `{...}` (e.g. `\frac{a}{b}`), so
     // we split on `\\` and `&` at brace-depth 0 only.
-    const contentRows = splitAtTopLevel(content, "\\\\");
+    const contentRows = splitAtTopLevel(content, '\\\\');
     for (let i = 0; i < contentRows.length && i < rows.length; i++) {
-      const cs = splitAtTopLevel(contentRows[i], "&");
+      const cs = splitAtTopLevel(contentRows[i], '&');
       for (let j = 0; j < cs.length && j < rows[i]; j++) {
         const c = cs[j].trim();
-        cells[i][j] = c === "" ? EMPTY_CELL : boxedCell(c);
+        cells[i][j] = c === '' ? EMPTY_CELL : boxedCell(c);
       }
     }
   }
@@ -126,8 +120,8 @@ function readBalancedGroup(s: string, openBrace: number): { content: string; end
   let depth = 1;
   let i = openBrace + 1;
   while (i < s.length && depth > 0) {
-    if (s[i] === "{") depth++;
-    else if (s[i] === "}") depth--;
+    if (s[i] === '{') depth++;
+    else if (s[i] === '}') depth--;
     if (depth === 0) return { content: s.slice(openBrace + 1, i), end: i + 1 };
     i++;
   }
@@ -135,11 +129,11 @@ function readBalancedGroup(s: string, openBrace: number): { content: string; end
 }
 
 function readLatexCell(row: string, start: number): { cell: string; end: number } {
-  if (row[start] === "\\") {
+  if (row[start] === '\\') {
     let end = start + 1;
     while (end < row.length && /[A-Za-z]/.test(row[end])) end++;
     if (end === start + 1 && end < row.length) end++;
-    while (row[end] === "{") {
+    while (row[end] === '{') {
       const group = readBalancedGroup(row, end);
       if (!group) break;
       end = group.end;
@@ -147,7 +141,7 @@ function readLatexCell(row: string, start: number): { cell: string; end: number 
     return { cell: row.slice(start, end), end };
   }
 
-  if (row[start] === "{") {
+  if (row[start] === '{') {
     const group = readBalancedGroup(row, start);
     if (group) return { cell: group.content, end: group.end };
   }
@@ -156,19 +150,19 @@ function readLatexCell(row: string, start: number): { cell: string; end: number 
 }
 
 function parseYoungTableau(s: string): string[][] | null {
-  const rawRows = splitAtTopLevel(s, ",");
+  const rawRows = splitAtTopLevel(s, ',');
   if (rawRows.length === 0 || rawRows.length > MAX_ROWS) return null;
 
   const rows: string[][] = [];
   let totalCells = 0;
   for (const rawRow of rawRows) {
     const row: string[] = [];
-    for (let i = 0; i < rawRow.length;) {
+    for (let i = 0; i < rawRow.length; ) {
       if (/\s/.test(rawRow[i])) {
         i++;
         continue;
       }
-      if (rawRow[i] === ":") {
+      if (rawRow[i] === ':') {
         row.push(SKEW_CELL);
         totalCells++;
         if (totalCells > MAX_CELLS) return null;
@@ -191,17 +185,21 @@ function parseYoungTableau(s: string): string[][] | null {
   return rows;
 }
 
-function expandYoungMacro(isYng: boolean, shapeText: string, content: string | undefined): string | null {
+function expandYoungMacro(
+  isYng: boolean,
+  shapeText: string,
+  content: string | undefined,
+): string | null {
   if (isYng) {
-    const rows = parseShape(shapeText, "comma");
+    const rows = parseShape(shapeText, 'comma');
     return rows ? expandShape(rows, content) : null;
   }
 
   // Keep compatibility with the existing PR's `\young(2 1)` shape shorthand,
   // but treat comma-separated `\young(ab,c)` as the actual youngtab labelled
   // tableau syntax.
-  if (!shapeText.includes(",") && /^\s*\d+(?:\s+\d+)+\s*$/.test(shapeText)) {
-    const rows = parseShape(shapeText, "space");
+  if (!shapeText.includes(',') && /^\s*\d+(?:\s+\d+)+\s*$/.test(shapeText)) {
+    const rows = parseShape(shapeText, 'space');
     return rows ? expandShape(rows, undefined) : null;
   }
 
@@ -210,15 +208,15 @@ function expandYoungMacro(isYng: boolean, shapeText: string, content: string | u
 }
 
 function readYoungStart(src: string, i: number): { isYng: boolean; openIdx: number } | null {
-  if (src.startsWith("\\young", i)) {
-    let openIdx = i + "\\young".length;
-    while (/\s/.test(src[openIdx] ?? "")) openIdx++;
-    if (src[openIdx] === "(") return { isYng: false, openIdx };
+  if (src.startsWith('\\young', i)) {
+    let openIdx = i + '\\young'.length;
+    while (/\s/.test(src[openIdx] ?? '')) openIdx++;
+    if (src[openIdx] === '(') return { isYng: false, openIdx };
   }
-  if (src.startsWith("\\yng", i)) {
-    let openIdx = i + "\\yng".length;
-    while (/\s/.test(src[openIdx] ?? "")) openIdx++;
-    if (src[openIdx] === "(") return { isYng: true, openIdx };
+  if (src.startsWith('\\yng', i)) {
+    let openIdx = i + '\\yng'.length;
+    while (/\s/.test(src[openIdx] ?? '')) openIdx++;
+    if (src[openIdx] === '(') return { isYng: true, openIdx };
   }
   return null;
 }
@@ -226,8 +224,8 @@ function readYoungStart(src: string, i: number): { isYng: boolean; openIdx: numb
 function findClosingParen(src: string, openIdx: number): number {
   let depth = 1;
   for (let i = openIdx + 1; i < src.length; i++) {
-    if (src[i] === "(") depth++;
-    else if (src[i] === ")") depth--;
+    if (src[i] === '(') depth++;
+    else if (src[i] === ')') depth--;
     if (depth === 0) return i;
   }
   return -1;
@@ -240,7 +238,7 @@ function findYoungCallEnd(src: string, openIdx: number): number {
   const closeIdx = findClosingParen(src, openIdx);
   if (closeIdx < 0) return -1;
   const afterClose = closeIdx + 1;
-  if (src[afterClose] === "{") {
+  if (src[afterClose] === '{') {
     const group = readBalancedGroup(src, afterClose);
     return group ? group.end : -1;
   }
@@ -255,7 +253,7 @@ function findYoungCallEnd(src: string, openIdx: number): number {
  * block (the existing common case), just substitute the expanded form.
  */
 export function expandYoungDiagrams(src: string): string {
-  let out = "";
+  let out = '';
   let i = 0;
   // Track whether we're inside a math block. We use a small stack-like
   // counter (depth): 0 = prose, 1 = inline math `$…$`, 2 = display
@@ -267,7 +265,7 @@ export function expandYoungDiagrams(src: string): string {
   while (i < src.length) {
     const ch = src[i];
 
-    if (ch === "$") {
+    if (ch === '$') {
       if (isEscapedDollar(src, i)) {
         out += ch;
         i += 1;
@@ -279,10 +277,10 @@ export function expandYoungDiagrams(src: string): string {
         continue;
       }
       // Look ahead for `$$` (display) vs single `$` (inline).
-      if (src[i + 1] === "$") {
+      if (src[i + 1] === '$') {
         // Display math: toggle 0↔2.
         depth = depth === 0 ? 2 : depth === 2 ? 0 : depth;
-        out += "$$";
+        out += '$$';
         i += 2;
       } else {
         // Inline math: toggle 0↔1. If we're in display math (depth=2),
@@ -311,7 +309,7 @@ export function expandYoungDiagrams(src: string): string {
         const shapeText = src.slice(youngStart.openIdx + 1, closeIdx);
         let content: string | undefined;
         let contentStart = closeIdx + 1;
-        if (src[contentStart] === "{") {
+        if (src[contentStart] === '{') {
           const group = readBalancedGroup(src, contentStart);
           if (group) content = group.content;
         }
@@ -324,9 +322,9 @@ export function expandYoungDiagrams(src: string): string {
         // Wrap in `$…$` only if we're outside math. Inside math, the
         // surrounding `$`/`$$` already supplies the math delimiters.
         if (depth === 0) {
-          const leadingSep = out.endsWith("$") && !isEscapedDollar(out, out.length - 1) ? " " : "";
-          const trailingSep = src[callEnd] === "$" && !isEscapedDollar(src, callEnd) ? " " : "";
-          out += leadingSep + "$" + expanded + "$" + trailingSep;
+          const leadingSep = out.endsWith('$') && !isEscapedDollar(out, out.length - 1) ? ' ' : '';
+          const trailingSep = src[callEnd] === '$' && !isEscapedDollar(src, callEnd) ? ' ' : '';
+          out += leadingSep + '$' + expanded + '$' + trailingSep;
         } else {
           out += expanded;
         }
@@ -343,20 +341,20 @@ export function expandYoungDiagrams(src: string): string {
 
 function isEscapedDollar(src: string, i: number): boolean {
   let slashCount = 0;
-  for (let j = i - 1; j >= 0 && src[j] === "\\"; j--) slashCount++;
+  for (let j = i - 1; j >= 0 && src[j] === '\\'; j--) slashCount++;
   return slashCount % 2 === 1;
 }
 
 function isCurrencyLikeDollar(src: string, i: number): boolean {
-  return /\d/.test(src[i + 1] ?? "") || /[\d%]/.test(src[i - 1] ?? "");
+  return /\d/.test(src[i + 1] ?? '') || /[\d%]/.test(src[i - 1] ?? '');
 }
 
 function opensYoungMathSpan(src: string, dollarIdx: number): boolean {
-  if (src[dollarIdx + 1] === "$") return false;
+  if (src[dollarIdx + 1] === '$') return false;
 
   let closeIdx = -1;
-  for (let i = dollarIdx + 1; i < src.length && src[i] !== "\n"; i++) {
-    if (src[i] === "$" && !isEscapedDollar(src, i)) {
+  for (let i = dollarIdx + 1; i < src.length && src[i] !== '\n'; i++) {
+    if (src[i] === '$' && !isEscapedDollar(src, i)) {
       closeIdx = i;
       break;
     }

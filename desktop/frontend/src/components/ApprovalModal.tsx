@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState } from "react";
-import gsap from "gsap";
-import { useT } from "../lib/i18n";
-import type { WireApproval } from "../lib/types";
-import { PromptAction, PromptDetailToggle, PromptShelf } from "./PromptShelf";
-import { playAttentionChime } from "../lib/sound";
-import { DUR_FAST } from "../lib/gsapAnimations";
+import { useEffect, useRef, useState } from 'react';
+import gsap from 'gsap';
+import { useT } from '../lib/i18n';
+import type { WireApproval } from '../lib/types';
+import { PromptAction, PromptDetailToggle, PromptShelf } from './PromptShelf';
+import { playAttentionChime } from '../lib/sound';
+import { DUR_FAST } from '../lib/gsapAnimations';
 
 export function ApprovalModal({
   approval,
@@ -20,9 +20,9 @@ export function ApprovalModal({
   onStop: () => void;
 }) {
   const t = useT();
-  const isPlanApproval = approval.tool === "exit_plan_mode";
+  const isPlanApproval = approval.tool === 'exit_plan_mode';
   const [revisionOpen, setRevisionOpen] = useState(false);
-  const [revisionText, setRevisionText] = useState("");
+  const [revisionText, setRevisionText] = useState('');
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(() => (isPlanApproval ? 1 : 0));
   const cardRef = useRef<HTMLDivElement | null>(null);
@@ -33,8 +33,11 @@ export function ApprovalModal({
   // jarring pop when the API cycles through 4+ pending approvals.
   const closingRef = useRef(false);
   const subject = approval.subject.trim();
-  const subjectSummary = subject.split("\n").find((line) => line.trim())?.trim() ?? "";
-
+  const subjectSummary =
+    subject
+      .split('\n')
+      .find((line) => line.trim())
+      ?.trim() ?? '';
 
   const answerWithExit = (fn: () => void) => {
     if (closingRef.current) return;
@@ -45,7 +48,7 @@ export function ApprovalModal({
         opacity: 0,
         y: 8,
         duration: DUR_FAST,
-        ease: "power2.in",
+        ease: 'power2.in',
         onComplete: fn,
       });
     } else {
@@ -54,24 +57,25 @@ export function ApprovalModal({
   };
 
   const choosePlanAction = (key: string) => {
-    if (key === "1") setRevisionOpen((open) => !open);
-    else if (key === "2") answerWithExit(() => onAnswer(true, false, false));
-    else if (key === "3") answerWithExit(() => (onExitPlan ?? (() => onAnswer(false, false, false)))());
-    else if (key === "Escape") answerWithExit(onStop);
+    if (key === '1') setRevisionOpen((open) => !open);
+    else if (key === '2') answerWithExit(() => onAnswer(true, false, false));
+    else if (key === '3')
+      answerWithExit(() => (onExitPlan ?? (() => onAnswer(false, false, false)))());
+    else if (key === 'Escape') answerWithExit(onStop);
   };
 
   const chooseToolAction = (key: string) => {
-    if (key === "1") answerWithExit(() => onAnswer(true, false, false));
-    else if (key === "2") answerWithExit(() => onAnswer(true, true, false));
-    else if (key === "3") answerWithExit(() => onAnswer(true, true, true));
-    else if (key === "4") answerWithExit(() => onAnswer(false, false, false));
-    else if (key === "Escape") answerWithExit(onStop);
+    if (key === '1') answerWithExit(() => onAnswer(true, false, false));
+    else if (key === '2') answerWithExit(() => onAnswer(true, true, false));
+    else if (key === '3') answerWithExit(() => onAnswer(true, true, true));
+    else if (key === '4') answerWithExit(() => onAnswer(false, false, false));
+    else if (key === 'Escape') answerWithExit(onStop);
   };
 
   useEffect(() => {
     cardRef.current?.focus();
     setRevisionOpen(false);
-    setRevisionText("");
+    setRevisionText('');
     setDetailsOpen(false);
     setSelectedIndex(isPlanApproval ? 1 : 0);
     playAttentionChime();
@@ -85,28 +89,44 @@ export function ApprovalModal({
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
       const target = event.target instanceof Element ? event.target : null;
       const tag = target?.tagName.toLowerCase();
-      if (tag === "input" || tag === "textarea" || tag === "select" || (target instanceof HTMLElement && target.isContentEditable)) return;
+      if (
+        tag === 'input' ||
+        tag === 'textarea' ||
+        tag === 'select' ||
+        (target instanceof HTMLElement && target.isContentEditable)
+      )
+        return;
       const interactiveTarget = target?.closest("button, a, [role='button'], [role='link']");
-      if (interactiveTarget && (event.key === "ArrowLeft" || event.key === "ArrowRight" || event.key === "Enter")) return;
-      if (event.key === "ArrowLeft") {
+      if (
+        interactiveTarget &&
+        (event.key === 'ArrowLeft' || event.key === 'ArrowRight' || event.key === 'Enter')
+      )
+        return;
+      if (event.key === 'ArrowLeft') {
         event.preventDefault();
         setSelectedIndex((i) => (i - 1 + actionCount) % actionCount);
-      } else if (event.key === "ArrowRight") {
+      } else if (event.key === 'ArrowRight') {
         event.preventDefault();
         setSelectedIndex((i) => (i + 1) % actionCount);
-      } else if (event.key === "Enter") {
+      } else if (event.key === 'Enter') {
         event.preventDefault();
         const key = String(selectedIndexRef.current + 1);
         if (isPlanApproval) choosePlanAction(key);
         else chooseToolAction(key);
-      } else if (event.key === "1" || event.key === "2" || event.key === "3" || event.key === "4" || event.key === "Escape") {
+      } else if (
+        event.key === '1' ||
+        event.key === '2' ||
+        event.key === '3' ||
+        event.key === '4' ||
+        event.key === 'Escape'
+      ) {
         event.preventDefault();
         if (isPlanApproval) choosePlanAction(event.key);
         else chooseToolAction(event.key);
       }
     };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
   }, [isPlanApproval, onAnswer, onExitPlan, onStop, actionCount]);
 
   useEffect(() => {
@@ -128,48 +148,64 @@ export function ApprovalModal({
       <div ref={shelfRef}>
         <PromptShelf
           barRef={cardRef}
-        titleId="plan-approval-title"
-        title={t("approval.planReady")}
-        meta={t("approval.planReadyHint")}
-        actions={
-          <>
-            <PromptAction keyLabel="1" label={t("approval.revisePlan")} onClick={() => setRevisionOpen((open) => !open)} selected={selectedIndex === 0} />
-            <PromptAction keyLabel="2" label={t("approval.startExecution")} onClick={() => answerWithExit(() => onAnswer(true, false, false))} selected={selectedIndex === 1} />
-            <PromptAction
-              keyLabel="3"
-              label={t("approval.exitPlan")}
-              onClick={() => answerWithExit(() => (onExitPlan ?? (() => onAnswer(false, false, false)))())}
-              selected={selectedIndex === 2}
-            />
-            <PromptAction keyLabel="Esc" label={t("composer.stopShort")} onClick={() => answerWithExit(onStop)} />
-          </>
-        }
-      >
-        {revisionOpen && (
-          <div className="plan-revision">
-            <textarea
-              ref={inputRef}
-              className="plan-revision__input"
-              value={revisionText}
-              rows={3}
-              placeholder={t("approval.revisePlanPlaceholder")}
-              onChange={(event) => setRevisionText(event.target.value)}
-              onKeyDown={(event) => {
-                if ((event.metaKey || event.ctrlKey) && event.key === "Enter") submitRevision();
-                event.stopPropagation();
-              }}
-            />
-            <div className="plan-revision__actions">
-              <button className="btn" onClick={() => setRevisionOpen(false)}>
-                {t("common.cancel")}
-              </button>
-              <button className="btn btn--primary" onClick={submitRevision}>
-                {t("approval.sendRevision")}
-              </button>
+          titleId="plan-approval-title"
+          title={t('approval.planReady')}
+          meta={t('approval.planReadyHint')}
+          actions={
+            <>
+              <PromptAction
+                keyLabel="1"
+                label={t('approval.revisePlan')}
+                onClick={() => setRevisionOpen((open) => !open)}
+                selected={selectedIndex === 0}
+              />
+              <PromptAction
+                keyLabel="2"
+                label={t('approval.startExecution')}
+                onClick={() => answerWithExit(() => onAnswer(true, false, false))}
+                selected={selectedIndex === 1}
+              />
+              <PromptAction
+                keyLabel="3"
+                label={t('approval.exitPlan')}
+                onClick={() =>
+                  answerWithExit(() => (onExitPlan ?? (() => onAnswer(false, false, false)))())
+                }
+                selected={selectedIndex === 2}
+              />
+              <PromptAction
+                keyLabel="Esc"
+                label={t('composer.stopShort')}
+                onClick={() => answerWithExit(onStop)}
+              />
+            </>
+          }
+        >
+          {revisionOpen && (
+            <div className="plan-revision">
+              <textarea
+                ref={inputRef}
+                className="plan-revision__input"
+                value={revisionText}
+                rows={3}
+                placeholder={t('approval.revisePlanPlaceholder')}
+                onChange={(event) => setRevisionText(event.target.value)}
+                onKeyDown={(event) => {
+                  if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') submitRevision();
+                  event.stopPropagation();
+                }}
+              />
+              <div className="plan-revision__actions">
+                <button className="btn" onClick={() => setRevisionOpen(false)}>
+                  {t('common.cancel')}
+                </button>
+                <button className="btn btn--primary" onClick={submitRevision}>
+                  {t('approval.sendRevision')}
+                </button>
+              </div>
             </div>
-          </div>
-        )}
-      </PromptShelf>
+          )}
+        </PromptShelf>
       </div>
     );
   }
@@ -178,38 +214,59 @@ export function ApprovalModal({
     <div ref={shelfRef}>
       <PromptShelf
         barRef={cardRef}
-      titleId="tool-approval-title"
-      title={t("approval.toolPending")}
-      actionsWrap
-      meta={
-        <>
-          <span className="tool__name">{approval.tool}</span>
-          {subjectSummary && <span className="prompt-shelf__subject"> · {subjectSummary}</span>}
-        </>
-      }
-      actions={
-        <>
-          {subject && (
-            <PromptDetailToggle
-              open={detailsOpen}
-              label={t("approval.details")}
-              openLabel={t("approval.hideDetails")}
-              onClick={() => setDetailsOpen((open) => !open)}
+        titleId="tool-approval-title"
+        title={t('approval.toolPending')}
+        actionsWrap
+        meta={
+          <>
+            <span className="tool__name">{approval.tool}</span>
+            {subjectSummary && <span className="prompt-shelf__subject"> · {subjectSummary}</span>}
+          </>
+        }
+        actions={
+          <>
+            {subject && (
+              <PromptDetailToggle
+                open={detailsOpen}
+                label={t('approval.details')}
+                openLabel={t('approval.hideDetails')}
+                onClick={() => setDetailsOpen((open) => !open)}
+              />
+            )}
+            <PromptAction
+              keyLabel="1"
+              label={t('approval.allowOnce')}
+              onClick={() => answerWithExit(() => onAnswer(true, false, false))}
+              selected={selectedIndex === 0}
             />
-          )}
-          <PromptAction keyLabel="1" label={t("approval.allowOnce")} onClick={() => answerWithExit(() => onAnswer(true, false, false))} selected={selectedIndex === 0} />
-          <PromptAction keyLabel="2" label={t("approval.allowRuleSession")} onClick={() => answerWithExit(() => onAnswer(true, true, false))} selected={selectedIndex === 1} />
-          <PromptAction keyLabel="3" label={t("approval.allowRulePersistent")} onClick={() => answerWithExit(() => onAnswer(true, true, true))} selected={selectedIndex === 2} />
-          <PromptAction keyLabel="4" label={t("approval.deny")} onClick={() => answerWithExit(() => onAnswer(false, false, false))} selected={selectedIndex === 3} />
-          <PromptAction keyLabel="Esc" label={t("composer.stopShort")} onClick={() => answerWithExit(onStop)} />
-        </>
-      }
-    >
-      {detailsOpen && subject && (
-        <pre className="approval-subject">{subject}</pre>
-      )}
-    </PromptShelf>
+            <PromptAction
+              keyLabel="2"
+              label={t('approval.allowRuleSession')}
+              onClick={() => answerWithExit(() => onAnswer(true, true, false))}
+              selected={selectedIndex === 1}
+            />
+            <PromptAction
+              keyLabel="3"
+              label={t('approval.allowRulePersistent')}
+              onClick={() => answerWithExit(() => onAnswer(true, true, true))}
+              selected={selectedIndex === 2}
+            />
+            <PromptAction
+              keyLabel="4"
+              label={t('approval.deny')}
+              onClick={() => answerWithExit(() => onAnswer(false, false, false))}
+              selected={selectedIndex === 3}
+            />
+            <PromptAction
+              keyLabel="Esc"
+              label={t('composer.stopShort')}
+              onClick={() => answerWithExit(onStop)}
+            />
+          </>
+        }
+      >
+        {detailsOpen && subject && <pre className="approval-subject">{subject}</pre>}
+      </PromptShelf>
     </div>
   );
-
 }

@@ -1,4 +1,4 @@
-export type PromptHistoryDirection = "up" | "down";
+export type PromptHistoryDirection = 'up' | 'down';
 
 export interface PromptHistoryKeyLike {
   key?: string;
@@ -24,20 +24,32 @@ export interface PromptHistoryEligibility {
 }
 
 export function isFnKeyEvent(event: PromptHistoryKeyLike): boolean {
-  return event.key === "Fn" || event.code === "Fn" || event.getModifierState?.("Fn") === true;
+  return event.key === 'Fn' || event.code === 'Fn' || event.getModifierState?.('Fn') === true;
 }
 
-export function promptHistoryDirectionFromEvent(event: PromptHistoryKeyLike): PromptHistoryDirection | null {
-  const key = event.key ?? "";
-  const code = event.code ?? "";
+export function promptHistoryDirectionFromEvent(
+  event: PromptHistoryKeyLike,
+): PromptHistoryDirection | null {
+  const key = event.key ?? '';
+  const code = event.code ?? '';
   const keyCode = event.keyCode ?? event.which ?? 0;
-  const useLegacyCode = key === "" || key === "Unidentified";
+  const useLegacyCode = key === '' || key === 'Unidentified';
 
-  if (key === "ArrowUp" || key === "Up" || code === "ArrowUp" || (useLegacyCode && keyCode === 38)) {
-    return "up";
+  if (
+    key === 'ArrowUp' ||
+    key === 'Up' ||
+    code === 'ArrowUp' ||
+    (useLegacyCode && keyCode === 38)
+  ) {
+    return 'up';
   }
-  if (key === "ArrowDown" || key === "Down" || code === "ArrowDown" || (useLegacyCode && keyCode === 40)) {
-    return "down";
+  if (
+    key === 'ArrowDown' ||
+    key === 'Down' ||
+    code === 'ArrowDown' ||
+    (useLegacyCode && keyCode === 40)
+  ) {
+    return 'down';
   }
   return null;
 }
@@ -57,11 +69,12 @@ export function canUsePromptHistory(options: PromptHistoryEligibility): boolean 
     selectionEnd,
     historyIndex,
   } = options;
-  if (!direction || menuOpen || composing || fnKey || altKey || ctrlKey || metaKey || shiftKey) return false;
+  if (!direction || menuOpen || composing || fnKey || altKey || ctrlKey || metaKey || shiftKey)
+    return false;
   if (selectionStart === null || selectionEnd === null) return false;
   if (selectionStart !== selectionEnd) return false;
 
-  if (direction === "up") {
+  if (direction === 'up') {
     return historyIndex >= 0 || selectionStart === 0;
   }
 

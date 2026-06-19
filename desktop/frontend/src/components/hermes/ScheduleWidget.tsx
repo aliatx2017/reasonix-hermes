@@ -1,8 +1,8 @@
-import { useState } from "react";
-import { Clock, CheckCircle2, XCircle, Play, Plus, Edit2, Trash2 } from "lucide-react";
-import type { ScheduleDashboardView, ScheduleTaskView } from "../../lib/types";
-import { CreateEditTaskModal, type TaskFormData } from "./CreateEditTaskModal";
-import { app } from "../../lib/bridge";
+import { useState } from 'react';
+import { Clock, CheckCircle2, XCircle, Play, Plus, Edit2, Trash2 } from 'lucide-react';
+import type { ScheduleDashboardView, ScheduleTaskView } from '../../lib/types';
+import { CreateEditTaskModal, type TaskFormData } from './CreateEditTaskModal';
+import { app } from '../../lib/bridge';
 
 interface ScheduleWidgetProps {
   data: ScheduleDashboardView | null;
@@ -37,20 +37,34 @@ export function ScheduleWidget({ data, onRefresh }: ScheduleWidgetProps) {
   const recentRuns = data?.recentRuns ?? [];
 
   return (
-    <div className="hermes-widget" style={{ padding: "8px 0" }}>
+    <div className="hermes-widget" style={{ padding: '8px 0' }}>
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-        <h4 style={{ fontSize: 13, fontWeight: 600, margin: 0, color: "var(--color-text-muted)" }}>
-          <Clock size={13} style={{ marginRight: 4, verticalAlign: "middle" }} />
-          Scheduled Tasks{tasks.length > 0 ? ` (${tasks.length})` : ""}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 8,
+        }}
+      >
+        <h4 style={{ fontSize: 13, fontWeight: 600, margin: 0, color: 'var(--color-text-muted)' }}>
+          <Clock size={13} style={{ marginRight: 4, verticalAlign: 'middle' }} />
+          Scheduled Tasks{tasks.length > 0 ? ` (${tasks.length})` : ''}
         </h4>
         <button
           onClick={handleCreate}
           title="Add task"
           style={{
-            background: "var(--color-accent)", border: "none", borderRadius: 6,
-            color: "#fff", cursor: "pointer", padding: "2px 8px", fontSize: 11,
-            display: "flex", alignItems: "center", gap: 2,
+            background: 'var(--color-accent)',
+            border: 'none',
+            borderRadius: 6,
+            color: '#fff',
+            cursor: 'pointer',
+            padding: '2px 8px',
+            fontSize: 11,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2,
           }}
         >
           <Plus size={13} />
@@ -72,43 +86,41 @@ export function ScheduleWidget({ data, onRefresh }: ScheduleWidgetProps) {
             <div
               key={t.name}
               style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                padding: "6px 10px",
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '6px 10px',
                 marginBottom: 4,
                 borderRadius: 6,
-                background: "var(--color-bg-secondary)",
+                background: 'var(--color-bg-secondary)',
                 fontSize: 12,
                 gap: 8,
               }}
             >
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 600 }}>{t.name}</div>
-                <div style={{ color: "var(--color-text-muted)", fontSize: 11 }}>
+                <div style={{ color: 'var(--color-text-muted)', fontSize: 11 }}>
                   {t.cron} · {t.prompt}
                 </div>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
                 {t.enabled ? (
-                  <span style={{ color: "var(--color-success, #22c55e)", fontSize: 11 }}>
+                  <span style={{ color: 'var(--color-success, #22c55e)', fontSize: 11 }}>
                     <Play size={10} style={{ marginRight: 2 }} />
-                    {t.nextRun ? formatNextRun(t.nextRun) : "pending"}
+                    {t.nextRun ? formatNextRun(t.nextRun) : 'pending'}
                   </span>
                 ) : (
-                  <span style={{ color: "var(--color-text-disabled)", fontSize: 11 }}>disabled</span>
+                  <span style={{ color: 'var(--color-text-disabled)', fontSize: 11 }}>
+                    disabled
+                  </span>
                 )}
-                <button
-                  onClick={() => handleEdit(t)}
-                  title="Edit"
-                  style={iconBtnStyle}
-                >
+                <button onClick={() => handleEdit(t)} title="Edit" style={iconBtnStyle}>
                   <Edit2 size={12} />
                 </button>
                 <button
                   onClick={() => handleDelete(t.name)}
                   title="Delete"
-                  style={{ ...iconBtnStyle, color: "var(--color-error, #e53e3e)" }}
+                  style={{ ...iconBtnStyle, color: 'var(--color-error, #e53e3e)' }}
                 >
                   <Trash2 size={12} />
                 </button>
@@ -121,37 +133,52 @@ export function ScheduleWidget({ data, onRefresh }: ScheduleWidgetProps) {
       {/* Recent runs */}
       {recentRuns.length > 0 && (
         <div>
-          <h4 style={{ fontSize: 13, fontWeight: 600, margin: "0 0 8px", color: "var(--color-text-muted)" }}>
+          <h4
+            style={{
+              fontSize: 13,
+              fontWeight: 600,
+              margin: '0 0 8px',
+              color: 'var(--color-text-muted)',
+            }}
+          >
             Recent Runs
           </h4>
           {recentRuns.map((r, i) => (
             <div
               key={`${r.taskName}-${r.runAt}-${i}`}
               style={{
-                display: "flex",
+                display: 'flex',
                 gap: 8,
-                alignItems: "flex-start",
-                padding: "4px 10px",
+                alignItems: 'flex-start',
+                padding: '4px 10px',
                 marginBottom: 2,
                 borderRadius: 4,
                 fontSize: 12,
               }}
             >
               {r.success ? (
-                <CheckCircle2 size={14} style={{ color: "var(--color-success, #22c55e)", marginTop: 1, flexShrink: 0 }} />
+                <CheckCircle2
+                  size={14}
+                  style={{ color: 'var(--color-success, #22c55e)', marginTop: 1, flexShrink: 0 }}
+                />
               ) : (
-                <XCircle size={14} style={{ color: "var(--color-error, #ef4444)", marginTop: 1, flexShrink: 0 }} />
+                <XCircle
+                  size={14}
+                  style={{ color: 'var(--color-error, #ef4444)', marginTop: 1, flexShrink: 0 }}
+                />
               )}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <span style={{ fontWeight: 600 }}>{r.taskName}</span>
-                <span style={{ color: "var(--color-text-muted)", marginLeft: 6 }}>{r.duration}</span>
+                <span style={{ color: 'var(--color-text-muted)', marginLeft: 6 }}>
+                  {r.duration}
+                </span>
                 {r.summary && (
-                  <div style={{ color: "var(--color-text-muted)", fontSize: 11, marginTop: 1 }}>
+                  <div style={{ color: 'var(--color-text-muted)', fontSize: 11, marginTop: 1 }}>
                     {r.summary}
                   </div>
                 )}
                 {r.error && (
-                  <div style={{ color: "var(--color-error, #ef4444)", fontSize: 11, marginTop: 1 }}>
+                  <div style={{ color: 'var(--color-error, #ef4444)', fontSize: 11, marginTop: 1 }}>
                     {r.error}
                   </div>
                 )}
@@ -164,13 +191,17 @@ export function ScheduleWidget({ data, onRefresh }: ScheduleWidgetProps) {
       {/* Modal */}
       <CreateEditTaskModal
         open={modalOpen}
-        task={editingTask ? {
-          name: editingTask.name,
-          cron: editingTask.cron,
-          prompt: editingTask.prompt,
-          model: editingTask.model ?? "",
-          enabled: editingTask.enabled,
-        } : null}
+        task={
+          editingTask
+            ? {
+                name: editingTask.name,
+                cron: editingTask.cron,
+                prompt: editingTask.prompt,
+                model: editingTask.model ?? '',
+                enabled: editingTask.enabled,
+              }
+            : null
+        }
         onClose={() => setModalOpen(false)}
         onSave={handleSave}
         onDelete={handleDelete}
@@ -180,18 +211,18 @@ export function ScheduleWidget({ data, onRefresh }: ScheduleWidgetProps) {
 }
 
 const iconBtnStyle: React.CSSProperties = {
-  background: "transparent",
-  border: "none",
-  cursor: "pointer",
+  background: 'transparent',
+  border: 'none',
+  cursor: 'pointer',
   padding: 2,
-  color: "var(--color-text-muted)",
+  color: 'var(--color-text-muted)',
 };
 
 function formatNextRun(iso: string): string {
   const d = new Date(iso);
   const now = Date.now();
   const diff = d.getTime() - now;
-  if (diff < 0) return "now";
+  if (diff < 0) return 'now';
   const mins = Math.floor(diff / 60000);
   if (mins < 60) return `in ${mins}m`;
   const hrs = Math.floor(mins / 60);

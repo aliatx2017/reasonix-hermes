@@ -26,12 +26,12 @@ const TEXT_COMMANDS = new Set([
 // the | → \vert rewrite below corrupts `{c|c}` into `{c\vert c}` and KaTeX
 // fails with "Unknown column alignment: \vert".
 const COLUMN_SPEC_ENVS = new Set([
-  "array",
-  "tabular",
-  "tabularx",
-  "longtable",
-  "matrix", // pmatrix/bmatrix etc. have no preamble, but harmless to list
-  "subarray",
+  'array',
+  'tabular',
+  'tabularx',
+  'longtable',
+  'matrix', // pmatrix/bmatrix etc. have no preamble, but harmless to list
+  'subarray',
 ]);
 
 export function latexNormalizeForKatex(source: string) {
@@ -108,7 +108,7 @@ export function latexNormalizeForKatex(source: string) {
         // into `{c\vert c}` which KaTeX rejects ("Unknown column alignment").
         // `%` inside a column spec is rare but also belongs to the spec, not
         // the equation, so we copy the whole brace group verbatim.
-        if (cmd.name === "begin") {
+        if (cmd.name === 'begin') {
           const envName = readBeginEnvName(source, cmd.end);
           if (envName && COLUMN_SPEC_ENVS.has(envName)) {
             const specEnd = findMatchingBrace(source, cmd.end, envName);
@@ -141,8 +141,8 @@ export function latexNormalizeForKatex(source: string) {
     // truncates the formula — e.g. `$x = 50%$` renders as just `x = 50`.
     // Escape every top-level `%` to `\%`. Already-escaped `\%` is handled
     // above as a 2-char command, so we never reach this branch for it.
-    if (source[i] === "%") {
-      out += "\\%";
+    if (source[i] === '%') {
+      out += '\\%';
       i += 1;
       continue;
     }
@@ -180,31 +180,31 @@ export function latexNormalizeForKatex(source: string) {
  *    and skip the matching closing `\|` so it isn't treated as a ket opener.
  */
 function fixKetPipes(source: string): string {
-  let out = "";
+  let out = '';
   let i = 0;
   const len = source.length;
 
   while (i < len) {
     // Match \| (backslash immediately followed by pipe).
-    if (source[i] === "\\" && source[i + 1] === "|") {
+    if (source[i] === '\\' && source[i + 1] === '|') {
       // Scan ahead to find the next \| or \rangle (at brace depth 0).
       let j = i + 2;
       let depth = 0;
-      let nextIs = "";
+      let nextIs = '';
       while (j < len) {
         const ch = source[j];
-        if (ch === "\\") {
+        if (ch === '\\') {
           // Check for \| or \rangle or \langle
-          if (source[j + 1] === "|") {
-            nextIs = "pipe";
+          if (source[j + 1] === '|') {
+            nextIs = 'pipe';
             break;
           }
-          if (source.startsWith("\\rangle", j)) {
-            nextIs = "rangle";
+          if (source.startsWith('\\rangle', j)) {
+            nextIs = 'rangle';
             break;
           }
-          if (source.startsWith("\\langle", j)) {
-            nextIs = "langle";
+          if (source.startsWith('\\langle', j)) {
+            nextIs = 'langle';
             break;
           }
           // Skip the escaped command so braces inside it aren't counted.
@@ -212,24 +212,24 @@ function fixKetPipes(source: string): string {
           j = cmd ? cmd.end : j + 2;
           continue;
         }
-        if (ch === "{") depth += 1;
-        else if (ch === "}") depth -= 1;
+        if (ch === '{') depth += 1;
+        else if (ch === '}') depth -= 1;
         j += 1;
       }
 
-      if (nextIs === "rangle") {
+      if (nextIs === 'rangle') {
         // Ket opener: \|...\rangle → \vert ...\rangle
-        out += "\\vert ";
+        out += '\\vert ';
         i += 2;
         continue;
       }
-      if (nextIs === "pipe") {
+      if (nextIs === 'pipe') {
         // Norm pair: \|...\| — keep the opening \| as a double bar and
         // let the content + closing \| process through the main loop
         // normally. We only emit the opening \| here; the closing \| will
         // be handled when we reach it (it will find no \rangle ahead and
         // no unmatched \langle, so it stays \|).
-        out += "\\|";
+        out += '\\|';
         i += 2;
         continue;
       }
@@ -237,12 +237,12 @@ function fixKetPipes(source: string): string {
       // \langle\psi\| — the \| is at the end, preceded by \langle{...}.
       // Scan backward through `out` for an unmatched \langle.
       if (hasUnmatchedAngleOpen(out)) {
-        out += "\\vert";
+        out += '\\vert';
         i += 2;
         continue;
       }
       // Truly unpaired \| with no context: conservative — leave as-is.
-      out += "\\|";
+      out += '\\|';
       i += 2;
       continue;
     }
@@ -266,12 +266,12 @@ function hasUnmatchedAngleOpen(out: string): boolean {
   let opens = 0;
   let k = 0;
   while (k < out.length) {
-    if (out.startsWith("\\langle", k)) {
+    if (out.startsWith('\\langle', k)) {
       opens += 1;
       k += 7;
       continue;
     }
-    if (out.startsWith("\\rangle", k)) {
+    if (out.startsWith('\\rangle', k)) {
       opens -= 1;
       k += 8;
       continue;
@@ -336,9 +336,9 @@ function readCommand(s: string, slash: number): { name: string; end: number } | 
 function readBeginEnvName(s: string, cmdEnd: number): string | null {
   // Skip whitespace between \begin and {
   let j = cmdEnd;
-  while (j < s.length && (s[j] === " " || s[j] === "\t")) j += 1;
-  if (s[j] !== "{") return null;
-  const close = s.indexOf("}", j + 1);
+  while (j < s.length && (s[j] === ' ' || s[j] === '\t')) j += 1;
+  if (s[j] !== '{') return null;
+  const close = s.indexOf('}', j + 1);
   if (close < 0) return null;
   const name = s.slice(j + 1, close).trim();
   return name || null;
@@ -353,27 +353,27 @@ function readBeginEnvName(s: string, cmdEnd: number): string | null {
 function findMatchingBrace(s: string, cmdEnd: number, _envName: string): number {
   let j = cmdEnd;
   // Skip whitespace before the env-name brace.
-  while (j < s.length && (s[j] === " " || s[j] === "\t")) j += 1;
-  if (s[j] !== "{") return -1;
+  while (j < s.length && (s[j] === ' ' || s[j] === '\t')) j += 1;
+  if (s[j] !== '{') return -1;
   // Skip past the env-name {...} group.
-  const nameClose = s.indexOf("}", j + 1);
+  const nameClose = s.indexOf('}', j + 1);
   if (nameClose < 0) return -1;
   // Skip whitespace before the column-spec brace.
   let k = nameClose + 1;
-  while (k < s.length && (s[k] === " " || s[k] === "\t")) k += 1;
-  if (s[k] !== "{") return -1;
+  while (k < s.length && (s[k] === ' ' || s[k] === '\t')) k += 1;
+  if (s[k] !== '{') return -1;
   // Find the matching close brace at depth 0 (column specs like
   // {c|c@{\;}c} contain nested braces, so we track depth).
   let depth = 1;
   let p = k + 1;
   while (p < s.length && depth > 0) {
     const ch = s[p];
-    if (ch === "\\") {
+    if (ch === '\\') {
       p += 2; // skip escaped char (\{, \}, etc.)
       continue;
     }
-    if (ch === "{") depth += 1;
-    else if (ch === "}") depth -= 1;
+    if (ch === '{') depth += 1;
+    else if (ch === '}') depth -= 1;
     if (depth === 0) return p;
     p += 1;
   }

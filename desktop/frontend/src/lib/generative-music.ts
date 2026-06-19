@@ -1,24 +1,24 @@
 /** Token-driven generative ambient music; opt-in via the "generativeMusicPreset" localStorage key. */
 
-export type GenerativePreset = "off" | "classic" | "ethereal" | "digital" | "retro";
+export type GenerativePreset = 'off' | 'classic' | 'ethereal' | 'digital' | 'retro';
 
-type NonEmptyPreset = "classic" | "ethereal" | "digital" | "retro";
+type NonEmptyPreset = 'classic' | 'ethereal' | 'digital' | 'retro';
 
 interface PresetConfig {
   oscillatorType: OscillatorType;
-  attack: number;          // 秒
-  decay: number;           // 秒
-  sustain: number;         // 0-1 电平
-  release: number;         // 秒
-  filterFreq: number;      // Hz
-  reverbDecay: number;     // 秒（脉冲响应长度）
-  reverbWet: number;       // 0-1 混合比
-  masterVolume: number;    // 0-1
+  attack: number; // 秒
+  decay: number; // 秒
+  sustain: number; // 0-1 电平
+  release: number; // 秒
+  filterFreq: number; // Hz
+  reverbDecay: number; // 秒（脉冲响应长度）
+  reverbWet: number; // 0-1 混合比
+  masterVolume: number; // 0-1
 }
 
 const PRESETS: Record<NonEmptyPreset, PresetConfig> = {
   classic: {
-    oscillatorType: "triangle",
+    oscillatorType: 'triangle',
     attack: 0.01,
     decay: 0.2,
     sustain: 0.2,
@@ -29,7 +29,7 @@ const PRESETS: Record<NonEmptyPreset, PresetConfig> = {
     masterVolume: 0.08,
   },
   ethereal: {
-    oscillatorType: "sine",
+    oscillatorType: 'sine',
     attack: 0.1,
     decay: 0.4,
     sustain: 0.4,
@@ -40,7 +40,7 @@ const PRESETS: Record<NonEmptyPreset, PresetConfig> = {
     masterVolume: 0.07,
   },
   digital: {
-    oscillatorType: "square",
+    oscillatorType: 'square',
     attack: 0.005,
     decay: 0.1,
     sustain: 0.1,
@@ -51,7 +51,7 @@ const PRESETS: Record<NonEmptyPreset, PresetConfig> = {
     masterVolume: 0.06,
   },
   retro: {
-    oscillatorType: "sawtooth",
+    oscillatorType: 'sawtooth',
     attack: 0.02,
     decay: 0.3,
     sustain: 0.3,
@@ -67,17 +67,24 @@ const PRESETS: Record<NonEmptyPreset, PresetConfig> = {
 const SCALE_FREQS = [261.63, 293.66, 349.23, 392.0, 440.0, 523.25, 587.33]; // C4–D5
 const OCTAVE_FREQS = [130.81, 146.83, 174.61, 196.0, 220.0, 261.63, 293.66]; // C3–D3
 
-const PRESET_KEY = "generativeMusicPreset";
+const PRESET_KEY = 'generativeMusicPreset';
 
 function readPresetPref(): GenerativePreset {
-  if (typeof localStorage === "undefined") return "off";
+  if (typeof localStorage === 'undefined') return 'off';
   const val = localStorage.getItem(PRESET_KEY);
-  if (val === "off" || val === "classic" || val === "ethereal" || val === "digital" || val === "retro") return val;
-  return "off";
+  if (
+    val === 'off' ||
+    val === 'classic' ||
+    val === 'ethereal' ||
+    val === 'digital' ||
+    val === 'retro'
+  )
+    return val;
+  return 'off';
 }
 
 function writePresetPref(pref: GenerativePreset): void {
-  if (typeof localStorage !== "undefined") {
+  if (typeof localStorage !== 'undefined') {
     localStorage.setItem(PRESET_KEY, pref);
   }
 }
@@ -91,7 +98,7 @@ export function setGenerativePreset(pref: GenerativePreset): void {
 }
 
 export function isGenerativeMusicEnabled(): boolean {
-  return readPresetPref() !== "off";
+  return readPresetPref() !== 'off';
 }
 
 class GenerativeMusicEngine {
@@ -99,8 +106,8 @@ class GenerativeMusicEngine {
   private masterGain: GainNode | null = null;
   private filterNode: BiquadFilterNode | null = null;
   private reverbNode: ConvolverNode | null = null;
-  private reverbGain: GainNode | null = null;      // wet
-  private preset: NonEmptyPreset = "ethereal";
+  private reverbGain: GainNode | null = null; // wet
+  private preset: NonEmptyPreset = 'ethereal';
   private running = false;
   private lastNoteTime = 0;
   private tokenToggle = 0;
@@ -108,7 +115,7 @@ class GenerativeMusicEngine {
   start(preset?: NonEmptyPreset): void {
     if (this.running) return;
     const p = preset ?? readPresetPref();
-    if (p === "off") return;
+    if (p === 'off') return;
     this.preset = p;
     this.running = true;
 
@@ -116,7 +123,7 @@ class GenerativeMusicEngine {
       this.ctx = new AudioContext();
       this.buildSignalChain();
     } catch (e) {
-      console.warn("generative-music: failed to create AudioContext", e);
+      console.warn('generative-music: failed to create AudioContext', e);
       this.running = false;
     }
   }
@@ -132,7 +139,7 @@ class GenerativeMusicEngine {
         this.masterGain.gain.setValueAtTime(this.masterGain.gain.value, now);
         this.masterGain.gain.linearRampToValueAtTime(0, now + 0.3);
       } catch (e) {
-        console.warn("generative-music: gain ramp failed", e);
+        console.warn('generative-music: gain ramp failed', e);
       }
     }
 
@@ -191,7 +198,7 @@ class GenerativeMusicEngine {
 
     if (this.filterNode) this.filterNode.disconnect();
     this.filterNode = this.ctx.createBiquadFilter();
-    this.filterNode.type = "lowpass";
+    this.filterNode.type = 'lowpass';
     this.filterNode.frequency.value = cfg.filterFreq;
     this.filterNode.Q.value = 1;
     this.filterNode.connect(this.masterGain);
@@ -216,7 +223,8 @@ class GenerativeMusicEngine {
       const data = buffer.getChannelData(ch);
       for (let i = 0; i < length; i++) {
         const t = i / length;
-        data[i] = (Math.random() * 2 - 1) * Math.pow(1 - t, 1.5) * (1 + Math.sin(t * Math.PI * 3) * 0.3);
+        data[i] =
+          (Math.random() * 2 - 1) * Math.pow(1 - t, 1.5) * (1 + Math.sin(t * Math.PI * 3) * 0.3);
       }
     }
     return buffer;
@@ -257,7 +265,7 @@ class GenerativeMusicEngine {
     const cfg = PRESETS[preset];
 
     const filter = ctx.createBiquadFilter();
-    filter.type = "lowpass";
+    filter.type = 'lowpass';
     filter.frequency.value = cfg.filterFreq;
 
     const reverb = ctx.createConvolver();

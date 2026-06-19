@@ -39,6 +39,7 @@
     "remark-math": "^6.0.0"
   },
   "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
     "@types/jsdom": "^28.0.3",
     "@types/node": "^25.9.3",
     "@types/react": "^19.2.17",

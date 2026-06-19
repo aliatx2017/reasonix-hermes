@@ -1,22 +1,22 @@
-import { useEffect, type DependencyList } from "react";
-import type { DictKey } from "./i18n";
+import { useEffect, type DependencyList } from 'react';
+import type { DictKey } from './i18n';
 
-export type ShortcutPlatform = "darwin" | "windows" | "linux";
+export type ShortcutPlatform = 'darwin' | 'windows' | 'linux';
 
 export type ShortcutAction =
-  | "app.newSession"
-  | "commandPalette.open"
-  | "settings.open"
-  | "tab.close"
-  | "shell.toggle"
-  | "textSize.increase"
-  | "textSize.decrease"
-  | "textSize.reset"
-  | "toolApproval.yolo"
-  | "shortcuts.show";
+  | 'app.newSession'
+  | 'commandPalette.open'
+  | 'settings.open'
+  | 'tab.close'
+  | 'shell.toggle'
+  | 'textSize.increase'
+  | 'textSize.decrease'
+  | 'textSize.reset'
+  | 'toolApproval.yolo'
+  | 'shortcuts.show';
 
-type KeyboardShortcutEvent = Pick<globalThis.KeyboardEvent, "key"> &
-  Partial<Pick<globalThis.KeyboardEvent, "ctrlKey" | "metaKey" | "altKey" | "shiftKey" | "target">>;
+type KeyboardShortcutEvent = Pick<globalThis.KeyboardEvent, 'key'> &
+  Partial<Pick<globalThis.KeyboardEvent, 'ctrlKey' | 'metaKey' | 'altKey' | 'shiftKey' | 'target'>>;
 
 export type ShortcutCombo = {
   key: string;
@@ -26,7 +26,7 @@ export type ShortcutCombo = {
   shift?: boolean;
 };
 
-export type ShortcutSection = "global" | "session" | "view" | "tools" | "help";
+export type ShortcutSection = 'global' | 'session' | 'view' | 'tools' | 'help';
 
 export type ShortcutDefinition = {
   action: ShortcutAction;
@@ -40,103 +40,103 @@ export type ShortcutDefinition = {
   configurable?: boolean;
 };
 
-const SHORTCUTS_STORAGE_KEY = "reasonix.customShortcuts";
-const SHORTCUTS_CHANGED_EVENT = "reasonix:shortcuts-changed";
+const SHORTCUTS_STORAGE_KEY = 'reasonix.customShortcuts';
+const SHORTCUTS_CHANGED_EVENT = 'reasonix:shortcuts-changed';
 
 export const SHORTCUT_DEFINITIONS: readonly ShortcutDefinition[] = [
   {
-    action: "app.newSession",
-    section: "session",
-    labelKey: "shortcuts.action.newSession",
-    descriptionKey: "shortcuts.desc.newSession",
-    defaults: modCombo("n"),
+    action: 'app.newSession',
+    section: 'session',
+    labelKey: 'shortcuts.action.newSession',
+    descriptionKey: 'shortcuts.desc.newSession',
+    defaults: modCombo('n'),
     preventDefault: true,
   },
   {
-    action: "commandPalette.open",
-    section: "global",
-    labelKey: "shortcuts.action.commandPalette",
-    descriptionKey: "shortcuts.desc.commandPalette",
-    defaults: modCombo("k"),
+    action: 'commandPalette.open',
+    section: 'global',
+    labelKey: 'shortcuts.action.commandPalette',
+    descriptionKey: 'shortcuts.desc.commandPalette',
+    defaults: modCombo('k'),
     preventDefault: true,
     allowInEditable: true,
   },
   {
-    action: "settings.open",
-    section: "global",
-    labelKey: "shortcuts.action.settings",
-    descriptionKey: "shortcuts.desc.settings",
-    defaults: modCombo(","),
+    action: 'settings.open',
+    section: 'global',
+    labelKey: 'shortcuts.action.settings',
+    descriptionKey: 'shortcuts.desc.settings',
+    defaults: modCombo(','),
     preventDefault: true,
   },
   {
-    action: "tab.close",
-    section: "session",
-    labelKey: "shortcuts.action.closeTab",
-    descriptionKey: "shortcuts.desc.closeTab",
-    defaults: modCombo("w"),
+    action: 'tab.close',
+    section: 'session',
+    labelKey: 'shortcuts.action.closeTab',
+    descriptionKey: 'shortcuts.desc.closeTab',
+    defaults: modCombo('w'),
     preventDefault: true,
   },
   {
-    action: "shell.toggle",
-    section: "view",
-    labelKey: "shortcuts.action.shellToggle",
-    descriptionKey: "shortcuts.desc.shellToggle",
-    defaults: modCombo("b"),
+    action: 'shell.toggle',
+    section: 'view',
+    labelKey: 'shortcuts.action.shellToggle',
+    descriptionKey: 'shortcuts.desc.shellToggle',
+    defaults: modCombo('b'),
     preventDefault: true,
   },
   {
-    action: "textSize.increase",
-    section: "view",
-    labelKey: "shortcuts.action.textSizeIncrease",
-    descriptionKey: "shortcuts.desc.textSizeIncrease",
-    defaults: modCombo("="),
+    action: 'textSize.increase',
+    section: 'view',
+    labelKey: 'shortcuts.action.textSizeIncrease',
+    descriptionKey: 'shortcuts.desc.textSizeIncrease',
+    defaults: modCombo('='),
     aliases: {
-      darwin: [{ key: "+", meta: true, shift: true }],
-      windows: [{ key: "+", ctrl: true, shift: true }],
-      linux: [{ key: "+", ctrl: true, shift: true }],
+      darwin: [{ key: '+', meta: true, shift: true }],
+      windows: [{ key: '+', ctrl: true, shift: true }],
+      linux: [{ key: '+', ctrl: true, shift: true }],
     },
     preventDefault: true,
   },
   {
-    action: "textSize.decrease",
-    section: "view",
-    labelKey: "shortcuts.action.textSizeDecrease",
-    descriptionKey: "shortcuts.desc.textSizeDecrease",
-    defaults: modCombo("-"),
+    action: 'textSize.decrease',
+    section: 'view',
+    labelKey: 'shortcuts.action.textSizeDecrease',
+    descriptionKey: 'shortcuts.desc.textSizeDecrease',
+    defaults: modCombo('-'),
     preventDefault: true,
   },
   {
-    action: "textSize.reset",
-    section: "view",
-    labelKey: "shortcuts.action.textSizeReset",
-    descriptionKey: "shortcuts.desc.textSizeReset",
-    defaults: modCombo("0"),
+    action: 'textSize.reset',
+    section: 'view',
+    labelKey: 'shortcuts.action.textSizeReset',
+    descriptionKey: 'shortcuts.desc.textSizeReset',
+    defaults: modCombo('0'),
     preventDefault: true,
   },
   {
-    action: "toolApproval.yolo",
-    section: "tools",
-    labelKey: "shortcuts.action.yoloToggle",
-    descriptionKey: "shortcuts.desc.yoloToggle",
-    defaults: modCombo("y"),
+    action: 'toolApproval.yolo',
+    section: 'tools',
+    labelKey: 'shortcuts.action.yoloToggle',
+    descriptionKey: 'shortcuts.desc.yoloToggle',
+    defaults: modCombo('y'),
     preventDefault: true,
     allowInEditable: true,
   },
   {
-    action: "shortcuts.show",
-    section: "help",
-    labelKey: "shortcuts.action.showShortcuts",
-    descriptionKey: "shortcuts.desc.showShortcuts",
-    defaults: allPlatforms({ key: "?", shift: true }),
+    action: 'shortcuts.show',
+    section: 'help',
+    labelKey: 'shortcuts.action.showShortcuts',
+    descriptionKey: 'shortcuts.desc.showShortcuts',
+    defaults: allPlatforms({ key: '?', shift: true }),
     preventDefault: true,
   },
 ] as const;
 
 let cachedCustomShortcuts: Partial<Record<ShortcutAction, ShortcutCombo>> | null = null;
 
-if (typeof window !== "undefined") {
-  window.addEventListener("storage", (event) => {
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (event) => {
     if (event.key === SHORTCUTS_STORAGE_KEY) cachedCustomShortcuts = null;
   });
 }
@@ -158,12 +158,12 @@ function modCombo(key: string): Record<ShortcutPlatform, ShortcutCombo> {
 }
 
 export function detectShortcutPlatform(): ShortcutPlatform {
-  if (typeof navigator === "undefined") return "linux";
-  const platform = navigator.platform || "";
-  const userAgent = navigator.userAgent || "";
-  if (/Mac|iPhone|iPad/.test(platform) || /Mac|iPhone|iPad/.test(userAgent)) return "darwin";
-  if (/Win/.test(platform) || /Windows/.test(userAgent)) return "windows";
-  return "linux";
+  if (typeof navigator === 'undefined') return 'linux';
+  const platform = navigator.platform || '';
+  const userAgent = navigator.userAgent || '';
+  if (/Mac|iPhone|iPad/.test(platform) || /Mac|iPhone|iPad/.test(userAgent)) return 'darwin';
+  if (/Win/.test(platform) || /Windows/.test(userAgent)) return 'windows';
+  return 'linux';
 }
 
 export function shortcutDefinitions(): readonly ShortcutDefinition[] {
@@ -176,11 +176,17 @@ export function shortcutDefinition(action: ShortcutAction): ShortcutDefinition {
   return found;
 }
 
-export function defaultShortcutCombo(action: ShortcutAction, platform: ShortcutPlatform): ShortcutCombo {
+export function defaultShortcutCombo(
+  action: ShortcutAction,
+  platform: ShortcutPlatform,
+): ShortcutCombo {
   return shortcutDefinition(action).defaults[platform];
 }
 
-export function resolvedShortcutCombo(action: ShortcutAction, platform: ShortcutPlatform): ShortcutCombo {
+export function resolvedShortcutCombo(
+  action: ShortcutAction,
+  platform: ShortcutPlatform,
+): ShortcutCombo {
   return loadCustomShortcuts()[action] ?? defaultShortcutCombo(action, platform);
 }
 
@@ -223,12 +229,12 @@ export function resetCustomShortcuts(): void {
 }
 
 export function notifyShortcutsChanged(): void {
-  if (typeof window === "undefined") return;
+  if (typeof window === 'undefined') return;
   window.dispatchEvent(new CustomEvent(SHORTCUTS_CHANGED_EVENT));
 }
 
 export function onShortcutsChanged(callback: () => void): () => void {
-  if (typeof window === "undefined") return () => {};
+  if (typeof window === 'undefined') return () => {};
   const onStorage = (event: StorageEvent) => {
     if (event.key !== SHORTCUTS_STORAGE_KEY) return;
     cachedCustomShortcuts = null;
@@ -238,33 +244,36 @@ export function onShortcutsChanged(callback: () => void): () => void {
     cachedCustomShortcuts = null;
     callback();
   };
-  window.addEventListener("storage", onStorage);
+  window.addEventListener('storage', onStorage);
   window.addEventListener(SHORTCUTS_CHANGED_EVENT, onCustom);
   return () => {
-    window.removeEventListener("storage", onStorage);
+    window.removeEventListener('storage', onStorage);
     window.removeEventListener(SHORTCUTS_CHANGED_EVENT, onCustom);
   };
 }
 
 export function formatShortcutCombo(combo: ShortcutCombo, platform: ShortcutPlatform): string {
-  return formatShortcutComboParts(combo, platform).join(platform === "darwin" ? "" : "+");
+  return formatShortcutComboParts(combo, platform).join(platform === 'darwin' ? '' : '+');
 }
 
-export function formatShortcutComboParts(combo: ShortcutCombo, platform: ShortcutPlatform): string[] {
+export function formatShortcutComboParts(
+  combo: ShortcutCombo,
+  platform: ShortcutPlatform,
+): string[] {
   const normalized = normalizeCombo(combo);
   const parts: string[] = [];
-  if (platform === "darwin") {
-    if (normalized.meta) parts.push("⌘");
-    if (normalized.ctrl) parts.push("⌃");
-    if (normalized.alt) parts.push("⌥");
-    if (normalized.shift) parts.push("⇧");
+  if (platform === 'darwin') {
+    if (normalized.meta) parts.push('⌘');
+    if (normalized.ctrl) parts.push('⌃');
+    if (normalized.alt) parts.push('⌥');
+    if (normalized.shift) parts.push('⇧');
     parts.push(displayKey(normalized.key));
     return parts;
   }
-  if (normalized.ctrl) parts.push("Ctrl");
-  if (normalized.meta) parts.push("Meta");
-  if (normalized.alt) parts.push("Alt");
-  if (normalized.shift) parts.push("Shift");
+  if (normalized.ctrl) parts.push('Ctrl');
+  if (normalized.meta) parts.push('Meta');
+  if (normalized.alt) parts.push('Alt');
+  if (normalized.shift) parts.push('Shift');
   parts.push(displayKey(normalized.key));
   return parts;
 }
@@ -280,7 +289,11 @@ export function comboFromKeyboardEvent(event: KeyboardShortcutEvent): ShortcutCo
   });
 }
 
-export function matchesShortcut(event: KeyboardShortcutEvent, action: ShortcutAction, platform: ShortcutPlatform): boolean {
+export function matchesShortcut(
+  event: KeyboardShortcutEvent,
+  action: ShortcutAction,
+  platform: ShortcutPlatform,
+): boolean {
   const combo = comboFromKeyboardEvent(event);
   if (!combo) return false;
   const definition = shortcutDefinition(action);
@@ -294,10 +307,12 @@ export function shortcutConflict(
   combo: ShortcutCombo,
   platform: ShortcutPlatform,
 ): ShortcutDefinition | null {
-  return SHORTCUT_DEFINITIONS.find((definition) => {
-    if (definition.action === action) return false;
-    return sameCombo(resolvedShortcutCombo(definition.action, platform), combo);
-  }) ?? null;
+  return (
+    SHORTCUT_DEFINITIONS.find((definition) => {
+      if (definition.action === action) return false;
+      return sameCombo(resolvedShortcutCombo(definition.action, platform), combo);
+    }) ?? null
+  );
 }
 
 export function useGlobalShortcut(
@@ -317,22 +332,25 @@ export function useGlobalShortcut(
       if (definition.preventDefault !== false) event.preventDefault();
       handler(event);
     };
-    document.addEventListener("keydown", onKey, { capture: true });
-    return () => document.removeEventListener("keydown", onKey, { capture: true });
+    document.addEventListener('keydown', onKey, { capture: true });
+    return () => document.removeEventListener('keydown', onKey, { capture: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [action, enabled, handler, ...deps]);
 }
 
-export function isCloseTabShortcut(event: KeyboardShortcutEvent, platform: ShortcutPlatform): boolean {
-  return matchesShortcut(event, "tab.close", platform);
+export function isCloseTabShortcut(
+  event: KeyboardShortcutEvent,
+  platform: ShortcutPlatform,
+): boolean {
+  return matchesShortcut(event, 'tab.close', platform);
 }
 
 function normalizeCustomShortcuts(value: unknown): Partial<Record<ShortcutAction, ShortcutCombo>> {
-  if (!value || typeof value !== "object") return {};
+  if (!value || typeof value !== 'object') return {};
   const out: Partial<Record<ShortcutAction, ShortcutCombo>> = {};
   for (const definition of SHORTCUT_DEFINITIONS) {
     const raw = (value as Record<string, unknown>)[definition.action];
-    if (!raw || typeof raw !== "object") continue;
+    if (!raw || typeof raw !== 'object') continue;
     const combo = normalizeCombo(raw as ShortcutCombo);
     if (combo.key) out[definition.action] = combo;
   }
@@ -351,17 +369,17 @@ function normalizeCombo(combo: ShortcutCombo): ShortcutCombo {
 }
 
 function normalizeKey(key: string): string {
-  if (key === " ") return "Space";
+  if (key === ' ') return 'Space';
   if (key.length === 1) return key.toLowerCase();
   return key;
 }
 
 function displayKey(key: string): string {
-  if (key === " ") return "Space";
-  if (key === "ArrowUp") return "↑";
-  if (key === "ArrowDown") return "↓";
-  if (key === "ArrowLeft") return "←";
-  if (key === "ArrowRight") return "→";
+  if (key === ' ') return 'Space';
+  if (key === 'ArrowUp') return '↑';
+  if (key === 'ArrowDown') return '↓';
+  if (key === 'ArrowLeft') return '←';
+  if (key === 'ArrowRight') return '→';
   if (key.length === 1) return key.toUpperCase();
   return key;
 }
@@ -379,16 +397,18 @@ function sameCombo(a: ShortcutCombo, b: ShortcutCombo): boolean {
 }
 
 function isModifierKey(key: string): boolean {
-  return key === "Meta" || key === "Control" || key === "Alt" || key === "Shift";
+  return key === 'Meta' || key === 'Control' || key === 'Alt' || key === 'Shift';
 }
 
 function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   if (target.isContentEditable) return true;
   const tag = target.tagName.toLowerCase();
-  return tag === "input" || tag === "textarea" || tag === "select";
+  return tag === 'input' || tag === 'textarea' || tag === 'select';
 }
 
 function isShortcutRecorderTarget(target: EventTarget | null): boolean {
-  return target instanceof HTMLElement && Boolean(target.closest(".shortcuts-settings__key--recording"));
+  return (
+    target instanceof HTMLElement && Boolean(target.closest('.shortcuts-settings__key--recording'))
+  );
 }
