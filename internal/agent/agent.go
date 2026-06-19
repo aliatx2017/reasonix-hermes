@@ -1481,6 +1481,7 @@ func (a *Agent) stream(ctx context.Context, turn int) (string, string, string, [
 			"out", usage.CompletionTokens,
 			"total", usage.TotalTokens,
 			"cache_hit", usage.CacheHitTokens,
+			"cache_miss", usage.CacheMissTokens,
 			"latency_ms", time.Since(start).Milliseconds(),
 		)
 	}
@@ -1554,11 +1555,18 @@ func (a *Agent) executeBatch(ctx context.Context, calls []provider.ToolCall) []s
 
 	for i, c := range calls {
 		o := outcomes[i]
-		slog.Info("tool_exec",
+		args := []any{
 			"tool", c.Name,
 			"duration_ms", durations[i],
 			"result_bytes", len(o.output),
-		)
+		}
+		if o.errMsg != "" {
+			args = append(args, "err", o.errMsg)
+		}
+		if o.truncated {
+			args = append(args, "truncated", true)
+		}
+		slog.Info("tool_exec", args...)
 		t, ok := a.tools.Get(c.Name)
 		a.sink.Emit(event.Event{Kind: event.ToolResult, Tool: event.Tool{
 			ID:         c.ID,
