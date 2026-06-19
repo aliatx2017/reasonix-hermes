@@ -2,7 +2,7 @@ name: Cache impact guard
 
 on:
   pull_request_target:
-    branches: [main-v2]
+    branches: [main]
     types: [opened, synchronize, reopened, edited, ready_for_review]
 
 permissions:

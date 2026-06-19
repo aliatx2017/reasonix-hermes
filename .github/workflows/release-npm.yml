@@ -40,6 +40,7 @@ permissions:
 jobs:
   cache-guard:
     name: cache hit guard
+    if: github.repository == 'esengine/deepseek-reasonix'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -51,6 +52,7 @@ jobs:
 
   npm:
     name: publish npm packages
+    if: github.repository == 'esengine/deepseek-reasonix'
     needs: cache-guard
     runs-on: ubuntu-latest
     # A tag push (npm-v*) or manual stable dispatch publishes a stable/next

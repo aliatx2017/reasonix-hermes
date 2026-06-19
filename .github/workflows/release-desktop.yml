@@ -40,6 +40,7 @@ permissions:
 jobs:
   cache-guard:
     name: cache hit guard
+    if: github.repository == 'esengine/deepseek-reasonix'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -54,6 +55,7 @@ jobs:
 
   build:
     name: build (${{ matrix.name }})
+    if: github.repository == 'esengine/deepseek-reasonix'
     needs: cache-guard
     permissions:
       contents: read # checkout only; the publish job holds contents: write

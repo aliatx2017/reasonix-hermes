@@ -17,6 +17,7 @@ permissions:
 jobs:
   cache-guard:
     name: cache hit guard
+    if: github.repository == 'esengine/deepseek-reasonix'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -28,6 +29,7 @@ jobs:
 
   goreleaser:
     name: archives + checksums + homebrew tap
+    if: github.repository == 'esengine/deepseek-reasonix'
     needs: cache-guard
     runs-on: ubuntu-latest
     # CLI stable release (archives + GitHub release + Homebrew cask). Gated on the
