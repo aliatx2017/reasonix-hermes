@@ -1,7 +1,7 @@
 import { useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import type { DiffProps } from "../DiffView";
-import { diffLines, diffRowsFromUnifiedDiff } from "../../lib/diff";
+import { diffLines } from "../../lib/diff";
 import { highlightToHtml } from "../../lib/highlight";
 
 // HljsDiff is the syntax-highlighted default behind the diff seam: an LCS line
@@ -14,8 +14,8 @@ function lineNo(n?: number): string {
   return typeof n === "number" ? String(n) : "";
 }
 
-export default function HljsDiff({ original = "", modified = "", diff = "", language, maxHeight }: DiffProps) {
-  const rows = diff ? diffRowsFromUnifiedDiff(diff) : diffLines(original, modified);
+export default function HljsDiff({ original = "", modified = "", language, maxHeight }: DiffProps) {
+  const rows = diffLines(original, modified);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const isVirtual = rows.length > 200;
@@ -32,7 +32,7 @@ export default function HljsDiff({ original = "", modified = "", diff = "", lang
       <span className="diff__gutter">
         <span className="diff__line diff__line--old">{lineNo(r.oldLine)}</span>
         <span className="diff__line diff__line--new">{lineNo(r.newLine)}</span>
-        <span className="diff__sign">{SIGN[r.type]}</span>
+        <span className="diff__sign">{SIGN[r.type as keyof typeof SIGN]}</span>
       </span>
       <code
         className="diff__text"
