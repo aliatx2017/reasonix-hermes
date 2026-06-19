@@ -366,6 +366,24 @@ func TestRenderTOMLRoundTrips(t *testing.T) {
 	}
 }
 
+func TestRenderTOMLCreationLayoutStyle(t *testing.T) {
+	c := Default()
+	if err := c.SetDesktopLayoutStyle("creation"); err != nil {
+		t.Fatalf("SetDesktopLayoutStyle: %v", err)
+	}
+	rendered := RenderTOML(c)
+	var got Config
+	if _, err := toml.Decode(rendered, &got); err != nil {
+		t.Fatalf("rendered TOML does not parse: %v\n---\n%s", err, rendered)
+	}
+	if got.Desktop.LayoutStyle != "creation" {
+		t.Errorf("desktop.layout_style = %q, want creation", got.Desktop.LayoutStyle)
+	}
+	if got.DesktopLayoutStyle() != "creation" {
+		t.Errorf("DesktopLayoutStyle() = %q, want creation", got.DesktopLayoutStyle())
+	}
+}
+
 func TestScopedRenderPreservesLSPConfig(t *testing.T) {
 	const src = `
 config_version = 3

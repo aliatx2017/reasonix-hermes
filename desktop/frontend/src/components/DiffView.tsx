@@ -1,8 +1,9 @@
-import { Suspense, lazy } from 'react';
+import { lazy, Suspense } from "react";
 
 export interface DiffProps {
-  original: string;
-  modified: string;
+  original?: string;
+  modified?: string;
+  diff?: string;
   language?: string;
   maxHeight?: number;
 }
@@ -16,11 +17,11 @@ export interface DiffProps {
 //   ./editors/CodeMirrorMerge  @codemirror/merge
 //
 // The replacement only has to honor DiffProps. See desktop/README.md.
-const Impl = lazy(() => import('./editors/HljsDiff'));
+const Impl = lazy(() => import("./editors/HljsDiff"));
 
 export function DiffView(props: DiffProps) {
   return (
-    <Suspense fallback={<pre className="code code--loading">{props.modified}</pre>}>
+    <Suspense fallback={<pre className="code code--loading">{props.modified ?? props.diff ?? ""}</pre>}>
       <Impl {...props} />
     </Suspense>
   );

@@ -13,7 +13,7 @@ function lineNo(n?: number): string {
 }
 
 export default function HljsDiff({ original, modified, language, maxHeight }: DiffProps) {
-  const rows = diffLines(original, modified);
+  const rows = diffLines(original ?? "", modified ?? "");
   return (
     <div className="diff hljs" style={maxHeight ? { maxHeight } : undefined}>
       <div className="diff__table">

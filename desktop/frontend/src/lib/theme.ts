@@ -137,7 +137,7 @@ export function applyTheme(
   // Update tray icon to match theme.
   if (typeof window !== 'undefined' && window.runtime) {
     try {
-      app.UpdateTrayIcon();
+      app.UpdateTrayIcon("");
     } catch {
       /* tray may not be ready */
     }

@@ -1,16 +1,17 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { CSSProperties, KeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
-import { ShellExpandProvider, useShellExpand } from './lib/shellExpand';
-import gsap from 'gsap';
-import { useGSAP } from '@gsap/react';
-import { Flip } from 'gsap/Flip';
-import { ScrollToPlugin } from 'gsap/ScrollToPlugin';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { CSSProperties, KeyboardEvent, PointerEvent as ReactPointerEvent } from "react";
+import { ShellExpandProvider, useShellExpand } from "./lib/shellExpand";
+import gsap from "gsap";
+import { useGSAP } from "@gsap/react";
+import { Flip } from "gsap/Flip";
+import { ScrollToPlugin } from "gsap/ScrollToPlugin";
 gsap.registerPlugin(useGSAP, Flip, ScrollToPlugin);
 import {
   Activity,
   CircleHelp,
   Command,
   Download,
+  Search,
   SquarePen,
   PanelLeft,
   PanelRight,
@@ -28,45 +29,38 @@ import {
   Brain,
   Cpu,
   Palette,
-} from 'lucide-react';
-import { useToast } from './lib/toast';
-import { asArray } from './lib/array';
-import {
-  clearLegacyLangPref,
-  normalizeLangPref,
-  readLegacyLangPref,
-  useI18n,
-  useT,
-  type Translator,
-} from './lib/i18n';
-import { useController, type Item, type LiveStream } from './lib/useController';
-import { app, onEvent, onProjectTreeChanged } from './lib/bridge';
-import { generativeMusic, isGenerativeMusicEnabled } from './lib/generative-music';
-import { playSuccessChime } from './lib/sound';
-import { Transcript } from './components/Transcript';
-import { Composer } from './components/Composer';
-import { TodoPanel } from './components/TodoPanel';
-import { ApprovalModal } from './components/ApprovalModal';
-import { AskCard } from './components/AskCard';
-import { UndoRewindBanner } from './components/UndoRewindBanner';
-import { ClearContextCard } from './components/ClearContextCard';
-import { StatusBar } from './components/StatusBar';
-import { CommandPalette, type PaletteItem } from './components/CommandPalette';
-import type { SettingsInitialFocus } from './components/SettingsPanel';
-import { UpdateBanner } from './components/UpdateBanner';
-import { ContextPanel } from './components/ContextPanel';
-import { WorkspacePanel } from './components/WorkspacePanel';
-import { Tooltip } from './components/Tooltip';
-import { StartupSplash, shouldShowStartupSplash } from './components/StartupSplash';
-import { OnboardingOverlay } from './components/OnboardingOverlay';
-import { AppChrome } from './components/AppChrome';
-import { ShortcutsCheatsheet } from './components/ShortcutsCheatsheet';
-import { ProjectTree } from './components/ProjectTree';
-import { HeartbeatPanel } from './custom/features/heartbeat/HeartbeatPanel';
-import './custom/features/heartbeat/heartbeat.css';
-import { CopyButton } from './components/CopyButton';
-import { parseTodos } from './lib/tools';
-import { shouldShowTodoPanel, todoDismissalKey } from './lib/todoVisibility';
+} from "lucide-react";
+import { useToast } from "./lib/toast";
+import { asArray } from "./lib/array";
+import { clearLegacyLangPref, normalizeLangPref, readLegacyLangPref, useI18n, useT, type Translator } from "./lib/i18n";
+import { useController, type Item, type LiveStream } from "./lib/useController";
+import { app, onEvent, onProjectTreeChanged } from "./lib/bridge";
+import { generativeMusic, isGenerativeMusicEnabled } from "./lib/generative-music";
+import { playSuccessChime } from "./lib/sound";
+import { Transcript } from "./components/Transcript";
+import { Composer } from "./components/Composer";
+import { TodoPanel } from "./components/TodoPanel";
+import { ApprovalModal } from "./components/ApprovalModal";
+import { AskCard } from "./components/AskCard";
+import { UndoRewindBanner } from "./components/UndoRewindBanner";
+import { ClearContextCard } from "./components/ClearContextCard";
+import { StatusBar } from "./components/StatusBar";
+import { CommandPalette, type PaletteItem } from "./components/CommandPalette";
+import type { SettingsInitialFocus } from "./components/SettingsPanel";
+import { UpdateBanner } from "./components/UpdateBanner";
+import { ContextPanel } from "./components/ContextPanel";
+import { WorkspacePanel } from "./components/WorkspacePanel";
+import { Tooltip } from "./components/Tooltip";
+import { StartupSplash, shouldShowStartupSplash } from "./components/StartupSplash";
+import { OnboardingOverlay } from "./components/OnboardingOverlay";
+import { AppChrome } from "./components/AppChrome";
+import { ShortcutsCheatsheet } from "./components/ShortcutsCheatsheet";
+import { ProjectTree } from "./components/ProjectTree";
+import { HeartbeatPanel } from "./custom/features/heartbeat/HeartbeatPanel";
+import "./custom/features/heartbeat/heartbeat.css";
+import { CopyButton } from "./components/CopyButton";
+import { parseTodos } from "./lib/tools";
+import { shouldShowTodoPanel, todoDismissalKey } from "./lib/todoVisibility";
 import {
   type BotConnectionView,
   type BotRuntimeStatusView,
@@ -82,7 +76,7 @@ import {
   type TabMeta,
   type TokenMode,
   type ToolApprovalMode,
-} from './lib/types';
+} from "./lib/types";
 import {
   composerProfileFromMeta,
   composerProfileFromTab,
@@ -96,20 +90,16 @@ import {
   patchComposerProfile,
   type ComposerProfile,
   type ComposerProfileField,
-} from './lib/composerProfile';
+} from "./lib/composerProfile";
 import {
   restorableToolApprovalMode,
   toggleYoloToolApprovalMode,
   type RestorableToolApprovalMode,
-} from './lib/toolApprovalMode';
-import { loadLayoutSize, saveLayoutSize } from './lib/layoutPreferences';
-import { hydrateDisplayMode } from './lib/displayMode';
-import {
-  DEFAULT_STATUS_BAR_ITEMS,
-  normalizeStatusBarItems,
-  type StatusBarItemId,
-} from './lib/statusBarItems';
-import { sessionActivityTime } from './lib/session';
+} from "./lib/toolApprovalMode";
+import { loadLayoutSize, saveLayoutSize } from "./lib/layoutPreferences";
+import { hydrateDisplayMode } from "./lib/displayMode";
+import { DEFAULT_STATUS_BAR_ITEMS, normalizeStatusBarItems, type StatusBarItemId } from "./lib/statusBarItems";
+import { sessionActivityTime } from "./lib/session";
 import {
   applyTheme,
   clearLegacyThemePreference,
@@ -120,27 +110,20 @@ import {
   normalizeThemeStyleForTheme,
   readLegacyThemePreference,
   type Theme,
-} from './lib/theme';
-import { applyTextSize, DEFAULT_TEXT_SIZE, getTextSize, nextTextSize } from './lib/textSize';
-import { useViewportHeightVar, useWindowStatePersistence } from './lib/windowState';
-import {
-  availableWorkspacePanelWidth,
-  resolveWorkspacePanelWidth,
-  workspacePanelAriaMinWidth,
-} from './lib/workspaceLayout';
-import { useGlobalShortcut } from './lib/keyboardShortcuts';
-import logoWordmark from './assets/logo-wordmark.svg';
+} from "./lib/theme";
+import { applyTextSize, DEFAULT_TEXT_SIZE, getTextSize, nextTextSize } from "./lib/textSize";
+import { useViewportHeightVar, useWindowStatePersistence } from "./lib/windowState";
+import { availableWorkspacePanelWidth, resolveWorkspacePanelWidth, workspacePanelAriaMinWidth } from "./lib/workspaceLayout";
+import { useGlobalShortcut } from "./lib/keyboardShortcuts";
+import logoWordmark from "./assets/logo-wordmark.svg";
 
-const HistoryPanel = lazy(() =>
-  import('./components/HistoryPanel').then((module) => ({ default: module.HistoryPanel })),
-);
-const SettingsPanel = lazy(() =>
-  import('./components/SettingsPanel').then((module) => ({ default: module.SettingsPanel })),
-);
+const HistoryPanel = lazy(() => import("./components/HistoryPanel").then((module) => ({ default: module.HistoryPanel })));
+const SettingsPanel = lazy(() => import("./components/SettingsPanel").then((module) => ({ default: module.SettingsPanel })));
 
-const SIDEBAR_COLLAPSED_KEY = 'reasonix.sidebar.collapsed';
+const SIDEBAR_COLLAPSED_KEY = "reasonix.sidebar.collapsed";
 const SIDEBAR_DEFAULT_WIDTH = 264;
 const SIDEBAR_MIN_WIDTH = 264;
+const CREATION_SIDEBAR_MIN_WIDTH = 236;
 const SIDEBAR_MAX_WIDTH = 300;
 const SIDEBAR_VIEWPORT_RATIO = 0.18;
 const CHAT_MIN_WIDTH = 400;
@@ -151,38 +134,27 @@ function stripGoalResearchFlags(arg: string): string {
   const parts = arg.trim().split(/\s+/).filter(Boolean);
   while (parts.length > 0) {
     const flag = parts[0].toLowerCase();
-    if (
-      flag !== '--research' &&
-      flag !== '--auto-research' &&
-      flag !== '--deep' &&
-      flag !== '--simple' &&
-      flag !== '--no-research'
-    )
-      break;
+    if (flag !== "--research" && flag !== "--auto-research" && flag !== "--deep" && flag !== "--simple" && flag !== "--no-research") break;
     parts.shift();
   }
-  return parts.join(' ');
+  return parts.join(" ");
 }
 
 function hasGoalResearchFlag(arg: string): boolean {
   const first = arg.trim().split(/\s+/, 1)[0]?.toLowerCase();
-  return (
-    first === '--research' ||
-    first === '--auto-research' ||
-    first === '--deep' ||
-    first === '--simple' ||
-    first === '--no-research'
-  );
+  return first === "--research" || first === "--auto-research" || first === "--deep" || first === "--simple" || first === "--no-research";
 }
 
 function isThemeMode(value: string): value is Theme {
-  return value === 'auto' || value === 'light' || value === 'dark';
+  return value === "auto" || value === "light" || value === "dark";
 }
 
-type DesktopLayoutStyle = 'classic' | 'workbench';
+type DesktopLayoutStyle = "classic" | "workbench" | "creation";
 
 function normalizeDesktopLayoutStyle(style: string | undefined): DesktopLayoutStyle {
-  return style === 'workbench' ? 'workbench' : 'classic';
+  if (style === "workbench") return "workbench";
+  if (style === "creation") return "creation";
+  return "classic";
 }
 const RIGHT_DOCK_TREE_DEFAULT_WIDTH = 300;
 const RIGHT_DOCK_TREE_MIN_WIDTH = 300;
@@ -192,16 +164,16 @@ const RIGHT_DOCK_PREVIEW_MIN_WIDTH = 420;
 const RIGHT_DOCK_MIN_RENDER_WIDTH = 280;
 const RIGHT_DOCK_MAX_WIDTH = 860;
 
-type RightDockMode = 'context' | 'files' | 'changed';
+type RightDockMode = "context" | "files" | "changed";
 const SHOW_CONTEXT_DOCK = true;
-type HistoryScopeFilter = { scope: 'global' | 'project'; workspaceRoot: string };
-type DesktopPlatform = 'darwin' | 'windows' | 'linux';
+type HistoryScopeFilter = { scope: "global" | "project"; workspaceRoot: string };
+type DesktopPlatform = "darwin" | "windows" | "linux";
 type HistoryViewState =
-  | { kind: 'history'; source: 'scope'; filter: HistoryScopeFilter; sessions: SessionMeta[] }
-  | { kind: 'history'; source: 'all'; sessions: SessionMeta[] }
-  | { kind: 'trash'; sessions: SessionMeta[] };
-type SidebarImPlatform = 'qq' | 'feishu' | 'lark' | 'weixin';
-type SidebarImStatus = 'connected' | 'disabled' | 'pending' | 'error' | 'disconnected';
+  | { kind: "history"; source: "scope"; filter: HistoryScopeFilter; sessions: SessionMeta[] }
+  | { kind: "history"; source: "all"; sessions: SessionMeta[] }
+  | { kind: "trash"; sessions: SessionMeta[] };
+type SidebarImPlatform = "qq" | "feishu" | "lark" | "weixin";
+type SidebarImStatus = "connected" | "disabled" | "pending" | "error" | "disconnected";
 type SidebarImConnection = {
   id: string;
   connectionId: string;
@@ -213,7 +185,8 @@ type SidebarImConnection = {
   statusLabel: string;
   remoteId: string;
   sessionId: string;
-  scope: 'global' | 'project';
+  sessionSource: string;
+  scope: "global" | "project";
   workspaceRoot: string;
   allowAll: boolean;
   allowlistEnabled: boolean;
@@ -236,36 +209,33 @@ type SidebarImConnectionDetailProps = {
 };
 
 function isSidebarImConnection(connection: BotConnectionView): boolean {
-  return connection.provider === 'feishu' || connection.provider === 'weixin';
+  return connection.provider === "feishu" || connection.provider === "weixin";
 }
 
 function sidebarImPlatform(connection: BotConnectionView): SidebarImPlatform {
-  if (connection.provider === 'weixin') return 'weixin';
-  return connection.domain === 'lark' ? 'lark' : 'feishu';
+  if (connection.provider === "weixin") return "weixin";
+  return connection.domain === "lark" ? "lark" : "feishu";
 }
 
 function sidebarImPlatformLabel(platform: SidebarImPlatform, translate: Translator): string {
-  if (platform === 'qq') return 'QQ';
-  if (platform === 'lark') return 'Lark';
-  if (platform === 'weixin') return translate('settings.botWeixin');
-  return translate('settings.botFeishu');
+  if (platform === "qq") return "QQ";
+  if (platform === "lark") return "Lark";
+  if (platform === "weixin") return translate("settings.botWeixin");
+  return translate("settings.botFeishu");
 }
 
-function botMappingScope(
-  mapping: BotConnectionView['sessionMappings'][number] | null | undefined,
-  connectionWorkspaceRoot: string,
-): 'global' | 'project' {
-  if (mapping?.scope === 'project') return 'project';
-  if ((mapping?.workspaceRoot ?? '').trim()) return 'project';
-  return connectionWorkspaceRoot.trim() ? 'project' : 'global';
+function botMappingScope(mapping: BotConnectionView["sessionMappings"][number] | null | undefined, connectionWorkspaceRoot: string): "global" | "project" {
+  if (mapping?.scope === "project") return "project";
+  if ((mapping?.workspaceRoot ?? "").trim()) return "project";
+  return connectionWorkspaceRoot.trim() ? "project" : "global";
 }
 
 function botMappingWorkspaceRoot(
-  mapping: BotConnectionView['sessionMappings'][number] | null | undefined,
+  mapping: BotConnectionView["sessionMappings"][number] | null | undefined,
   connectionWorkspaceRoot: string,
 ): string {
-  const workspaceRoot = (mapping?.workspaceRoot ?? '').trim() || connectionWorkspaceRoot.trim();
-  return botMappingScope(mapping, connectionWorkspaceRoot) === 'project' ? workspaceRoot : '';
+  const workspaceRoot = (mapping?.workspaceRoot ?? "").trim() || connectionWorkspaceRoot.trim();
+  return botMappingScope(mapping, connectionWorkspaceRoot) === "project" ? workspaceRoot : "";
 }
 
 function compactRemoteId(value: string): string {
@@ -274,37 +244,35 @@ function compactRemoteId(value: string): string {
   return `${trimmed.slice(0, 12)}…${trimmed.slice(-8)}`;
 }
 
-function botMappingIdentityLabel(
-  mapping: BotConnectionView['sessionMappings'][number] | null | undefined,
-): string {
-  const chatType = (mapping?.chatType ?? '').trim();
-  const userId = (mapping?.userId ?? '').trim();
-  const threadId = (mapping?.threadId ?? '').trim();
+function botMappingIdentityLabel(mapping: BotConnectionView["sessionMappings"][number] | null | undefined): string {
+  const chatType = (mapping?.chatType ?? "").trim();
+  const userId = (mapping?.userId ?? "").trim();
+  const threadId = (mapping?.threadId ?? "").trim();
   if (threadId) return compactRemoteId(threadId);
-  if ((chatType === 'group' || chatType === 'guild') && userId) return compactRemoteId(userId);
-  return '';
+  if ((chatType === "group" || chatType === "guild") && userId) return compactRemoteId(userId);
+  return "";
 }
 
 function sidebarImStatus(connection: BotConnectionView, botEnabled: boolean): SidebarImStatus {
-  if (!botEnabled || !connection.enabled) return 'disabled';
-  if (connection.status === 'connected') return 'connected';
-  if (connection.status === 'pending') return 'pending';
-  if (connection.status === 'error') return 'error';
-  return 'disconnected';
+  if (!botEnabled || !connection.enabled) return "disabled";
+  if (connection.status === "connected") return "connected";
+  if (connection.status === "pending") return "pending";
+  if (connection.status === "error") return "error";
+  return "disconnected";
 }
 
 function sidebarImStatusLabel(status: SidebarImStatus, translate: Translator): string {
   switch (status) {
-    case 'connected':
-      return translate('sidebar.imConnected');
-    case 'disabled':
-      return translate('sidebar.imDisabled');
-    case 'pending':
-      return translate('sidebar.imPending');
-    case 'error':
-      return translate('sidebar.imError');
+    case "connected":
+      return translate("sidebar.imConnected");
+    case "disabled":
+      return translate("sidebar.imDisabled");
+    case "pending":
+      return translate("sidebar.imPending");
+    case "error":
+      return translate("sidebar.imError");
     default:
-      return translate('sidebar.imDisconnected');
+      return translate("sidebar.imDisconnected");
   }
 }
 
@@ -313,67 +281,64 @@ function uniqueTrimmedValues(values: string[]): string[] {
 }
 
 function sidebarImAllowlistUsers(bot: BotSettingsView, platform: SidebarImPlatform): string[] {
-  if (platform === 'qq') return uniqueTrimmedValues(asArray(bot.allowlist.qqUsers));
-  if (platform === 'weixin') return uniqueTrimmedValues(asArray(bot.allowlist.weixinUsers));
+  if (platform === "qq") return uniqueTrimmedValues(asArray(bot.allowlist.qqUsers));
+  if (platform === "weixin") return uniqueTrimmedValues(asArray(bot.allowlist.weixinUsers));
   return uniqueTrimmedValues(asArray(bot.allowlist.feishuUsers));
 }
 
-function sidebarImQQAdded(qq: BotSettingsView['qq']): boolean {
+function sidebarImQQAdded(qq: BotSettingsView["qq"]): boolean {
   return Boolean(qq.enabled || qq.secretSet || qq.appId.trim());
 }
 
-function sidebarImQQStatus(
-  bot: BotSettingsView,
-  runtimeStatus: BotRuntimeStatusView | null | undefined,
-): SidebarImStatus {
+function sidebarImQQStatus(bot: BotSettingsView, runtimeStatus: BotRuntimeStatusView | null | undefined): SidebarImStatus {
   const appId = bot.qq.appId.trim();
-  if (!bot.enabled || !bot.qq.enabled) return 'disabled';
-  if (!appId || !bot.qq.secretSet) return 'disconnected';
-  if (typeof window !== 'undefined' && !window.runtime) return 'pending';
-  if (!runtimeStatus) return 'pending';
+  if (!bot.enabled || !bot.qq.enabled) return "disabled";
+  if (!appId || !bot.qq.secretSet) return "disconnected";
+  if (typeof window !== "undefined" && !window.runtime) return "pending";
+  if (!runtimeStatus) return "pending";
   const status = runtimeStatus.status.trim().toLowerCase();
-  if (runtimeStatus.running && runtimeStatus.connections > 0 && status === 'running') {
-    return 'connected';
+  if (runtimeStatus.running && runtimeStatus.connections > 0 && status === "running") {
+    return "connected";
   }
-  if (status === 'error' || status === 'blocked' || status === 'degraded') return 'error';
-  if (status === 'stopped') return 'disconnected';
-  return 'pending';
+  if (status === "error" || status === "blocked" || status === "degraded") return "error";
+  if (status === "stopped") return "disconnected";
+  return "pending";
 }
 
 async function loadBotRuntimeStatus(): Promise<BotRuntimeStatusView | null> {
-  if (typeof window !== 'undefined' && !window.runtime) return null;
+  if (typeof window !== "undefined" && !window.runtime) return null;
   try {
     return await app.BotRuntimeStatus();
   } catch (e) {
-    console.warn('bot runtime status failed', e);
+    console.warn("bot runtime status failed", e);
     return null;
   }
 }
 
-function sidebarImQQConnection(
-  bot: BotSettingsView,
-  translate: Translator,
-  runtimeStatus?: BotRuntimeStatusView | null,
-): SidebarImConnection | null {
+function sidebarImQQConnection(bot: BotSettingsView, translate: Translator, runtimeStatus?: BotRuntimeStatusView | null): SidebarImConnection | null {
   if (!sidebarImQQAdded(bot.qq)) return null;
   const remoteId = bot.qq.appId.trim();
   const status = sidebarImQQStatus(bot, runtimeStatus);
   const statusLabel = sidebarImStatusLabel(status, translate);
-  const allowlistUsers = sidebarImAllowlistUsers(bot, 'qq');
-  const subtitleParts = [remoteId ? compactRemoteId(remoteId) : 'QQ', statusLabel].filter(Boolean);
+  const allowlistUsers = sidebarImAllowlistUsers(bot, "qq");
+  const subtitleParts = [
+    remoteId ? compactRemoteId(remoteId) : "QQ",
+    statusLabel,
+  ].filter(Boolean);
   return {
-    id: '__qq_bot__',
-    connectionId: '__qq_bot__',
-    platform: 'qq',
-    title: 'QQ Bot',
-    platformLabel: 'QQ',
-    subtitle: subtitleParts.join(' · '),
+    id: "__qq_bot__",
+    connectionId: "__qq_bot__",
+    platform: "qq",
+    title: "QQ Bot",
+    platformLabel: "QQ",
+    subtitle: subtitleParts.join(" · "),
     status,
     statusLabel,
     remoteId,
-    sessionId: '',
-    scope: 'global',
-    workspaceRoot: '',
+    sessionId: "",
+    sessionSource: "",
+    scope: "global",
+    workspaceRoot: "",
     allowAll: bot.allowlist.allowAll,
     allowlistEnabled: bot.allowlist.enabled,
     allowlistUsers,
@@ -391,26 +356,25 @@ function sidebarImConnectionsFromBot(
   const connectionItems: SidebarImConnection[] = [];
   for (const connection of asArray(bot.connections)) {
     if (!isSidebarImConnection(connection)) continue;
-    const mappings = connection.sessionMappings.filter(
-      (mapping) => mapping.sessionId.trim() || mapping.remoteId.trim(),
-    );
+    const mappings = connection.sessionMappings.filter((mapping) => mapping.sessionId.trim() || mapping.remoteId.trim());
     const rowMappings = mappings.length > 0 ? mappings : [null];
     rowMappings.forEach((mapping, index) => {
       const platform = sidebarImPlatform(connection);
       const platformLabel = sidebarImPlatformLabel(platform, translate);
-      const remoteId = mapping?.remoteId.trim() ?? '';
-      const sessionId = mapping?.sessionId.trim() ?? '';
+      const remoteId = mapping?.remoteId.trim() ?? "";
+      const sessionId = mapping?.sessionId.trim() ?? "";
+      const sessionSource = mapping?.sessionSource.trim() ?? "";
       const scope = botMappingScope(mapping, connection.workspaceRoot);
       const workspaceRoot = botMappingWorkspaceRoot(mapping, connection.workspaceRoot);
       const status = sidebarImStatus(connection, bot.enabled);
       const title = connection.label.trim() || platformLabel;
       const allowlistUsers = sidebarImAllowlistUsers(bot, platform);
       const identityLabel = botMappingIdentityLabel(mapping);
-      const mappedUserId = mapping?.userId.trim() ?? '';
+      const mappedUserId = mapping?.userId.trim() ?? "";
       const subtitleParts = [
         remoteId ? compactRemoteId(remoteId) : platformLabel,
         identityLabel,
-        connection.model.trim() || '',
+        connection.model.trim() || "",
         sidebarImStatusLabel(status, translate),
       ].filter(Boolean);
       connectionItems.push({
@@ -419,19 +383,19 @@ function sidebarImConnectionsFromBot(
         platform,
         title,
         platformLabel,
-        subtitle: subtitleParts.join(' · '),
+        subtitle: subtitleParts.join(" · "),
         status,
         statusLabel: sidebarImStatusLabel(status, translate),
         remoteId,
         sessionId,
+        sessionSource,
         scope,
         workspaceRoot,
         allowAll: bot.allowlist.allowAll,
         allowlistEnabled: bot.allowlist.enabled,
         allowlistUsers,
         allowlistMatched: remoteId
-          ? allowlistUsers.includes(remoteId) ||
-            (mappedUserId ? allowlistUsers.includes(mappedUserId) : false)
+          ? allowlistUsers.includes(remoteId) || (mappedUserId ? allowlistUsers.includes(mappedUserId) : false)
           : false,
       });
     });
@@ -439,33 +403,33 @@ function sidebarImConnectionsFromBot(
   return qqConnection ? [qqConnection, ...connectionItems] : connectionItems;
 }
 
-function mappedSessionTarget(sessionId: string): { kind: 'path' | 'topic'; value: string } | null {
+function mappedSessionTarget(sessionId: string): { kind: "path" | "topic"; value: string } | null {
   const trimmed = sessionId.trim();
   if (!trimmed) return null;
   const lower = trimmed.toLowerCase();
-  if (lower.startsWith('path:')) {
+  if (lower.startsWith("path:")) {
     const value = trimmed.slice(5).trim();
-    return value ? { kind: 'path', value } : null;
+    return value ? { kind: "path", value } : null;
   }
-  if (lower.startsWith('topic:')) {
+  if (lower.startsWith("topic:")) {
     const value = trimmed.slice(6).trim();
-    return value ? { kind: 'topic', value } : null;
+    return value ? { kind: "topic", value } : null;
   }
-  if (
-    trimmed.endsWith('.jsonl') ||
-    trimmed.includes('/') ||
-    trimmed.includes('\\') ||
-    trimmed.startsWith('~')
-  ) {
-    return { kind: 'path', value: trimmed };
+  if (trimmed.endsWith(".jsonl") || trimmed.includes("/") || trimmed.includes("\\") || trimmed.startsWith("~")) {
+    return { kind: "path", value: trimmed };
   }
-  return { kind: 'topic', value: trimmed };
+  return { kind: "topic", value: trimmed };
 }
 
-function sidebarImTopicSourcesFromBot(
-  bot: BotSettingsView | null | undefined,
-  translate: Translator,
-): Record<string, SidebarImTopicSource> {
+function sidebarImSessionTarget(connection: SidebarImConnection): { kind: "path" | "topic"; value: string } | null {
+  return mappedSessionTarget(connection.sessionId);
+}
+
+function isChannelSession(session: SessionMeta): boolean {
+  return session.kind === "channel" || session.sessionSource === "auto";
+}
+
+function sidebarImTopicSourcesFromBot(bot: BotSettingsView | null | undefined, translate: Translator): Record<string, SidebarImTopicSource> {
   if (!bot?.connections?.length) return {};
   const sources: Record<string, SidebarImTopicSource> = {};
   for (const connection of bot.connections) {
@@ -475,9 +439,9 @@ function sidebarImTopicSourcesFromBot(
     const title = connection.label.trim() || label;
     for (const mapping of asArray(connection.sessionMappings)) {
       const scope = botMappingScope(mapping, connection.workspaceRoot);
-      if (scope !== 'global') continue;
+      if (scope !== "global") continue;
       const target = mappedSessionTarget(mapping.sessionId);
-      if (!target || target.kind !== 'topic') continue;
+      if (!target || target.kind !== "topic") continue;
       if (sources[target.value]) continue;
       sources[target.value] = {
         platform,
@@ -492,68 +456,50 @@ function sidebarImTopicSourcesFromBot(
 }
 
 function sidebarImScopeLabel(connection: SidebarImConnection, translate: Translator): string {
-  if (connection.scope === 'project')
-    return translate('botDetail.scopeProject', { name: connection.workspaceRoot || 'Project' });
-  return translate('botDetail.scopeGlobal');
+  if (connection.scope === "project") return translate("botDetail.scopeProject", { name: connection.workspaceRoot || "Project" });
+  return translate("botDetail.scopeGlobal");
 }
 
 function sidebarImSessionLabel(connection: SidebarImConnection, translate: Translator): string {
-  const target = mappedSessionTarget(connection.sessionId);
-  if (!target) return translate('botDetail.noSession');
-  if (target.kind === 'path') return target.value.split(/[\\/]/).pop() || target.value;
+  const target = sidebarImSessionTarget(connection);
+  if (!target) {
+    return connection.remoteId ? translate("botDetail.readOnlyChannel") : translate("botDetail.noSession");
+  }
+  if (connection.sessionSource === "auto") return translate("botDetail.readOnlyChannel");
+  if (target.kind === "path") return target.value.split(/[\\/]/).pop() || target.value;
   return target.value;
 }
 
 function sidebarImAccessModeLabel(connection: SidebarImConnection, translate: Translator): string {
-  if (connection.allowAll) return translate('botDetail.accessAllowAll');
-  if (connection.allowlistEnabled) return translate('botDetail.accessWhitelist');
-  return translate('botDetail.accessDisabled');
+  if (connection.allowAll) return translate("botDetail.accessAllowAll");
+  if (connection.allowlistEnabled) return translate("botDetail.accessWhitelist");
+  return translate("botDetail.accessDisabled");
 }
 
-function sidebarImAccessStatusLabel(
-  connection: SidebarImConnection,
-  translate: Translator,
-): string {
-  if (connection.allowAll) return translate('botDetail.accessOpen');
-  if (!connection.remoteId) return translate('botDetail.accessUnknown');
-  return connection.allowlistMatched
-    ? translate('botDetail.accessMatched')
-    : translate('botDetail.accessMissing');
+function sidebarImAccessStatusLabel(connection: SidebarImConnection, translate: Translator): string {
+  if (connection.allowAll) return translate("botDetail.accessOpen");
+  if (!connection.remoteId) return translate("botDetail.accessUnknown");
+  return connection.allowlistMatched ? translate("botDetail.accessMatched") : translate("botDetail.accessMissing");
 }
 
 function sidebarImAccessStatusClass(connection: SidebarImConnection): string {
-  if (connection.allowAll || connection.allowlistMatched) return 'ok';
-  if (!connection.remoteId) return 'muted';
-  return 'warn';
+  if (connection.allowAll || connection.allowlistMatched) return "ok";
+  if (!connection.remoteId) return "muted";
+  return "warn";
 }
 
-function SidebarImConnectionDetail({
-  connection,
-  onClose,
-  onOpenSession,
-  onOpenSettings,
-  onManageAllowlist,
-}: SidebarImConnectionDetailProps) {
+function SidebarImConnectionDetail({ connection, onClose, onOpenSession, onOpenSettings, onManageAllowlist }: SidebarImConnectionDetailProps) {
   const translate = useT();
-  const target = mappedSessionTarget(connection.sessionId);
+  const target = sidebarImSessionTarget(connection);
   const accessStatusClass = sidebarImAccessStatusClass(connection);
   return (
     <div className="bot-detail">
       <section className="bot-detail__summary">
-        <div
-          className={`bot-detail__avatar bot-detail__avatar--${connection.platform}`}
-          aria-hidden="true"
-        >
-          {connection.platform === 'qq'
-            ? 'Q'
-            : connection.platform === 'weixin'
-              ? '微'
-              : connection.platform === 'lark'
-                ? 'L'
-                : '飞'}
+        <div className={`bot-detail__avatar bot-detail__avatar--${connection.platform}`} aria-hidden="true">
+          {connection.platform === "qq" ? "Q" : connection.platform === "weixin" ? "微" : connection.platform === "lark" ? "L" : "飞"}
         </div>
         <div className="bot-detail__summary-main">
-          <span>{translate('botDetail.subtitle')}</span>
+          <span>{translate("botDetail.subtitle")}</span>
           <h2>{connection.title}</h2>
           <div className="bot-detail__chips">
             <span>{connection.platformLabel}</span>
@@ -562,101 +508,83 @@ function SidebarImConnectionDetail({
           </div>
         </div>
         <div className="bot-detail__summary-actions">
-          <button
-            type="button"
-            className="btn btn--primary btn--small bot-detail__primary"
-            disabled={!target}
-            title={target ? undefined : translate('botDetail.openDisabled')}
-            onClick={onOpenSession}
-          >
+          <button type="button" className="btn btn--primary btn--small bot-detail__primary" disabled={!target} title={target ? undefined : translate("botDetail.openDisabled")} onClick={onOpenSession}>
             <MessageSquare size={14} />
-            {translate('botDetail.openSession')}
+            {translate("botDetail.openSession")}
           </button>
           <button type="button" className="btn btn--secondary btn--small" onClick={onOpenSettings}>
             <SettingsIcon size={14} />
-            {translate('botDetail.manage')}
+            {translate("botDetail.manage")}
           </button>
           <button type="button" className="btn btn--secondary btn--small" onClick={onClose}>
-            {translate('botDetail.close')}
+            {translate("botDetail.close")}
           </button>
         </div>
       </section>
 
-      <section
-        className="bot-detail__panel bot-detail__panel--access"
-        aria-label={translate('botDetail.access')}
-      >
+      <section className="bot-detail__panel bot-detail__panel--access" aria-label={translate("botDetail.access")}>
         <div className="bot-detail__section-head">
-          <span>{translate('botDetail.access')}</span>
+          <span>{translate("botDetail.access")}</span>
           <div className="bot-detail__section-actions">
             {connection.remoteId ? (
-              <CopyButton text={connection.remoteId} label={translate('botDetail.copyRemoteId')} />
+              <CopyButton text={connection.remoteId} label={translate("botDetail.copyRemoteId")} />
             ) : null}
-            <button
-              type="button"
-              className="btn btn--secondary btn--small"
-              onClick={onManageAllowlist}
-            >
-              {translate('botDetail.manageAllowlist')}
+            <button type="button" className="btn btn--secondary btn--small" onClick={onManageAllowlist}>
+              {translate("botDetail.manageAllowlist")}
             </button>
           </div>
         </div>
         <div className="bot-detail__access-grid">
           <div>
-            <span>{translate('botDetail.accessMode')}</span>
+            <span>{translate("botDetail.accessMode")}</span>
             <strong>{sidebarImAccessModeLabel(connection, translate)}</strong>
           </div>
           <div>
-            <span>{translate('botDetail.accessCurrentUser')}</span>
-            <code title={connection.remoteId || undefined}>{connection.remoteId || '—'}</code>
+            <span>{translate("botDetail.accessCurrentUser")}</span>
+            <code title={connection.remoteId || undefined}>{connection.remoteId || "—"}</code>
           </div>
           <div>
-            <span>{translate('botDetail.accessStatus')}</span>
-            <strong
-              className={`bot-detail__access-status bot-detail__access-status--${accessStatusClass}`}
-            >
+            <span>{translate("botDetail.accessStatus")}</span>
+            <strong className={`bot-detail__access-status bot-detail__access-status--${accessStatusClass}`}>
               {sidebarImAccessStatusLabel(connection, translate)}
             </strong>
           </div>
         </div>
         <div className="bot-detail__allowlist">
-          <span>{translate('botDetail.channelAllowlistUsers')}</span>
+          <span>{translate("botDetail.channelAllowlistUsers")}</span>
           <div className="bot-detail__id-list">
             {connection.allowlistUsers.length > 0 ? (
               connection.allowlistUsers.map((id) => (
                 <code
                   key={id}
-                  className={id === connection.remoteId ? 'bot-detail__id-list-item--active' : ''}
+                  className={id === connection.remoteId ? "bot-detail__id-list-item--active" : ""}
                   title={id}
                 >
                   {id}
                 </code>
               ))
             ) : (
-              <em>{translate('botDetail.emptyAllowlistUsers')}</em>
+              <em>{translate("botDetail.emptyAllowlistUsers")}</em>
             )}
           </div>
         </div>
       </section>
 
-      <section
-        className="bot-detail__panel bot-detail__panel--facts"
-        aria-label={translate('botDetail.summary')}
-      >
+      <section className="bot-detail__panel bot-detail__panel--facts" aria-label={translate("botDetail.summary")}>
         <div className="bot-detail__section-head">
-          <span>{translate('botDetail.summary')}</span>
+          <span>{translate("botDetail.summary")}</span>
         </div>
         <div className="bot-detail__facts">
           <div>
-            <span>{translate('botDetail.remoteId')}</span>
-            <code>{connection.remoteId || '—'}</code>
+            <span>{translate("botDetail.remoteId")}</span>
+            <code>{connection.remoteId || "—"}</code>
           </div>
           <div>
-            <span>{translate('botDetail.localTopic')}</span>
+            <span>{translate("botDetail.localTopic")}</span>
             <strong>{sidebarImSessionLabel(connection, translate)}</strong>
           </div>
           <div>
-            <span>{translate('botDetail.scope')}</span>
+            <span>{translate("botDetail.scope")}</span>
             <strong>{sidebarImScopeLabel(connection, translate)}</strong>
           </div>
         </div>
@@ -667,16 +595,16 @@ function SidebarImConnectionDetail({
 
 function activeTopicTurnsFromTree(tree: ProjectNode[], tab?: TabMeta): number | undefined {
   if (!tab?.topicId) return undefined;
-  const targetScope = tab.scope === 'global' ? 'global' : 'project';
+  const targetScope = tab.scope === "global" ? "global" : "project";
   const walk = (nodes: ProjectNode[]): number | undefined => {
     for (const node of nodes) {
       if (!node) continue;
-      if (node.kind === 'topic' || node.kind === 'global_topic') {
-        const scope = node.kind === 'global_topic' ? 'global' : 'project';
+      if (node.kind === "topic" || node.kind === "global_topic") {
+        const scope = node.kind === "global_topic" ? "global" : "project";
         if (
           scope === targetScope &&
           node.topicId === tab.topicId &&
-          (scope === 'global' || node.root === tab.workspaceRoot)
+          (scope === "global" || node.root === tab.workspaceRoot)
         ) {
           return node.turns;
         }
@@ -693,19 +621,24 @@ function clampSidebarWidth(width: number): number {
   return Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, Math.round(width)));
 }
 
+function clampCreationSidebarWidth(width: number): number {
+  return Math.min(SIDEBAR_MAX_WIDTH, Math.max(CREATION_SIDEBAR_MIN_WIDTH, Math.round(width)));
+}
+
+function clampStoredSidebarWidth(width: number): number {
+  return Math.min(SIDEBAR_MAX_WIDTH, Math.max(CREATION_SIDEBAR_MIN_WIDTH, Math.round(width)));
+}
+
 function clampRightDockPreviewWidth(width: number): number {
   return Math.min(RIGHT_DOCK_MAX_WIDTH, Math.max(RIGHT_DOCK_PREVIEW_MIN_WIDTH, Math.round(width)));
 }
 
 function clampRightDockTreeWidth(width: number): number {
-  return Math.min(
-    RIGHT_DOCK_TREE_MAX_WIDTH,
-    Math.max(RIGHT_DOCK_TREE_MIN_WIDTH, Math.round(width)),
-  );
+  return Math.min(RIGHT_DOCK_TREE_MAX_WIDTH, Math.max(RIGHT_DOCK_TREE_MIN_WIDTH, Math.round(width)));
 }
 
 function defaultSidebarWidth(): number {
-  if (typeof window !== 'undefined') {
+  if (typeof window !== "undefined") {
     return clampSidebarWidth(window.innerWidth * SIDEBAR_VIEWPORT_RATIO);
   }
   return SIDEBAR_DEFAULT_WIDTH;
@@ -716,103 +649,97 @@ function defaultRightDockTreeWidth(): number {
 }
 
 function loadSidebarCollapsed(): boolean {
-  if (typeof window === 'undefined') return false;
+  if (typeof window === "undefined") return false;
   try {
-    return window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1';
+    return window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1";
   } catch {
     return false;
   }
 }
 
 function saveSidebarCollapsed(collapsed: boolean): void {
-  if (typeof window === 'undefined') return;
+  if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? '1' : '0');
+    window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? "1" : "0");
   } catch {
     /* ignore storage failures */
   }
 }
 
 function loadSidebarWidth(): number {
-  return loadLayoutSize('sidebarWidthGraphite', defaultSidebarWidth(), clampSidebarWidth);
+  return loadLayoutSize("sidebarWidthGraphite", defaultSidebarWidth(), clampStoredSidebarWidth);
 }
 
 function saveSidebarWidth(width: number): void {
-  saveLayoutSize('sidebarWidthGraphite', width, clampSidebarWidth);
+  saveLayoutSize("sidebarWidthGraphite", width, clampStoredSidebarWidth);
 }
 
 function normalizeDesktopPlatform(value: string): DesktopPlatform {
-  if (value === 'darwin' || value === 'windows') return value;
-  return 'linux';
+  if (value === "darwin" || value === "windows") return value;
+  return "linux";
 }
 
 function browserPlatformOverride(): DesktopPlatform | null {
-  if (typeof window === 'undefined' || window.runtime) return null;
-  const value = new URLSearchParams(window.location.search).get('platform');
-  if (value === 'darwin' || value === 'windows' || value === 'linux') return value;
+  if (typeof window === "undefined" || window.runtime) return null;
+  const value = new URLSearchParams(window.location.search).get("platform");
+  if (value === "darwin" || value === "windows" || value === "linux") return value;
   return null;
 }
 
 function detectBrowserPlatform(): DesktopPlatform {
   const override = browserPlatformOverride();
   if (override) return override;
-  if (typeof navigator === 'undefined') return 'linux';
+  if (typeof navigator === "undefined") return "linux";
   const marker = `${navigator.platform} ${navigator.userAgent}`;
-  if (/Win/i.test(marker)) return 'windows';
-  if (/Mac/i.test(marker)) return 'darwin';
-  return 'linux';
+  if (/Win/i.test(marker)) return "windows";
+  if (/Mac/i.test(marker)) return "darwin";
+  return "linux";
 }
 
 function loadRightDockTreeWidth(): number {
-  return loadLayoutSize('rightDockTreeWidth', defaultRightDockTreeWidth(), clampRightDockTreeWidth);
+  return loadLayoutSize("rightDockTreeWidth", defaultRightDockTreeWidth(), clampRightDockTreeWidth);
 }
 
 function saveRightDockTreeWidth(width: number): void {
-  saveLayoutSize('rightDockTreeWidth', width, clampRightDockTreeWidth);
+  saveLayoutSize("rightDockTreeWidth", width, clampRightDockTreeWidth);
 }
 
 function loadRightDockPreviewWidth(): number {
-  return loadLayoutSize(
-    'rightDockPreviewWidth',
-    RIGHT_DOCK_PREVIEW_DEFAULT_WIDTH,
-    clampRightDockPreviewWidth,
-  );
+  return loadLayoutSize("rightDockPreviewWidth", RIGHT_DOCK_PREVIEW_DEFAULT_WIDTH, clampRightDockPreviewWidth);
 }
 
 function saveRightDockPreviewWidth(width: number): void {
-  saveLayoutSize('rightDockPreviewWidth', width, clampRightDockPreviewWidth);
+  saveLayoutSize("rightDockPreviewWidth", width, clampRightDockPreviewWidth);
 }
 
 function tabWorkspaceTitle(tab?: TabMeta): string {
-  if (!tab) return 'Global';
-  if (tab.scope === 'project') return tab.workspaceName || tab.workspaceRoot || 'Project';
-  if (tab.scope === 'global') return tab.workspaceName || 'Global';
-  return tab.workspaceName || tab.workspaceRoot || 'Global';
+  if (!tab) return "Global";
+  if (tab.scope === "project") return tab.workspaceName || tab.workspaceRoot || "Project";
+  if (tab.scope === "global") return tab.workspaceName || "Global";
+  return tab.workspaceName || tab.workspaceRoot || "Global";
 }
 
 function topicTitle(tab?: TabMeta): string {
-  if (!tab) return 'Global';
+  if (!tab) return "Global";
   const workspaceTitle = tabWorkspaceTitle(tab);
-  const topic = tab.topicTitle || (tab.scope === 'global' ? workspaceTitle : 'Untitled');
+  const topic = tab.topicTitle || (tab.scope === "global" ? workspaceTitle : "Untitled");
   return topic === workspaceTitle ? workspaceTitle : `${workspaceTitle} / ${topic}`;
 }
 
 function topicDisplayTitle(tab?: TabMeta): string {
-  if (!tab) return 'Global';
-  return tab.topicTitle || (tab.scope === 'global' ? tabWorkspaceTitle(tab) : 'Untitled');
+  if (!tab) return "Global";
+  return tab.topicTitle || (tab.scope === "global" ? tabWorkspaceTitle(tab) : "Untitled");
 }
 
 function sessionsForScope(sessions: SessionMeta[], filter: HistoryScopeFilter): SessionMeta[] {
-  if (filter.scope === 'project') {
-    return sessions.filter(
-      (session) => session.scope === 'project' && session.workspaceRoot === filter.workspaceRoot,
-    );
+  if (filter.scope === "project") {
+    return sessions.filter((session) => session.scope === "project" && session.workspaceRoot === filter.workspaceRoot);
   }
-  return sessions.filter((session) => (session.scope || 'global') === 'global');
+  return sessions.filter((session) => (session.scope || "global") === "global");
 }
 
 function workspaceDisplayName(path?: string): string {
-  if (!path) return '';
+  if (!path) return "";
   const parts = path.split(/[/\\]/).filter(Boolean);
   return parts.length > 0 ? parts[parts.length - 1] : path;
 }
@@ -820,66 +747,61 @@ function workspaceDisplayName(path?: string): string {
 function materializeLiveItems(items: Item[], live?: LiveStream): Item[] {
   if (!live) return items;
   return items.map((item) => {
-    if (item.kind !== 'assistant' || item.id !== live.id) return item;
+    if (item.kind !== "assistant" || item.id !== live.id) return item;
     return { ...item, text: live.text, reasoning: live.reasoning, streaming: true };
   });
 }
 
 function fence(label: string, value: string): string {
-  if (!value.trim()) return '';
-  const fenceToken = value.includes('```') ? '````' : '```';
+  if (!value.trim()) return "";
+  const fenceToken = value.includes("```") ? "````" : "```";
   return `${label}\n${fenceToken}\n${value.trim()}\n${fenceToken}`;
 }
 
 function sessionItemsToMarkdown(title: string, items: Item[], live?: LiveStream): string {
-  const lines: string[] = [`# ${title.trim() || 'Reasonix session'}`, ''];
+  const lines: string[] = [`# ${title.trim() || "Reasonix session"}`, ""];
   for (const item of materializeLiveItems(items, live)) {
     switch (item.kind) {
-      case 'user':
-        lines.push('## User', '', item.text.trim(), '');
+      case "user":
+        lines.push("## User", "", item.text.trim(), "");
         break;
-      case 'assistant':
-        lines.push('## Assistant');
+      case "assistant":
+        lines.push("## Assistant");
         if (item.reasoning.trim()) {
-          lines.push('', '### Reasoning', '', item.reasoning.trim());
+          lines.push("", "### Reasoning", "", item.reasoning.trim());
         }
         if (item.text.trim()) {
-          lines.push('', item.text.trim());
+          lines.push("", item.text.trim());
         }
-        lines.push('');
+        lines.push("");
         break;
-      case 'tool':
+      case "tool":
         lines.push(`### Tool: ${item.name}`);
-        if (item.args.trim()) lines.push('', fence('Args', item.args));
-        if (item.output?.trim()) lines.push('', fence('Output', item.output));
-        if (item.error?.trim()) lines.push('', fence('Error', item.error));
-        lines.push('');
+        if (item.args.trim()) lines.push("", fence("Args", item.args));
+        if (item.output?.trim()) lines.push("", fence("Output", item.output));
+        if (item.error?.trim()) lines.push("", fence("Error", item.error));
+        lines.push("");
         break;
-      case 'phase':
-        lines.push(`### Phase`, '', item.text.trim(), '');
+      case "phase":
+        lines.push(`### Phase`, "", item.text.trim(), "");
         break;
-      case 'notice':
-        lines.push(`### ${item.level === 'warn' ? 'Warning' : 'Notice'}`, '', item.text.trim(), '');
+      case "notice":
+        lines.push(`### ${item.level === "warn" ? "Warning" : "Notice"}`, "", item.text.trim(), "");
         break;
-      case 'compaction':
-        lines.push('### Context Compaction', '');
+      case "compaction":
+        lines.push("### Context Compaction", "");
         if (item.pending) {
-          lines.push('Compaction pending.');
+          lines.push("Compaction pending.");
         } else {
           lines.push(`Messages: ${item.messages}`);
           if (item.trigger) lines.push(`Trigger: ${item.trigger}`);
-          if (item.summary.trim()) lines.push('', item.summary.trim());
+          if (item.summary.trim()) lines.push("", item.summary.trim());
         }
-        lines.push('');
+        lines.push("");
         break;
     }
   }
-  return (
-    lines
-      .join('\n')
-      .replace(/\n{3,}/g, '\n\n')
-      .trimEnd() + '\n'
-  );
+  return lines.join("\n").replace(/\n{3,}/g, "\n\n").trimEnd() + "\n";
 }
 
 function sessionItemsToJson(title: string, items: Item[], live?: LiveStream): string {
@@ -895,31 +817,22 @@ function sessionItemsToJson(title: string, items: Item[], live?: LiveStream): st
 }
 
 function safeFilename(name: string): string {
-  const cleaned = name
-    .trim()
-    .replace(/[\\/:*?"<>|]+/g, '-')
-    .replace(/\s+/g, ' ')
-    .slice(0, 80);
-  return cleaned || 'reasonix-session';
+  const cleaned = name.trim().replace(/[\\/:*?"<>|]+/g, "-").replace(/\s+/g, " ").slice(0, 80);
+  return cleaned || "reasonix-session";
 }
 
 /** Global hotkey handler for shell-expand toggle (Ctrl/Cmd+B). */
 function ShellHotkeys() {
   const shellExpand = useShellExpand();
-  useGlobalShortcut(
-    'shell.toggle',
-    () => shellExpand?.toggleLast(),
-    [shellExpand],
-    Boolean(shellExpand),
-  );
+  useGlobalShortcut("shell.toggle", () => shellExpand?.toggleLast(), [shellExpand], Boolean(shellExpand));
   return null;
 }
 
 /** Global hotkey handler for text-size shortcuts (Ctrl/Cmd + Plus/Minus/0). */
 function TextSizeHotkeys() {
-  useGlobalShortcut('textSize.increase', () => applyTextSize(nextTextSize(getTextSize(), 1)));
-  useGlobalShortcut('textSize.decrease', () => applyTextSize(nextTextSize(getTextSize(), -1)));
-  useGlobalShortcut('textSize.reset', () => applyTextSize(DEFAULT_TEXT_SIZE));
+  useGlobalShortcut("textSize.increase", () => applyTextSize(nextTextSize(getTextSize(), 1)));
+  useGlobalShortcut("textSize.decrease", () => applyTextSize(nextTextSize(getTextSize(), -1)));
+  useGlobalShortcut("textSize.reset", () => applyTextSize(DEFAULT_TEXT_SIZE));
   return null;
 }
 
@@ -944,6 +857,7 @@ export default function App() {
     listSessions,
     listTrashedSessions,
     resumeSession,
+    openChannelSession,
     previewSession,
     deleteSession,
     restoreSession,
@@ -967,25 +881,19 @@ export default function App() {
   } = useController();
   const { locale, setPref: setLocalePref } = useI18n();
   const t = useT();
-  const [composerProfilesByTab, setComposerProfilesByTab] = useState<
-    Record<string, ComposerProfile>
-  >({});
+  const [composerProfilesByTab, setComposerProfilesByTab] = useState<Record<string, ComposerProfile>>({});
   const yoloRestoreToolApprovalModesRef = useRef<Record<string, RestorableToolApprovalMode>>({});
   const [tabMetas, setTabMetas] = useState<TabMeta[]>([]);
   const [tabOrderIds, setTabOrderIds] = useState<string[]>([]);
   const [tabRevealSignal, setTabRevealSignal] = useState(0);
-  const [startupSplashVisible, setStartupSplashVisible] = useState<boolean>(() =>
-    shouldShowStartupSplash(),
-  );
+  const [startupSplashVisible, setStartupSplashVisible] = useState<boolean>(() => shouldShowStartupSplash());
   // null until the mount probe resolves; true shows the overlay. Probed once —
   // clearing the key mid-session is the Settings panel's job, not the gate's.
   const [needsOnboarding, setNeedsOnboarding] = useState<boolean | null>(null);
   const [settingsTarget, setSettingsTarget] = useState<SettingsTab | null>(null);
   const [settingsFocus, setSettingsFocus] = useState<SettingsInitialFocus | null>(null);
-  const [desktopLayoutStyle, setDesktopLayoutStyle] = useState<DesktopLayoutStyle>('workbench');
-  const [startupUpdateChecksEnabled, setStartupUpdateChecksEnabled] = useState<boolean | null>(
-    null,
-  );
+  const [desktopLayoutStyle, setDesktopLayoutStyle] = useState<DesktopLayoutStyle>("workbench");
+  const [startupUpdateChecksEnabled, setStartupUpdateChecksEnabled] = useState<boolean | null>(null);
   const [histView, setHistView] = useState<HistoryViewState | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
@@ -993,40 +901,23 @@ export default function App() {
   const { showToast } = useToast();
   const [sidebarImConnections, setSidebarImConnections] = useState<SidebarImConnection[]>([]);
   const [imTopicSources, setImTopicSources] = useState<Record<string, SidebarImTopicSource>>({});
-  const [sidebarImDetailConnectionId, setSidebarImDetailConnectionId] = useState('');
+  const [sidebarImDetailConnectionId, setSidebarImDetailConnectionId] = useState("");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(loadSidebarCollapsed);
   const [heartbeatOpen, setHeartbeatOpen] = useState(false);
-  type TimeFilter = 'all' | '10' | '20' | '1h' | '3h' | '5h' | '1d';
+  type TimeFilter = "all" | "10" | "20" | "1h" | "3h" | "5h" | "1d";
   const [topicTimeFilter, setTopicTimeFilter] = useState<TimeFilter>(() => {
     try {
-      const saved = localStorage.getItem('projectTree:timeFilter');
-      if (
-        saved === 'all' ||
-        saved === '10' ||
-        saved === '20' ||
-        saved === '1h' ||
-        saved === '3h' ||
-        saved === '5h' ||
-        saved === '1d'
-      )
-        return saved;
-    } catch {
-      /* localStorage unavailable */
-    }
-    return 'all';
+      const saved = localStorage.getItem("projectTree:timeFilter");
+      if (saved === "all" || saved === "10" || saved === "20" || saved === "1h" || saved === "3h" || saved === "5h" || saved === "1d") return saved;
+    } catch { /* localStorage unavailable */ }
+    return "all";
   });
   useEffect(() => {
-    try {
-      localStorage.setItem('projectTree:timeFilter', topicTimeFilter);
-    } catch {
-      /* ignore */
-    }
+    try { localStorage.setItem("projectTree:timeFilter", topicTimeFilter); } catch { /* ignore */ }
   }, [topicTimeFilter]);
   const [sidebarWidth, setSidebarWidth] = useState(loadSidebarWidth);
   const [sidebarResizing, setSidebarResizing] = useState(false);
-  const [viewportWidth, setViewportWidth] = useState(() =>
-    typeof window === 'undefined' ? 1440 : window.innerWidth,
-  );
+  const [viewportWidth, setViewportWidth] = useState(() => (typeof window === "undefined" ? 1440 : window.innerWidth));
   const [workspacePanelOpen, setWorkspacePanelOpen] = useState(true);
   const [rightDockTreeWidth, setRightDockTreeWidth] = useState(loadRightDockTreeWidth);
   const [rightDockPreviewWidth, setRightDockPreviewWidth] = useState(loadRightDockPreviewWidth);
@@ -1035,7 +926,7 @@ export default function App() {
   // workspace changes, git history, and session metadata after AI tool writes.
   useEffect(() => {
     const unsub = onEvent((e) => {
-      if (e.kind === 'turn_done') {
+      if (e.kind === "turn_done") {
         setDockRefreshKey((v) => v + 1);
         if (!e.err) playSuccessChime();
       }
@@ -1045,22 +936,20 @@ export default function App() {
 
   const [workspacePanelResizing, setWorkspacePanelResizing] = useState(false);
   const [workspacePanelMaximized, setWorkspacePanelMaximized] = useState(false);
-  const [rightDockMode, setRightDockMode] = useState<RightDockMode>('context');
+  const [rightDockMode, setRightDockMode] = useState<RightDockMode>("context");
   const [dockRefreshKey, setDockRefreshKey] = useState(0);
   const [projectRevision, setProjectRevision] = useState(0);
   const [activeTopicTurns, setActiveTopicTurns] = useState<number | undefined>(undefined);
-  const [composerInsertRequest, setComposerInsertRequest] = useState<ComposerInsertRequest | null>(
-    null,
-  );
+  const [composerInsertRequest, setComposerInsertRequest] = useState<ComposerInsertRequest | null>(null);
   const [transientOverlayDismissSignal, setTransientOverlayDismissSignal] = useState(0);
   const [desktopPlatform, setDesktopPlatform] = useState<DesktopPlatform>(detectBrowserPlatform);
-  const [statusBarStyle, setStatusBarStyle] = useState<'icon' | 'text'>('text');
-  const [statusBarItems, setStatusBarItems] = useState<StatusBarItemId[]>(() => [
-    ...DEFAULT_STATUS_BAR_ITEMS,
-  ]);
+  const [statusBarStyle, setStatusBarStyle] = useState<"icon" | "text">("text");
+  const [statusBarItems, setStatusBarItems] = useState<StatusBarItemId[]>(() => [...DEFAULT_STATUS_BAR_ITEMS]);
   const [renamingTopicId, setRenamingTopicId] = useState<string | null>(null);
-  const [topicTitleDraft, setTopicTitleDraft] = useState('');
+  const [topicTitleDraft, setTopicTitleDraft] = useState("");
   const [topicExportOpen, setTopicExportOpen] = useState(false);
+  const [sidebarSearchOpen, setSidebarSearchOpen] = useState(false);
+  const [sidebarSearchFocusSignal, setSidebarSearchFocusSignal] = useState(0);
   const [sidebarTogglePressed, setSidebarTogglePressed] = useState(false);
   const [workspaceTogglePressed, setWorkspaceTogglePressed] = useState(false);
   const [clearContextPending, setClearContextPending] = useState(false);
@@ -1074,7 +963,7 @@ export default function App() {
   useWindowStatePersistence();
   useViewportHeightVar();
   useEffect(() => {
-    document.documentElement.setAttribute('data-platform', desktopPlatform);
+    document.documentElement.setAttribute("data-platform", desktopPlatform);
   }, [desktopPlatform]);
 
   const closeTransientOverlays = useCallback(() => {
@@ -1090,34 +979,28 @@ export default function App() {
     setImTopicSources(sidebarImTopicSourcesFromBot(settings.bot, t));
   }, [t]);
 
-  const refreshSidebarImConnectionsFromSettings = useCallback(
-    async (settings: Pick<SettingsView | DesktopStartupSettingsView, 'bot'>) => {
-      const runtimeStatus = await loadBotRuntimeStatus();
-      setSidebarImConnections(sidebarImConnectionsFromBot(settings.bot, t, runtimeStatus));
-      setImTopicSources(sidebarImTopicSourcesFromBot(settings.bot, t));
-    },
-    [t],
-  );
+  const refreshSidebarImConnectionsFromSettings = useCallback(async (settings: Pick<SettingsView | DesktopStartupSettingsView, "bot">) => {
+    const runtimeStatus = await loadBotRuntimeStatus();
+    setSidebarImConnections(sidebarImConnectionsFromBot(settings.bot, t, runtimeStatus));
+    setImTopicSources(sidebarImTopicSourcesFromBot(settings.bot, t));
+  }, [t]);
 
   const openBotSettings = useCallback(() => {
     closeTransientOverlays();
-    setSidebarImDetailConnectionId('');
+    setSidebarImDetailConnectionId("");
     setSettingsFocus(null);
-    setSettingsTarget('bots');
+    setSettingsTarget("bots");
   }, [closeTransientOverlays]);
 
-  const openBotAllowlistSettings = useCallback(
-    (connectionId: string) => {
-      closeTransientOverlays();
-      setSidebarImDetailConnectionId('');
-      setSettingsFocus({ target: 'bot-allowlist', connectionId });
-      setSettingsTarget('bots');
-    },
-    [closeTransientOverlays],
-  );
+  const openBotAllowlistSettings = useCallback((connectionId: string) => {
+    closeTransientOverlays();
+    setSidebarImDetailConnectionId("");
+    setSettingsFocus({ target: "bot-allowlist", connectionId });
+    setSettingsTarget("bots");
+  }, [closeTransientOverlays]);
 
   const pulseSidebarToggle = useCallback(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === "undefined") return;
     if (sidebarTogglePressTimerRef.current !== null) {
       window.clearTimeout(sidebarTogglePressTimerRef.current);
     }
@@ -1129,7 +1012,7 @@ export default function App() {
   }, []);
 
   const pulseWorkspaceToggle = useCallback(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === "undefined") return;
     if (workspaceTogglePressTimerRef.current !== null) {
       window.clearTimeout(workspaceTogglePressTimerRef.current);
     }
@@ -1141,7 +1024,7 @@ export default function App() {
   }, []);
 
   const anchorAppScrollToChat = useCallback(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === "undefined") return;
     const el = appRef.current;
     if (!el) return;
     const pin = () => {
@@ -1172,13 +1055,12 @@ export default function App() {
         cancelled = true;
       };
     }
-    void app
-      .Platform()
+    void app.Platform()
       .then((value) => {
         if (!cancelled) setDesktopPlatform(normalizeDesktopPlatform(value));
       })
       .catch((e) => {
-        console.warn('platform probe failed', e);
+        console.warn("platform probe failed", e);
       });
     return () => {
       cancelled = true;
@@ -1186,25 +1068,14 @@ export default function App() {
   }, []);
 
   const applyDesktopPreferences = useCallback(
-    (
-      settings: Pick<
-        SettingsView,
-        | 'desktopTheme'
-        | 'desktopThemeStyle'
-        | 'desktopLayoutStyle'
-        | 'desktopLanguage'
-        | 'checkUpdates'
-        | 'statusBarStyle'
-        | 'statusBarItems'
-      >,
-    ) => {
+    (settings: Pick<SettingsView, "desktopTheme" | "desktopThemeStyle" | "desktopLayoutStyle" | "desktopLanguage" | "checkUpdates" | "statusBarStyle" | "statusBarItems">) => {
       const nextTheme = normalizeThemePreference(settings.desktopTheme);
       const nextStyle = normalizeThemeStyleForTheme(settings.desktopThemeStyle, nextTheme);
       applyTheme(nextTheme, nextStyle, { persist: false });
       setDesktopLayoutStyle(normalizeDesktopLayoutStyle(settings.desktopLayoutStyle));
       setLocalePref(normalizeLangPref(settings.desktopLanguage));
       setStartupUpdateChecksEnabled(settings.checkUpdates !== false);
-      setStatusBarStyle(settings.statusBarStyle === 'text' ? 'text' : 'icon');
+      setStatusBarStyle(settings.statusBarStyle === "text" ? "text" : "icon");
       setStatusBarItems(normalizeStatusBarItems(settings.statusBarItems));
     },
     [setLocalePref],
@@ -1231,7 +1102,7 @@ export default function App() {
       setImTopicSources(sidebarImTopicSourcesFromBot(settings.bot, t));
     };
     void syncDesktopPreferences().catch((e) => {
-      console.warn('desktop preferences sync failed', e);
+      console.warn("desktop preferences sync failed", e);
       setStartupUpdateChecksEnabled(true);
     });
     return () => {
@@ -1241,24 +1112,24 @@ export default function App() {
 
   useEffect(() => {
     setSidebarImDetailConnectionId((current) => {
-      if (!current) return '';
-      return sidebarImConnections.some((connection) => connection.id === current) ? current : '';
+      if (!current) return "";
+      return sidebarImConnections.some((connection) => connection.id === current) ? current : "";
     });
   }, [sidebarImConnections]);
 
   // Open settings when the native menu item (CmdOrCtrl+,) is activated.
   useEffect(() => {
-    if (typeof window === 'undefined' || !window.runtime) return;
-    return window.runtime.EventsOn('app:open-settings', () => {
+    if (typeof window === "undefined" || !window.runtime) return;
+    return window.runtime.EventsOn("app:open-settings", () => {
       closeTransientOverlays();
-      setSettingsTarget('general');
+      setSettingsTarget("general");
     });
   }, [closeTransientOverlays]);
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === "undefined") return;
     const onResize = () => setViewportWidth(window.innerWidth);
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
   }, []);
 
   const [pendingPlanRevision, setPendingPlanRevision] = useState<string | null>(null);
@@ -1266,15 +1137,10 @@ export default function App() {
   const footerHeightRef = useRef(0);
   const footerRef = useRef<HTMLElement>(null);
   const runningRef = useRef(state.running);
-  const rightDockDetailActive = rightDockMode !== 'context' && workspacePreviewActive;
-  const preferredWorkspacePanelWidth = rightDockDetailActive
-    ? rightDockPreviewWidth
-    : rightDockTreeWidth;
-  const workspacePanelMinWidth = rightDockDetailActive
-    ? RIGHT_DOCK_PREVIEW_MIN_WIDTH
-    : RIGHT_DOCK_TREE_MIN_WIDTH;
-  const chatReservedWidth =
-    workspacePanelOpen && !workspacePanelMaximized ? CHAT_COMFORT_MIN_WIDTH : CHAT_MIN_WIDTH;
+  const rightDockDetailActive = rightDockMode !== "context" && workspacePreviewActive;
+  const preferredWorkspacePanelWidth = rightDockDetailActive ? rightDockPreviewWidth : rightDockTreeWidth;
+  const workspacePanelMinWidth = rightDockDetailActive ? RIGHT_DOCK_PREVIEW_MIN_WIDTH : RIGHT_DOCK_TREE_MIN_WIDTH;
+  const chatReservedWidth = workspacePanelOpen && !workspacePanelMaximized ? CHAT_COMFORT_MIN_WIDTH : CHAT_MIN_WIDTH;
   const workspacePanelAvailableWidth = availableWorkspacePanelWidth({
     viewportWidth,
     sidebarCollapsed,
@@ -1292,20 +1158,15 @@ export default function App() {
   });
 
   const workspacePanelRenderable =
-    workspacePanelOpen &&
-    (workspacePanelMaximized || resolvedWorkspacePanelWidth >= RIGHT_DOCK_MIN_RENDER_WIDTH);
+    workspacePanelOpen && (workspacePanelMaximized || resolvedWorkspacePanelWidth >= RIGHT_DOCK_MIN_RENDER_WIDTH);
   const workspacePanelGridOpen = workspacePanelRenderable && !workspacePanelMaximized;
-  const workspacePanelRenderWidth = workspacePanelMaximized
-    ? preferredWorkspacePanelWidth
-    : resolvedWorkspacePanelWidth;
+  const workspacePanelRenderWidth = workspacePanelMaximized ? preferredWorkspacePanelWidth : resolvedWorkspacePanelWidth;
   const activeTab = useMemo(
     () => tabMetas.find((tab) => tab.id === activeTabId) ?? tabMetas.find((tab) => tab.active),
     [activeTabId, tabMetas],
   );
   const sidebarImDetailConnection = useMemo(
-    () =>
-      sidebarImConnections.find((connection) => connection.id === sidebarImDetailConnectionId) ??
-      null,
+    () => sidebarImConnections.find((connection) => connection.id === sidebarImDetailConnectionId) ?? null,
     [sidebarImConnections, sidebarImDetailConnectionId],
   );
   useEffect(() => {
@@ -1316,8 +1177,7 @@ export default function App() {
         cancelled = true;
       };
     }
-    void app
-      .ListProjectTree()
+    void app.ListProjectTree()
       .then((tree) => {
         if (!cancelled) setActiveTopicTurns(activeTopicTurnsFromTree(asArray(tree), activeTab));
       })
@@ -1329,25 +1189,19 @@ export default function App() {
     };
   }, [activeTab?.scope, activeTab?.topicId, activeTab?.workspaceRoot, projectRevision]);
   const sessionTurns = useMemo(() => {
-    const visibleUserTurns = state.items.reduce(
-      (count, item) => (item.kind === 'user' ? count + 1 : count),
-      0,
-    );
+    const visibleUserTurns = state.items.reduce((count, item) => (item.kind === "user" ? count + 1 : count), 0);
     const currentTabTurns = Math.max(state.checkpoints.length, visibleUserTurns);
-    return currentTabTurns > 0 ? currentTabTurns : (activeTopicTurns ?? 0);
+    return currentTabTurns > 0 ? currentTabTurns : activeTopicTurns ?? 0;
   }, [activeTopicTurns, state.checkpoints.length, state.items]);
   const startupSplashHold = state.meta?.ready !== true && !state.meta?.startupErr;
   const backendActiveComposerProfile = useMemo(() => {
     if (state.meta) {
-      return composerProfileFromMeta(
-        state.meta,
-        activeTab ? composerProfileMode(composerProfileFromTab(activeTab)) : undefined,
-      );
+      return composerProfileFromMeta(state.meta, activeTab ? composerProfileMode(composerProfileFromTab(activeTab)) : undefined);
     }
     return composerProfileFromTab(activeTab);
   }, [activeTab, state.meta]);
   const composerProfile = activeTabId
-    ? (composerProfilesByTab[activeTabId] ?? backendActiveComposerProfile)
+    ? composerProfilesByTab[activeTabId] ?? backendActiveComposerProfile
     : defaultComposerProfile;
   const goal = composerProfile.goal;
   const collaborationMode = displayedComposerProfileCollaborationMode(composerProfile);
@@ -1355,11 +1209,9 @@ export default function App() {
   const tokenMode: TokenMode = composerProfile.tokenMode;
   const controllerReady = state.meta?.ready === true;
   const patchActiveComposerProfile = useCallback(
-    (patch: Partial<Omit<ComposerProfile, 'pending'>>, pendingFields: ComposerProfileField[]) => {
+    (patch: Partial<Omit<ComposerProfile, "pending">>, pendingFields: ComposerProfileField[]) => {
       if (!activeTabId) return;
-      setComposerProfilesByTab((current) =>
-        patchComposerProfile(current, activeTabId, composerProfile, patch, pendingFields),
-      );
+      setComposerProfilesByTab((current) => patchComposerProfile(current, activeTabId, composerProfile, patch, pendingFields));
     },
     [activeTabId, composerProfile],
   );
@@ -1367,9 +1219,7 @@ export default function App() {
   const visibleTabId = activeTabId;
   const visibleTabs = useMemo(() => {
     const byId = new Map(tabMetas.map((tab) => [tab.id, tab]));
-    const ordered = tabOrderIds
-      .map((id) => byId.get(id))
-      .filter((tab): tab is TabMeta => Boolean(tab));
+    const ordered = tabOrderIds.map((id) => byId.get(id)).filter((tab): tab is TabMeta => Boolean(tab));
     const missing = tabMetas.filter((tab) => !tabOrderIds.includes(tab.id));
     return [...ordered, ...missing].map((tab) => {
       const profile = composerProfilesByTab[tab.id] ?? composerProfileFromTab(tab);
@@ -1393,7 +1243,7 @@ export default function App() {
       for (const id of ids) {
         if (!next.includes(id)) next.push(id);
       }
-      return next.join('\u0000') === current.join('\u0000') ? current : next;
+      return next.join("\u0000") === current.join("\u0000") ? current : next;
     });
   }, [tabMetas]);
 
@@ -1410,14 +1260,12 @@ export default function App() {
     topicRenameSkipCommitRef.current = false;
     topicRenameCommitHandledRef.current = false;
     setRenamingTopicId(null);
-    setTopicTitleDraft('');
+    setTopicTitleDraft("");
   }, [activeTab?.topicId, renamingTopicId]);
 
   useEffect(() => {
     if (!activeTabId || !state.meta) return;
-    setComposerProfilesByTab((current) =>
-      hydrateComposerProfileFromMeta(current, activeTabId, state.meta!),
-    );
+    setComposerProfilesByTab((current) => hydrateComposerProfileFromMeta(current, activeTabId, state.meta!));
   }, [activeTabId, state.meta]);
 
   const syncModeToController = useCallback((m: Mode) => setControllerMode(m), [setControllerMode]);
@@ -1432,28 +1280,18 @@ export default function App() {
   // normal clears both.
   const applyMode = useCallback(
     (m: Mode) => {
-      patchActiveComposerProfile(composerProfileWithMode(m), [
-        'collaborationMode',
-        'toolApprovalMode',
-        'goal',
-      ]);
+      patchActiveComposerProfile(composerProfileWithMode(m), ["collaborationMode", "toolApprovalMode", "goal"]);
       void syncModeToController(m);
     },
     [patchActiveComposerProfile, syncModeToController],
   );
   const applyCollaborationMode = useCallback(
     (m: CollaborationMode): Promise<void> => {
-      if (m === 'goal') {
-        patchActiveComposerProfile({ collaborationMode: 'normal', goalDraftMode: true, goal: '' }, [
-          'collaborationMode',
-          'goal',
-        ]);
-        return setControllerCollaborationMode('normal');
+      if (m === "goal") {
+        patchActiveComposerProfile({ collaborationMode: "normal", goalDraftMode: true, goal: "" }, ["collaborationMode", "goal"]);
+        return setControllerCollaborationMode("normal");
       }
-      patchActiveComposerProfile({ collaborationMode: m, goalDraftMode: false, goal: '' }, [
-        'collaborationMode',
-        'goal',
-      ]);
+      patchActiveComposerProfile({ collaborationMode: m, goalDraftMode: false, goal: "" }, ["collaborationMode", "goal"]);
       return setControllerCollaborationMode(m);
     },
     [patchActiveComposerProfile, setControllerCollaborationMode],
@@ -1461,15 +1299,14 @@ export default function App() {
   const applyToolApprovalMode = useCallback(
     (m: ToolApprovalMode) => {
       if (!activeTabId) return;
-      if (m === 'yolo') {
-        if (toolApprovalMode !== 'yolo') {
-          yoloRestoreToolApprovalModesRef.current[activeTabId] =
-            restorableToolApprovalMode(toolApprovalMode);
+      if (m === "yolo") {
+        if (toolApprovalMode !== "yolo") {
+          yoloRestoreToolApprovalModesRef.current[activeTabId] = restorableToolApprovalMode(toolApprovalMode);
         }
       } else {
         yoloRestoreToolApprovalModesRef.current[activeTabId] = restorableToolApprovalMode(m);
       }
-      patchActiveComposerProfile({ toolApprovalMode: m }, ['toolApprovalMode']);
+      patchActiveComposerProfile({ toolApprovalMode: m }, ["toolApprovalMode"]);
       void setControllerToolApprovalMode(m);
     },
     [activeTabId, patchActiveComposerProfile, setControllerToolApprovalMode, toolApprovalMode],
@@ -1488,21 +1325,18 @@ export default function App() {
   const applyGoal = useCallback(
     (nextGoal: string) => {
       const trimmed = nextGoal.trim();
-      patchActiveComposerProfile(
-        {
-          collaborationMode: trimmed ? 'goal' : 'normal',
-          goalDraftMode: false,
-          goal: trimmed,
-        },
-        ['collaborationMode', 'goal'],
-      );
+      patchActiveComposerProfile({
+        collaborationMode: trimmed ? "goal" : "normal",
+        goalDraftMode: false,
+        goal: trimmed,
+      }, ["collaborationMode", "goal"]);
       void (trimmed ? setControllerGoal(trimmed) : clearControllerGoal());
     },
     [clearControllerGoal, patchActiveComposerProfile, setControllerGoal],
   );
   const applyTokenMode = useCallback(
     (m: TokenMode) => {
-      patchActiveComposerProfile({ tokenMode: m }, ['tokenMode']);
+      patchActiveComposerProfile({ tokenMode: m }, ["tokenMode"]);
       void setTokenMode(m);
     },
     [patchActiveComposerProfile, setTokenMode],
@@ -1510,7 +1344,7 @@ export default function App() {
   // Shift+Tab toggles only the collaboration axis; Ctrl/Cmd+Y toggles YOLO on the
   // tool-permission axis while preserving the Ask/Auto base mode.
   const cycleMode = useCallback(() => {
-    applyCollaborationMode(collaborationMode === 'plan' ? 'normal' : 'plan');
+    applyCollaborationMode(collaborationMode === "plan" ? "normal" : "plan");
   }, [applyCollaborationMode, collaborationMode]);
 
   // Switching models rebuilds the controller, which starts in normal mode — so
@@ -1519,21 +1353,11 @@ export default function App() {
   const switchModel = useCallback(
     async (name: string) => {
       await setModel(name);
-      await setControllerCollaborationMode(
-        controllerComposerProfileCollaborationMode(composerProfile),
-      );
+      await setControllerCollaborationMode(controllerComposerProfileCollaborationMode(composerProfile));
       await setControllerToolApprovalMode(toolApprovalMode);
       if (goal.trim()) await setControllerGoal(goal);
     },
-    [
-      composerProfile,
-      goal,
-      setControllerCollaborationMode,
-      setControllerGoal,
-      setControllerToolApprovalMode,
-      setModel,
-      toolApprovalMode,
-    ],
+    [composerProfile, goal, setControllerCollaborationMode, setControllerGoal, setControllerToolApprovalMode, setModel, toolApprovalMode],
   );
 
   // Startup and workspace/model rebuilds create a fresh controller in normal
@@ -1542,20 +1366,10 @@ export default function App() {
   // SetBypass binding was a harmless no-op.
   useEffect(() => {
     if (!controllerReady) return;
-    void setControllerCollaborationMode(
-      controllerComposerProfileCollaborationMode(composerProfile),
-    );
+    void setControllerCollaborationMode(controllerComposerProfileCollaborationMode(composerProfile));
     void setControllerToolApprovalMode(toolApprovalMode);
     if (goal.trim()) void setControllerGoal(goal);
-  }, [
-    composerProfile,
-    controllerReady,
-    goal,
-    setControllerCollaborationMode,
-    setControllerGoal,
-    setControllerToolApprovalMode,
-    toolApprovalMode,
-  ]);
+  }, [composerProfile, controllerReady, goal, setControllerCollaborationMode, setControllerGoal, setControllerToolApprovalMode, toolApprovalMode]);
 
   // The live task list pinned above the composer comes from the most recent
   // successful top-level todo_write result; failed or still-running attempts do
@@ -1566,13 +1380,7 @@ export default function App() {
   const todoEntry = useMemo(() => {
     for (let i = state.items.length - 1; i >= 0; i--) {
       const it = state.items[i];
-      if (
-        it.kind === 'tool' &&
-        it.name === 'todo_write' &&
-        !it.parentId &&
-        it.status === 'done' &&
-        !it.error
-      ) {
+      if (it.kind === "tool" && it.name === "todo_write" && !it.parentId && it.status === "done" && !it.error) {
         return { item: it, index: i };
       }
     }
@@ -1585,8 +1393,7 @@ export default function App() {
   const showTodos = shouldShowTodoPanel(todoKey, dismissedTodo, todos);
 
   const sessionTitle = topicTitle(activeTab);
-  const sessionHasContent =
-    state.items.length > 0 || Boolean(state.live?.text || state.live?.reasoning);
+  const sessionHasContent = state.items.length > 0 || Boolean(state.live?.text || state.live?.reasoning);
   const getSessionMarkdown = useCallback(
     () => sessionItemsToMarkdown(sessionTitle, state.items, state.live),
     [sessionTitle, state.items, state.live],
@@ -1600,38 +1407,38 @@ export default function App() {
     if (!topicExportOpen) return;
     const onDown = (event: MouseEvent) => {
       const target = event.target as Element | null;
-      if (!target?.closest('.topicbar__export')) setTopicExportOpen(false);
+      if (!target?.closest(".topicbar__export")) setTopicExportOpen(false);
     };
-    document.addEventListener('mousedown', onDown);
-    return () => document.removeEventListener('mousedown', onDown);
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
   }, [topicExportOpen]);
 
   const exportSession = useCallback(
-    async (format: 'markdown' | 'json' | 'pdf' | 'image') => {
+    async (format: "markdown" | "json" | "pdf" | "image") => {
       const base = safeFilename(sessionTitle);
       setTopicExportOpen(false);
       try {
-        if (format === 'json') {
-          const path = await app.PickExportFile(`${base}.json`, 'application/json');
+        if (format === "json") {
+          const path = await app.PickExportFile(`${base}.json`, "application/json");
           if (path) await app.SaveExportFile(path, getSessionJson(), false);
-        } else if (format === 'pdf') {
-          const path = await app.PickExportFile(`${base}.pdf`, 'application/pdf');
+        } else if (format === "pdf") {
+          const path = await app.PickExportFile(`${base}.pdf`, "application/pdf");
           if (!path) return;
-          const { blobToBase64, renderSessionPdfBlob } = await import('./lib/sessionExport');
+          const { blobToBase64, renderSessionPdfBlob } = await import("./lib/sessionExport");
           const blob = await renderSessionPdfBlob(getSessionMarkdown(), sessionTitle);
           await app.SaveExportFile(path, await blobToBase64(blob), true);
-        } else if (format === 'image') {
-          const path = await app.PickExportFile(`${base}.png`, 'image/png');
+        } else if (format === "image") {
+          const path = await app.PickExportFile(`${base}.png`, "image/png");
           if (!path) return;
-          const { blobToBase64, renderSessionImageBlob } = await import('./lib/sessionExport');
+          const { blobToBase64, renderSessionImageBlob } = await import("./lib/sessionExport");
           const blob = await renderSessionImageBlob(getSessionMarkdown());
           await app.SaveExportFile(path, await blobToBase64(blob), true);
         } else {
-          const path = await app.PickExportFile(`${base}.md`, 'text/markdown');
+          const path = await app.PickExportFile(`${base}.md`, "text/markdown");
           if (path) await app.SaveExportFile(path, getSessionMarkdown(), false);
         }
       } catch (err) {
-        console.error('Failed to export session', err);
+        console.error("Failed to export session", err);
       }
     },
     [getSessionJson, getSessionMarkdown, sessionTitle],
@@ -1657,10 +1464,10 @@ export default function App() {
     try {
       await clearSession();
       setDockRefreshKey((v) => v + 1);
-      notice(t('clearContext.done'));
+      notice(t("clearContext.done"));
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      notice(msg || t('clearContext.failed'), 'warn');
+      notice(msg || t("clearContext.failed"), "warn");
     }
   }, [clearSession, notice, t]);
 
@@ -1680,10 +1487,10 @@ export default function App() {
     async (displayText: string, submitText = displayText) => {
       const trimmed = displayText.trim();
       // "!<cmd>" runs a shell command directly, bypassing the model.
-      if (trimmed.startsWith('!')) {
+      if (trimmed.startsWith("!")) {
         const cmd = trimmed.slice(1).trim();
         if (!cmd) {
-          notice('usage: !<command>  (e.g. !ls -la)');
+          notice("usage: !<command>  (e.g. !ls -la)");
           return;
         }
         runShell(cmd);
@@ -1694,42 +1501,36 @@ export default function App() {
         void switchModel(model[1]);
         return;
       }
-      if (trimmed === '/memory') {
+      if (trimmed === "/memory") {
         closeTransientOverlays();
-        setSettingsTarget('memory');
+        setSettingsTarget("memory");
         return;
       }
-      if (trimmed === '/clear') {
+      if (trimmed === "/clear") {
         setClearContextPending(true);
         return;
       }
       const goalCommand = /^\/goal(?:\s+(.*))?$/.exec(trimmed);
       if (goalCommand) {
-        const arg = (goalCommand[1] ?? '').trim();
+        const arg = (goalCommand[1] ?? "").trim();
         const displayGoal = stripGoalResearchFlags(arg);
-        if (
-          displayGoal &&
-          !['status', 'clear', 'off', 'stop', 'done'].includes(displayGoal.toLowerCase())
-        ) {
+        if (displayGoal && !["status", "clear", "off", "stop", "done"].includes(displayGoal.toLowerCase())) {
           if (hasGoalResearchFlag(arg)) {
-            patchActiveComposerProfile(
-              {
-                collaborationMode: 'goal',
-                goalDraftMode: false,
-                goal: displayGoal,
-              },
-              ['collaborationMode', 'goal'],
-            );
+            patchActiveComposerProfile({
+              collaborationMode: "goal",
+              goalDraftMode: false,
+              goal: displayGoal,
+            }, ["collaborationMode", "goal"]);
           } else {
             applyGoal(displayGoal);
           }
-        } else if (['clear', 'off', 'stop', 'done'].includes(displayGoal.toLowerCase())) {
-          applyGoal('');
+        } else if (["clear", "off", "stop", "done"].includes(displayGoal.toLowerCase())) {
+          applyGoal("");
         }
         commitThenSend(trimmed, submitText.trim());
         return;
       }
-      if (collaborationMode === 'goal' && !goal.trim()) {
+      if (collaborationMode === "goal" && !goal.trim()) {
         applyGoal(trimmed);
         commitThenSend(trimmed, `/goal ${submitText.trim()}`);
         return;
@@ -1739,7 +1540,7 @@ export default function App() {
         const arg = theme[1]?.toLowerCase();
         if (!arg) {
           const cur = getTheme();
-          notice(t('settings.themeCurrent', { theme: cur, style: getThemeStyle(cur) }));
+          notice(t("settings.themeCurrent", { theme: cur, style: getThemeStyle(cur) }));
           return;
         }
         if (isThemeMode(arg)) {
@@ -1747,47 +1548,26 @@ export default function App() {
           const style = getThemeStyle(next);
           await app.SetDesktopAppearance(next, style);
           applyTheme(next, style);
-          notice(t('settings.themeChanged', { theme: next, style }));
+          notice(t("settings.themeChanged", { theme: next, style }));
           return;
         }
         if (isThemeStyle(arg)) {
           const cur = getTheme();
           await app.SetDesktopAppearance(cur, arg);
           applyTheme(cur, arg);
-          notice(t('settings.themeChanged', { theme: cur, style: arg }));
+          notice(t("settings.themeChanged", { theme: cur, style: arg }));
           return;
         }
-        notice(t('settings.themeUnknown', { name: arg }), 'warn');
+        notice(t("settings.themeUnknown", { name: arg }), "warn");
         return;
       }
-      if (runningRef.current) {
-        steer(submitText.trim());
-        return;
-      }
-      await setControllerCollaborationMode(
-        controllerComposerProfileCollaborationMode(composerProfile),
-      );
+      if (runningRef.current) { steer(submitText.trim()); return; }
+      await setControllerCollaborationMode(controllerComposerProfileCollaborationMode(composerProfile));
       await setControllerToolApprovalMode(toolApprovalMode);
       if (goal.trim()) await setControllerGoal(goal);
       commitThenSend(trimmed, submitText.trim());
     },
-    [
-      applyGoal,
-      closeTransientOverlays,
-      collaborationMode,
-      composerProfile,
-      goal,
-      send,
-      runShell,
-      notice,
-      setControllerCollaborationMode,
-      setControllerGoal,
-      setControllerToolApprovalMode,
-      steer,
-      switchModel,
-      t,
-      toolApprovalMode,
-    ],
+    [applyGoal, closeTransientOverlays, collaborationMode, composerProfile, goal, send, runShell, notice, setControllerCollaborationMode, setControllerGoal, setControllerToolApprovalMode, steer, switchModel, t, toolApprovalMode],
   );
 
   const refreshTabMetas = useCallback(async (): Promise<TabMeta[]> => {
@@ -1796,21 +1576,29 @@ export default function App() {
     return tabs;
   }, []);
 
+  useEffect(() => {
+    const unsub = onEvent((e) => {
+      if (e.kind !== "turn_done") return;
+      window.setTimeout(() => {
+        setProjectRevision((value) => value + 1);
+        void refreshTabMetas();
+      }, 250);
+    });
+    return unsub;
+  }, [refreshTabMetas]);
+
   const blankSessionTarget = useCallback(() => {
-    const activeWorkspaceRoot = activeTab?.scope === 'project' ? activeTab.workspaceRoot || '' : '';
-    const scope = activeWorkspaceRoot ? 'project' : 'global';
+    const activeWorkspaceRoot = activeTab?.scope === "project" ? activeTab.workspaceRoot || "" : "";
+    const scope = activeWorkspaceRoot ? "project" : "global";
     return { scope, workspaceRoot: activeWorkspaceRoot };
   }, [activeTab?.scope, activeTab?.workspaceRoot]);
 
-  const openBlankSession = useCallback(
-    async (scope: string, workspaceRoot: string) => {
-      await ensureBlankTab(scope, scope === 'project' ? workspaceRoot : '');
-      setProjectRevision((value) => value + 1);
-      await refreshTabMetas();
-      setTabRevealSignal((signal) => signal + 1);
-    },
-    [ensureBlankTab, refreshTabMetas],
-  );
+  const openBlankSession = useCallback(async (scope: string, workspaceRoot: string) => {
+    await ensureBlankTab(scope, scope === "project" ? workspaceRoot : "");
+    setProjectRevision((value) => value + 1);
+    await refreshTabMetas();
+    setTabRevealSignal((signal) => signal + 1);
+  }, [ensureBlankTab, refreshTabMetas]);
 
   useEffect(() => {
     void refreshTabMetas();
@@ -1844,7 +1632,7 @@ export default function App() {
 
   useEffect(() => {
     const el = footerRef.current;
-    if (!el || typeof ResizeObserver === 'undefined') return;
+    if (!el || typeof ResizeObserver === "undefined") return;
     let frame = 0;
     const update = () => {
       if (frame) window.cancelAnimationFrame(frame);
@@ -1878,7 +1666,7 @@ export default function App() {
   // playTokenNote no-ops unless the engine is running, so subscribe unconditionally.
   useEffect(() => {
     const unsub = onEvent((e) => {
-      if (e.kind === 'text' || e.kind === 'reasoning' || e.kind === 'tool_dispatch') {
+      if (e.kind === "text" || e.kind === "reasoning" || e.kind === "tool_dispatch") {
         generativeMusic.playTokenNote();
       }
     });
@@ -1890,19 +1678,26 @@ export default function App() {
     pulseSidebarToggle();
     anchorAppScrollToChat();
     const nextCollapsed = !sidebarCollapsed;
+    if (nextCollapsed) setSidebarSearchOpen(false);
     setSidebarCollapsed(nextCollapsed);
     saveSidebarCollapsed(nextCollapsed);
   }, [anchorAppScrollToChat, closeTransientOverlays, pulseSidebarToggle, sidebarCollapsed]);
 
-  const setExpandedSidebarWidth = useCallback(
-    (width: number) => {
-      closeTransientOverlays();
-      const next = clampSidebarWidth(width);
-      setSidebarWidth(next);
-      saveSidebarWidth(next);
-    },
-    [closeTransientOverlays],
-  );
+  const sidebarWidthClamp = desktopLayoutStyle === "creation" ? clampCreationSidebarWidth : clampSidebarWidth;
+  const sidebarResizeMinWidth = desktopLayoutStyle === "creation" ? CREATION_SIDEBAR_MIN_WIDTH : SIDEBAR_MIN_WIDTH;
+
+  useEffect(() => {
+    if (desktopLayoutStyle === "creation" || sidebarWidth >= SIDEBAR_MIN_WIDTH) return;
+    setSidebarWidth(SIDEBAR_MIN_WIDTH);
+    saveSidebarWidth(SIDEBAR_MIN_WIDTH);
+  }, [desktopLayoutStyle, sidebarWidth]);
+
+  const setExpandedSidebarWidth = useCallback((width: number) => {
+    closeTransientOverlays();
+    const next = sidebarWidthClamp(width);
+    setSidebarWidth(next);
+    saveSidebarWidth(next);
+  }, [closeTransientOverlays, sidebarWidthClamp]);
 
   const startSidebarResize = useCallback(
     (event: ReactPointerEvent<HTMLButtonElement>) => {
@@ -1912,43 +1707,43 @@ export default function App() {
       setSidebarResizing(true);
       let nextWidth = sidebarWidth;
       const onMove = (moveEvent: PointerEvent) => {
-        nextWidth = clampSidebarWidth(moveEvent.clientX);
+        nextWidth = sidebarWidthClamp(moveEvent.clientX);
         setSidebarWidth(nextWidth);
       };
       const onDone = () => {
         setSidebarWidth(nextWidth);
         saveSidebarWidth(nextWidth);
         setSidebarResizing(false);
-        window.removeEventListener('pointermove', onMove);
-        window.removeEventListener('pointerup', onDone);
-        window.removeEventListener('pointercancel', onDone);
-        document.body.style.cursor = '';
-        document.body.style.userSelect = '';
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", onDone);
+        window.removeEventListener("pointercancel", onDone);
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
       };
-      document.body.style.cursor = 'col-resize';
-      document.body.style.userSelect = 'none';
-      window.addEventListener('pointermove', onMove);
-      window.addEventListener('pointerup', onDone);
-      window.addEventListener('pointercancel', onDone);
+      document.body.style.cursor = "col-resize";
+      document.body.style.userSelect = "none";
+      window.addEventListener("pointermove", onMove);
+      window.addEventListener("pointerup", onDone);
+      window.addEventListener("pointercancel", onDone);
     },
-    [closeTransientOverlays, sidebarCollapsed, sidebarWidth],
+    [closeTransientOverlays, sidebarCollapsed, sidebarWidth, sidebarWidthClamp],
   );
 
   const resizeSidebarWithKeyboard = useCallback(
     (event: KeyboardEvent<HTMLButtonElement>) => {
       if (sidebarCollapsed) return;
-      if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+      if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
         event.preventDefault();
-        setExpandedSidebarWidth(sidebarWidth + (event.key === 'ArrowRight' ? 16 : -16));
-      } else if (event.key === 'Home') {
+        setExpandedSidebarWidth(sidebarWidth + (event.key === "ArrowRight" ? 16 : -16));
+      } else if (event.key === "Home") {
         event.preventDefault();
-        setExpandedSidebarWidth(SIDEBAR_MIN_WIDTH);
-      } else if (event.key === 'End') {
+        setExpandedSidebarWidth(sidebarResizeMinWidth);
+      } else if (event.key === "End") {
         event.preventDefault();
         setExpandedSidebarWidth(SIDEBAR_MAX_WIDTH);
       }
     },
-    [setExpandedSidebarWidth, sidebarCollapsed, sidebarWidth],
+    [setExpandedSidebarWidth, sidebarCollapsed, sidebarWidth, sidebarResizeMinWidth],
   );
 
   const setSavedWorkspacePanelWidth = useCallback(
@@ -1970,7 +1765,7 @@ export default function App() {
   const ensureWorkspacePanelWidth = useCallback(
     (width: number) => {
       closeTransientOverlays();
-      if (rightDockMode === 'context') return;
+      if (rightDockMode === "context") return;
       const next = clampRightDockPreviewWidth(width);
       setRightDockPreviewWidth(next);
       saveRightDockPreviewWidth(next);
@@ -1999,44 +1794,32 @@ export default function App() {
       const onDone = () => {
         setSavedWorkspacePanelWidth(nextDockWidth);
         setWorkspacePanelResizing(false);
-        window.removeEventListener('pointermove', onMove);
-        window.removeEventListener('pointerup', onDone);
-        window.removeEventListener('pointercancel', onDone);
-        document.body.style.cursor = '';
-        document.body.style.userSelect = '';
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", onDone);
+        window.removeEventListener("pointercancel", onDone);
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
       };
-      document.body.style.cursor = 'col-resize';
-      document.body.style.userSelect = 'none';
-      window.addEventListener('pointermove', onMove);
-      window.addEventListener('pointerup', onDone);
-      window.addEventListener('pointercancel', onDone);
+      document.body.style.cursor = "col-resize";
+      document.body.style.userSelect = "none";
+      window.addEventListener("pointermove", onMove);
+      window.addEventListener("pointerup", onDone);
+      window.addEventListener("pointercancel", onDone);
     },
-    [
-      closeTransientOverlays,
-      rightDockDetailActive,
-      setSavedWorkspacePanelWidth,
-      workspacePanelOpen,
-      workspacePanelRenderWidth,
-    ],
+    [closeTransientOverlays, rightDockDetailActive, setSavedWorkspacePanelWidth, workspacePanelOpen, workspacePanelRenderWidth],
   );
 
   const resizeWorkspacePanelWithKeyboard = useCallback(
     (event: KeyboardEvent<HTMLButtonElement>) => {
-      if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+      if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
         event.preventDefault();
-        setSavedWorkspacePanelWidth(
-          workspacePanelRenderWidth + (event.key === 'ArrowLeft' ? 16 : -16),
-        );
-      } else if (event.key === 'Home') {
+        setSavedWorkspacePanelWidth(workspacePanelRenderWidth + (event.key === "ArrowLeft" ? 16 : -16));
+      } else if (event.key === "Home") {
         event.preventDefault();
-        setSavedWorkspacePanelWidth(
-          rightDockDetailActive ? RIGHT_DOCK_PREVIEW_MIN_WIDTH : RIGHT_DOCK_TREE_MIN_WIDTH,
-        );
-      } else if (event.key === 'End') {
+        setSavedWorkspacePanelWidth(rightDockDetailActive ? RIGHT_DOCK_PREVIEW_MIN_WIDTH : RIGHT_DOCK_TREE_MIN_WIDTH);
+      } else if (event.key === "End") {
         event.preventDefault();
-        setSavedWorkspacePanelWidth(
-          rightDockDetailActive ? RIGHT_DOCK_MAX_WIDTH : RIGHT_DOCK_TREE_MAX_WIDTH,
-        );
+        setSavedWorkspacePanelWidth(rightDockDetailActive ? RIGHT_DOCK_MAX_WIDTH : RIGHT_DOCK_TREE_MAX_WIDTH);
       }
     },
     [rightDockDetailActive, setSavedWorkspacePanelWidth, workspacePanelRenderWidth],
@@ -2045,12 +1828,12 @@ export default function App() {
   const openWorkspacePanel = useCallback(
     (mode: RightDockMode = rightDockMode) => {
       closeTransientOverlays();
-      if (mode === 'context' || mode !== rightDockMode) {
+      if (mode === "context" || mode !== rightDockMode) {
         setWorkspacePreviewActive(false);
       }
       setRightDockMode(mode);
       let nextMaximized = workspacePanelMaximized;
-      if (mode === 'context') {
+      if (mode === "context") {
         nextMaximized = false;
         setWorkspacePanelMaximized(false);
       } else {
@@ -2082,7 +1865,7 @@ export default function App() {
       closeWorkspacePanel();
       return;
     }
-    openWorkspacePanel('context');
+    openWorkspacePanel("context");
   }, [closeWorkspacePanel, openWorkspacePanel, pulseWorkspaceToggle, workspacePanelRenderable]);
 
   const openRightDockMode = useCallback(
@@ -2104,104 +1887,87 @@ export default function App() {
   const layoutStyle = useMemo(
     () =>
       ({
-        '--sidebar-expanded-width': `${sidebarWidth}px`,
-        '--chat-min-width': `${chatReservedWidth}px`,
-        '--workspace-width': `${workspacePanelRenderWidth}px`,
-        '--workspace-resizer-width': `${WORKSPACE_RESIZER_WIDTH}px`,
+        "--sidebar-expanded-width": `${sidebarWidth}px`,
+        "--chat-min-width": `${chatReservedWidth}px`,
+        "--workspace-width": `${workspacePanelRenderWidth}px`,
+        "--workspace-resizer-width": `${WORKSPACE_RESIZER_WIDTH}px`,
       }) as CSSProperties,
     [chatReservedWidth, sidebarWidth, workspacePanelRenderWidth],
   );
 
-  const setWorkspacePanel = useCallback(
-    (open: boolean) => {
-      if (open) {
-        openWorkspacePanel();
-      } else {
-        closeWorkspacePanel();
-      }
-    },
-    [closeWorkspacePanel, openWorkspacePanel],
-  );
+  const setWorkspacePanel = useCallback((open: boolean) => {
+    if (open) {
+      openWorkspacePanel();
+    } else {
+      closeWorkspacePanel();
+    }
+  }, [closeWorkspacePanel, openWorkspacePanel]);
 
   const addWorkspaceTextToComposer = useCallback((text: string) => {
     setComposerInsertRequest({ id: Date.now(), text });
   }, []);
 
-  const handleTabChange = useCallback(
-    async (id: string) => {
-      closeTransientOverlays();
-      const tabs = await switchTab(id);
-      if (tabs) setTabMetas(tabs);
-      setTabRevealSignal((signal) => signal + 1);
-    },
-    [closeTransientOverlays, switchTab],
-  );
+  const handleTabChange = useCallback(async (id: string) => {
+    closeTransientOverlays();
+    const tabs = await switchTab(id);
+    if (tabs) setTabMetas(tabs);
+    setTabRevealSignal((signal) => signal + 1);
+  }, [closeTransientOverlays, switchTab]);
 
-  const handleTabClose = useCallback(
-    async (id: string) => {
-      closeTransientOverlays();
-      setComposerProfilesByTab((current) => {
-        if (!(id in current)) return current;
-        const next = { ...current };
-        delete next[id];
-        return next;
-      });
-      setTabMetas((current) => {
-        if (current.length <= 1) return current;
-        const closingIndex = current.findIndex((tab) => tab.id === id);
-        if (closingIndex < 0) return current;
-        const closingTab = current[closingIndex];
-        const remaining = current.filter((tab) => tab.id !== id);
-        if (!closingTab.active && closingTab.id !== activeTabId) return remaining;
-        const nextIndex = Math.min(closingIndex, remaining.length - 1);
-        const nextActiveId = remaining[nextIndex]?.id;
-        return remaining.map((tab) => ({ ...tab, active: tab.id === nextActiveId }));
-      });
+  const handleTabClose = useCallback(async (id: string) => {
+    closeTransientOverlays();
+    setComposerProfilesByTab((current) => {
+      if (!(id in current)) return current;
+      const next = { ...current };
+      delete next[id];
+      return next;
+    });
+    setTabMetas((current) => {
+      if (current.length <= 1) return current;
+      const closingIndex = current.findIndex((tab) => tab.id === id);
+      if (closingIndex < 0) return current;
+      const closingTab = current[closingIndex];
+      const remaining = current.filter((tab) => tab.id !== id);
+      if (!closingTab.active && closingTab.id !== activeTabId) return remaining;
+      const nextIndex = Math.min(closingIndex, remaining.length - 1);
+      const nextActiveId = remaining[nextIndex]?.id;
+      return remaining.map((tab) => ({ ...tab, active: tab.id === nextActiveId }));
+    });
+    await closeTab(id);
+    await refreshTabMetas();
+    setTabRevealSignal((signal) => signal + 1);
+  }, [activeTabId, closeTab, closeTransientOverlays, refreshTabMetas]);
+
+  const handleTabsClose = useCallback(async (ids: string[], nextActiveTabId?: string) => {
+    closeTransientOverlays();
+    const currentIds = tabMetas.map((tab) => tab.id);
+    const targets = ids.filter((id, index) => currentIds.includes(id) && ids.indexOf(id) === index);
+    if (targets.length === 0) return;
+    for (const id of targets) {
       await closeTab(id);
-      await refreshTabMetas();
-      setTabRevealSignal((signal) => signal + 1);
-    },
-    [activeTabId, closeTab, closeTransientOverlays, refreshTabMetas],
-  );
+    }
+    if (nextActiveTabId && currentIds.includes(nextActiveTabId)) {
+      await switchTab(nextActiveTabId);
+    }
+    await refreshTabMetas();
+    setTabRevealSignal((signal) => signal + 1);
+  }, [closeTab, closeTransientOverlays, refreshTabMetas, switchTab, tabMetas]);
 
-  const handleTabsClose = useCallback(
-    async (ids: string[], nextActiveTabId?: string) => {
-      closeTransientOverlays();
-      const currentIds = tabMetas.map((tab) => tab.id);
-      const targets = ids.filter(
-        (id, index) => currentIds.includes(id) && ids.indexOf(id) === index,
-      );
-      if (targets.length === 0) return;
-      for (const id of targets) {
-        await closeTab(id);
-      }
-      if (nextActiveTabId && currentIds.includes(nextActiveTabId)) {
-        await switchTab(nextActiveTabId);
-      }
-      await refreshTabMetas();
-      setTabRevealSignal((signal) => signal + 1);
-    },
-    [closeTab, closeTransientOverlays, refreshTabMetas, switchTab, tabMetas],
-  );
-
-  const handleTabsReorder = useCallback(
-    async (ids: string[]) => {
-      setTabOrderIds(ids);
-      setTabMetas((current) => {
-        const byId = new Map(current.map((tab) => [tab.id, tab]));
-        const ordered = ids.map((id) => byId.get(id)).filter((tab): tab is TabMeta => Boolean(tab));
-        return ordered.length === current.length ? ordered : current;
-      });
-      await reorderTabs(ids);
-      await refreshTabMetas();
-      setTabRevealSignal((signal) => signal + 1);
-    },
-    [refreshTabMetas, reorderTabs],
-  );
+  const handleTabsReorder = useCallback(async (ids: string[]) => {
+    setTabOrderIds(ids);
+    setTabMetas((current) => {
+      const byId = new Map(current.map((tab) => [tab.id, tab]));
+      const ordered = ids.map((id) => byId.get(id)).filter((tab): tab is TabMeta => Boolean(tab));
+      return ordered.length === current.length ? ordered : current;
+    });
+    await reorderTabs(ids);
+    await refreshTabMetas();
+    setTabRevealSignal((signal) => signal + 1);
+  }, [refreshTabMetas, reorderTabs]);
 
   const handleNewTab = useCallback(async () => {
     closeTransientOverlays();
-    setSidebarImDetailConnectionId('');
+    setSidebarImDetailConnectionId("");
     const target = blankSessionTarget();
     await openBlankSession(target.scope, target.workspaceRoot);
   }, [blankSessionTarget, closeTransientOverlays, openBlankSession]);
@@ -2216,10 +1982,10 @@ export default function App() {
   type RewindState = {
     turn: number;
     scope: string;
-    fullItems: Item[]; // pre-truncation items (for undo)
-    boundaryIdx: number; // first item index of the rewound-to turn
-    turnDiff: number; // turns rolled back
-    prompt: string; // user message text for composer fill
+    fullItems: Item[];     // pre-truncation items (for undo)
+    boundaryIdx: number;   // first item index of the rewound-to turn
+    turnDiff: number;      // turns rolled back
+    prompt: string;        // user message text for composer fill
   };
   const [rewindState, setRewindState] = useState<RewindState | null>(null);
   const rewindStateRef = useRef(rewindState);
@@ -2232,198 +1998,151 @@ export default function App() {
   }, [state.items, rewindState]);
 
   // send wrapper: commits any pending optimistic rewind before sending.
-  const commitThenSend = useCallback(
-    async (displayText: string, submitText?: string) => {
-      const rs = rewindStateRef.current;
-      if (rs) {
-        setRewindState(null);
-        const ok = await rewind(rs.turn, rs.scope);
-        if (!ok) {
-          // Rewind failed: the Go conversation is intact, so the cleared
-          // optimistic state already shows the full transcript. Don't send —
-          // the controller emits a notice with the reason.
-          return;
-        }
-        setRewindSignal((v) => v + 1);
-        if (rs.scope === 'both') {
-          // Code was only reverted now (deferred), so refresh the dock here.
-          setDockRefreshKey((v) => v + 1);
-          setProjectRevision((v) => v + 1);
-        }
-      }
-      send(displayText, submitText);
-    },
-    [send, rewind],
-  );
-
-  const handleMessageAction = useCallback(
-    (turn: number, scope: string) => {
-      if (scope === 'fork') {
-        // Fork still goes through the controller (not optimistic).
-        rewind(turn, scope).then((ok) => {
-          if (!ok) return;
-          refreshTabMetas();
-          setProjectRevision((v) => v + 1);
-        });
+  const commitThenSend = useCallback(async (displayText: string, submitText?: string) => {
+    if (activeTab?.readOnly) return;
+    const rs = rewindStateRef.current;
+    if (rs) {
+      setRewindState(null);
+      const ok = await rewind(rs.turn, rs.scope);
+      if (!ok) {
+        // Rewind failed: the Go conversation is intact, so the cleared
+        // optimistic state already shows the full transcript. Don't send —
+        // the controller emits a notice with the reason.
         return;
       }
-
-      // Code-only rewind only affects files — no message truncation,
-      // no optimistic UI needed.  Execute immediately.
-      if (scope === 'code') {
-        rewind(turn, scope).then((ok) => {
-          if (!ok) return;
-          setDockRefreshKey((v) => v + 1);
-          setProjectRevision((v) => v + 1);
-        });
-        return;
+      setRewindSignal((v) => v + 1);
+      if (rs.scope === "both") {
+        // Code was only reverted now (deferred), so refresh the dock here.
+        setDockRefreshKey((v) => v + 1);
+        setProjectRevision((v) => v + 1);
       }
+    }
+    send(displayText, submitText);
+  }, [activeTab?.readOnly, send, rewind]);
 
-      const items = state.items;
-      // Find the boundary: index of the Nth user message where N = turn.
-      let boundaryIdx = 0;
-      let userCount = 0;
-      for (let i = 0; i < items.length; i++) {
-        if (items[i].kind === 'user') {
-          if (userCount === turn) {
-            boundaryIdx = i;
-            break;
-          }
-          userCount++;
-        }
-      }
-
-      const prevUserCount = items.filter((it) => it.kind === 'user').length;
-      const turnDiff = prevUserCount - userCount;
-
-      // Save full items for undo.
-      const userItem =
-        items[boundaryIdx]?.kind === 'user'
-          ? (items[boundaryIdx] as Extract<Item, { kind: 'user' }>)
-          : undefined;
-      const prompt = userItem?.text ?? '';
-      setRewindState({
-        turn,
-        scope,
-        fullItems: items,
-        boundaryIdx,
-        turnDiff,
-        prompt,
+  const handleMessageAction = useCallback((turn: number, scope: string) => {
+    if (activeTab?.readOnly) return;
+    if (scope === "fork") {
+      // Fork still goes through the controller (not optimistic).
+      rewind(turn, scope).then((ok) => {
+        if (!ok) return;
+        refreshTabMetas();
+        setProjectRevision((v) => v + 1);
       });
+      return;
+    }
 
-      // Fill composer with the rewound-to user message.
-      const insertId = Date.now();
-      setComposerInsertRequest({ id: insertId, text: prompt, mode: 'replace' });
+    // Code-only rewind only affects files — no message truncation,
+    // no optimistic UI needed.  Execute immediately.
+    if (scope === "code") {
+      rewind(turn, scope).then((ok) => {
+        if (!ok) return;
+        setDockRefreshKey((v) => v + 1);
+        setProjectRevision((v) => v + 1);
+      });
+      return;
+    }
 
-      setRewindSignal((v) => v + 1);
-    },
-    [state.items, rewind, refreshTabMetas, setComposerInsertRequest],
-  );
+    const items = state.items;
+    // Find the boundary: index of the Nth user message where N = turn.
+    let boundaryIdx = 0;
+    let userCount = 0;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].kind === "user") {
+        if (userCount === turn) { boundaryIdx = i; break; }
+        userCount++;
+      }
+    }
 
-  const handleEditPrompt = useCallback(
-    async (turn: number, displayText: string, submitText?: string): Promise<boolean> => {
-      const sourceTabId = activeTabId;
-      if (
-        !sourceTabId ||
-        activeTab?.readOnly ||
-        rewindStateRef.current ||
-        state.running ||
-        state.messageAction != null ||
-        state.approval != null ||
-        state.ask != null ||
-        clearContextPending
-      )
-        return false;
-      const next = displayText.trim();
-      if (!next) return false;
-      const submit = (submitText ?? displayText).trim();
-      const ok = await rewind(turn, 'conversation');
-      if (!ok) return false;
-      setRewindSignal((v) => v + 1);
-      sendToTab(sourceTabId, next, submit);
-      return true;
-    },
-    [
-      activeTab?.readOnly,
-      activeTabId,
-      clearContextPending,
-      sendToTab,
-      state.approval,
-      state.ask,
-      state.messageAction,
-      state.running,
-      rewind,
-    ],
-  );
+    const prevUserCount = items.filter((it) => it.kind === "user").length;
+    const turnDiff = prevUserCount - userCount;
 
-  const handleOpenTopic = useCallback(
-    async (scope: string, workspaceRoot: string, topicId: string, sessionPath?: string) => {
-      closeTransientOverlays();
-      setSidebarImDetailConnectionId('');
-      if (sessionPath) {
-        await openTopicSession(scope, workspaceRoot, topicId, sessionPath);
-      } else if (scope === 'global') {
-        await openGlobalTab(topicId);
+    // Save full items for undo.
+    const userItem = items[boundaryIdx]?.kind === "user" ? items[boundaryIdx] as Extract<Item, { kind: "user" }> : undefined;
+    const prompt = userItem?.text ?? "";
+    setRewindState({
+      turn,
+      scope,
+      fullItems: items,
+      boundaryIdx,
+      turnDiff,
+      prompt,
+    });
+
+    // Fill composer with the rewound-to user message.
+    const insertId = Date.now();
+    setComposerInsertRequest({ id: insertId, text: prompt, mode: "replace" });
+
+    setRewindSignal((v) => v + 1);
+  }, [activeTab?.readOnly, state.items, rewind, refreshTabMetas, setComposerInsertRequest]);
+
+  const handleEditPrompt = useCallback(async (turn: number, displayText: string, submitText?: string): Promise<boolean> => {
+    const sourceTabId = activeTabId;
+    if (!sourceTabId || activeTab?.readOnly || rewindStateRef.current || state.running || state.messageAction != null || state.approval != null || state.ask != null || clearContextPending) return false;
+    const next = displayText.trim();
+    if (!next) return false;
+    const submit = (submitText ?? displayText).trim();
+    const ok = await rewind(turn, "conversation");
+    if (!ok) return false;
+    setRewindSignal((v) => v + 1);
+    sendToTab(sourceTabId, next, submit);
+    return true;
+  }, [activeTab?.readOnly, activeTabId, clearContextPending, sendToTab, state.approval, state.ask, state.messageAction, state.running, rewind]);
+
+  const handleOpenTopic = useCallback(async (scope: string, workspaceRoot: string, topicId: string, sessionPath?: string) => {
+    closeTransientOverlays();
+    setSidebarImDetailConnectionId("");
+    if (sessionPath) {
+      await openTopicSession(scope, workspaceRoot, topicId, sessionPath);
+    } else if (scope === "global") {
+      await openGlobalTab(topicId);
+    } else {
+      await openProjectTab(workspaceRoot, topicId);
+    }
+    await refreshTabMetas();
+  }, [closeTransientOverlays, openGlobalTab, openProjectTab, openTopicSession, refreshTabMetas]);
+
+  const openSidebarImConnectionSession = useCallback(async (connection: SidebarImConnection) => {
+    const target = sidebarImSessionTarget(connection);
+    if (!target) {
+      showToast(t("sidebar.imWaiting", { name: connection.title }));
+      return;
+    }
+    setSidebarImDetailConnectionId("");
+    try {
+      if (connection.sessionSource === "auto" && target.kind === "path") {
+        const tab = await ensureBlankTab(connection.scope, connection.scope === "project" ? connection.workspaceRoot : "");
+        await openChannelSession(target.value, tab.id);
+      } else if (target.kind === "path") {
+        const tab = await ensureBlankTab(connection.scope, connection.scope === "project" ? connection.workspaceRoot : "");
+        await resumeSession(target.value, tab.id);
+      } else if (connection.scope === "project") {
+        await openProjectTab(connection.workspaceRoot, target.value);
       } else {
-        await openProjectTab(workspaceRoot, topicId);
+        await openGlobalTab(target.value);
       }
       await refreshTabMetas();
-    },
-    [closeTransientOverlays, openGlobalTab, openProjectTab, openTopicSession, refreshTabMetas],
-  );
-
-  const openSidebarImConnectionSession = useCallback(
-    async (connection: SidebarImConnection) => {
-      const target = mappedSessionTarget(connection.sessionId);
-      if (!target) {
-        showToast(t('sidebar.imWaiting', { name: connection.title }));
-        return;
-      }
-      setSidebarImDetailConnectionId('');
-      try {
-        if (target.kind === 'path') {
-          const tab = await ensureBlankTab(
-            connection.scope,
-            connection.scope === 'project' ? connection.workspaceRoot : '',
-          );
-          await resumeSession(target.value, tab.id);
-        } else if (connection.scope === 'project') {
-          await openProjectTab(connection.workspaceRoot, target.value);
-        } else {
-          await openGlobalTab(target.value);
-        }
-        await refreshTabMetas();
-        setProjectRevision((value) => value + 1);
-      } catch (err) {
-        console.warn('bot sidebar open failed', err);
-        showToast(t('sidebar.imOpenFailed', { name: connection.title }));
-      }
-    },
-    [ensureBlankTab, openGlobalTab, openProjectTab, refreshTabMetas, resumeSession, showToast, t],
-  );
+      setProjectRevision((value) => value + 1);
+    } catch (err) {
+      console.warn("bot sidebar open failed", err);
+      showToast(t("sidebar.imOpenFailed", { name: connection.title }));
+    }
+  }, [ensureBlankTab, openChannelSession, openGlobalTab, openProjectTab, refreshTabMetas, resumeSession, showToast, t]);
 
   // History drawer: project menus can open a scoped saved-session list. Idle row
   // clicks resume; running row clicks only preview through PreviewSession.
-  const openProjectHistory = useCallback(
-    async (scope: 'global' | 'project', workspaceRoot: string) => {
-      closeTransientOverlays();
-      const filter = { scope, workspaceRoot };
-      setHistView({
-        kind: 'history',
-        source: 'scope',
-        filter,
-        sessions: sessionsForScope(await listSessions(), filter),
-      });
-    },
-    [closeTransientOverlays, listSessions],
-  );
+  const openProjectHistory = useCallback(async (scope: "global" | "project", workspaceRoot: string) => {
+    closeTransientOverlays();
+    const filter = { scope, workspaceRoot };
+    setHistView({ kind: "history", source: "scope", filter, sessions: sessionsForScope(await listSessions(), filter) });
+  }, [closeTransientOverlays, listSessions]);
   const openAllHistory = useCallback(async () => {
     closeTransientOverlays();
-    setHistView({ kind: 'history', source: 'all', sessions: await listSessions() });
+    setHistView({ kind: "history", source: "all", sessions: await listSessions() });
   }, [closeTransientOverlays, listSessions]);
   const openTrash = useCallback(async () => {
     closeTransientOverlays();
-    setHistView({ kind: 'trash', sessions: await listTrashedSessions() });
+    setHistView({ kind: "trash", sessions: await listTrashedSessions() });
   }, [closeTransientOverlays, listTrashedSessions]);
   const closeHistory = useCallback(() => {
     closeTransientOverlays();
@@ -2433,36 +2152,37 @@ export default function App() {
   const onResumeSession = useCallback(
     async (session: SessionMeta) => {
       if (state.running) return;
-      const scope = session.scope || (session.workspaceRoot ? 'project' : 'global');
+      const scope = session.scope || (session.workspaceRoot ? "project" : "global");
       try {
         let targetTab: TabMeta;
-        if (scope === 'project' && session.workspaceRoot && session.topicId) {
+        if (isChannelSession(session)) {
+          targetTab = await ensureBlankTab(scope === "project" ? "project" : "global", scope === "project" ? session.workspaceRoot || "" : "");
+          await openChannelSession(session.path, targetTab.id);
+        } else if (scope === "project" && session.workspaceRoot && session.topicId) {
           targetTab = await openProjectTab(session.workspaceRoot, session.topicId);
-        } else if (scope === 'global' && session.topicId) {
+        } else if (scope === "global" && session.topicId) {
           targetTab = await openGlobalTab(session.topicId);
         } else {
-          throw new Error(
-            scope === 'global' && !session.topicId
-              ? t('history.failedOpenSession')
-              : session.topicId
-                ? 'Missing workspaceRoot'
-                : t('history.failedOpenSession'),
-          );
+          throw new Error(scope === "global" && !session.topicId
+            ? t("history.failedOpenSession")
+            : (session.topicId ? "Missing workspaceRoot" : t("history.failedOpenSession")));
         }
         setHistView(null);
-        await resumeSession(session.path, targetTab.id);
+        if (!isChannelSession(session)) {
+          await resumeSession(session.path, targetTab.id);
+        }
         await refreshTabMetas();
       } catch (err: any) {
         setHistView(null);
-        if (scope === 'project' && session.workspaceRoot) {
+        if (scope === "project" && session.workspaceRoot) {
           const name = workspaceDisplayName(session.workspaceRoot);
-          showToast(t('history.failedOpenProject', { name, path: session.workspaceRoot }));
+          showToast(t("history.failedOpenProject", { name, path: session.workspaceRoot }));
         } else {
           showToast(err?.message || String(err));
         }
       }
     },
-    [openGlobalTab, openProjectTab, refreshTabMetas, state.running, resumeSession, t, showToast],
+    [ensureBlankTab, openChannelSession, openGlobalTab, openProjectTab, refreshTabMetas, state.running, resumeSession, t, showToast],
   );
 
   // Command palette: ⌘K / Ctrl+K opens a fuzzy navigator over commands and
@@ -2473,115 +2193,46 @@ export default function App() {
     setPaletteOpen(true);
     setPaletteSessions(await listSessions().catch(() => []));
   }, [closeTransientOverlays, listSessions]);
-  useGlobalShortcut(
-    'commandPalette.open',
-    () => {
-      setPaletteOpen((current) => {
-        if (!current) void openPalette();
-        return current;
-      });
-    },
-    [openPalette],
-  );
-  useGlobalShortcut('app.newSession', () => void handleNewTab(), [handleNewTab]);
-  useGlobalShortcut(
-    'settings.open',
-    () => {
-      closeTransientOverlays();
-      setSettingsTarget('general');
-    },
-    [closeTransientOverlays],
-  );
-  useGlobalShortcut(
-    'tab.close',
-    () => {
-      if (activeTabId) void handleTabClose(activeTabId);
-    },
-    [activeTabId, handleTabClose],
-    Boolean(activeTabId),
-  );
-  useGlobalShortcut('shortcuts.show', () => setShortcutsOpen(true));
+  useGlobalShortcut("commandPalette.open", () => {
+    setPaletteOpen((current) => {
+      if (!current) void openPalette();
+      return current;
+    });
+  }, [openPalette]);
+  useGlobalShortcut("app.newSession", () => void handleNewTab(), [handleNewTab]);
+  useGlobalShortcut("settings.open", () => {
+    closeTransientOverlays();
+    setSettingsTarget("general");
+  }, [closeTransientOverlays]);
+  useGlobalShortcut("tab.close", () => {
+    if (activeTabId) void handleTabClose(activeTabId);
+  }, [activeTabId, handleTabClose], Boolean(activeTabId));
+  useGlobalShortcut("shortcuts.show", () => setShortcutsOpen(true));
 
   const paletteItems = useMemo<PaletteItem[]>(() => {
     const cmds: PaletteItem[] = [
-      {
-        id: 'cmd-new',
-        group: t('palette.group.commands'),
-        title: t('palette.cmd.newSession'),
-        icon: <SquarePen size={15} />,
-        compact: true,
-        keywords: ['new', '新建'],
-        run: () => void handleNewTab(),
-      },
-      {
-        id: 'cmd-history',
-        group: t('palette.group.commands'),
-        title: t('palette.cmd.history'),
-        icon: <History size={15} />,
-        compact: true,
-        keywords: ['history', '历史'],
-        run: () => void openAllHistory(),
-      },
-      {
-        id: 'cmd-trash',
-        group: t('palette.group.commands'),
-        title: t('palette.cmd.trash'),
-        icon: <Trash2 size={15} />,
-        compact: true,
-        keywords: ['trash', '回收站'],
-        run: () => void openTrash(),
-      },
-      {
-        id: 'cmd-settings',
-        group: t('palette.group.commands'),
-        title: t('palette.cmd.settings'),
-        icon: <SettingsIcon size={15} />,
-        compact: true,
-        keywords: ['settings', '设置'],
-        run: () => setSettingsTarget('general'),
-      },
-      {
-        id: 'cmd-appearance',
-        group: t('palette.group.commands'),
-        title: t('palette.cmd.appearance'),
-        icon: <Palette size={15} />,
-        compact: true,
-        keywords: ['theme', 'appearance', '外观', '主题'],
-        run: () => setSettingsTarget('appearance'),
-      },
-      {
-        id: 'cmd-memory',
-        group: t('palette.group.commands'),
-        title: t('palette.cmd.memory'),
-        icon: <Brain size={15} />,
-        compact: true,
-        keywords: ['memory', '记忆'],
-        run: () => setSettingsTarget('memory'),
-      },
-      {
-        id: 'cmd-models',
-        group: t('palette.group.commands'),
-        title: t('palette.cmd.models'),
-        icon: <Cpu size={15} />,
-        compact: true,
-        keywords: ['model', '模型'],
-        run: () => setSettingsTarget('models'),
-      },
+      { id: "cmd-new", group: t("palette.group.commands"), title: t("palette.cmd.newSession"), icon: <SquarePen size={15} />, compact: true, keywords: ["new", "新建"], run: () => void handleNewTab() },
+      { id: "cmd-history", group: t("palette.group.commands"), title: t("palette.cmd.history"), icon: <History size={15} />, compact: true, keywords: ["history", "历史"], run: () => void openAllHistory() },
+      { id: "cmd-trash", group: t("palette.group.commands"), title: t("palette.cmd.trash"), icon: <Trash2 size={15} />, compact: true, keywords: ["trash", "回收站"], run: () => void openTrash() },
+      { id: "cmd-settings", group: t("palette.group.commands"), title: t("palette.cmd.settings"), icon: <SettingsIcon size={15} />, compact: true, keywords: ["settings", "设置"], run: () => setSettingsTarget("general") },
+      { id: "cmd-appearance", group: t("palette.group.commands"), title: t("palette.cmd.appearance"), icon: <Palette size={15} />, compact: true, keywords: ["theme", "appearance", "外观", "主题"], run: () => setSettingsTarget("appearance") },
+      { id: "cmd-memory", group: t("palette.group.commands"), title: t("palette.cmd.memory"), icon: <Brain size={15} />, compact: true, keywords: ["memory", "记忆"], run: () => setSettingsTarget("memory") },
+      { id: "cmd-models", group: t("palette.group.commands"), title: t("palette.cmd.models"), icon: <Cpu size={15} />, compact: true, keywords: ["model", "模型"], run: () => setSettingsTarget("models") },
     ];
     const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
     const dayLabel = (ms: number) => {
       const days = Math.round((startOfDay(new Date()) - startOfDay(new Date(ms))) / 86_400_000);
-      if (days <= 0) return t('history.today');
-      if (days === 1) return t('history.yesterday');
+      if (days <= 0) return t("history.today");
+      if (days === 1) return t("history.yesterday");
       return new Date(ms).toLocaleDateString();
     };
     const sessionItems: PaletteItem[] = paletteSessions.slice(0, 12).map((s) => ({
       id: `sess-${s.path}`,
-      group: t('palette.group.sessions'),
-      title: s.title?.trim() || s.preview || t('history.emptySession'),
+      group: t("palette.group.sessions"),
+      title: s.title?.trim() || s.preview || t("history.emptySession"),
       hint: s.workspaceRoot || undefined,
       meta: dayLabel(sessionActivityTime(s)),
-      badge: t(s.turns === 1 ? 'history.turnOne' : 'history.turnOther', { n: s.turns }),
+      badge: t(s.turns === 1 ? "history.turnOne" : "history.turnOther", { n: s.turns }),
       run: () => void onResumeSession(s),
     }));
     return [...cmds, ...sessionItems];
@@ -2595,12 +2246,8 @@ export default function App() {
       setHistView((cur) =>
         cur === null
           ? null
-          : cur.kind === 'history'
-            ? {
-                ...cur,
-                sessions:
-                  cur.source === 'scope' ? sessionsForScope(sessions, cur.filter) : sessions,
-              }
+          : cur.kind === "history"
+            ? { ...cur, sessions: cur.source === "scope" ? sessionsForScope(sessions, cur.filter) : sessions }
             : cur,
       );
     },
@@ -2614,12 +2261,8 @@ export default function App() {
       setHistView((cur) =>
         cur === null
           ? null
-          : cur.kind === 'history'
-            ? {
-                ...cur,
-                sessions:
-                  cur.source === 'scope' ? sessionsForScope(sessions, cur.filter) : sessions,
-              }
+          : cur.kind === "history"
+            ? { ...cur, sessions: cur.source === "scope" ? sessionsForScope(sessions, cur.filter) : sessions }
             : cur,
       );
     },
@@ -2629,7 +2272,7 @@ export default function App() {
     async (path: string) => {
       await restoreSession(path);
       const trashed = await listTrashedSessions();
-      setHistView((cur) => (cur === null ? null : { kind: 'trash', sessions: trashed }));
+      setHistView((cur) => (cur === null ? null : { kind: "trash", sessions: trashed }));
     },
     [restoreSession, listTrashedSessions],
   );
@@ -2637,7 +2280,7 @@ export default function App() {
     async (path: string) => {
       await purgeTrashedSession(path);
       const trashed = await listTrashedSessions();
-      setHistView((cur) => (cur === null ? null : { kind: 'trash', sessions: trashed }));
+      setHistView((cur) => (cur === null ? null : { kind: "trash", sessions: trashed }));
     },
     [purgeTrashedSession, listTrashedSessions],
   );
@@ -2648,24 +2291,21 @@ export default function App() {
         await purgeTrashedSession(path);
       }
       const trashed = await listTrashedSessions();
-      setHistView((cur) => (cur === null ? null : { kind: 'trash', sessions: trashed }));
+      setHistView((cur) => (cur === null ? null : { kind: "trash", sessions: trashed }));
     },
     [purgeTrashedSession, listTrashedSessions],
   );
 
   // Workspace: open the folder chooser and switch projects. The hook resets the
   // transcript and refreshes meta on a pick. A cancel is a no-op.
-  const switchFolder = useCallback(
-    async (path?: string) => {
-      const picked = path === undefined ? await pickWorkspace() : await switchWorkspace(path);
-      if (picked) {
-        setProjectRevision((value) => value + 1);
-        await refreshTabMetas();
-      }
-      return picked;
-    },
-    [pickWorkspace, switchWorkspace, refreshTabMetas],
-  );
+  const switchFolder = useCallback(async (path?: string) => {
+    const picked = path === undefined ? await pickWorkspace() : await switchWorkspace(path);
+    if (picked) {
+      setProjectRevision((value) => value + 1);
+      await refreshTabMetas();
+    }
+    return picked;
+  }, [pickWorkspace, switchWorkspace, refreshTabMetas]);
 
   const refreshProjectsAndTabs = useCallback(async () => {
     setProjectRevision((value) => value + 1);
@@ -2675,29 +2315,26 @@ export default function App() {
     }
   }, [activeTabId, refreshTabMetas, syncActiveTab]);
 
-  const renameTopic = useCallback(
-    async (topicId: string, title: string) => {
-      const nextTitle = title.trim();
-      if (!topicId || !nextTitle) return;
-      await app.RenameTopic(topicId, nextTitle);
-      await refreshProjectsAndTabs();
-    },
-    [refreshProjectsAndTabs],
-  );
+  const renameTopic = useCallback(async (topicId: string, title: string) => {
+    const nextTitle = title.trim();
+    if (!topicId || !nextTitle) return;
+    await app.RenameTopic(topicId, nextTitle);
+    await refreshProjectsAndTabs();
+  }, [refreshProjectsAndTabs]);
 
   const startActiveTopicRename = useCallback(() => {
     if (!activeTab?.topicId) return;
     topicRenameSkipCommitRef.current = false;
     topicRenameCommitHandledRef.current = false;
     setRenamingTopicId(activeTab.topicId);
-    setTopicTitleDraft(activeTab.topicTitle || '');
+    setTopicTitleDraft(activeTab.topicTitle || "");
   }, [activeTab?.topicId, activeTab?.topicTitle]);
 
   const cancelActiveTopicRename = useCallback(() => {
     topicRenameSkipCommitRef.current = true;
     topicRenameCommitHandledRef.current = true;
     setRenamingTopicId(null);
-    setTopicTitleDraft('');
+    setTopicTitleDraft("");
   }, []);
 
   const commitActiveTopicRename = useCallback(async () => {
@@ -2722,889 +2359,892 @@ export default function App() {
   }, [renameTopic, renamingTopicId, topicTitleDraft]);
 
   const sidebarExpandBlocked = false;
-  const sidebarToggleTitle = sidebarCollapsed ? t('sidebar.expand') : t('sidebar.collapse');
+  const sidebarToggleTitle = sidebarCollapsed
+      ? t("sidebar.expand")
+      : t("sidebar.collapse");
   const sidebarNavTooltipDisabled = !sidebarCollapsed;
-  const browserPreviewChrome = typeof window !== 'undefined' && !window.runtime;
+  const browserPreviewChrome = typeof window !== "undefined" && !window.runtime;
   const workspacePanelResetWidth = rightDockDetailActive
     ? RIGHT_DOCK_PREVIEW_DEFAULT_WIDTH
     : defaultRightDockTreeWidth();
-  const workspacePanelResizeMinWidth = workspacePanelAriaMinWidth(
-    workspacePanelMinWidth,
-    workspacePanelRenderWidth,
-  );
-  const workspacePanelMaxWidth = rightDockDetailActive
-    ? RIGHT_DOCK_MAX_WIDTH
-    : RIGHT_DOCK_TREE_MAX_WIDTH;
-  const topicbarTitle = sidebarImDetailConnection
-    ? t('botDetail.title', { name: sidebarImDetailConnection.title })
-    : topicDisplayTitle(activeTab);
-  const topicbarWorkspaceLabel = sidebarImDetailConnection
-    ? t('botDetail.subtitle')
-    : activeTab
-      ? tabWorkspaceTitle(activeTab)
-      : '';
-  const topicbarWorkspacePath =
-    activeTab?.scope === 'project' ? activeTab.workspaceRoot || state.meta?.cwd : '';
-  const topicbarImSource =
-    activeTab?.scope === 'global' && activeTab.topicId
-      ? imTopicSources[activeTab.topicId]
-      : undefined;
+  const workspacePanelResizeMinWidth = workspacePanelAriaMinWidth(workspacePanelMinWidth, workspacePanelRenderWidth);
+  const workspacePanelMaxWidth = rightDockDetailActive ? RIGHT_DOCK_MAX_WIDTH : RIGHT_DOCK_TREE_MAX_WIDTH;
+  const sidebarCreation = desktopLayoutStyle === "creation";
+  const topicbarTitle = sidebarImDetailConnection ? t("botDetail.title", { name: sidebarImDetailConnection.title }) : topicDisplayTitle(activeTab);
+  const topicbarWorkspaceLabel = sidebarImDetailConnection ? t("botDetail.subtitle") : activeTab ? tabWorkspaceTitle(activeTab) : "";
+  const topicbarWorkspacePath = activeTab?.scope === "project" ? activeTab.workspaceRoot || state.meta?.cwd : "";
+  const topicbarImSource = activeTab?.scope === "global" && activeTab.topicId ? imTopicSources[activeTab.topicId] : undefined;
   const topicbarImSourceLabel = sidebarImDetailConnection
     ? sidebarImDetailConnection.platformLabel
-    : topicbarImSource
-      ? t('msg.fromIm', { source: topicbarImSource.label })
-      : '';
-  const topicbarImSourcePlatform =
-    sidebarImDetailConnection?.platform ?? topicbarImSource?.platform;
-  const topicbarSubtitleVisible = Boolean(topicbarWorkspaceLabel || topicbarImSourceLabel);
+    : topicbarImSource ? t("msg.fromIm", { source: topicbarImSource.label }) : "";
+  const topicbarImSourcePlatform = sidebarImDetailConnection?.platform ?? topicbarImSource?.platform;
+  const topicbarSubtitleVisible = !sidebarCreation && Boolean(topicbarWorkspaceLabel || topicbarImSourceLabel);
   const topicbarSubtitleTitle = sidebarImDetailConnection
-    ? [
-        topicbarWorkspaceLabel,
-        topicbarImSourceLabel,
-        sidebarImScopeLabel(sidebarImDetailConnection, t),
-      ]
-        .filter(Boolean)
-        .join(' · ')
-    : [topicbarWorkspacePath || topicbarWorkspaceLabel, topicbarImSourceLabel]
-        .filter(Boolean)
-        .join(' · ');
-  const sidebarWorkbench = desktopLayoutStyle === 'workbench';
+    ? [topicbarWorkspaceLabel, topicbarImSourceLabel, sidebarImScopeLabel(sidebarImDetailConnection, t)].filter(Boolean).join(" · ")
+    : [topicbarWorkspacePath || topicbarWorkspaceLabel, topicbarImSourceLabel].filter(Boolean).join(" · ");
+  const topicbarCanRename = !sidebarImDetailConnection && Boolean(activeTab?.topicId);
+  const topicbarTitleEditSize = Math.min(56, Math.max(4, topicTitleDraft.length || topicbarTitle.length || 1));
+  const sidebarWorkbench = desktopLayoutStyle === "workbench";
+  // Creation keeps the classic sidebar/chat structure while gating chrome tweaks
+  // behind its own style flag so classic/workbench remain unchanged.
+  const appChromeHidden = sidebarWorkbench || sidebarCreation;
   const workbenchChromeHidden = sidebarWorkbench;
   const sidebarClassName = [
-    'sidebar',
-    sidebarCollapsed ? 'sidebar--collapsed' : '',
-    sidebarWorkbench ? 'sidebar--workbench' : '',
-  ]
-    .filter(Boolean)
-    .join(' ');
+    "sidebar",
+    sidebarCollapsed ? "sidebar--collapsed" : "",
+    sidebarWorkbench ? "sidebar--workbench" : "",
+  ].filter(Boolean).join(" ");
 
   return (
     <ShellExpandProvider>
-      <ShellHotkeys />
-      <TextSizeHotkeys />
+    <ShellHotkeys />
+    <TextSizeHotkeys />
+    <div
+      ref={appRef}
+      className={[
+        "app",
+        `app--${desktopPlatform}`,
+        browserPreviewChrome ? "app--browser-preview" : "",
+        sidebarWorkbench ? "app--workbench" : "",
+        sidebarCreation ? "app--creation" : "",
+      ].filter(Boolean).join(" ")}
+    >
       <div
-        ref={appRef}
         className={[
-          'app',
-          `app--${desktopPlatform}`,
-          browserPreviewChrome ? 'app--browser-preview' : '',
-          sidebarWorkbench ? 'app--workbench' : '',
+          "layout",
+          sidebarWorkbench ? "layout--workbench" : "",
+          workbenchChromeHidden ? "layout--workbench-chrome-hidden" : "",
+          sidebarCreation ? "layout--creation-chrome-hidden" : "",
+          sidebarCollapsed ? "layout--sidebar-collapsed" : "",
+          sidebarResizing ? "layout--resizing layout--sidebar-resizing" : "",
+          workspacePanelGridOpen ? "layout--workspace-open" : "",
+          workspacePanelOpen && workspacePanelMaximized ? "layout--workspace-maximized" : "",
+          workspacePanelResizing ? "layout--resizing layout--workspace-resizing" : "",
         ]
           .filter(Boolean)
-          .join(' ')}
+          .join(" ")}
+        style={layoutStyle}
       >
-        <div
-          className={[
-            'layout',
-            sidebarWorkbench ? 'layout--workbench' : '',
-            workbenchChromeHidden ? 'layout--workbench-chrome-hidden' : '',
-            sidebarCollapsed ? 'layout--sidebar-collapsed' : '',
-            sidebarResizing ? 'layout--resizing layout--sidebar-resizing' : '',
-            workspacePanelGridOpen ? 'layout--workspace-open' : '',
-            workspacePanelOpen && workspacePanelMaximized ? 'layout--workspace-maximized' : '',
-            workspacePanelResizing ? 'layout--resizing layout--workspace-resizing' : '',
-          ]
-            .filter(Boolean)
-            .join(' ')}
-          style={layoutStyle}
-        >
-          {!workbenchChromeHidden && (
-            <AppChrome
-              platform={desktopPlatform}
-              browserPreviewChrome={browserPreviewChrome}
-              workbenchChrome={sidebarWorkbench}
-              tabs={visibleTabs}
-              activeTabId={visibleTabId}
-              revealActiveSignal={tabRevealSignal}
-              commandCompact={true}
-              sidebarTogglePressed={sidebarTogglePressed}
-              sidebarExpandBlocked={sidebarExpandBlocked}
-              sidebarCollapsed={sidebarCollapsed}
-              sidebarToggleTitle={sidebarToggleTitle}
-              workspacePanelMaximized={workspacePanelMaximized}
-              workspacePanelRenderable={workspacePanelRenderable}
-              workspaceTogglePressed={workspaceTogglePressed}
-              workspacePanelLabel={
-                workspacePanelRenderable ? t('rightDock.collapse') : t('rightDock.expand')
-              }
-              onToggleSidebar={toggleSidebar}
-              onToggleWorkspacePanel={toggleWorkspacePanel}
-              onTabChange={(id) => void handleTabChange(id)}
-              onTabClose={(id) => void handleTabClose(id)}
-              onTabsClose={(ids, nextActiveTabId) => void handleTabsClose(ids, nextActiveTabId)}
-              onTabsReorder={(ids) => void handleTabsReorder(ids)}
-              onNewTab={() => void handleNewTab()}
-              onOpenPalette={() => void openPalette()}
-            />
-          )}
-          <a className="skip-to-composer" href="#composer-input">
-            {t('shortcuts.skipToComposer')}
-          </a>
+        {!appChromeHidden && (
+          <AppChrome
+            platform={desktopPlatform}
+            browserPreviewChrome={browserPreviewChrome}
+            workbenchChrome={sidebarWorkbench}
+            tabs={visibleTabs}
+            activeTabId={visibleTabId}
+            revealActiveSignal={tabRevealSignal}
+            commandCompact={true}
+            sidebarTogglePressed={sidebarTogglePressed}
+            sidebarExpandBlocked={sidebarExpandBlocked}
+            sidebarCollapsed={sidebarCollapsed}
+            sidebarToggleTitle={sidebarToggleTitle}
+            workspacePanelMaximized={workspacePanelMaximized}
+            workspacePanelRenderable={workspacePanelRenderable}
+            workspaceTogglePressed={workspaceTogglePressed}
+            workspacePanelLabel={workspacePanelRenderable ? t("rightDock.collapse") : t("rightDock.expand")}
+            onToggleSidebar={toggleSidebar}
+            onToggleWorkspacePanel={toggleWorkspacePanel}
+            onTabChange={(id) => void handleTabChange(id)}
+            onTabClose={(id) => void handleTabClose(id)}
+            onTabsClose={(ids, nextActiveTabId) => void handleTabsClose(ids, nextActiveTabId)}
+            onTabsReorder={(ids) => void handleTabsReorder(ids)}
+            onNewTab={() => void handleNewTab()}
+            onOpenPalette={() => void openPalette()}
+          />
+        )}
+        <a className="skip-to-composer" href="#composer-input">
+          {t("shortcuts.skipToComposer")}
+        </a>
 
-          <aside className={sidebarClassName} aria-label={t('sidebar.navigation')}>
-            {sidebarWorkbench ? (
-              <>
-                <div className="sidebar__head" aria-hidden={sidebarCollapsed}>
-                  <div className="sidebar__brand sidebar__brand--workbench">
-                    <img
-                      src={logoWordmark}
-                      alt="Reasonix"
-                      className="sidebar__brand-logo sidebar__brand-logo--workbench"
-                      draggable={false}
-                    />
-                  </div>
+        <aside className={sidebarClassName} aria-label={t("sidebar.navigation")}>
+          {sidebarWorkbench ? (
+            <>
+              <div className="sidebar__head" aria-hidden={sidebarCollapsed}>
+                <div className="sidebar__brand sidebar__brand--workbench">
+                  <img src={logoWordmark} alt="Reasonix" className="sidebar__brand-logo sidebar__brand-logo--workbench" draggable={false} />
                 </div>
+              </div>
 
-                <div className="sidebar__quick-actions">
-                  <button
-                    className="sidebar__quick-action"
-                    type="button"
-                    onClick={() => {
-                      void handleNewTab();
-                    }}
-                  >
-                    <MessageSquare size={18} aria-hidden="true" />
-                    <span>{t('topbar.newSession')}</span>
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="sidebar__brand" aria-hidden={sidebarCollapsed}>
-                  <img
-                    src={logoWordmark}
-                    alt="Reasonix"
-                    className="sidebar__brand-logo"
-                    draggable={false}
-                  />
-                </div>
-
+              <div className="sidebar__quick-actions">
                 <button
-                  className="sidebar__new"
+                  className="sidebar__quick-action"
+                  type="button"
                   onClick={() => {
                     void handleNewTab();
                   }}
                 >
-                  <SquarePen size={18} />
-                  <span>{t('topbar.newSession')}</span>
+                  <MessageSquare size={18} aria-hidden="true" />
+                  <span>{t("topbar.newSession")}</span>
                 </button>
-              </>
-            )}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="sidebar__brand" aria-hidden={sidebarCollapsed}>
+                <img src={logoWordmark} alt="Reasonix" className="sidebar__brand-logo" draggable={false} />
+              </div>
 
-            <section className="sidebar__section sidebar__section--projects">
-              <ProjectTree
-                activeScope={activeTab?.scope}
-                activeWorkspaceRoot={activeTab?.workspaceRoot}
-                activeTopicId={activeTab?.topicId}
-                activeSessionPath={activeTab?.sessionPath}
-                imTopicSources={imTopicSources}
-                onOpenTopic={handleOpenTopic}
-                onOpenProjectHistory={openProjectHistory}
-                onCreateTopic={(scope, workspaceRoot) =>
-                  openBlankSession(scope, scope === 'project' ? workspaceRoot : '')
-                }
-                onTopicsChanged={refreshProjectsAndTabs}
-                onRenameTopic={renameTopic}
-                refreshSignal={projectRevision}
-                onAddProject={async () => {
-                  await switchFolder();
+              <button
+                className="sidebar__new"
+                onClick={() => {
+                  void handleNewTab();
                 }}
-                timeFilter={topicTimeFilter}
-                onTimeFilterChange={setTopicTimeFilter}
-                variant={sidebarWorkbench ? 'workbench' : 'classic'}
-              />
-            </section>
+              >
+                <SquarePen size={18} />
+                <span>{sidebarCreation ? t("creation.sidebar.newChat") : t("topbar.newSession")}</span>
+              </button>
+            </>
+          )}
 
-            {sidebarWorkbench ? (
-              <nav className="sidebar__nav sidebar__nav--footer">
-                <div className="sidebar__utility-row" aria-label={t('sidebar.utilityActions')}>
-                  <Tooltip label={t('sidebar.allHistory')} fill side="top">
-                    <button
-                      className="sidebar__utility-button"
-                      type="button"
-                      onClick={() => void openAllHistory()}
-                    >
-                      <History size={16} aria-hidden="true" />
-                      <span className="sr-only">{t('sidebar.allHistory')}</span>
-                    </button>
-                  </Tooltip>
-                  <Tooltip label={t('sidebar.trash')} fill side="top">
-                    <button
-                      className="sidebar__utility-button"
-                      type="button"
-                      onClick={() => void openTrash()}
-                    >
-                      <Trash2 size={16} aria-hidden="true" />
-                      <span className="sr-only">{t('sidebar.trash')}</span>
-                    </button>
-                  </Tooltip>
-                  <Tooltip label={t('heartbeat.scheduler')} fill side="top">
-                    <button
-                      className="sidebar__utility-button"
-                      type="button"
-                      onClick={() => setHeartbeatOpen(true)}
-                    >
-                      <AlarmClock size={16} aria-hidden="true" />
-                      <span className="sr-only">{t('sidebar.automation')}</span>
-                    </button>
-                  </Tooltip>
-                  <Tooltip label={t('topbar.settings')} fill side="top">
-                    <button
-                      className="sidebar__utility-button"
-                      type="button"
-                      onClick={() => {
-                        closeTransientOverlays();
-                        setSettingsTarget('general');
-                      }}
-                    >
-                      <SettingsIcon size={16} aria-hidden="true" />
-                      <span className="sr-only">{t('topbar.settings')}</span>
-                    </button>
-                  </Tooltip>
-                </div>
-              </nav>
-            ) : (
-              <nav className="sidebar__nav">
-                <Tooltip
-                  label={t('sidebar.allHistory')}
-                  fill
-                  side="right"
-                  disabled={sidebarNavTooltipDisabled}
+          {sidebarCreation && (
+            <section className="sidebar-feature-zone" aria-label={t("settings.title")}>
+              <div className="sidebar-feature-zone__title">{t("creation.sidebar.features")}</div>
+              <div className="sidebar-feature-zone__items">
+                <button
+                  className="sidebar-feature-zone__item"
+                  type="button"
+                  onClick={() => {
+                    closeTransientOverlays();
+                    setSettingsTarget("skills");
+                  }}
                 >
-                  <button className="sidebar__navitem" onClick={() => void openAllHistory()}>
-                    <History size={15} />
-                    <span>{t('sidebar.allHistory')}</span>
-                  </button>
-                </Tooltip>
-                <Tooltip
-                  label={t('sidebar.trash')}
-                  fill
-                  side="right"
-                  disabled={sidebarNavTooltipDisabled}
+                  <Command size={14} aria-hidden="true" />
+                  <span>{t("creation.sidebar.skills")}</span>
+                </button>
+                <button
+                  className="sidebar-feature-zone__item"
+                  type="button"
+                  onClick={() => {
+                    closeTransientOverlays();
+                    setSettingsTarget("memory");
+                  }}
                 >
-                  <button className="sidebar__navitem" onClick={() => void openTrash()}>
-                    <Trash2 size={15} />
-                    <span>{t('sidebar.trash')}</span>
-                  </button>
-                </Tooltip>
-                <Tooltip
-                  label={t('heartbeat.scheduler')}
-                  fill
-                  side="right"
-                  disabled={sidebarNavTooltipDisabled}
+                  <Brain size={14} aria-hidden="true" />
+                  <span>{t("settings.tab.memory")}</span>
+                </button>
+                <button
+                  className="sidebar-feature-zone__item"
+                  type="button"
+                  onClick={() => {
+                    closeTransientOverlays();
+                    setSettingsTarget("bots");
+                  }}
                 >
-                  <button className="sidebar__navitem" onClick={() => setHeartbeatOpen(true)}>
-                    <AlarmClock size={15} />
-                    <span>{t('sidebar.automation')}</span>
-                  </button>
-                </Tooltip>
-                <Tooltip
-                  label={t('topbar.settings')}
-                  fill
-                  side="right"
-                  disabled={sidebarNavTooltipDisabled}
+                  <MessageSquare size={14} aria-hidden="true" />
+                  <span>{t("creation.sidebar.messageChannels")}</span>
+                </button>
+                <button
+                  className="sidebar-feature-zone__item"
+                  type="button"
+                  onClick={() => setHeartbeatOpen(true)}
                 >
+                  <AlarmClock size={14} aria-hidden="true" />
+                  <span>{t("sidebar.automation")}</span>
+                </button>
+              </div>
+            </section>
+          )}
+
+          <section className="sidebar__section sidebar__section--projects">
+            <ProjectTree
+              activeScope={activeTab?.scope}
+              activeWorkspaceRoot={activeTab?.workspaceRoot}
+              activeTopicId={activeTab?.topicId}
+              activeSessionPath={activeTab?.sessionPath}
+              imTopicSources={imTopicSources}
+              onOpenTopic={handleOpenTopic}
+              onOpenProjectHistory={openProjectHistory}
+              onCreateTopic={(scope, workspaceRoot) => openBlankSession(scope, scope === "project" ? workspaceRoot : "")}
+              onTopicsChanged={refreshProjectsAndTabs}
+              onRenameTopic={renameTopic}
+              refreshSignal={projectRevision}
+              onAddProject={async () => {
+                await switchFolder();
+              }}
+              timeFilter={topicTimeFilter}
+              onTimeFilterChange={setTopicTimeFilter}
+              variant={sidebarWorkbench ? "workbench" : sidebarCreation ? "creation" : "classic"}
+              searchExpanded={!sidebarCreation || sidebarSearchOpen}
+              searchFocusSignal={sidebarSearchFocusSignal}
+            />
+          </section>
+
+          {sidebarWorkbench ? (
+            <nav className="sidebar__nav sidebar__nav--footer">
+              <div className="sidebar__utility-row" aria-label={t("sidebar.utilityActions")}>
+                <Tooltip label={t("sidebar.allHistory")} fill side="top">
                   <button
-                    className="sidebar__navitem"
+                    className="sidebar__utility-button"
+                    type="button"
+                    onClick={() => void openAllHistory()}
+                  >
+                    <History size={16} aria-hidden="true" />
+                    <span className="sr-only">{t("sidebar.allHistory")}</span>
+                  </button>
+                </Tooltip>
+                <Tooltip label={t("sidebar.trash")} fill side="top">
+                  <button
+                    className="sidebar__utility-button"
+                    type="button"
+                    onClick={() => void openTrash()}
+                  >
+                    <Trash2 size={16} aria-hidden="true" />
+                    <span className="sr-only">{t("sidebar.trash")}</span>
+                  </button>
+                </Tooltip>
+                <Tooltip label={t("heartbeat.scheduler")} fill side="top">
+                  <button
+                    className="sidebar__utility-button"
+                    type="button"
+                    onClick={() => setHeartbeatOpen(true)}
+                  >
+                    <AlarmClock size={16} aria-hidden="true" />
+                    <span className="sr-only">{t("sidebar.automation")}</span>
+                  </button>
+                </Tooltip>
+                <Tooltip label={t("topbar.settings")} fill side="top">
+                  <button
+                    className="sidebar__utility-button"
+                    type="button"
                     onClick={() => {
                       closeTransientOverlays();
-                      setSettingsTarget('general');
+                      setSettingsTarget("general");
                     }}
                   >
-                    <SettingsIcon size={15} />
-                    <span>{t('topbar.settings')}</span>
+                    <SettingsIcon size={16} aria-hidden="true" />
+                    <span className="sr-only">{t("topbar.settings")}</span>
                   </button>
                 </Tooltip>
-              </nav>
-            )}
-          </aside>
+              </div>
+            </nav>
+          ) : (
+            <nav className="sidebar__nav">
+              {sidebarCreation && (
+                <Tooltip label={t("projectTree.searchPlaceholder")} fill side="right" disabled={sidebarNavTooltipDisabled}>
+                  <button
+                    className={`sidebar__navitem sidebar__navitem--search${sidebarSearchOpen ? " sidebar__navitem--active" : ""}`}
+                    type="button"
+                    aria-label={t("projectTree.searchPlaceholder")}
+                    aria-pressed={sidebarSearchOpen}
+                    onClick={() => {
+                      setSidebarSearchOpen((open) => !open);
+                      setSidebarSearchFocusSignal((signal) => signal + 1);
+                    }}
+                  >
+                    <Search size={15} />
+                    <span>{t("tabBar.commandSearchCompact")}</span>
+                  </button>
+                </Tooltip>
+              )}
+              <Tooltip label={t("sidebar.allHistory")} fill side="right" disabled={sidebarNavTooltipDisabled}>
+                <button
+                  className="sidebar__navitem"
+                  onClick={() => void openAllHistory()}
+                >
+                  <History size={15} />
+                  <span>{t("sidebar.allHistory")}</span>
+                </button>
+              </Tooltip>
+              <Tooltip label={t("sidebar.trash")} fill side="right" disabled={sidebarNavTooltipDisabled}>
+                <button
+                  className="sidebar__navitem"
+                  onClick={() => void openTrash()}
+                >
+                  <Trash2 size={15} />
+                  <span>{t("sidebar.trash")}</span>
+                </button>
+              </Tooltip>
+              {!sidebarCreation && (
+                <Tooltip label={t("heartbeat.scheduler")} fill side="right" disabled={sidebarNavTooltipDisabled}>
+                  <button
+                    className="sidebar__navitem"
+                    onClick={() => setHeartbeatOpen(true)}
+                  >
+                    <AlarmClock size={15} />
+                    <span>{t("sidebar.automation")}</span>
+                  </button>
+                </Tooltip>
+              )}
+              <Tooltip label={t("topbar.settings")} fill side="right" disabled={sidebarNavTooltipDisabled}>
+                <button
+                  className="sidebar__navitem"
+                  onClick={() => {
+                    closeTransientOverlays();
+                    setSettingsTarget("general");
+                  }}
+                >
+                  <SettingsIcon size={15} />
+                  <span>{t("topbar.settings")}</span>
+                </button>
+              </Tooltip>
+            </nav>
+          )}
+
+        </aside>
+        <button
+          className="sidebar-resizer"
+          type="button"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label={t("sidebar.resize")}
+          aria-valuemin={sidebarResizeMinWidth}
+          aria-valuemax={SIDEBAR_MAX_WIDTH}
+          aria-valuenow={sidebarWidth}
+          onPointerDown={startSidebarResize}
+          onKeyDown={resizeSidebarWithKeyboard}
+          onDoubleClick={() => setExpandedSidebarWidth(defaultSidebarWidth())}
+        />
+        {sidebarCreation && (
           <button
-            className="sidebar-resizer"
+            className={`sidebar-collapse-toggle${sidebarCollapsed ? " sidebar-collapse-toggle--collapsed" : ""}${sidebarTogglePressed ? " sidebar-collapse-toggle--pressed" : ""}`}
+            type="button"
+            onClick={toggleSidebar}
+            aria-label={sidebarToggleTitle}
+            aria-pressed={!sidebarCollapsed}
+            title={sidebarToggleTitle}
+          >
+            {sidebarCollapsed ? <PanelRight size={14} /> : <PanelLeft size={14} />}
+          </button>
+        )}
+
+        <section className={`chat-pane${sidebarCreation && !sessionHasContent ? " chat-pane--creation-empty" : ""}`}>
+          <>
+          <header className="topicbar">
+            {workbenchChromeHidden && (
+              <Tooltip label={sidebarToggleTitle}>
+                <button
+                  className={[
+                    "topicbar__chrome-btn",
+                    sidebarExpandBlocked ? "topicbar__chrome-btn--blocked" : "",
+                    sidebarTogglePressed ? "topicbar__chrome-btn--pressed" : "",
+                  ].filter(Boolean).join(" ")}
+                  type="button"
+                  onClick={sidebarExpandBlocked ? undefined : toggleSidebar}
+                  aria-label={sidebarToggleTitle}
+                  aria-pressed={!sidebarCollapsed}
+                  aria-disabled={sidebarExpandBlocked}
+                >
+                  <PanelLeft size={15} />
+                </button>
+              </Tooltip>
+            )}
+            <div className="topicbar__identity">
+              <div className="topicbar__title-row">
+                {topicbarEditing ? (
+                  <div className="topicbar__title-edit">
+                    <input
+                      autoFocus
+                      className="topicbar__title-input"
+                      aria-label={t("topicBar.renameSession")}
+                      size={sidebarCreation ? topicbarTitleEditSize : undefined}
+                      value={topicTitleDraft}
+                      onChange={(event) => setTopicTitleDraft(event.target.value)}
+                      onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          void commitActiveTopicRename();
+                        }
+                        if (event.key === "Escape") {
+                          event.preventDefault();
+                          cancelActiveTopicRename();
+                        }
+                      }}
+                      onBlur={() => void commitActiveTopicRename()}
+                    />
+                  </div>
+                ) : sidebarCreation && topicbarCanRename ? (
+                  <h1 title={topicTitle(activeTab)}>
+                    <button
+                      className="topicbar__title-button"
+                      type="button"
+                      onClick={startActiveTopicRename}
+                      aria-label={t("topicBar.renameSession")}
+                    >
+                      {topicbarTitle}
+                    </button>
+                  </h1>
+                ) : (
+                  <h1 title={sidebarImDetailConnection ? topicbarTitle : topicTitle(activeTab)}>{topicbarTitle}</h1>
+                )}
+                {!sidebarCreation && (
+                  <Tooltip label={t("topicBar.renameSession")}>
+                    <button
+                      className="topicbar__icon-btn"
+                      type="button"
+                      disabled={!topicbarCanRename || topicbarEditing}
+                      onClick={startActiveTopicRename}
+                      aria-label={t("topicBar.renameSession")}
+                    >
+                      <Pencil size={14} />
+                    </button>
+                  </Tooltip>
+                )}
+              </div>
+              {topicbarSubtitleVisible && (
+                <div className="topicbar__subtitle" title={topicbarSubtitleTitle}>
+                  {topicbarWorkspaceLabel && <span>{topicbarWorkspaceLabel}</span>}
+                  {topicbarImSourcePlatform && (
+                    <span className={`topicbar__source-chip topicbar__source-chip--${topicbarImSourcePlatform}`}>
+                      {topicbarImSourceLabel}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="topicbar__spacer" />
+            <div className="topicbar__actions">
+              {workbenchChromeHidden && (
+                <Tooltip label={workspacePanelRenderable ? t("rightDock.collapse") : t("rightDock.expand")}>
+                  <button
+                    className={[
+                      "topicbar__chrome-btn",
+                      "topicbar__chrome-btn--workspace",
+                      workspacePanelRenderable ? "topicbar__chrome-btn--active" : "",
+                      workspaceTogglePressed ? "topicbar__chrome-btn--pressed" : "",
+                    ].filter(Boolean).join(" ")}
+                    type="button"
+                    onClick={toggleWorkspacePanel}
+                    aria-label={workspacePanelRenderable ? t("rightDock.collapse") : t("rightDock.expand")}
+                    aria-pressed={workspacePanelRenderable}
+                  >
+                    <PanelRight size={15} />
+                  </button>
+                </Tooltip>
+              )}
+              {!sidebarImDetailConnection && (
+              <>
+              <Tooltip label={t("topicBar.copyAll")}>
+                <CopyButton
+                  getText={getSessionMarkdown}
+                  label={t("topicBar.copyAll")}
+                  className="topicbar__action-btn topicbar__action-btn--icon topicbar__action-btn--utility"
+                  showInlineLabel={false}
+                />
+              </Tooltip>
+              <div className={`topicbar__export${topicExportOpen ? " topicbar__export--open" : ""}`}>
+                <Tooltip label={t("topicBar.export")}>
+                  <button
+                    className="topicbar__action-btn topicbar__action-btn--icon topicbar__action-btn--utility"
+                    type="button"
+                    disabled={!sessionHasContent}
+                    aria-label={t("topicBar.export")}
+                    aria-haspopup="menu"
+                    aria-expanded={topicExportOpen}
+                    onClick={() => setTopicExportOpen((open) => !open)}
+                  >
+                    <Download size={14} />
+                  </button>
+                </Tooltip>
+                {topicExportOpen && (
+                  <div className="topicbar__export-menu" role="menu">
+                    <button type="button" role="menuitem" onClick={() => void exportSession("markdown")}>
+                      <FileText size={13} />
+                      <span>{t("topicBar.exportMarkdown")}</span>
+                    </button>
+                    <button type="button" role="menuitem" onClick={() => void exportSession("json")}>
+                      <FileJson size={13} />
+                      <span>{t("topicBar.exportJson")}</span>
+                    </button>
+                    <button type="button" role="menuitem" onClick={() => void exportSession("pdf")}>
+                      <FileDown size={13} />
+                      <span>{t("topicBar.exportPdf")}</span>
+                    </button>
+                    <button type="button" role="menuitem" onClick={() => void exportSession("image")}>
+                      <FileImage size={13} />
+                      <span>{t("topicBar.exportImage")}</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+              </>
+              )}
+              <Tooltip label={t("workspace.changedTab")}>
+                <button
+                  className="topicbar__action-btn topicbar__action-btn--label"
+                  type="button"
+                  aria-label={t("workspace.changedTab")}
+                  aria-pressed={workspacePanelRenderable && rightDockMode === "changed"}
+                  onClick={() => openRightDockMode("changed")}
+                >
+                  <GitBranch size={14} />
+                  <span>{t("workspace.changedTab")}</span>
+                </button>
+              </Tooltip>
+              <Tooltip label={t("shortcuts.cheatsheetTitle")}>
+                <button
+                  className="topicbar__action-btn topicbar__action-btn--icon topicbar__action-btn--utility"
+                  type="button"
+                  aria-label={t("shortcuts.cheatsheetTitle")}
+                  onClick={() => {
+                    closeTransientOverlays();
+                    setSettingsFocus(null);
+                    setSettingsTarget("shortcuts");
+                  }}
+                >
+                  <CircleHelp size={14} />
+                </button>
+              </Tooltip>
+              <Tooltip label={t("topicBar.command")}>
+                <button
+                  className="topicbar__action-btn topicbar__action-btn--label topicbar__action-btn--accent"
+                  type="button"
+                  aria-label={t("topicBar.command")}
+                  onClick={() => void openPalette()}
+                >
+                  <Command size={14} />
+                  <span>{t("topicBar.command")}</span>
+                </button>
+              </Tooltip>
+              {sidebarCreation && (
+                <Tooltip label={workspacePanelRenderable ? t("rightDock.collapse") : t("rightDock.expand")}>
+                  <button
+                    className={[
+                      "topicbar__chrome-btn",
+                      "topicbar__chrome-btn--workspace",
+                      workspacePanelRenderable ? "topicbar__chrome-btn--active" : "",
+                      workspaceTogglePressed ? "topicbar__chrome-btn--pressed" : "",
+                    ].filter(Boolean).join(" ")}
+                    type="button"
+                    onClick={toggleWorkspacePanel}
+                    aria-label={workspacePanelRenderable ? t("rightDock.collapse") : t("rightDock.expand")}
+                    aria-pressed={workspacePanelRenderable}
+                  >
+                    <PanelRight size={15} />
+                  </button>
+                </Tooltip>
+              )}
+            </div>
+          </header>
+
+          {state.meta?.startupErr && (
+            <div className="banner banner--error">{t("topbar.startupError", { msg: state.meta.startupErr })}</div>
+          )}
+
+          <UpdateBanner enabled={startupUpdateChecksEnabled === true} />
+
+          <main className="main">
+            {sidebarImDetailConnection ? (
+              <SidebarImConnectionDetail
+                connection={sidebarImDetailConnection}
+                onClose={() => setSidebarImDetailConnectionId("")}
+                onOpenSettings={openBotSettings}
+                onManageAllowlist={() => openBotAllowlistSettings(sidebarImDetailConnection.connectionId)}
+                onOpenSession={() => void openSidebarImConnectionSession(sidebarImDetailConnection)}
+              />
+            ) : state.meta?.ready === false && !state.meta?.startupErr ? (
+              <div className="loading-screen">
+                <div className="loading-screen__spinner" />
+                <span className="loading-screen__text">{t("common.loading")}</span>
+              </div>
+            ) : (
+              <Transcript
+                items={displayItems}
+                live={state.live}
+                tabId={activeTabId}
+                footerHeight={footerHeight}
+                onPrompt={commitThenSend}
+                onEditPrompt={handleEditPrompt}
+                onRewind={handleMessageAction}
+                checkpoints={state.checkpoints}
+                actionPending={state.messageAction != null}
+                rewindDisabled={Boolean(activeTab?.readOnly) || rewindState != null || state.running || state.messageAction != null || state.approval != null || state.ask != null || clearContextPending}
+                running={state.running}
+                welcomeVariant={sidebarCreation ? "creation" : "default"}
+                actionHoverMenus={sidebarCreation}
+                rewindSignal={rewindSignal}
+              />
+            )}
+          </main>
+
+          {!sidebarImDetailConnection && (
+          <footer className="footer" ref={footerRef}>
+            {showTodos && <TodoPanel todos={todos} onDismiss={() => setDismissedTodo(todoKey)} />}
+            {rewindState && (
+              <UndoRewindBanner
+                meta={{
+                  turns: rewindState.turnDiff,
+                  filesRestored: [], // optimistic: files haven't changed yet
+                  filesRemoved: [],
+                  onUndo: () => {
+                    setRewindState(null);
+                    setComposerInsertRequest({ id: Date.now(), text: "", mode: "replace" });
+                  },
+                }}
+              />
+            )}
+            {state.approval && (
+              <ApprovalModal
+                key={state.approval.id}
+                approval={state.approval}
+                onAnswer={async (allow, session, persist) => {
+                  // Approving an exit_plan_mode plan leaves plan mode; await the
+                  // mode switch before sending the approval so the controller
+                  // observes the updated state before it unblocks.
+                  if (state.approval!.tool === "exit_plan_mode" && allow) await applyCollaborationMode("normal");
+                  approve(state.approval!.id, allow, session, persist);
+                }}
+                onRevisePlan={(text) => {
+                  setPendingPlanRevision(text);
+                  approve(state.approval!.id, false, false, false);
+                }}
+                onExitPlan={async () => {
+                  await applyCollaborationMode("normal");
+                  approve(state.approval!.id, false, false, false);
+                }}
+                onStop={() => {
+                  cancel();
+                }}
+              />
+            )}
+            {state.ask && (
+              <AskCard
+                ask={state.ask}
+                onAnswer={answerQuestion}
+                onDismiss={() => answerQuestion(state.ask!.id, [])}
+                onStop={() => {
+                  cancel();
+                }}
+              />
+            )}
+            {clearContextPending && (
+              <ClearContextCard
+                onCancel={cancelClearContext}
+                onConfirm={() => {
+                  void confirmClearContext();
+                }}
+              />
+            )}
+            <Composer
+              running={state.running}
+              collaborationMode={collaborationMode}
+              toolApprovalMode={toolApprovalMode}
+              tokenMode={tokenMode}
+              goal={goal}
+              cwd={state.meta?.cwd}
+              modelLabel={state.meta?.label ?? t("status.connecting")}
+              tabId={activeTabId}
+              effort={state.effort}
+              onSend={handleSend}
+              onCancel={cancel}
+              onCycleMode={cycleMode}
+              onSetMode={applyMode}
+              onSetCollaborationMode={applyCollaborationMode}
+              onSetToolApprovalMode={applyToolApprovalMode}
+              onToggleYoloApprovalMode={toggleYoloApprovalMode}
+              onClearGoal={() => applyGoal("")}
+              onSwitchModel={switchModel}
+              onSetEffort={setEffort}
+              onSetTokenMode={applyTokenMode}
+              insertRequest={composerInsertRequest}
+              readOnly={Boolean(activeTab?.readOnly)}
+              disabled={state.meta?.ready === false || state.messageAction != null || state.approval != null || state.ask != null || clearContextPending}
+              decisionPending={state.messageAction != null || state.approval != null || state.ask != null || clearContextPending}
+              ready={state.meta?.ready === true}
+              turnStartAt={state.turnStartAt}
+              turnTokens={state.turnTokens}
+              retry={state.retry}
+              transientDismissSignal={transientOverlayDismissSignal}
+            />
+            <StatusBar
+              context={state.context}
+              usage={state.usage}
+              balance={state.balance}
+              jobs={state.jobs}
+              running={state.running}
+              collaborationMode={collaborationMode}
+              toolApprovalMode={toolApprovalMode}
+              sessionTurns={sessionTurns}
+              sessionTokens={state.sessionTokens}
+              turnTokens={state.turnTotalTokens}
+              turnCost={state.turnCost}
+              cost={state.sessionCost}
+              currency={state.sessionCurrency}
+              modelLabel={state.meta?.label}
+              labelStyle={statusBarStyle}
+              items={statusBarItems}
+              workspacePath={state.meta?.workspacePath || state.meta?.workspaceRoot || state.meta?.cwd}
+              workspaceName={state.meta?.workspaceName}
+              gitBranch={state.meta?.gitBranch}
+            />
+          </footer>
+          )}
+          </>
+        </section>
+
+        {workspacePanelGridOpen && (
+          <button
+            className="workspace-panel-resizer"
             type="button"
             role="separator"
             aria-orientation="vertical"
-            aria-label={t('sidebar.resize')}
-            aria-valuemin={SIDEBAR_MIN_WIDTH}
-            aria-valuemax={SIDEBAR_MAX_WIDTH}
-            aria-valuenow={sidebarWidth}
-            onPointerDown={startSidebarResize}
-            onKeyDown={resizeSidebarWithKeyboard}
-            onDoubleClick={() => setExpandedSidebarWidth(defaultSidebarWidth())}
+            aria-label={t("rightDock.resize")}
+            aria-valuemin={workspacePanelResizeMinWidth}
+            aria-valuemax={Math.max(workspacePanelMaxWidth, workspacePanelRenderWidth)}
+            aria-valuenow={workspacePanelRenderWidth}
+            onPointerDown={startWorkspacePanelResize}
+            onKeyDown={resizeWorkspacePanelWithKeyboard}
+            onDoubleClick={() => setSavedWorkspacePanelWidth(workspacePanelResetWidth)}
           />
+        )}
 
-          <section className="chat-pane">
-            <>
-              <header className="topicbar">
-                {workbenchChromeHidden && (
-                  <Tooltip label={sidebarToggleTitle}>
-                    <button
-                      className={[
-                        'topicbar__chrome-btn',
-                        sidebarExpandBlocked ? 'topicbar__chrome-btn--blocked' : '',
-                        sidebarTogglePressed ? 'topicbar__chrome-btn--pressed' : '',
-                      ]
-                        .filter(Boolean)
-                        .join(' ')}
-                      type="button"
-                      onClick={sidebarExpandBlocked ? undefined : toggleSidebar}
-                      aria-label={sidebarToggleTitle}
-                      aria-pressed={!sidebarCollapsed}
-                      aria-disabled={sidebarExpandBlocked}
-                    >
-                      <PanelLeft size={15} />
-                    </button>
-                  </Tooltip>
+        {workspacePanelRenderable && (
+          <aside
+            className={[
+              "workbench-dock",
+              `workbench-dock--${rightDockMode}`,
+            ].join(" ")}
+            aria-label={t("rightDock.workbench")}
+          >
+            <div className="workbench-dock__tools">
+              <div className="workbench-dock__tabs" role="tablist" aria-label={t("rightDock.views")}>
+                {SHOW_CONTEXT_DOCK && (
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={rightDockMode === "context"}
+                    className={`workbench-dock__tab${rightDockMode === "context" ? " workbench-dock__tab--active" : ""}`}
+                    onClick={() => openRightDockMode("context")}
+                  >
+                    <Activity size={13} />
+                    <span className="workbench-dock__tab-label">{t("rightDock.overview")}</span>
+                  </button>
                 )}
-                <div className="topicbar__identity">
-                  <div className="topicbar__title-row">
-                    {topicbarEditing ? (
-                      <div className="topicbar__title-edit">
-                        <input
-                          autoFocus
-                          className="topicbar__title-input"
-                          value={topicTitleDraft}
-                          onChange={(event) => setTopicTitleDraft(event.target.value)}
-                          onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
-                            if (event.key === 'Enter') {
-                              event.preventDefault();
-                              void commitActiveTopicRename();
-                            }
-                            if (event.key === 'Escape') {
-                              event.preventDefault();
-                              cancelActiveTopicRename();
-                            }
-                          }}
-                          onBlur={() => void commitActiveTopicRename()}
-                        />
-                      </div>
-                    ) : (
-                      <h1 title={sidebarImDetailConnection ? topicbarTitle : topicTitle(activeTab)}>
-                        {topicbarTitle}
-                      </h1>
-                    )}
-                    <Tooltip label={t('topicBar.renameSession')}>
-                      <button
-                        className="topicbar__icon-btn"
-                        type="button"
-                        disabled={
-                          Boolean(sidebarImDetailConnection) ||
-                          !activeTab?.topicId ||
-                          topicbarEditing
-                        }
-                        onClick={startActiveTopicRename}
-                        aria-label={t('topicBar.renameSession')}
-                      >
-                        <Pencil size={14} />
-                      </button>
-                    </Tooltip>
-                  </div>
-                  {topicbarSubtitleVisible && (
-                    <div className="topicbar__subtitle" title={topicbarSubtitleTitle}>
-                      {topicbarWorkspaceLabel && <span>{topicbarWorkspaceLabel}</span>}
-                      {topicbarImSourcePlatform && (
-                        <span
-                          className={`topicbar__source-chip topicbar__source-chip--${topicbarImSourcePlatform}`}
-                        >
-                          {topicbarImSourceLabel}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </div>
-                <div className="topicbar__spacer" />
-                <div className="topicbar__actions">
-                  {workbenchChromeHidden && (
-                    <Tooltip
-                      label={
-                        workspacePanelRenderable ? t('rightDock.collapse') : t('rightDock.expand')
-                      }
-                    >
-                      <button
-                        className={[
-                          'topicbar__chrome-btn',
-                          'topicbar__chrome-btn--workspace',
-                          workspacePanelRenderable ? 'topicbar__chrome-btn--active' : '',
-                          workspaceTogglePressed ? 'topicbar__chrome-btn--pressed' : '',
-                        ]
-                          .filter(Boolean)
-                          .join(' ')}
-                        type="button"
-                        onClick={toggleWorkspacePanel}
-                        aria-label={
-                          workspacePanelRenderable ? t('rightDock.collapse') : t('rightDock.expand')
-                        }
-                        aria-pressed={workspacePanelRenderable}
-                      >
-                        <PanelRight size={15} />
-                      </button>
-                    </Tooltip>
-                  )}
-                  {!sidebarImDetailConnection && (
-                    <>
-                      <Tooltip label={t('topicBar.copyAll')}>
-                        <CopyButton
-                          getText={getSessionMarkdown}
-                          label={t('topicBar.copyAll')}
-                          className="topicbar__action-btn topicbar__action-btn--icon topicbar__action-btn--utility"
-                          showInlineLabel={false}
-                        />
-                      </Tooltip>
-                      <div
-                        className={`topicbar__export${topicExportOpen ? ' topicbar__export--open' : ''}`}
-                      >
-                        <Tooltip label={t('topicBar.export')}>
-                          <button
-                            className="topicbar__action-btn topicbar__action-btn--icon topicbar__action-btn--utility"
-                            type="button"
-                            disabled={!sessionHasContent}
-                            aria-label={t('topicBar.export')}
-                            aria-haspopup="menu"
-                            aria-expanded={topicExportOpen}
-                            onClick={() => setTopicExportOpen((open) => !open)}
-                          >
-                            <Download size={14} />
-                          </button>
-                        </Tooltip>
-                        {topicExportOpen && (
-                          <div className="topicbar__export-menu" role="menu">
-                            <button
-                              type="button"
-                              role="menuitem"
-                              onClick={() => void exportSession('markdown')}
-                            >
-                              <FileText size={13} />
-                              <span>{t('topicBar.exportMarkdown')}</span>
-                            </button>
-                            <button
-                              type="button"
-                              role="menuitem"
-                              onClick={() => void exportSession('json')}
-                            >
-                              <FileJson size={13} />
-                              <span>{t('topicBar.exportJson')}</span>
-                            </button>
-                            <button
-                              type="button"
-                              role="menuitem"
-                              onClick={() => void exportSession('pdf')}
-                            >
-                              <FileDown size={13} />
-                              <span>{t('topicBar.exportPdf')}</span>
-                            </button>
-                            <button
-                              type="button"
-                              role="menuitem"
-                              onClick={() => void exportSession('image')}
-                            >
-                              <FileImage size={13} />
-                              <span>{t('topicBar.exportImage')}</span>
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </>
-                  )}
-                  <Tooltip label={t('workspace.changedTab')}>
-                    <button
-                      className="topicbar__action-btn topicbar__action-btn--label"
-                      type="button"
-                      aria-label={t('workspace.changedTab')}
-                      aria-pressed={workspacePanelRenderable && rightDockMode === 'changed'}
-                      onClick={() => openRightDockMode('changed')}
-                    >
-                      <GitBranch size={14} />
-                      <span>{t('workspace.changedTab')}</span>
-                    </button>
-                  </Tooltip>
-                  <Tooltip label={t('shortcuts.cheatsheetTitle')}>
-                    <button
-                      className="topicbar__action-btn topicbar__action-btn--icon topicbar__action-btn--utility"
-                      type="button"
-                      aria-label={t('shortcuts.cheatsheetTitle')}
-                      onClick={() => {
-                        closeTransientOverlays();
-                        setSettingsFocus(null);
-                        setSettingsTarget('shortcuts');
-                      }}
-                    >
-                      <CircleHelp size={14} />
-                    </button>
-                  </Tooltip>
-                  <Tooltip label={t('topicBar.command')}>
-                    <button
-                      className="topicbar__action-btn topicbar__action-btn--label topicbar__action-btn--accent"
-                      type="button"
-                      aria-label={t('topicBar.command')}
-                      onClick={() => void openPalette()}
-                    >
-                      <Command size={14} />
-                      <span>{t('topicBar.command')}</span>
-                    </button>
-                  </Tooltip>
-                </div>
-              </header>
-
-              {state.meta?.startupErr && (
-                <div className="banner banner--error">
-                  {t('topbar.startupError', { msg: state.meta.startupErr })}
-                </div>
-              )}
-
-              <UpdateBanner enabled={startupUpdateChecksEnabled === true} />
-
-              <main className="main">
-                {sidebarImDetailConnection ? (
-                  <SidebarImConnectionDetail
-                    connection={sidebarImDetailConnection}
-                    onClose={() => setSidebarImDetailConnectionId('')}
-                    onOpenSettings={openBotSettings}
-                    onManageAllowlist={() =>
-                      openBotAllowlistSettings(sidebarImDetailConnection.connectionId)
-                    }
-                    onOpenSession={() =>
-                      void openSidebarImConnectionSession(sidebarImDetailConnection)
-                    }
-                  />
-                ) : state.meta?.ready === false && !state.meta?.startupErr ? (
-                  <div className="loading-screen">
-                    <div className="loading-screen__spinner" />
-                    <span className="loading-screen__text">{t('common.loading')}</span>
-                  </div>
-                ) : (
-                  <Transcript
-                    items={displayItems}
-                    live={state.live}
-                    footerHeight={footerHeight}
-                    onPrompt={commitThenSend}
-                    onEditPrompt={handleEditPrompt}
-                    onRewind={handleMessageAction}
-                    checkpoints={state.checkpoints}
-                    actionPending={state.messageAction != null}
-                    rewindDisabled={
-                      Boolean(activeTab?.readOnly) ||
-                      rewindState != null ||
-                      state.running ||
-                      state.messageAction != null ||
-                      state.approval != null ||
-                      state.ask != null ||
-                      clearContextPending
-                    }
-                    running={state.running}
-                    rewindSignal={rewindSignal}
-                  />
-                )}
-              </main>
-
-              {!sidebarImDetailConnection && (
-                <footer className="footer" ref={footerRef}>
-                  {showTodos && (
-                    <TodoPanel todos={todos} onDismiss={() => setDismissedTodo(todoKey)} />
-                  )}
-                  {rewindState && (
-                    <UndoRewindBanner
-                      meta={{
-                        turns: rewindState.turnDiff,
-                        filesRestored: [], // optimistic: files haven't changed yet
-                        filesRemoved: [],
-                        onUndo: () => {
-                          setRewindState(null);
-                          setComposerInsertRequest({ id: Date.now(), text: '', mode: 'replace' });
-                        },
-                      }}
-                    />
-                  )}
-                  {state.approval && (
-                    <ApprovalModal
-                      key={state.approval.id}
-                      approval={state.approval}
-                      onAnswer={async (allow, session, persist) => {
-                        // Approving an exit_plan_mode plan leaves plan mode; await the
-                        // mode switch before sending the approval so the controller
-                        // observes the updated state before it unblocks.
-                        if (state.approval!.tool === 'exit_plan_mode' && allow)
-                          await applyCollaborationMode('normal');
-                        approve(state.approval!.id, allow, session, persist);
-                      }}
-                      onRevisePlan={(text) => {
-                        setPendingPlanRevision(text);
-                        approve(state.approval!.id, false, false, false);
-                      }}
-                      onExitPlan={async () => {
-                        await applyCollaborationMode('normal');
-                        approve(state.approval!.id, false, false, false);
-                      }}
-                      onStop={() => {
-                        cancel();
-                      }}
-                    />
-                  )}
-                  {state.ask && (
-                    <AskCard
-                      ask={state.ask}
-                      onAnswer={answerQuestion}
-                      onDismiss={() => answerQuestion(state.ask!.id, [])}
-                      onStop={() => {
-                        cancel();
-                      }}
-                    />
-                  )}
-                  {clearContextPending && (
-                    <ClearContextCard
-                      onCancel={cancelClearContext}
-                      onConfirm={() => {
-                        void confirmClearContext();
-                      }}
-                    />
-                  )}
-                  <Composer
-                    running={state.running}
-                    collaborationMode={collaborationMode}
-                    toolApprovalMode={toolApprovalMode}
-                    tokenMode={tokenMode}
-                    goal={goal}
-                    cwd={state.meta?.cwd}
-                    modelLabel={state.meta?.label ?? t('status.connecting')}
-                    tabId={activeTabId}
-                    effort={state.effort}
-                    onSend={handleSend}
-                    onCancel={cancel}
-                    onCycleMode={cycleMode}
-                    onSetMode={applyMode}
-                    onSetCollaborationMode={applyCollaborationMode}
-                    onSetToolApprovalMode={applyToolApprovalMode}
-                    onToggleYoloApprovalMode={toggleYoloApprovalMode}
-                    onClearGoal={() => applyGoal('')}
-                    onSwitchModel={switchModel}
-                    onSetEffort={setEffort}
-                    onSetTokenMode={applyTokenMode}
-                    insertRequest={composerInsertRequest}
-                    disabled={
-                      state.meta?.ready === false ||
-                      state.messageAction != null ||
-                      state.approval != null ||
-                      state.ask != null ||
-                      clearContextPending
-                    }
-                    decisionPending={
-                      state.messageAction != null ||
-                      state.approval != null ||
-                      state.ask != null ||
-                      clearContextPending
-                    }
-                    ready={state.meta?.ready === true}
-                    turnStartAt={state.turnStartAt}
-                    turnTokens={state.turnTokens}
-                    retry={state.retry}
-                    transientDismissSignal={transientOverlayDismissSignal}
-                  />
-                  <StatusBar
-                    context={state.context}
-                    usage={state.usage}
-                    balance={state.balance}
-                    jobs={state.jobs}
-                    running={state.running}
-                    collaborationMode={collaborationMode}
-                    toolApprovalMode={toolApprovalMode}
-                    sessionTurns={sessionTurns}
-                    sessionTokens={state.sessionTokens}
-                    turnTokens={state.turnTotalTokens}
-                    turnCost={state.turnCost}
-                    cost={state.sessionCost}
-                    currency={state.sessionCurrency}
-                    modelLabel={state.meta?.label}
-                    labelStyle={statusBarStyle}
-                    items={statusBarItems}
-                    workspacePath={
-                      state.meta?.workspacePath || state.meta?.workspaceRoot || state.meta?.cwd
-                    }
-                    workspaceName={state.meta?.workspaceName}
-                    gitBranch={state.meta?.gitBranch}
-                  />
-                </footer>
-              )}
-            </>
-          </section>
-
-          {workspacePanelGridOpen && (
-            <button
-              className="workspace-panel-resizer"
-              type="button"
-              role="separator"
-              aria-orientation="vertical"
-              aria-label={t('rightDock.resize')}
-              aria-valuemin={workspacePanelResizeMinWidth}
-              aria-valuemax={Math.max(workspacePanelMaxWidth, workspacePanelRenderWidth)}
-              aria-valuenow={workspacePanelRenderWidth}
-              onPointerDown={startWorkspacePanelResize}
-              onKeyDown={resizeWorkspacePanelWithKeyboard}
-              onDoubleClick={() => setSavedWorkspacePanelWidth(workspacePanelResetWidth)}
-            />
-          )}
-
-          {workspacePanelRenderable && (
-            <aside
-              className={['workbench-dock', `workbench-dock--${rightDockMode}`].join(' ')}
-              aria-label={t('rightDock.workbench')}
-            >
-              <div className="workbench-dock__tools">
-                <div
-                  className="workbench-dock__tabs"
-                  role="tablist"
-                  aria-label={t('rightDock.views')}
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={rightDockMode === "files"}
+                  className={`workbench-dock__tab${rightDockMode === "files" ? " workbench-dock__tab--active" : ""}`}
+                  onClick={() => openRightDockMode("files")}
                 >
-                  {SHOW_CONTEXT_DOCK && (
-                    <button
-                      type="button"
-                      role="tab"
-                      aria-selected={rightDockMode === 'context'}
-                      className={`workbench-dock__tab${rightDockMode === 'context' ? ' workbench-dock__tab--active' : ''}`}
-                      onClick={() => openRightDockMode('context')}
-                    >
-                      <Activity size={13} />
-                      <span className="workbench-dock__tab-label">{t('rightDock.overview')}</span>
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={rightDockMode === 'files'}
-                    className={`workbench-dock__tab${rightDockMode === 'files' ? ' workbench-dock__tab--active' : ''}`}
-                    onClick={() => openRightDockMode('files')}
-                  >
-                    <FileText size={13} />
-                    <span className="workbench-dock__tab-label">{t('workspace.filesTab')}</span>
-                  </button>
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={rightDockMode === 'changed'}
-                    className={`workbench-dock__tab${rightDockMode === 'changed' ? ' workbench-dock__tab--active' : ''}`}
-                    onClick={() => openRightDockMode('changed')}
-                  >
-                    <GitBranch size={13} />
-                    <span className="workbench-dock__tab-label">{t('workspace.changedTab')}</span>
-                  </button>
-                </div>
+                  <FileText size={13} />
+                  <span className="workbench-dock__tab-label">{t("workspace.filesTab")}</span>
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={rightDockMode === "changed"}
+                  className={`workbench-dock__tab${rightDockMode === "changed" ? " workbench-dock__tab--active" : ""}`}
+                  onClick={() => openRightDockMode("changed")}
+                >
+                  <GitBranch size={13} />
+                  <span className="workbench-dock__tab-label">{t("workspace.changedTab")}</span>
+                </button>
               </div>
-              <div className="workbench-dock__body">
-                {rightDockMode === 'context' ? (
-                  <ContextPanel
-                    tabId={activeTabId}
-                    context={state.context}
-                    usage={state.usage}
-                    sessionTokens={state.sessionTokens}
-                    sessionCost={state.sessionCost}
-                    sessionCurrency={state.sessionCurrency}
-                    sessionGen={state.sessionGen}
-                    refreshKey={dockRefreshKey}
-                  />
-                ) : (
-                  <WorkspacePanel
-                    open={workspacePanelRenderable}
-                    tabId={activeTabId}
-                    cwd={state.meta?.cwd}
-                    maximized={workspacePanelMaximized}
-                    panelWidth={workspacePanelRenderWidth}
-                    onClose={() => setWorkspacePanel(false)}
-                    onToggleMaximized={() => {
-                      closeTransientOverlays();
-                      setWorkspacePanelMaximized((value) => !value);
-                    }}
-                    onPreviewModeChange={handleWorkspacePreviewModeChange}
-                    onAddToChat={addWorkspaceTextToComposer}
-                    onRequestPanelWidth={ensureWorkspacePanelWidth}
-                    refreshKey={dockRefreshKey}
-                    initialViewMode={rightDockMode === 'changed' ? 'changed' : 'files'}
-                    showViewTabs={false}
-                  />
-                )}
-              </div>
-            </aside>
-          )}
-        </div>
-
-        {histView !== null && (
-          <Suspense fallback={null}>
-            <HistoryPanel
-              kind={histView.kind}
-              sessions={histView.sessions}
-              running={state.running}
-              onResume={onResumeSession}
-              onPreview={previewSession}
-              onDelete={onDeleteSession}
-              onRename={onRenameSession}
-              onRestore={onRestoreTrashedSession}
-              onPurge={onPurgeTrashedSession}
-              onPurgeAll={onPurgeAllTrashedSessions}
-              onClose={closeHistory}
-            />
-          </Suspense>
+            </div>
+            <div className="workbench-dock__body">
+              {rightDockMode === "context" ? (
+                <ContextPanel
+                  tabId={activeTabId}
+                  context={state.context}
+                  usage={state.usage}
+                  sessionTokens={state.sessionTokens}
+                  sessionCost={state.sessionCost}
+                  sessionCurrency={state.sessionCurrency}
+                  sessionTurns={sessionTurns}
+                  turnTokens={state.turnTotalTokens}
+                  turnCost={state.turnCost}
+                  balance={state.balance}
+                  sessionGen={state.sessionGen}
+                  refreshKey={dockRefreshKey}
+                />
+              ) : (
+                <WorkspacePanel
+                  open={workspacePanelRenderable}
+                  tabId={activeTabId}
+                  cwd={state.meta?.cwd}
+                  maximized={workspacePanelMaximized}
+                  panelWidth={workspacePanelRenderWidth}
+                  onClose={() => setWorkspacePanel(false)}
+                  onToggleMaximized={() => {
+                    closeTransientOverlays();
+                    setWorkspacePanelMaximized((value) => !value);
+                  }}
+                  onPreviewModeChange={handleWorkspacePreviewModeChange}
+                  onAddToChat={addWorkspaceTextToComposer}
+                  onRequestPanelWidth={ensureWorkspacePanelWidth}
+                  refreshKey={dockRefreshKey}
+                  initialViewMode={rightDockMode === "changed" ? "changed" : "files"}
+                  showViewTabs={false}
+                />
+              )}
+            </div>
+          </aside>
         )}
-
-        {settingsTarget !== null && (
-          <Suspense fallback={null}>
-            <SettingsPanel
-              initialTab={settingsTarget}
-              initialFocus={settingsFocus ?? undefined}
-              agentRunning={state.running}
-              onClose={() => {
-                setSettingsFocus(null);
-                setSettingsTarget(null);
-              }}
-              onChanged={(settings) => {
-                void refreshMeta();
-                if (settings) {
-                  applyDesktopPreferences(settings);
-                  void refreshSidebarImConnectionsFromSettings(settings).catch((e) =>
-                    console.warn('bot sidebar refresh failed', e),
-                  );
-                  return;
-                }
-                void reloadSidebarImConnections().catch((e) =>
-                  console.warn('bot sidebar refresh failed', e),
-                );
-                void app
-                  .DesktopStartupSettings()
-                  .then(applyDesktopPreferences)
-                  .catch((e) => console.warn('desktop preferences refresh failed', e));
-              }}
-            />
-          </Suspense>
-        )}
-
-        <CommandPalette
-          open={paletteOpen}
-          onClose={() => setPaletteOpen(false)}
-          items={paletteItems}
-          placeholder={t('palette.placeholder')}
-          emptyText={t('palette.empty')}
-        />
-
-        <ShortcutsCheatsheet
-          open={shortcutsOpen}
-          platform={desktopPlatform}
-          onClose={() => setShortcutsOpen(false)}
-          t={t}
-        />
-
-        {startupSplashVisible && (
-          <StartupSplash hold={startupSplashHold} onDone={() => setStartupSplashVisible(false)} />
-        )}
-
-        {needsOnboarding && <OnboardingOverlay onComplete={() => setNeedsOnboarding(false)} />}
-
-        <HeartbeatPanel
-          open={heartbeatOpen}
-          onClose={() => setHeartbeatOpen(false)}
-          onOpenTopic={(scope, workspaceRoot, topicId) => {
-            if (scope === 'project' && workspaceRoot) {
-              openProjectTab(workspaceRoot, topicId);
-            } else {
-              openGlobalTab(topicId);
-            }
-          }}
-        />
       </div>
+
+      {histView !== null && (
+        <Suspense fallback={null}>
+          <HistoryPanel
+            kind={histView.kind}
+            sessions={histView.sessions}
+            running={state.running}
+            onResume={onResumeSession}
+            onPreview={previewSession}
+            onDelete={onDeleteSession}
+            onRename={onRenameSession}
+            onRestore={onRestoreTrashedSession}
+            onPurge={onPurgeTrashedSession}
+            onPurgeAll={onPurgeAllTrashedSessions}
+            onClose={closeHistory}
+          />
+        </Suspense>
+      )}
+
+      {settingsTarget !== null && (
+        <Suspense fallback={null}>
+          <SettingsPanel
+            initialTab={settingsTarget}
+            initialFocus={settingsFocus ?? undefined}
+            agentRunning={state.running}
+            onClose={() => {
+              setSettingsFocus(null);
+              setSettingsTarget(null);
+            }}
+            onChanged={(settings) => {
+              void refreshMeta();
+              if (settings) {
+                applyDesktopPreferences(settings);
+                void refreshSidebarImConnectionsFromSettings(settings).catch((e) => console.warn("bot sidebar refresh failed", e));
+                return;
+              }
+              void reloadSidebarImConnections().catch((e) => console.warn("bot sidebar refresh failed", e));
+              void app.DesktopStartupSettings()
+                .then(applyDesktopPreferences)
+                .catch((e) => console.warn("desktop preferences refresh failed", e));
+            }}
+          />
+        </Suspense>
+      )}
+
+      <CommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        items={paletteItems}
+        placeholder={t("palette.placeholder")}
+        emptyText={t("palette.empty")}
+      />
+
+      <ShortcutsCheatsheet
+        open={shortcutsOpen}
+        platform={desktopPlatform}
+        onClose={() => setShortcutsOpen(false)}
+        t={t}
+      />
+
+      {startupSplashVisible && (
+        <StartupSplash hold={startupSplashHold} onDone={() => setStartupSplashVisible(false)} />
+      )}
+
+      {needsOnboarding && <OnboardingOverlay onComplete={() => setNeedsOnboarding(false)} />}
+
+      <HeartbeatPanel open={heartbeatOpen} onClose={() => setHeartbeatOpen(false)} onOpenTopic={(scope, workspaceRoot, topicId) => {
+        if (scope === "project" && workspaceRoot) {
+          openProjectTab(workspaceRoot, topicId);
+        } else {
+          openGlobalTab(topicId);
+        }
+      }} />
+    </div>
     </ShellExpandProvider>
   );
 }
