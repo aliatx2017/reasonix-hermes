@@ -1493,6 +1493,11 @@ calls `Observe()` automatically after each turn (wired via `agent.Run()` →
 `/learn patterns` / `/learn trajectories` in the CLI. The desktop
 `LearnedPatternsPanel` surfaces patterns in real time.
 
+Patterns and observations persist to a `<session>.learning` JSON sidecar file
+(saved automatically on each session snapshot, loaded on resume). This means
+`/learn patterns` shows historical patterns from prior sessions, not just the
+current one.
+
 ### 16.17 Token Compressor
 
 `internal/compress/` reduces tool output token consumption via SHA-256 content
@@ -1544,7 +1549,7 @@ reasonix marketplace list      # browse registry
 reasonix marketplace sync      # sync from LobeHub
 ```
 
-See `docs/MARKETPLACE.md`.
+See `docs/MARKETPLACE.md`. For the complete inventory of all 125+ skills (project, community, and global), see `docs/SKILLS-CATALOG.md`.
 
 ### 16.17 How-To: Force English Only
 
@@ -1600,8 +1605,12 @@ grep api_call /tmp/agent.log | jq '.latency_ms'
 | `boot.mcp` | eager/lazy/bg server counts, total tools |
 | `boot.config` | max_steps, temperature |
 | `boot.learner` | learning enabled status |
-| `api_call` | model, tokens in/out/total, cache_hit, latency_ms |
-| `tool_exec` | tool name, duration_ms, result_bytes |
+| `api_call` | model, tokens in/out/total, cache_hit, cache_miss, latency_ms, cost (when pricing configured), err (on failure) |
+| `tool_exec` | tool name, duration_ms, result_bytes, success (bool), err (on failure), truncated (when true) |
+| `agent.turn` | turn number, steps (tool-call rounds this turn) |
+| `agent.compact` | ratio (session size / window), messages before, kept after |
+
+Full spec in `internal/agentlog/agentlog.go` package doc — that's the contract.
 
 No additional dependencies — uses Go's stdlib `log/slog`.
 

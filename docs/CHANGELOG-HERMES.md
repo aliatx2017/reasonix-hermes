@@ -182,6 +182,15 @@ Key milestones in the Hermes fork since June 2026.
 - Crash capture (Go panics/breadcrumbs/group summaries)
 - Local history + memory retrieval, Traditional Chinese (zh-TW) locale
 
+### Session 2026-06-18 (h33) — learner Success gap fix, sidecar persistence, live e2e
+- **ToolCallInfo.Success populated**: `executeBatch` now returns outcomes alongside results — learner knows which tools failed (`write_file✗` vs `bash✓`).
+- **Learner sidecar persistence**: Patterns + observations saved to `<session>.learning` JSON sidecar via `snapshot()`. Auto-loads on session resume. 4 new tests.
+- **Live learner e2e**: `cmd/learner-live-test/` — 5 real DeepSeek turns detected `workflow-bash (confidence=4)`. Full `agent.Run()→learner.Observe()→detectPatterns()` chain proven.
+- **7 new tests**: 3 agent integration (observe chain, failure tracking, disabled no-op) + 4 learn persistence (save/load round-trip, missing file, turn counter resume).
+- **Agentlog spec + gap fixes**: `tool_exec` now logs `success` (bool), `api_call` logs `cost` (float) and `err` on failure, new `agent.turn` (turn+steps) and `agent.compact` (ratio+messages+kept) events. Full event contract in `internal/agentlog/agentlog.go` package doc.
+- **Skills adoption**: 5 skills from mattpocock/skills (diagnosing-bugs, writing-great-skills, domain-modeling, codebase-design, prototype) + SKILLS-CATALOG.md documenting all 125+ skills.
+- **Files**: 11 changed, 9 new (skills, tests, catalog, agentlog spec).
+
 ## Expansion Packs (June–July 2026)
 | Feature | Package | Tests |
 |---------|---------|-------|

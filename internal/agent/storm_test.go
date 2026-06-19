@@ -61,7 +61,8 @@ func TestStormBreakerEscalatesRepeatedFailure(t *testing.T) {
 	var last string
 	for i := 0; i < stormBreakThreshold; i++ {
 		call := provider.ToolCall{Name: "write_file", Arguments: args[i]}
-		last = a.executeBatch(context.Background(), []provider.ToolCall{call})[0]
+		res, _ := a.executeBatch(context.Background(), []provider.ToolCall{call})
+		last = res[0]
 	}
 
 	if !strings.Contains(last, "[loop guard]") {
@@ -94,7 +95,8 @@ func TestStormBreakerEscalatesRepeatedBatch(t *testing.T) {
 	}
 	var first string
 	for i := 0; i < stormBreakThreshold; i++ {
-		first = a.executeBatch(context.Background(), batch)[0]
+		res, _ := a.executeBatch(context.Background(), batch)
+		first = res[0]
 	}
 
 	if !strings.Contains(first, "[loop guard]") {
@@ -124,7 +126,8 @@ func TestStormBreakerBatchResetsOnPartialSuccess(t *testing.T) {
 	}
 	var first string
 	for i := 0; i < stormBreakThreshold+2; i++ {
-		first = a.executeBatch(context.Background(), batch)[0]
+		res, _ := a.executeBatch(context.Background(), batch)
+		first = res[0]
 	}
 
 	if strings.Contains(first, "[loop guard]") {
@@ -146,7 +149,8 @@ func TestStormBreakerSilentBelowThreshold(t *testing.T) {
 	call := provider.ToolCall{Name: "write_file", Arguments: `{"content":"x`}
 	var last string
 	for i := 0; i < stormBreakThreshold-1; i++ {
-		last = a.executeBatch(context.Background(), []provider.ToolCall{call})[0]
+		res, _ := a.executeBatch(context.Background(), []provider.ToolCall{call})
+		last = res[0]
 	}
 
 	if strings.Contains(last, "[loop guard]") {
@@ -170,11 +174,12 @@ func TestStormBreakerResetsOnSuccess(t *testing.T) {
 	good := provider.ToolCall{Name: "read_file", Arguments: `{"path":"x"}`}
 	ctx := context.Background()
 
-	a.executeBatch(ctx, []provider.ToolCall{fail})            // count 1
-	a.executeBatch(ctx, []provider.ToolCall{fail})            // count 2
-	a.executeBatch(ctx, []provider.ToolCall{good})            // success → reset
-	a.executeBatch(ctx, []provider.ToolCall{fail})            // count 1
-	last := a.executeBatch(ctx, []provider.ToolCall{fail})[0] // count 2 — still below threshold
+	_, _ = a.executeBatch(ctx, []provider.ToolCall{fail})               // count 1
+	_, _ = a.executeBatch(ctx, []provider.ToolCall{fail})               // count 2
+	_, _ = a.executeBatch(ctx, []provider.ToolCall{good})               // success → reset
+	_, _ = a.executeBatch(ctx, []provider.ToolCall{fail})               // count 1
+	res, _ := a.executeBatch(ctx, []provider.ToolCall{fail})
+	last := res[0] // count 2 — still below threshold
 
 	if strings.Contains(last, "[loop guard]") {
 		t.Fatalf("guard should have reset after a successful turn, got: %q", last)

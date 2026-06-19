@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
@@ -264,6 +265,17 @@ func (a *Agent) compact(ctx context.Context, trigger, instructions string, force
 	compacted = append(compacted, msgs[start:]...)
 	a.session.Replace(compacted)
 	a.session.IncrementRewrite()
+
+	// Log compaction for operational visibility.
+	ratio := float64(len(msgs)) / float64(a.contextWindow)
+	if a.contextWindow <= 0 {
+		ratio = 0
+	}
+	slog.Info("agent.compact",
+		"ratio", ratio,
+		"messages", len(msgs),
+		"kept", len(compacted),
+	)
 
 	a.sink.Emit(event.Event{Kind: event.CompactionDone, Compaction: event.Compaction{
 		Trigger: trigger, Messages: len(fold), Summary: summary, Archive: archived,

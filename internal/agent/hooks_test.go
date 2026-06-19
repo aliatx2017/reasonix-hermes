@@ -61,12 +61,12 @@ func TestSubagentStopFiresForForegroundTask(t *testing.T) {
 	h := &stubHooks{}
 	a := New(nil, reg, NewSession(""), Options{Hooks: h}, event.Discard)
 
-	a.executeBatch(context.Background(), []provider.ToolCall{{Name: "task", Arguments: `{"prompt":"x"}`}})
+	_, _ = a.executeBatch(context.Background(), []provider.ToolCall{{Name: "task", Arguments: `{"prompt":"x"}`}})
 	if len(h.subagentSeen) != 1 || h.subagentSeen[0] != "ok" {
 		t.Fatalf("foreground task should fire SubagentStop with the answer, saw %v", h.subagentSeen)
 	}
 
-	a.executeBatch(context.Background(), []provider.ToolCall{{Name: "task", Arguments: `{"run_in_background":true}`}})
+	_, _ = a.executeBatch(context.Background(), []provider.ToolCall{{Name: "task", Arguments: `{"run_in_background":true}`}})
 	if len(h.subagentSeen) != 1 {
 		t.Errorf("backgrounded task must not fire SubagentStop, saw %v", h.subagentSeen)
 	}

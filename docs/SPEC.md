@@ -39,7 +39,8 @@ reasonix/
 │   ├── reasonix-memoryserver/    # [Hermes] Hindsight memory MCP server (SQLite + vector)
 │   ├── reasonix-hooks/           # [Hermes] native Go hook runner
 │   ├── reasonix-pr-review/       # [Hermes] PR review CLI for GitHub Actions
-│   └── e2ebench/                 # [Hermes] e2e benchmarking tool
+│   ├── e2ebench/                 # [Hermes] e2e benchmarking tool
+│   └── learner-live-test/        # [Hermes] learner live e2e test binary
 └── internal/
     ├── acp/                # Agent Client Protocol — stdio JSON-RPC 2.0 adapter for editors
     ├── agent/              # Core agent loop: wires Provider + Tool Registry + Session

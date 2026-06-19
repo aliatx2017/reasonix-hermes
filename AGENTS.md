@@ -108,6 +108,7 @@ skills-hub/            17-skill community registry + static catalog site
 | `internal/bot/line/` | LINE bot adapter | Webhook-based LINE integration via line-bot-sdk-go/v8 |
 | `internal/bot/slack/` | Slack bot adapter | Socket Mode Slack integration via slack-go/slack |
 | `cmd/reasonix-hooks/` | Native Go hook runner | Zero-dependency binary for PreToolUse/Stop hooks |
+| `cmd/learner-live-test/` | Learner live e2e binary | 5-turn real-LLM learner validation with tool-call tracing |
 | `skills-hub/` | 17 community skills + catalog site | Curated skill registry with frontmatter playbooks |
 | `internal/learn/` | Self-improving skill loops | Observes agent patterns, detects repeated sequences, generates skills |
 | `internal/mesh/` | Agent-to-agent MCP mesh | Peer delegation, broadcast, council + judge (structured Fusion Router-inspired analysis) |

@@ -3,11 +3,67 @@
 // (when AGENT_LOG is set or the default agent.log path is writable). If no file is
 // available, output is discarded — it never writes to stderr/stdout to avoid TUI bleed.
 //
-// Log categories:
+// # Event contract
 //
-//	agent.api_call          — per-API-call telemetry (model, tokens, latency)
-//	agent.tool_exec         — tool execution (name, duration, result size)
-//	boot                    — startup sequence (model, MCP, config, learner)
+// Every event below MUST be logged exactly as specified. If code changes and a
+// field is no longer populated, update the spec first — don't silently drop it.
+//
+//	agent.api_call      — every provider API round-trip (success or failure)
+//	    model:       string   provider name
+//	    in:          int      prompt tokens
+//	    out:         int      completion tokens
+//	    total:       int      total tokens
+//	    cache_hit:   int      cache hit tokens (0 if provider doesn't report)
+//	    cache_miss:  int      cache miss tokens
+//	    latency_ms:  int64    wall-clock milliseconds (stream start to end)
+//	    err:         string   (only on failure) provider error message
+//	    cost:        float64  (only when pricing is configured) estimated USD cost
+//
+//	agent.tool_exec     — every tool execution (never skipped, even on error)
+//	    tool:        string   tool name
+//	    duration_ms: int64    wall-clock milliseconds
+//	    result_bytes:int      output byte count
+//	    success:     bool     false when errMsg is non-empty
+//	    err:         string   (only on failure) short error reason
+//	    truncated:   bool     (only when true) output was truncated
+//
+//	agent.compact       — session compaction (long-running sessions)
+//	    ratio:       float64  current session size / context window
+//	    messages:    int      messages before compaction
+//	    kept:        int      messages kept after compaction
+//
+//	agent.turn          — turn boundary (one per user message)
+//	    turn:        int      turn number for this session
+//	    steps:       int      tool-call rounds this turn
+//
+//	boot.model           — model resolution
+//	    ref:         string   configured model reference
+//	    provider:    string   resolved provider kind
+//
+//	boot.mcp             — MCP server startup
+//	    eager:       int      eager-start servers
+//	    lazy:        int      lazy-start servers
+//	    background:  int      background servers
+//	    tools:       int      total tools registered
+//
+//	boot.config          — agent configuration
+//	    max_steps:   int      configured max steps (0 = unbounded)
+//	    temperature: float64  sampling temperature
+//
+//	boot.learner         — learner status
+//	    enabled:     bool     whether learning is active
+//
+// # Field naming
+//
+// Use snake_case. Duration fields: latency_ms for API calls (network round-trip),
+// duration_ms for tool execution (local work). All sizes in bytes. All times in
+// milliseconds (int64).
+//
+// # Anti-patterns
+//
+// Never log to stderr or stdout — that bleeds JSON into the CLI TUI. Never skip
+// a tool_exec or api_call — these are the primary telemetry for debugging agent
+// behavior at 2am.
 package agentlog
 
 import (

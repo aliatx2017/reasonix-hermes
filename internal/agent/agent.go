@@ -868,6 +868,10 @@ func (a *Agent) Run(ctx context.Context, input string) error {
 	a.repeatSuccessCounts = nil
 	a.sink.Emit(event.Event{Kind: event.TurnStarted})
 	a.sessTurns.Add(1)
+	stepsTaken := 0
+	defer func() {
+		slog.Info("agent.turn", "turn", a.sessTurns.Load(), "steps", stepsTaken)
+	}()
 	input = a.withReasoningLanguage(input)
 	a.session.Add(provider.Message{Role: provider.RoleUser, Content: input, Images: userImages(ctx)})
 
@@ -878,6 +882,7 @@ func (a *Agent) Run(ctx context.Context, input string) error {
 	streamRecoveries := 0
 	executorHandoff := a.executorHandoffGuard && strings.Contains(input, executorHandoffMarker)
 	for step := 0; a.maxSteps <= 0 || step < a.maxSteps; step++ {
+		stepsTaken = step + 1
 		a.compress.SetTurn(step + 1)
 		// Consume a queued steer and persist it to the session so it
 		// survives tab switches and history replay. The model sees it as
@@ -991,10 +996,11 @@ func (a *Agent) Run(ctx context.Context, input string) error {
 		emptyFinalBlocks = 0
 		usedAnyTool = true
 
-		results := a.executeBatch(ctx, calls)
-		for _, call := range calls {
+		results, outcomes := a.executeBatch(ctx, calls)
+		for i, call := range calls {
 			observedCalls = append(observedCalls, learn.ToolCallInfo{
-				Name: call.Name,
+				Name:    call.Name,
+				Success: outcomes[i].errMsg == "",
 			})
 		}
 		for i, call := range calls {
@@ -1452,8 +1458,10 @@ func (a *Agent) stream(ctx context.Context, turn int) (string, string, string, [
 		case provider.ChunkError:
 			if provider.IsStreamInterrupted(chunk.Err) {
 				stored, _ := finishReasoning()
+				slog.Warn("api_call", "model", a.prov.Name(), "err", chunk.Err.Error(), "latency_ms", time.Since(start).Milliseconds())
 				return text.String(), stored, signature, calls, usage, true, partialToolStarted, chunk.Err
 			}
+			slog.Error("api_call", "model", a.prov.Name(), "err", chunk.Err.Error(), "latency_ms", time.Since(start).Milliseconds())
 			return "", "", "", nil, nil, false, false, chunk.Err
 		}
 	}
@@ -1475,7 +1483,7 @@ func (a *Agent) stream(ctx context.Context, turn int) (string, string, string, [
 	}
 	// Log API call telemetry.
 	if usage != nil && usage.TotalTokens > 0 {
-		slog.Info("api_call",
+		args := []any{
 			"model", a.prov.Name(),
 			"in", usage.PromptTokens,
 			"out", usage.CompletionTokens,
@@ -1483,7 +1491,12 @@ func (a *Agent) stream(ctx context.Context, turn int) (string, string, string, [
 			"cache_hit", usage.CacheHitTokens,
 			"cache_miss", usage.CacheMissTokens,
 			"latency_ms", time.Since(start).Milliseconds(),
-		)
+		}
+		if a.pricing != nil {
+			cost := a.pricing.Cost(usage)
+			args = append(args, "cost", cost)
+		}
+		slog.Info("api_call", args...)
 	}
 	return text.String(), stored, signature, calls, usage, false, false, nil
 }
@@ -1513,7 +1526,7 @@ func (a *Agent) systemPrompt() string {
 // write/read ordering stays provider-ordered. ToolResult events are emitted
 // after the batch in call order, so emission stays serial even when execution
 // parallelised.
-func (a *Agent) executeBatch(ctx context.Context, calls []provider.ToolCall) []string {
+func (a *Agent) executeBatch(ctx context.Context, calls []provider.ToolCall) ([]string, []toolOutcome) {
 	for _, c := range calls {
 		t, ok := a.tools.Get(c.Name)
 		ev := event.Tool{ID: c.ID, Name: c.Name, Args: c.Arguments, ReadOnly: ok && t.ReadOnly()}
@@ -1559,6 +1572,7 @@ func (a *Agent) executeBatch(ctx context.Context, calls []provider.ToolCall) []s
 			"tool", c.Name,
 			"duration_ms", durations[i],
 			"result_bytes", len(o.output),
+			"success", o.errMsg == "",
 		}
 		if o.errMsg != "" {
 			args = append(args, "err", o.errMsg)
@@ -1583,7 +1597,7 @@ func (a *Agent) executeBatch(ctx context.Context, calls []provider.ToolCall) []s
 		}
 	}
 	a.applyStormBreaker(calls, outcomes, results)
-	return results
+	return results, outcomes
 }
 
 func (a *Agent) withPreviewFileDiffs(calls []provider.ToolCall) []provider.ToolCall {

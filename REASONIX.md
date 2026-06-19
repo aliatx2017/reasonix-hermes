@@ -40,6 +40,7 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 - **Commit**: session 2026-06-18 (h30) — doc-sweep: Helm tag v1.8.2→v1.9.1, cross-linked HOWTO-FORCE-ENGLISH + HOWTO-TOKEN-SAVING + TOKEN-SAVINGS-ANALYSIS from README + HERMES-GUIDE. CHANGELOG-HERMES.md enriched with h29+h30. AGENTS.md sync count updated. All 9 verify checks green.
 - **Commit**: session 2026-06-18 (h31) — learner Observe wired into agent loop, desktop LearnedPatterns() fixed, MaxObservations config, Discord dup Approved./Denied. removed, currency symbol ¥→$, live CNY→USD exchange rate (billing/exchange.go), agent operational logging (agentlog/), doc-sweep (package counts, SPEC §2, HERMES-GUIDE §16.9/16.16/16.23). 2 upstream merges (ebea82b + ba7a50b, 56 commits). 15 files changed, 3 new.
 - **Commit**: session 2026-06-18 (h32) — agentlog stderr bleed fix (removed os.Stderr, file/io.Discard only), currency symbol fix (Symbol() returns "$" when ExchangeRate > 0, config currency → "CNY"), agent log enrichment (cache_miss, err, truncated fields). 3 files changed.
+- **Commit**: session 2026-06-18 (h33) — ToolCallInfo.Success gap fixed (executeBatch returns outcomes), learner integration tests (3 new), learner sidecar persistence (.learning JSON → snapshots), live learner e2e binary (cmd/learner-live-test/), agentlog spec + gap fixes (tool_exec success, api_call cost/err, agent.turn, agent.compact), 5 skills adopted from mattpocock/skills, SKILLS-CATALOG.md (125+ skills), doc-sweep (SPEC.md + learner-live-test, AGENTS.md, CHANGELOG-HERMES, HERMES-GUIDE §16.16 + sidecar + §16.23 log spec). 20+ files changed, 11 new.
 - **Commit**: session 2026-06-18 (h29) — learn live-push wiring (HermesDashboardEvent + useHermesLiveData), Discord deny TOCTOU fix (hold lock through Approve). Upstream merged fb4c0c5 (5 commits, 2 conflicts resolved, 2 i18n keys added). 3 files changed, +21/-5.
 - **Commit**: session 2026-06-17 (h27) — upstream v1.9.x merged (ef1f38c, 6 commits, 1 conflict resolved). 7 audit fixes applied: path traversal guard in findSkillFile, hooks exit(1) on errors, memory server Recall write amplification removed, collab Start() bind-error propagation, compressor atomic turn + cache eviction, publish empty-role guard, mcputil MaxBytesReader, orchestrateTask total timeout. All 7 CLI binaries rebuilt. Build/vet/test/tsc all green.
 - **Commit**: session 2026-06-16 (h24-h25) — Research pipeline unified (`/research <topic>` 5-phase auto-chain), REASONIX.md cleanup (3 stale "Next to build" blocks removed, npm verified published v1.8.0), doc-sweep (36 docs verified, EVAL.md enriched 99→198 lines covering all 6 subcommands), 2 upstream merges (94c0fc6 + bc83374, 12 commits). Upstream fetch + merge + build/vet/test all green.
@@ -180,8 +181,8 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 - **Upstream**: Merged 5 commits (a029618). Desktop-v1.8.1 tag.
 ## Next session — ideas & follow-ups
 
-- **Desktop build**: rebuild desktop after TypeScript changes (binaries from CLI-only session)
-- **Learn data population**: `LearnedPatterns()` in `hermes_tier3.go` always returns nil/nil — wire learner through the controller so patterns/trajectories get real data
+- **Test agent log**: run `AGENT_LOG=/tmp/test.log reasonix chat`, do a few turns, verify `success`, `cost`, `agent.turn`, `agent.compact` fields in the JSON log. Grep with `jq`.
+- **Desktop bot live monitor**: Wire Discord/Telegram/LINE live status push via Wails events for real-time display
 - **Upstream sync**: Check for new commits on `upstream/main-v2`
 
 ### Session 2026-06-13 (expansion plan execution)

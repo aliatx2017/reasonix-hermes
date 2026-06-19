@@ -1,6 +1,7 @@
 package learn
 
 import (
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -311,5 +312,107 @@ func TestObserve_RapidSameTool(t *testing.T) {
 	}
 	if !found {
 		t.Skip("patterns detected but names are empty")
+	}
+}
+
+func TestSaveLoad_PersistsPatterns(t *testing.T) {
+	t.Parallel()
+	l := New(Config{Enabled: true, MinConfidence: 2})
+	tc := []ToolCallInfo{
+		{Name: "edit_file", Success: true},
+		{Name: "bash", Success: true, Brief: "go test"},
+	}
+	for i := 0; i < 3; i++ {
+		l.Observe("edit and test", tc, "", "")
+	}
+	// Force pattern detection
+	patsBefore := l.Patterns()
+	if len(patsBefore) == 0 {
+		t.Fatal("expected patterns before save")
+	}
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "test.learning")
+	if err := l.Save(path); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	// Create a fresh learner and load
+	l2 := New(Config{Enabled: true})
+	if err := l2.Load(path); err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	patsAfter := l2.Patterns()
+	if len(patsAfter) == 0 {
+		t.Error("expected patterns after load")
+	}
+	if patsAfter[0].Confidence != 3 {
+		t.Errorf("confidence = %d, want 3", patsAfter[0].Confidence)
+	}
+}
+
+func TestSaveLoad_PersistsObservations(t *testing.T) {
+	t.Parallel()
+	l := New(Config{Enabled: true, MaxObservations: 10})
+	l.Observe("task1", []ToolCallInfo{{Name: "bash", Success: true}}, "", "")
+	l.Observe("task2", []ToolCallInfo{{Name: "edit_file", Success: false}}, "", "")
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "test.learning")
+	if err := l.Save(path); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	l2 := New(Config{Enabled: true})
+	if err := l2.Load(path); err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	obs := l2.Observations()
+	if len(obs) != 2 {
+		t.Fatalf("expected 2 observations, got %d", len(obs))
+	}
+	if obs[0].Turn != 1 || obs[0].Task != "task1" {
+		t.Errorf("obs[0] = turn %d, task %q", obs[0].Turn, obs[0].Task)
+	}
+	if obs[1].Turn != 2 || obs[1].Task != "task2" {
+		t.Errorf("obs[1] = turn %d, task %q", obs[1].Turn, obs[1].Task)
+	}
+}
+
+func TestLoad_MissingFile(t *testing.T) {
+	t.Parallel()
+	l := New(Config{Enabled: true})
+	if err := l.Load("/nonexistent/path.learning"); err != nil {
+		t.Errorf("Load should not error on missing file: %v", err)
+	}
+	if len(l.Observations()) != 0 {
+		t.Error("missing file should leave observations empty")
+	}
+}
+
+func TestSaveLoad_ResumesTurnCounter(t *testing.T) {
+	t.Parallel()
+	l := New(Config{Enabled: true})
+	l.Observe("task1", nil, "", "")
+	l.Observe("task2", nil, "", "")
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "test.learning")
+	if err := l.Save(path); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	l2 := New(Config{Enabled: true})
+	if err := l2.Load(path); err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	// After load, next turn should be 3 (saved 2 turns, nextTurn=3)
+	l2.Observe("task3", nil, "", "")
+	obs := l2.Observations()
+	if len(obs) != 3 {
+		t.Fatalf("expected 3 observations, got %d", len(obs))
+	}
+	if obs[2].Turn != 3 {
+		t.Errorf("resumed turn = %d, want 3", obs[2].Turn)
 	}
 }

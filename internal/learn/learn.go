@@ -13,7 +13,10 @@
 package learn
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 )
@@ -267,6 +270,73 @@ func (l *Learner) Trajectories() []MultiTurnTrajectory {
 	}
 
 	return trajectories
+}
+
+// traced that were already loaded, not a full history. The save also records
+// patterns and the turn counter so the learner resumes where it left off across
+// sessions.
+type learnerPersist struct {
+	Patterns     []Pattern         `json:"patterns"`
+	Observations []TurnObservation `json:"observations"`
+	NextTurn     int               `json:"nextTurn"`
+}
+
+// Save persists patterns and observations to a JSON sidecar file. Atomic: writes
+// to a temp file first, then renames.
+func (l *Learner) Save(path string) error {
+	l.mu.Lock()
+	l.detectPatterns()
+	state := learnerPersist{
+		Patterns:     l.patterns,
+		Observations: l.observations,
+		NextTurn:     l.nextTurn,
+	}
+	l.mu.Unlock()
+
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return fmt.Errorf("create learn dir: %w", err)
+	}
+	tmp, err := os.CreateTemp(filepath.Dir(path), ".learn.*.tmp")
+	if err != nil {
+		return fmt.Errorf("create learn tmp: %w", err)
+	}
+	tmpPath := tmp.Name()
+	defer os.Remove(tmpPath)
+
+	enc := json.NewEncoder(tmp)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(state); err != nil {
+		tmp.Close()
+		return fmt.Errorf("encode learn: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		return fmt.Errorf("close learn tmp: %w", err)
+	}
+	if err := os.Rename(tmpPath, path); err != nil {
+		return fmt.Errorf("commit learn: %w", err)
+	}
+	return nil
+}
+
+// Load restores patterns and observations from a JSON sidecar file. Missing or
+// unreadable files are treated as empty — no error, fresh start.
+func (l *Learner) Load(path string) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil // missing = clean slate
+	}
+	var state learnerPersist
+	if err := json.Unmarshal(data, &state); err != nil {
+		return nil // corrupt = clean slate
+	}
+	l.mu.Lock()
+	l.patterns = state.Patterns
+	l.observations = state.Observations
+	if state.NextTurn > l.nextTurn {
+		l.nextTurn = state.NextTurn
+	}
+	l.mu.Unlock()
+	return nil
 }
 
 // Reset clears all observations and patterns.

@@ -80,6 +80,7 @@ type Controller struct {
 	schedule          *scheduler.Scheduler // cron task scheduler (nil = disabled)
 	mesh              *mesh.Mesh          // agent-to-agent MCP delegation (nil = disabled)
 	learner           *learn.Learner      // self-improving pattern detection (nil = disabled)
+	learnerLoaded     bool                // true after loading from .learning sidecar
 	cleanup           func()
 	autoPlan          string
 	reasoningLanguage string
@@ -466,6 +467,15 @@ func goalStatePath(sessionPath string) string {
 		return ""
 	}
 	return strings.TrimSuffix(sessionPath, ".jsonl") + ".goal-state.json"
+}
+
+// learningPath derives the learner sidecar path for a session, analogous to
+// the .sessionstats sidecar.
+func learningPath(sessionPath string) string {
+	if sessionPath == "" {
+		return ""
+	}
+	return strings.TrimSuffix(sessionPath, ".jsonl") + ".learning"
 }
 
 // rebindCheckpoints points the store at the (possibly new) session, loading any
@@ -2550,6 +2560,19 @@ func (c *Controller) snapshot(markActivity bool) error {
 	if strings.TrimSpace(modelRef) != "" {
 		if err := agent.SetBranchModelPreserveUpdated(path, modelRef); err != nil {
 			return err
+		}
+	}
+	// Persist learner state (patterns + observations) to a .learning sidecar
+	// so patterns detected in CLI sessions surface in desktop, and vice versa.
+	if c.learner != nil {
+		c.mu.Lock()
+		if !c.learnerLoaded {
+			c.learner.Load(learningPath(path))
+			c.learnerLoaded = true
+		}
+		c.mu.Unlock()
+		if err := c.learner.Save(learningPath(path)); err != nil {
+			slog.Warn("controller: save learner", "err", err)
 		}
 	}
 	if markActivity {
