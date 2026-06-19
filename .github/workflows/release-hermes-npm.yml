@@ -39,4 +39,19 @@ jobs:
             echo "arg=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
           fi
 
-      - run: node npm/build-hermes.mjs "${{ steps.ver.outputs.arg }}" --publish
+      - name: Verify npm auth
+        run: |
+          echo "=== npm whoami ==="
+          npm whoami --registry https://registry.npmjs.org || echo "(OIDC auth may not be configured for all scoped packages)"
+          echo "=== npm config registry ==="
+          npm config get registry || true
+
+      - name: Publish (classic token)
+        if: ${{ secrets.NPM_TOKEN != '' }}
+        run: node npm/build-hermes.mjs "${{ steps.ver.outputs.arg }}" --publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish (OIDC)
+        if: ${{ secrets.NPM_TOKEN == '' }}
+        run: node npm/build-hermes.mjs "${{ steps.ver.outputs.arg }}" --publish
