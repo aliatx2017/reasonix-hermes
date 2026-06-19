@@ -44,14 +44,18 @@ reasonix/
 └── internal/
     ├── acp/                # Agent Client Protocol — stdio JSON-RPC 2.0 adapter for editors
     ├── agent/              # Core agent loop: wires Provider + Tool Registry + Session
+    │   └── testutil/        # mock provider and test helpers for agent tests
     ├── agentlog/           # [Hermes] Structured operational logging (slog → stderr + AGENT_LOG env var)
     ├── billing/            # provider wallet balance queries for the status line
     ├── boot/               # assembles a control.Controller from config (one Controller behind every frontend)
     ├── bot/                # multi-platform IM bot gateway (Discord/QQ/Feishu/WeChat/Telegram/Line/Slack)
     │   ├── discord/        # [Hermes] Discord adapter
+    │   ├── feishu/          # Feishu (Lark) adapter (upstream)
     │   ├── line/           # [Hermes] LINE adapter
+    │   ├── qq/              # QQ adapter (upstream)
     │   ├── slack/          # [Hermes] Slack adapter
-    │   └── telegram/       # [Hermes] Telegram adapter
+    │   ├── telegram/       # [Hermes] Telegram adapter
+    │   └── weixin/          # WeChat adapter (upstream)
     ├── botruntime/         # bot runtime bundling
     ├── checkpoint/         # snapshot-based edit safety net — saves before writer tools
     ├── cli/                # subcommand routing, flags, assembly, exit codes
@@ -85,6 +89,7 @@ reasonix/
     ├── evidence/           # step completion evidence tracking
     ├── fileref/            # file reference resolution
     ├── fileutil/           # file utility helpers
+    │   └── encoding/        # character encoding detection
     ├── frontmatter/        # minimal dependency-free YAML frontmatter parser for skill docs
     ├── history/            # local session history search (BM25 retrieval)
     ├── hook/               # user-configured shell-command hooks (PreToolUse, Stop, etc.)

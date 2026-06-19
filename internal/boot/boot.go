@@ -123,7 +123,6 @@ type Options struct {
 // returned controller owns plugin subprocesses; call Close (via Controller.Close)
 // to release them.
 func Build(ctx context.Context, opts Options) (*control.Controller, error) {
-	agentlog.Init()
 	stderr := opts.Stderr
 	if stderr == nil {
 		stderr = os.Stderr
@@ -137,6 +136,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	if err != nil {
 		return nil, err
 	}
+	agentlog.Init(cfg.AgentLog)
 	modelName := opts.Model
 	if modelName == "" {
 		modelName = cfg.DefaultModel
@@ -162,7 +162,12 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 		}
 	}
 
-	// Serialize the frontend's sink once: background jobs (below) emit from their
+	// Apply CNY→USD exchange rate to the resolved entry pricing for consistent
+	// dollar display. Every sub-agent, task tool, skill runner, and planner
+	// receives this clone so Symbol() returns "$" and Cost() reflects USD.
+	entryPrice := applyExchangeRate(entry.Price, cfg)
+
+	// Serialize the frontend's sink once: background jobs emit from their
 	// own goroutines, which can overlap a running turn's emission, so every emitter
 	// shares this synchronized sink. The job manager is session-scoped — its jobs
 	// outlive a turn and are cancelled by Controller.Close.
@@ -561,7 +566,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 			return "task tool is already enabled."
 		}
 		taskToolAdded = true
-		tt := agent.NewTaskTool(execProv, entry.Price, reg, maxSteps,
+		tt := agent.NewTaskTool(execProv, entryPrice, reg, maxSteps,
 			entry.ContextWindow, cfg.Agent.RecentKeep, cfg.Agent.SoftCompactRatio, cfg.Agent.CompactRatio, cfg.Agent.CompactForceRatio,
 			cfg.Agent.Temperature, config.ArchiveDir(), "", headlessGate,
 			keepPolicy,
@@ -598,7 +603,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	// Its tool activity nests under the invoking call, like `task`.
 	skillRunner := func(sctx context.Context, sk skill.Skill, task string, runOpts skill.SubagentRunOptions) (string, error) {
 		sk = skill.WithCodeGraphTools(sk, skill.CodeGraphReadTools(reg))
-		prov, price, ctxWin := execProv, entry.Price, entry.ContextWindow
+		prov, price, ctxWin := execProv, entryPrice, entry.ContextWindow
 		modelRef := subagentModelRef(cfg, sk)
 		effortRef := subagentEffortRef(cfg, sk)
 		if modelRef != "" || effortRef != "" {
@@ -866,17 +871,8 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 		})
 	}
 
-	// Apply CNY→USD exchange rate to pricing for display consistency.
-	pricing := entry.Price
-	if pricing != nil && (pricing.Currency == "¥" || pricing.Currency == "CNY" || pricing.Currency == "RMB") && pricing.ExchangeRate == 0 {
-		clone := *pricing
-		rate := billing.DefaultCNYToUSD
-		if cfg.Billing.AutoExchangeRate {
-			rate = billing.FetchCNYToUSD()
-		}
-		clone.ExchangeRate = rate
-		pricing = &clone
-	}
+	// Use the exchange-rate-cloned pricing computed during entry resolution.
+	pricing := entryPrice
 
 	execSess := agent.NewSession(finalizeSystemPrompt(sysPrompt, cfg.Language))
 	executor := agent.New(execProv, reg, execSess, agent.Options{
@@ -925,7 +921,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 			}
 			plannerSess := agent.NewSession(agent.PlannerPromptWithContext(mem.Block()))
 			plannerTools := agent.PlannerToolRegistry(reg)
-			runner = agent.NewCoordinator(plannerProv, plannerSess, pe.Price, plannerTools, agent.Options{
+			runner = agent.NewCoordinator(plannerProv, plannerSess, applyExchangeRate(pe.Price, cfg), plannerTools, agent.Options{
 				MaxSteps:          cfg.Agent.PlannerMaxSteps,
 				MaxStepsKey:       "agent.planner_max_steps",
 				Gate:              headlessGate,
@@ -951,7 +947,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 		if err != nil {
 			return nil, fmt.Errorf("auto_plan_classifier %q: %w", cm, err)
 		}
-		classifier = control.NewBillableProviderAutoPlanClassifier(classifierProv, ce.Price, sink)
+		classifier = control.NewBillableProviderAutoPlanClassifier(classifierProv, applyExchangeRate(ce.Price, cfg), sink)
 	}
 
 	ctrlOpts := control.Options{
@@ -1572,4 +1568,30 @@ func languagePolicy(explicitLang string) string {
 	default:
 		return config.LanguagePolicy
 	}
+}
+
+// applyExchangeRate clones the pricing and sets ExchangeRate for consistent USD
+// display. When pricing is nil or already has an exchange rate, it returns it
+// as-is. Otherwise it sets ExchangeRate to the live rate (when auto_exchange_rate
+// is enabled) or the hardcoded DefaultCNYToUSD fallback.
+//
+// Used by Build() for entry, planner, and classifier pricing.
+
+func applyExchangeRate(pricing *provider.Pricing, cfg *config.Config) *provider.Pricing {
+	if pricing == nil {
+		return nil
+	}
+	if pricing.ExchangeRate > 0 {
+		return pricing
+	}
+	if pricing.Currency != "¥" && pricing.Currency != "CNY" && pricing.Currency != "RMB" {
+		return pricing
+	}
+	clone := *pricing
+	rate := billing.DefaultCNYToUSD
+	if cfg.Billing.AutoExchangeRate {
+		rate = billing.FetchCNYToUSD()
+	}
+	clone.ExchangeRate = rate
+	return &clone
 }

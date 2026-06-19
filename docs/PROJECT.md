@@ -102,6 +102,7 @@ Command-line frontends          HTTP frontends            Desktop frontend
 | **Skills** | `skill/`, `marketplace/`, `learn/` | Built-in skills, community registry, self-improving skill loops |
 | **Evaluation** | `eval/`, `e2e/`, `orchestrate/` | Session comparison, e2e harness, multi-agent workflows |
 | **Constitution** | `constitution/` | Structured project invariants from `.reasonix/constitution.json` |
+| **Observability** | `agentlog/`, `billing/` | Structured JSON agent logging with log rotation; live CNY→USD exchange rate for cost display |
 
 ---
 

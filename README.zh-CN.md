@@ -84,7 +84,7 @@ go build -o bin/reasonix ./cmd/reasonix
 # Hermes 服务
 go build -o bin/reasonix-mcpbridge  ./cmd/reasonix-mcpbridge   # MCP bridge（6 个工具）
 go build -o bin/reasonix-memoryserver     ./cmd/reasonix-memoryserver # Hindsight 记忆
-go build -o bin/reasonix-bot        ./bot                       # Discord、Telegram、LINE bot
+go build -o bin/reasonix-bot        ./bot                       # Discord、Telegram、LINE、Slack bot
 go build -o bin/reasonix-hooks      ./cmd/reasonix-hooks        # Hook runner
 go build -o bin/reasonix-pr-review     ./cmd/reasonix-pr-review    # PR review CLI
 
@@ -117,7 +117,7 @@ reasonix-mcpbridge --http --port 9090
 # 启动记忆服务
 reasonix-memoryserver --backend sqlite --http --port 8080
 
-# 运行 Discord/Telegram bot
+# 运行 Discord/Telegram/LINE/Slack bot
 export DISCORD_BOT_TOKEN="你的token"
 reasonix-bot
 export DEEPSEEK_API_KEY=sk-...      # 也可以让 setup 保存到凭据存储
@@ -163,6 +163,10 @@ Reasonix 不会把新密钥写入项目 `.env`。权限、沙盒、插件(MCP)�
 | **[Checkpoints & rewind](./docs/CHECKPOINTS.md)** | 基于快照的编辑安全网（Esc-Esc / `/rewind`） |
 | **[更新日志](./docs/CHANGELOG-HERMES.md)** | Hermes 分支里程碑、扩展包、机器人平台 |
 | **[生态参考](./reasonix-deepseek-ecosystem-2026.md)** | 全景调研：MCP bridge、skills、desktop、IDE、fork、协议 |
+| **[Bot 指南](./docs/BOT_GUIDE.zh-CN.md)** | 连接 Discord、Telegram、LINE、Slack 等多平台机器人 |
+| **[推理语言](./docs/REASONING_LANGUAGE.zh-CN.md)** | 强制模型以指定语言进行推理 |
+| **[Goal 执行](./docs/GOAL_ENFORCEMENT.zh-CN.md)** | OMO 风格目标执行功能 |
+| **[配置路径](./docs/CONFIG_PATHS.zh-CN.md)** | 配置文件与凭据的查找和迁移详情 |
 
 <br/>
 

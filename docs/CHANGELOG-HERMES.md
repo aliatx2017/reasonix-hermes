@@ -182,6 +182,15 @@ Key milestones in the Hermes fork since June 2026.
 - Crash capture (Go panics/breadcrumbs/group summaries)
 - Local history + memory retrieval, Traditional Chinese (zh-TW) locale
 
+### Session 2026-06-19 (h34) — currency symbol root-cause fix + agent log rotation
+
+- **Currency symbol ¥ root cause**: Sub-agent Usage events from the task tool, skill runner, planner, and classifier bypassed exchange-rate cloning. `entry.Price` was passed raw to 4 sites in `boot.go` — all sub-agent paths. The sub-agent's `subSink` forwards Usage events to the parent → TUI overwrites `sessionCostSymbol` to `"¥"` each turn. Extracted `applyExchangeRate()` helper; all 4 sites now use cloned pricing with `ExchangeRate > 0`.
+- **Agent log rotation**: Self-rotation on `Init()` — checks `agent.log` size against `max_size_mb` (default 10), rotates by renaming `agent.log` → `agent.log.1`, shifting `.1`→`.2`… up to `max_backups` (default 5), deleting the oldest. Zero new dependencies. New `[agentlog]` config section with `enabled`, `max_size_mb`, `max_backups`.
+- **Agent log coverage audit**: All 8 contracted event types verified logged — `api_call`, `tool_exec`, `agent.turn`, `agent.compact`, `boot.model`, `boot.mcp`, `boot.config`, `boot.learner`. Older entries (pre-spec) lack `cache_miss` and `cost`; current code always emits both.
+- **Tests**: 7 new agentlog tests (rotation: under-threshold, over-threshold, shift chain, oldest deletion, missing file, disabled, basic init).
+- **Doc-sweep**: SPEC.md tree now shows all 69 packages (5 sub-packages added), README.zh-CN.md bot list fixed (Slack+LINE added), HERMES-GUIDE §16.23 enriched with log rotation, PROJECT.md added agentlog+billing row, CHANGELOG-HERMES.md this entry.
+- **Files**: 7 changed, 0 new.
+
 ### Session 2026-06-18 (h33) — learner Success gap fix, sidecar persistence, live e2e
 - **ToolCallInfo.Success populated**: `executeBatch` now returns outcomes alongside results — learner knows which tools failed (`write_file✗` vs `bash✓`).
 - **Learner sidecar persistence**: Patterns + observations saved to `<session>.learning` JSON sidecar via `snapshot()`. Auto-loads on session resume. 4 new tests.

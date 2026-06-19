@@ -674,6 +674,15 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 		b.WriteString("\n")
 	}
 
+	// [agentlog] — operational JSON log rotation.
+	if c.AgentLog != (AgentLogConfig{}) || scope != RenderScopeProject {
+		b.WriteString("[agentlog]\n")
+		fmt.Fprintf(&b, "enabled = %v\n", c.AgentLog.Enabled)
+		fmt.Fprintf(&b, "max_size_mb = %d   # rotate agent.log when larger than this\n", c.AgentLog.MaxSizeMB)
+		fmt.Fprintf(&b, "max_backups = %d   # keep this many numbered backups\n", c.AgentLog.MaxBackups)
+		b.WriteString("\n")
+	}
+
 	b.WriteString("# External MCP servers. type: \"stdio\" (default, a subprocess) | \"http\" | \"sse\".\n")
 	b.WriteString("# ${VAR} / ${VAR:-default} are expanded from the environment in command/args/env/url/headers.\n")
 	if len(c.Plugins) == 0 {

@@ -1614,6 +1614,29 @@ Full spec in `internal/agentlog/agentlog.go` package doc — that's the contract
 
 No additional dependencies — uses Go's stdlib `log/slog`.
 
+**Log rotation** (`[agentlog]` config section):
+
+The log file at `~/.reasonix/agent.log` grows indefinitely unless rotated. On every
+`Init()`, the agent checks the file size against `max_size_mb` (default 10). If
+the threshold is exceeded, it rotates:
+
+1. Delete the oldest backup (`agent.log.N`)
+2. Shift existing backups: `agent.log.1` → `agent.log.2`, …, `agent.log.(N-1)` → `agent.log.N`
+3. Rename current `agent.log` → `agent.log.1`
+4. Open a fresh `agent.log` for appending
+
+Rotation is self-contained — no external `logrotate` or cron required.
+
+```toml
+[agentlog]
+enabled = true
+max_size_mb = 10   # rotate when agent.log exceeds this
+max_backups = 5    # keep this many numbered backups
+```
+
+Defaults: rotation ON, 10 MB threshold, 5 backups. Set `enabled = false` to
+disable logging entirely (only when the section is explicitly configured).
+
 ---
 
 ## 17. Desktop App

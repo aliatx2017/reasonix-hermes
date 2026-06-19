@@ -3,6 +3,13 @@
 // (when AGENT_LOG is set or the default agent.log path is writable). If no file is
 // available, output is discarded — it never writes to stderr/stdout to avoid TUI bleed.
 //
+// # Log rotation
+//
+// On Init, if the target log file exceeds cfg.MaxSizeMB (default 10), it is rotated:
+// agent.log → agent.log.1, agent.log.1 → agent.log.2, … up to cfg.MaxBackups
+// (default 5). The oldest backup (agent.log.N) is deleted. Rotation is self-contained
+// — no external cron or logrotate needed.
+//
 // # Event contract
 //
 // Every event below MUST be logged exactly as specified. If code changes and a
@@ -67,35 +74,65 @@
 package agentlog
 
 import (
+	"fmt"
 	"io"
 	"log/slog"
 	"os"
+	"path/filepath"
+	"strconv"
 
 	"reasonix/internal/config"
+)
+
+const (
+	defaultMaxSizeMB  = 10
+	defaultMaxBackups = 5
 )
 
 // Init replaces the default slog handler with one that writes JSON lines to a
 // file (if AGENT_LOG is set or the default path is writable). It never writes to
 // stderr — that would bleed JSON into the CLI TUI. If no file can be opened,
 // slog output is discarded (a no-op discard handler) to keep the TUI clean.
-func Init() {
-	var w io.Writer
-
-	if p := os.Getenv("AGENT_LOG"); p != "" {
-		f, err := os.OpenFile(p, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
-		if err == nil {
-			w = f
-		}
+//
+// Before opening, Init rotates the log file if it exceeds the configured size
+// limit (see [agentlog] config section). Rotation renames agent.log → agent.log.1,
+// shifts existing numbered backups, and deletes the oldest.
+func Init(cfg config.AgentLogConfig) {
+	if !cfg.Enabled && cfg != (config.AgentLogConfig{}) {
+		slog.SetDefault(slog.New(slog.NewJSONHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelInfo})))
+		return
 	}
-	if w == nil {
-		// Try a default path; sandbox may block it — that's fine.
+
+	var logPath string
+	if p := os.Getenv("AGENT_LOG"); p != "" {
+		logPath = p
+	} else {
 		dir := config.ReasonixHomeDir()
 		if dir != "" {
-			defaultPath := dir + "/agent.log"
-			f, err := os.OpenFile(defaultPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
-			if err == nil {
-				w = f
-			}
+			logPath = dir + "/agent.log"
+		}
+	}
+
+	maxSize := cfg.MaxSizeMB
+	if maxSize <= 0 {
+		maxSize = defaultMaxSizeMB
+	}
+	maxBackups := cfg.MaxBackups
+	if maxBackups <= 0 {
+		maxBackups = defaultMaxBackups
+	}
+
+	// Rotate before opening — only when a path was resolved and the file exists
+	// and exceeds the threshold.
+	if logPath != "" {
+		rotateLog(logPath, int64(maxSize)*1024*1024, maxBackups)
+	}
+
+	var w io.Writer
+	if logPath != "" {
+		f, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
+		if err == nil {
+			w = f
 		}
 	}
 	if w == nil {
@@ -106,4 +143,35 @@ func Init() {
 
 	h := slog.NewJSONHandler(w, &slog.HandlerOptions{Level: slog.LevelInfo})
 	slog.SetDefault(slog.New(h))
+}
+
+// rotateLog renames logPath → logPath.1, .1 → .2, … up to maxBackups, deleting
+// the oldest. If the file doesn't exist or is under maxBytes, this is a no-op.
+func rotateLog(logPath string, maxBytes int64, maxBackups int) {
+	info, err := os.Stat(logPath)
+	if err != nil {
+		return // file doesn't exist — nothing to rotate
+	}
+	if info.Size() < maxBytes {
+		return // under threshold — keep appending
+	}
+
+	// Remove the oldest backup (logPath.N).
+	oldest := logPath + "." + strconv.Itoa(maxBackups)
+	os.Remove(oldest)
+
+	// Shift existing backups: logPath.(N-1) → logPath.N, …, logPath.1 → logPath.2.
+	for i := maxBackups - 1; i >= 1; i-- {
+		old := logPath + "." + strconv.Itoa(i)
+		new := logPath + "." + strconv.Itoa(i+1)
+		os.Rename(old, new)
+	}
+
+	// Rotate the current file: logPath → logPath.1.
+	backup := logPath + "." + strconv.Itoa(1)
+	if err := os.Rename(logPath, backup); err != nil {
+		// If rename fails (e.g. cross-device), log via the old handler
+		// (stderr, before we replaced it) and keep appending.
+		fmt.Fprintf(os.Stderr, "agentlog: rotate %s → %s: %v\n", filepath.Base(logPath), filepath.Base(backup), err)
+	}
 }

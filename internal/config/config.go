@@ -70,6 +70,7 @@ type Config struct {
 	Marketplace        MarketplaceConfig         `toml:"marketplace"`
 	Embedding          EmbeddingConfig           `toml:"embedding"`
 	Billing            BillingConfig             `toml:"billing"`
+	AgentLog           AgentLogConfig            `toml:"agentlog"`
 	CredentialsStore string              `toml:"credentials_store"`
 
 	providerSources          map[string]providerSourceScope
@@ -556,6 +557,13 @@ type LearnConfig struct {
 // BillingConfig is the [billing] section.
 type BillingConfig struct {
 	AutoExchangeRate bool `toml:"auto_exchange_rate"` // fetch live CNY→USD rate on startup
+}
+
+// AgentLogConfig is the [agentlog] section for operational log rotation.
+type AgentLogConfig struct {
+	Enabled    bool `toml:"enabled"`     // write agent.log at all (default true)
+	MaxSizeMB  int  `toml:"max_size_mb"` // rotate when file exceeds this (default 10)
+	MaxBackups int  `toml:"max_backups"` // keep this many numbered backups (default 5)
 }
 
 // MeshConfig is the [mesh] section for agent-to-agent MCP delegation.

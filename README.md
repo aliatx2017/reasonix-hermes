@@ -273,10 +273,14 @@ commands, `@` references, and two-model setup are all in the
 | **[Session Memory Retrieval](./docs/SESSION_MEMORY_RETRIEVAL.md)** | Lightweight local history + BM25 retrieval |
 | **[Session Reference Architecture](./docs/SESSION_REFERENCE_ARCHITECTURE.md)** | upstream-issue reference for session state routing |
 | **[Ecosystem Reference](./reasonix-deepseek-ecosystem-2026.md)** | Full landscape: MCP bridges, skills, desktop, IDE, forks, protocols |
+| **[Reasoning Language](./docs/REASONING_LANGUAGE.md)** | Force the model to reason in a specific language |
+| **[Force English — Reddit case study](./docs/FORCE-ENGLISH-REDDIT.md)** | Real-world Reddit post showing why force-english matters |
 | **[Codebase Audit (Historical)](./AUDIT.md)** | June 2025 audit — all bugs resolved, kept for reference |
 | **[协作模式 (中文)](./docs/COLLABORATION_MODES.zh-CN.md)** | 计划模式、目标模式与省 token 模式 |
 | **[桌面端 Hooks (中文)](./docs/DESKTOP_HOOKS.zh-CN.md)** | 桌面端 Hooks 使用说明 |
 | **[工具权限模式 (中文)](./docs/TOOL_APPROVAL_MODES.zh-CN.md)** | 询问、自动与 Yolo 模式 |
+| **[推理语言 (中文)](./docs/REASONING_LANGUAGE.zh-CN.md)** | 强制模型以指定语言进行推理 |
+| **[Goal 执行 (中文)](./docs/GOAL_ENFORCEMENT.zh-CN.md)** | OMO 风格目标执行功能 |
 
 <br/>
 
