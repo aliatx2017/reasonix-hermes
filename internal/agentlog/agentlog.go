@@ -1,6 +1,7 @@
 // Package agentlog provides a structured operational logger for agent observability.
-// It replaces the default slog handler with one that writes to stderr (and
-// optionally a file). Set AGENT_LOG to a file path for persistent logging.
+// It replaces the default slog handler with one that writes JSON lines to a file
+// (when AGENT_LOG is set or the default agent.log path is writable). If no file is
+// available, output is discarded — it never writes to stderr/stdout to avoid TUI bleed.
 //
 // Log categories:
 //
@@ -17,36 +18,34 @@ import (
 	"reasonix/internal/config"
 )
 
-// Init replaces the default slog handler with one that writes JSON lines to
-// stderr (and a file, if AGENT_LOG is set to a writable path). Call early in
-// boot before any slog calls.
+// Init replaces the default slog handler with one that writes JSON lines to a
+// file (if AGENT_LOG is set or the default path is writable). It never writes to
+// stderr — that would bleed JSON into the CLI TUI. If no file can be opened,
+// slog output is discarded (a no-op discard handler) to keep the TUI clean.
 func Init() {
-	var writers []io.Writer
-	writers = append(writers, os.Stderr)
+	var w io.Writer
 
 	if p := os.Getenv("AGENT_LOG"); p != "" {
 		f, err := os.OpenFile(p, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
 		if err == nil {
-			writers = append(writers, f)
+			w = f
 		}
-	} else {
+	}
+	if w == nil {
 		// Try a default path; sandbox may block it — that's fine.
 		dir := config.ReasonixHomeDir()
 		if dir != "" {
 			defaultPath := dir + "/agent.log"
 			f, err := os.OpenFile(defaultPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
 			if err == nil {
-				writers = append(writers, f)
+				w = f
 			}
 		}
 	}
-
-	var w io.Writer
-	switch len(writers) {
-	case 1:
-		w = writers[0]
-	default:
-		w = io.MultiWriter(writers[0], writers[1])
+	if w == nil {
+		// No writable log destination — discard all slog output so it
+		// doesn't bleed into the TUI or desktop console.
+		w = io.Discard
 	}
 
 	h := slog.NewJSONHandler(w, &slog.HandlerOptions{Level: slog.LevelInfo})

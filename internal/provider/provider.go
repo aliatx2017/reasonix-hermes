@@ -375,6 +375,10 @@ func (p *Pricing) Symbol() string {
 	if p == nil || p.Currency == "" {
 		return "$"
 	}
+	// When ExchangeRate is set, the effective display currency is USD.
+	if p.ExchangeRate > 0 {
+		return "$"
+	}
 	return currencySymbol(p.Currency)
 }
 
