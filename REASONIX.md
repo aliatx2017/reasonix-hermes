@@ -36,7 +36,7 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 ## Notes
 
-- **Upstream synced**: `v1.9.x` (commit ba7a50b, 2026-06-18). 18 syncs total — merged ×2 in h30/h31: ebea82b (6 commits, heartbeat tasks) + ba7a50b (50 commits, goal enforcement, parallel_tasks, /prometheus, shared MCP, cache-impact guard). Checked h36 — no new commits. Previous sync: a3e63f5.
+- **Upstream synced**: `v1.9.x` (commit 3ba5ebd, 2026-06-19). 19 syncs total — merged in h37: 3ba5ebd (13 commits, desktop settings lazy-load, display mode persistence, memory fixes, session cache). Checked h38 — no new commits. Previous sync: ba7a50b.
 - **Commit**: session 2026-06-18 (h30) — doc-sweep: Helm tag v1.8.2→v1.9.1, cross-linked HOWTO-FORCE-ENGLISH + HOWTO-TOKEN-SAVING + TOKEN-SAVINGS-ANALYSIS from README + HERMES-GUIDE. CHANGELOG-HERMES.md enriched with h29+h30. AGENTS.md sync count updated. All 9 verify checks green.
 - **Commit**: session 2026-06-18 (h31) — learner Observe wired into agent loop, desktop LearnedPatterns() fixed, MaxObservations config, Discord dup Approved./Denied. removed, currency symbol ¥→$, live CNY→USD exchange rate (billing/exchange.go), agent operational logging (agentlog/), doc-sweep (package counts, SPEC §2, HERMES-GUIDE §16.9/16.16/16.23). 2 upstream merges (ebea82b + ba7a50b, 56 commits). 15 files changed, 3 new.
 - **Commit**: session 2026-06-18 (h32) — agentlog stderr bleed fix (removed os.Stderr, file/io.Discard only), currency symbol fix (Symbol() returns "$" when ExchangeRate > 0, config currency → "CNY"), agent log enrichment (cache_miss, err, truncated fields). 3 files changed.
