@@ -38,7 +38,7 @@ cd desktop && wails build -o ../bin/reasonix-desktop
 go build ./...
 go vet ./...
 
-# Run tests (228 tests across all custom packages)
+# Run tests (76 test packages, all pass)
 go test ./cmd/... ./pkg/... ./internal/bot/...
 
 # Run the CLI
@@ -151,7 +151,7 @@ skills-hub/            17-skill community registry + static catalog site
 - `reasonix.toml` is gitignored (upstream convention) — never commit secrets
 - Discord bot uses `github.com/bwmarrin/discordgo` (added to go.mod)
 - Discord bot must use `control.Controller` like every other frontend — not inline chat history
-- **Tests**: ~2,250 tests across 70 packages plus testutil, cmd, desktop, and bot packages. `go test ./...`
+- **Tests**: 76 test packages, ~2,250+ test cases across all packages. `go test ./...`
 - **New packages (custom)**: `internal/acp/` (Agent Client Protocol), `internal/learn/` (self-improving skill loops), `internal/mesh/` (agent-to-agent MCP mesh), `internal/collab/` (live collaboration WebSocket hub), `internal/compress/` (tool output token compressor), `internal/scheduler/` (cron-driven tasks), `internal/publish/` (session transcript export), `internal/bot/telegram/`, `internal/bot/line/`, `internal/bot/slack/` (multi-platform bot adapters), `internal/e2e/` (regression testing harness), `internal/marketplace/` (community skill registry + LobeHub sync), `internal/provider/ollamacloud/` (Ollama Cloud API provider), `internal/constitution/` (project invariants), `internal/agentlog/` (operational JSON logging with log rotation), `internal/billing/` (live CNY→USD exchange rate), `cmd/reasonix-pr-review/` (PR review CLI), `cmd/e2ebench/` (e2e benchmark tool), `cmd/learner-live-test/` (learner e2e validation).
 - **CodeWhale features** (10/10 done, 2026-06-04): Shell env hooks, parallel sub-agent batch dispatch, completion sound, harness profiles, constitution system, workshop sidecar, desktop hotbar, external sandbox, Nix flake, Dockerfile.
 - **CI & tooling** (2026-06-06): `biome format` check on desktop frontend (105 files), `wails build` CI job, `taplo` TOML lint (CI + pre-commit hook), Go `go-version-file: go.mod` (toolchain 1.26.4), 7-job Hermes CI pipeline all-green.

@@ -87,7 +87,7 @@ Command-line frontends          HTTP frontends            Desktop frontend
    └─────────┘  └─────────┘  └─────────┘
 ```
 
-### Go packages (75 internal packages)
+### Go packages (71 internal packages)
 
 | Area | Packages | Purpose |
 |------|----------|---------|

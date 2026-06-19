@@ -128,11 +128,12 @@ reasonix/
     ├── skill/              # invokable playbooks loaded from Markdown skill files
     ├── sysproxy/           # OS-level proxy resolution (Windows system/PAC)
     └── tool/               # Tool interface + Registry
-        └── builtin/        # read_file/write_file/edit_file/move_file/bash/ls/glob/grep/delete_range
+        ├── builtin/        # read_file/write_file/edit_file/move_file/bash/ls/glob/grep/delete_range
+        └── sessiontool/    # list_sessions and read_session tools for cross-session AI context sharing
 ```
 
 [Hermes] = Reasonix-Hermes custom additions (not present in upstream esengine/deepseek-reasonix).
-Total: 69 internal packages.
+Total: 71 internal packages.
 
 Dependency direction (acyclic): `cli → {agent, plugin, config} → {tool, provider}`.
 Built-in subpackages (`provider/openai`, `tool/builtin`) import their parent to

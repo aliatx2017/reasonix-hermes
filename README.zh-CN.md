@@ -87,6 +87,8 @@ go build -o bin/reasonix-memoryserver     ./cmd/reasonix-memoryserver # Hindsigh
 go build -o bin/reasonix-bot        ./bot                       # Discord、Telegram、LINE、Slack bot
 go build -o bin/reasonix-hooks      ./cmd/reasonix-hooks        # Hook runner
 go build -o bin/reasonix-pr-review     ./cmd/reasonix-pr-review    # PR review CLI
+go build -o bin/reasonix-e2ebench     ./cmd/e2ebench             # E2E benchmark tool
+go build -o bin/reasonix-learner-live-test ./cmd/learner-live-test # Learner live e2e validation
 
 # 桌面应用（Wails + React 19）
 cd desktop && wails build -o ../bin/reasonix-desktop
