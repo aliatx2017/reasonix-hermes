@@ -37,28 +37,40 @@ const doPublish = process.argv.includes("--publish");
 
 // --check-auth: verify npm credentials before building
 if (process.argv.includes("--check-auth")) {
+  const token = process.env.NPM_TOKEN || process.env.NODE_AUTH_TOKEN;
+  if (!token) {
+    console.error("No NPM_TOKEN or NODE_AUTH_TOKEN in environment. Set NPM_TOKEN=<token> and re-run.");
+    process.exit(1);
+  }
+  // Use a temp npmrc to avoid ~/.npmrc permission issues
+  const tmpDir = join(ROOT, "npm", ".stage-hermes-check");
+  mkdirSync(tmpDir, { recursive: true });
+  const npmrc = join(tmpDir, ".npmrc");
+  writeFileSync(npmrc, `//registry.npmjs.org/:_authToken=${token}\n`);
+  const env = { ...process.env, npm_config_userconfig: npmrc };
+
   console.log("Checking npm auth...");
   try {
-    const who = run("npm", ["whoami", "--registry", "https://registry.npmjs.org"]).trim();
+    const who = run("npm", ["whoami"], { env }).trim();
     console.log(`  Authenticated as: ${who}`);
     console.log("  Token OK");
   } catch {
-    console.error("  NOT AUTHENTICATED — create a token at https://www.npmjs.com/settings/aliatx2017/tokens");
+    console.error("  Token is INVALID. Create one at https://www.npmjs.com/settings/aliatx2017/tokens");
     console.error("  Token type: Automation, packages & scopes: Read and write");
-    console.error("  Then: npm config set //registry.npmjs.org/:_authToken <token>");
     process.exit(1);
   }
   // Check each package exists
   for (const t of TARGETS) {
     const name = `@aliatx2017/reasonix-hermes-${t.node}`;
     try {
-      run("npm", ["view", name, "version", "--registry", "https://registry.npmjs.org"]);
+      run("npm", ["view", name, "version"], { env });
       console.log(`  ${name}: exists`);
     } catch {
       console.log(`  ${name}: will be created on first publish`);
     }
   }
-  console.log("  reasonix-hermes: will be created/updated on publish");
+  console.log("  reasonix-hermes: main package (will be created/updated on publish)");
+  rmSync(tmpDir, { recursive: true, force: true });
   process.exit(0);
 }
 
@@ -111,12 +123,24 @@ if (!doPublish) {
 
 // Check auth before attempting publish
 console.log("Checking npm auth before publish...");
+const npmToken = process.env.NPM_TOKEN || process.env.NODE_AUTH_TOKEN;
+if (!npmToken) {
+  console.error("  No NPM_TOKEN or NODE_AUTH_TOKEN in environment.");
+  console.error("  Set NPM_TOKEN=<token> and re-run.");
+  process.exit(1);
+}
+
+// Write a temporary .npmrc so npm in subdirectories finds auth
+const npmrcPath = join(STAGE, ".npmrc");
+writeFileSync(npmrcPath, `//registry.npmjs.org/:_authToken=${npmToken}\n`);
+
+const npmEnv = { ...process.env, npm_config_userconfig: npmrcPath };
+
 try {
-  const who = run("npm", ["whoami", "--registry", "https://registry.npmjs.org"]).trim();
+  const who = run("npm", ["whoami"], { env: npmEnv }).trim();
   console.log(`  Authenticated as: ${who}`);
 } catch {
-  console.error("  NOT AUTHENTICATED. Set NPM_TOKEN env var or run:");
-  console.error("  npm config set //registry.npmjs.org/:_authToken <token>");
+  console.error("  Token is invalid. Check https://www.npmjs.com/settings/aliatx2017/tokens");
   process.exit(1);
 }
 
@@ -128,7 +152,7 @@ let failed = false;
 for (const sub of subPackages) {
   console.log(`publish ${sub.name}@${version}`);
   try {
-    run("npm", publishArgs, { cwd: sub.dir, stdio: "inherit" });
+    run("npm", publishArgs, { cwd: sub.dir, env: npmEnv, stdio: "inherit" });
   } catch {
     console.error(`  FAILED: ${sub.name}. Check token permissions at npmjs.com.`);
     console.error("  Token must have: Automation type, Packages & scopes → Read and write");
@@ -140,7 +164,7 @@ for (const sub of subPackages) {
 if (!failed) {
   console.log(`publish reasonix-hermes@${version}`);
   try {
-    run("npm", publishArgs, { cwd: mainDir, stdio: "inherit" });
+    run("npm", publishArgs, { cwd: mainDir, env: npmEnv, stdio: "inherit" });
   } catch {
     console.error("  FAILED: reasonix-hermes (main package)");
     failed = true;
