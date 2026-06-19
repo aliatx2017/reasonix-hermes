@@ -16,13 +16,51 @@ const TARGETS = [
   { node: "win32-x64",    goos: "windows",goarch: "amd64" },
 ];
 
+function run(cmd, args, opts) {
+  try {
+    return execFileSync(cmd, args, { stdio: "pipe", encoding: "utf8", ...opts });
+  } catch (e) {
+    console.error(`${cmd} ${args.join(" ")} failed (exit ${e.status})`);
+    if (e.stderr) console.error(e.stderr.trim());
+    if (e.stdout) console.error(e.stdout.trim());
+    throw e;
+  }
+}
+
 const tag = process.argv[2] ?? process.env.GITHUB_REF_NAME;
 if (!tag) {
-  console.error("usage: node npm/build-hermes.mjs <tag>   (e.g. v1.9.0)");
+  console.error("usage: node npm/build-hermes.mjs <tag> [--publish] [--dry-run]");
   process.exit(1);
 }
 const version = tag.replace(/^(hermes-)?npm-v/, "").replace(/^v/, "");
-const publish = process.argv.includes("--publish");
+const doPublish = process.argv.includes("--publish");
+
+// --check-auth: verify npm credentials before building
+if (process.argv.includes("--check-auth")) {
+  console.log("Checking npm auth...");
+  try {
+    const who = run("npm", ["whoami", "--registry", "https://registry.npmjs.org"]).trim();
+    console.log(`  Authenticated as: ${who}`);
+    console.log("  Token OK");
+  } catch {
+    console.error("  NOT AUTHENTICATED — create a token at https://www.npmjs.com/settings/aliatx2017/tokens");
+    console.error("  Token type: Automation, packages & scopes: Read and write");
+    console.error("  Then: npm config set //registry.npmjs.org/:_authToken <token>");
+    process.exit(1);
+  }
+  // Check each package exists
+  for (const t of TARGETS) {
+    const name = `@aliatx2017/reasonix-hermes-${t.node}`;
+    try {
+      run("npm", ["view", name, "version", "--registry", "https://registry.npmjs.org"]);
+      console.log(`  ${name}: exists`);
+    } catch {
+      console.log(`  ${name}: will be created on first publish`);
+    }
+  }
+  console.log("  reasonix-hermes: will be created/updated on publish");
+  process.exit(0);
+}
 
 rmSync(STAGE, { recursive: true, force: true });
 mkdirSync(STAGE, { recursive: true });
@@ -35,44 +73,23 @@ for (const t of TARGETS) {
   mkdirSync(join(dir, "bin"), { recursive: true });
 
   console.log(`build ${t.goos}/${t.goarch} -> ${name}`);
-  execFileSync(
-    "go",
-    [
-      "build",
-      "-trimpath",
-      "-ldflags",
-      `-s -w -X main.version=${tag}`,
-      "-o",
-      join(dir, "bin", exe),
-      "./cmd/reasonix",
-    ],
-    {
-      cwd: ROOT,
-      stdio: "inherit",
-      env: { ...process.env, CGO_ENABLED: "0", GOOS: t.goos, GOARCH: t.goarch },
-    },
-  );
+  run("go", [
+    "build", "-trimpath", "-ldflags", `-s -w -X main.version=${tag}`,
+    "-o", join(dir, "bin", exe), "./cmd/reasonix",
+  ], {
+    cwd: ROOT,
+    stdio: "inherit",
+    env: { ...process.env, CGO_ENABLED: "0", GOOS: t.goos, GOARCH: t.goarch },
+  });
 
-  writeFileSync(
-    join(dir, "package.json"),
-    `${JSON.stringify(
-      {
-        name,
-        version,
-        description: `Reasonix-Hermes prebuilt binary for ${t.node}.`,
-        os: [t.goos === "windows" ? "win32" : t.goos],
-        cpu: [t.goarch === "amd64" ? "x64" : "arm64"],
-        files: ["bin/"],
-        license: "MIT",
-        repository: {
-          type: "git",
-          url: "git+https://github.com/aliatx2017/reasonix-hermes.git",
-        },
-      },
-      null,
-      2,
-    )}\n`,
-  );
+  writeFileSync(join(dir, "package.json"), `${JSON.stringify({
+    name, version,
+    description: `Reasonix-Hermes prebuilt binary for ${t.node}.`,
+    os: [t.goos === "windows" ? "win32" : t.goos],
+    cpu: [t.goarch === "amd64" ? "x64" : "arm64"],
+    files: ["bin/"], license: "MIT",
+    repository: { type: "git", url: "git+https://github.com/aliatx2017/reasonix-hermes.git" },
+  }, null, 2)}\n`);
   subPackages.push({ name, dir });
 }
 
@@ -81,29 +98,55 @@ mkdirSync(mainDir, { recursive: true });
 cpSync(join(HERE, "hermes", "bin"), join(mainDir, "bin"), { recursive: true });
 cpSync(join(ROOT, "README.md"), join(mainDir, "README.md"));
 
-const mainPkg = JSON.parse(
-  readFileSync(join(HERE, "hermes", "package.json"), "utf8"),
-);
+const mainPkg = JSON.parse(readFileSync(join(HERE, "hermes", "package.json"), "utf8"));
 mainPkg.version = version;
-for (const key of Object.keys(mainPkg.optionalDependencies)) {
+for (const key of Object.keys(mainPkg.optionalDependencies))
   mainPkg.optionalDependencies[key] = version;
-}
-writeFileSync(
-  join(mainDir, "package.json"),
-  `${JSON.stringify(mainPkg, null, 2)}\n`,
-);
+writeFileSync(join(mainDir, "package.json"), `${JSON.stringify(mainPkg, null, 2)}\n`);
 
-if (!publish) {
-  console.log(`\nstaged ${version} in ${STAGE} (dry run; pass --publish to publish)`);
+if (!doPublish) {
+  console.log(`\nstaged ${version} in ${STAGE} (pass --publish to publish, --check-auth to verify token)`);
   process.exit(0);
+}
+
+// Check auth before attempting publish
+console.log("Checking npm auth before publish...");
+try {
+  const who = run("npm", ["whoami", "--registry", "https://registry.npmjs.org"]).trim();
+  console.log(`  Authenticated as: ${who}`);
+} catch {
+  console.error("  NOT AUTHENTICATED. Set NPM_TOKEN env var or run:");
+  console.error("  npm config set //registry.npmjs.org/:_authToken <token>");
+  process.exit(1);
 }
 
 const publishArgs = ["publish", "--access", "public"];
 const otp = process.env.NPM_OTP;
 if (otp) publishArgs.push("--otp", otp);
+
+let failed = false;
 for (const sub of subPackages) {
   console.log(`publish ${sub.name}@${version}`);
-  execFileSync("npm", publishArgs, { cwd: sub.dir, stdio: "inherit" });
+  try {
+    run("npm", publishArgs, { cwd: sub.dir, stdio: "inherit" });
+  } catch {
+    console.error(`  FAILED: ${sub.name}. Check token permissions at npmjs.com.`);
+    console.error("  Token must have: Automation type, Packages & scopes → Read and write");
+    failed = true;
+    break;
+  }
 }
-console.log(`publish reasonix-hermes@${version}`);
-execFileSync("npm", publishArgs, { cwd: mainDir, stdio: "inherit" });
+
+if (!failed) {
+  console.log(`publish reasonix-hermes@${version}`);
+  try {
+    run("npm", publishArgs, { cwd: mainDir, stdio: "inherit" });
+  } catch {
+    console.error("  FAILED: reasonix-hermes (main package)");
+    failed = true;
+  }
+}
+
+if (failed) process.exit(1);
+console.log(`\nPublished ${version} — all 7 packages OK.`);
+
