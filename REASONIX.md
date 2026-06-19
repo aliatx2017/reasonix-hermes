@@ -19,8 +19,8 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
   `main`. Resolve conflicts, rebuild all binaries, run `go build ./... && go vet ./...`,
   and update REASONIX.md with the new sync point. Never leave a session without
   checking whether upstream has new commits.
-- **"Build all binaries" means 8 binaries**: When the user says "build all binaries",
-  rebuild all 7 CLI binaries (`go build -o bin/...`) AND the desktop (`cd desktop &&
+- **"Build all binaries" means 9 binaries**: When the user says "build all binaries",
+  rebuild all 8 CLI binaries (`go build -o bin/...`) AND the desktop (`cd desktop &&
   wails build -o ../bin/reasonix-desktop`). The user runs `./bin/reasonix chat` from the
   project root and opens `desktop/build/bin/reasonix-desktop.app` — both must be fresh.
 
@@ -36,7 +36,8 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 ## Notes
 
-- **Upstream synced**: `v1.9.x` (commit 3ba5ebd, 2026-06-19). 19 syncs total — merged in h37: 3ba5ebd (13 commits, desktop settings lazy-load, display mode persistence, memory fixes, session cache). Checked h38 — no new commits. Previous sync: ba7a50b.
+- **Upstream synced**: `v1.9.x` (commit 6d6e1e8, 2026-06-19). 20 syncs total — merged in h38: 6d6e1e8 (25 commits, creation desktop layout, theme accents, tool fold labels). Previous sync: 3ba5ebd (h37).
+- **Commit**: session 2026-06-19 (h38) — upstream merge 3ba5ebd→6d6e1e8 (25 commits, creation layout scaffold, theme accents, tool fold labels). 14 conflicts resolved across TSX, bridge, locales, config. Hermes dashboard re-wired into new upstream SettingsPanel. WriteMode.tsx restored + bridge stubs fixed (4 signatures). No-source-deletion enforcement rule added to .reasonix/verify-session.sh (step 0). Doc-sweep: 5 stale claims fixed (sync point, binary count, next-session todos). tsc --noEmit clean. 28 files changed, +5,388/-23.
 - **Commit**: session 2026-06-18 (h30) — doc-sweep: Helm tag v1.8.2→v1.9.1, cross-linked HOWTO-FORCE-ENGLISH + HOWTO-TOKEN-SAVING + TOKEN-SAVINGS-ANALYSIS from README + HERMES-GUIDE. CHANGELOG-HERMES.md enriched with h29+h30. AGENTS.md sync count updated. All 9 verify checks green.
 - **Commit**: session 2026-06-18 (h31) — learner Observe wired into agent loop, desktop LearnedPatterns() fixed, MaxObservations config, Discord dup Approved./Denied. removed, currency symbol ¥→$, live CNY→USD exchange rate (billing/exchange.go), agent operational logging (agentlog/), doc-sweep (package counts, SPEC §2, HERMES-GUIDE §16.9/16.16/16.23). 2 upstream merges (ebea82b + ba7a50b, 56 commits). 15 files changed, 3 new.
 - **Commit**: session 2026-06-18 (h32) — agentlog stderr bleed fix (removed os.Stderr, file/io.Discard only), currency symbol fix (Symbol() returns "$" when ExchangeRate > 0, config currency → "CNY"), agent log enrichment (cache_miss, err, truncated fields). 3 files changed.
@@ -184,7 +185,7 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 - **Upstream**: Merged 5 commits (a029618). Desktop-v1.8.1 tag.
 ## Next session — ideas & follow-ups
 
-- **Upstream sync**: Check for new commits on `upstream/main-v2`
+- **Upstream sync**: ✅ Done — merged 6d6e1e8 (h38). Check again next session.
 - **CODEMAPS regeneration**: `architecture.md`, `data.md`, `frontend.md` are auto-generated from 2026-06-06 — package counts, binary lists, and line counts are stale
 - **Desktop rebuild**: Rebuild desktop after Go/TS changes this session
 

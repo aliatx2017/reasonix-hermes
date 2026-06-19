@@ -47,6 +47,8 @@ import type {
   HooksSettingsView,
   JobView,
   MCPServerInput,
+  MarkdownFileEntry,
+  MemoryFactView,
   MemorySuggestion,
   MemorySuggestionsView,
   MemoryView,
@@ -350,19 +352,19 @@ export interface AppBindings {
   CostSummary(): Promise<CostSummaryView>;
   CostSummaryForTab(tabID: string): Promise<CostSummaryView>;
   CouncilDashboard(): Promise<CouncilDashboardView>;
-  CreateMarkdownFile(name: string): Promise<string>;
+  CreateMarkdownFile(name: string, content: string): Promise<string>;
   FIMComplete(code: string, cursor: number): Promise<FIMResult>;
   GoalProgress(): Promise<GoalProgressView>;
   GoalProgressForTab(tabID: string): Promise<GoalProgressView>;
   LastLobeHubSync(): Promise<any>;
   LearnedPatterns(): Promise<any>;
-  ListMarkdownFiles(): Promise<string[]>;
+  ListMarkdownFiles(): Promise<MarkdownFileEntry[]>;
   MarketplaceRegistry(): Promise<any>;
   MemoryDashboard(): Promise<any>;
-  MemoryFacts(): Promise<any>;
+  MemoryFacts(): Promise<MemoryFactView[]>;
   PublishSessionHTML(): Promise<string>;
   PublishSessionJSON(): Promise<string>;
-  ReadMarkdownFile(name: string): Promise<string>;
+  ReadMarkdownFile(name: string): Promise<{name: string, content: string}>;
   SaveMarkdownFile(name: string, content: string): Promise<void>;
   ScheduleDashboard(): Promise<any>;
   SessionTokens(): Promise<SessionTokensView>;
@@ -3077,19 +3079,19 @@ function makeMockApp(): AppBindings {
     async CostSummary(): Promise<CostSummaryView> { return {} as any; },
     async CostSummaryForTab(_tabID: string): Promise<CostSummaryView> { return {} as any; },
     async CouncilDashboard(): Promise<CouncilDashboardView> { return {} as any; },
-    async CreateMarkdownFile(_name: string): Promise<string> { return ""; },
+    async CreateMarkdownFile(_name: string, _content: string): Promise<string> { return ""; },
     async FIMComplete(_code: string, _cursor: number): Promise<FIMResult> { return { text: "" } as any; },
     async GoalProgress(): Promise<GoalProgressView> { return {} as any; },
     async GoalProgressForTab(_tabID: string): Promise<GoalProgressView> { return {} as any; },
     async LastLobeHubSync() { return null; },
     async LearnedPatterns() { return []; },
-    async ListMarkdownFiles(): Promise<string[]> { return []; },
+    async ListMarkdownFiles(): Promise<MarkdownFileEntry[]> { return []; },
     async MarketplaceRegistry() { return []; },
     async MemoryDashboard() { return {}; },
-    async MemoryFacts() { return []; },
+    async MemoryFacts(): Promise<MemoryFactView[]> { return []; },
     async PublishSessionHTML(): Promise<string> { return ""; },
     async PublishSessionJSON(): Promise<string> { return ""; },
-    async ReadMarkdownFile(_name: string): Promise<string> { return ""; },
+    async ReadMarkdownFile(_name: string): Promise<{name: string, content: string}> { return { name: "", content: "" }; },
     async SaveMarkdownFile(_name: string, _content: string): Promise<void> {},
     async ScheduleDashboard() { return { tasks: [] }; },
     async SessionTokens(): Promise<SessionTokensView> { return {} as any; },
