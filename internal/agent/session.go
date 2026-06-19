@@ -40,6 +40,13 @@ type Session struct {
 	CacheMiss  int     `json:"cacheMiss"`
 	Cost       float64 `json:"cost"`
 	Currency   string  `json:"currency"`
+
+	// normalizedDirty is set when LoadSession repaired the history on the way in
+	// (empty tool-call names, dangling calls, truncated args, …). The repair
+	// already lives in Messages, so the next Save persists it automatically as
+	// part of the usual full rewrite; the flag exists for observability and to
+	// let callers opt out of work that a dirty session would make redundant.
+	normalizedDirty bool
 }
 
 // SessionMeta is the on-disk format for the .meta sidecar file.

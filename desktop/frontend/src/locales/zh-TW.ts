@@ -861,6 +861,9 @@ export const zhTW: Record<DictKey, string> = {
   // 待辦欄
   "todo.title": "待辦",
   "todo.dismiss": "關閉待辦列表",
+  "todo.pending": "待處理",
+  "todo.inProgress": "進行中",
+  "todo.completed": "已完成",
 
   // 斜線選單標籤
   "slash.project": "專案",

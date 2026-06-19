@@ -49,6 +49,7 @@ func (s *Session) Save(path string) error {
 		return err
 	}
 	if err := fileutil.ReplaceFile(tmpPath, path); err != nil {
+		os.Remove(tmpPath)
 		return err
 	}
 	// Save the sidecar meta file with aggregate session statistics.
@@ -81,6 +82,21 @@ func LoadSession(path string) (*Session, error) {
 		}
 		s.Messages = append(s.Messages, m)
 	}
+	// Repair persisted-history-safe issues before anything reads the session.
+	// Old sessions (pre adde2d3e) and interrupted turns can carry empty tool-call
+	// names, dangling tool_calls, or half-streamed argument JSON that DeepSeek
+	// rejects with a 400 on replay. Wire-only cleanup, such as dropping orphan
+	// tool messages, stays in the provider send path so Save/LoadSession keeps
+	// its round-trip contract. The fast path returns the input slice unchanged
+	// for a well-formed history, so we detect an actual repair by comparing
+	// slice headers: when NormalizeSession allocated a new backing array, the
+	// session is marked dirty so the next Save persists the fix.
+	normalized := NormalizeSession(s.Messages)
+	if len(normalized) != len(s.Messages) || (len(s.Messages) > 0 && &normalized[0] != &s.Messages[0]) {
+		s.normalizedDirty = true
+	}
+	s.Messages = normalized
+
 	// Load sidecar meta (best-effort; legacy sessions won't have one).
 	if meta, err := LoadMeta(path); err == nil {
 		s.TokensIn = meta.TokensIn

@@ -1404,6 +1404,9 @@ export const zh: Record<DictKey, string> = {
   // 待办栏
   "todo.title": "待办",
   "todo.dismiss": "关闭待办列表",
+  "todo.pending": "待处理",
+  "todo.inProgress": "进行中",
+  "todo.completed": "已完成",
 
   // 斜杠菜单标签
   "slash.project": "项目",

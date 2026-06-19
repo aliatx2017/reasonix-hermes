@@ -1373,10 +1373,11 @@ export default function App() {
 
   // The live task list pinned above the composer comes from the most recent
   // successful top-level todo_write result; failed or still-running attempts do
-  // not advance the canonical panel state. It stays visible while any item is
-  // incomplete. It can be dismissed by the user (the ✕). A dismissal is keyed to
-  // the list's stable state, so host-advanced events and history reloads
-  // do not resurrect the same task list under a different event id.
+  // not advance the canonical panel state. Incomplete lists are always shown so
+  // a stale local dismissal cannot hide work that still blocks final readiness;
+  // completed lists collapse automatically and can then be dismissed. The
+  // dismissal key is still based on stable todo content/state so history reloads
+  // do not resurrect the same finished list under a different event id.
   const todoEntry = useMemo(() => {
     for (let i = state.items.length - 1; i >= 0; i--) {
       const it = state.items[i];
@@ -1546,16 +1547,24 @@ export default function App() {
         if (isThemeMode(arg)) {
           const next = arg;
           const style = getThemeStyle(next);
-          await app.SetDesktopAppearance(next, style);
-          applyTheme(next, style);
-          notice(t("settings.themeChanged", { theme: next, style }));
+          try {
+            await app.SetDesktopAppearance(next, style);
+            applyTheme(next, style);
+            notice(t("settings.themeChanged", { theme: next, style }));
+          } catch (err) {
+            showToast(err instanceof Error ? err.message : String(err), "error");
+          }
           return;
         }
         if (isThemeStyle(arg)) {
           const cur = getTheme();
-          await app.SetDesktopAppearance(cur, arg);
-          applyTheme(cur, arg);
-          notice(t("settings.themeChanged", { theme: cur, style: arg }));
+          try {
+            await app.SetDesktopAppearance(cur, arg);
+            applyTheme(cur, arg);
+            notice(t("settings.themeChanged", { theme: cur, style: arg }));
+          } catch (err) {
+            showToast(err instanceof Error ? err.message : String(err), "error");
+          }
           return;
         }
         notice(t("settings.themeUnknown", { name: arg }), "warn");
@@ -1567,7 +1576,7 @@ export default function App() {
       if (goal.trim()) await setControllerGoal(goal);
       commitThenSend(trimmed, submitText.trim());
     },
-    [applyGoal, closeTransientOverlays, collaborationMode, composerProfile, goal, send, runShell, notice, setControllerCollaborationMode, setControllerGoal, setControllerToolApprovalMode, steer, switchModel, t, toolApprovalMode],
+    [applyGoal, closeTransientOverlays, collaborationMode, composerProfile, goal, send, runShell, notice, setControllerCollaborationMode, setControllerGoal, setControllerToolApprovalMode, steer, switchModel, t, toolApprovalMode, showToast],
   );
 
   const refreshTabMetas = useCallback(async (): Promise<TabMeta[]> => {
@@ -2318,9 +2327,13 @@ export default function App() {
   const renameTopic = useCallback(async (topicId: string, title: string) => {
     const nextTitle = title.trim();
     if (!topicId || !nextTitle) return;
-    await app.RenameTopic(topicId, nextTitle);
-    await refreshProjectsAndTabs();
-  }, [refreshProjectsAndTabs]);
+    try {
+      await app.RenameTopic(topicId, nextTitle);
+      await refreshProjectsAndTabs();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : String(err), "error");
+    }
+  }, [refreshProjectsAndTabs, showToast]);
 
   const startActiveTopicRename = useCallback(() => {
     if (!activeTab?.topicId) return;
@@ -2958,7 +2971,7 @@ export default function App() {
 
           {!sidebarImDetailConnection && (
           <footer className="footer" ref={footerRef}>
-            {showTodos && <TodoPanel todos={todos} onDismiss={() => setDismissedTodo(todoKey)} />}
+            {showTodos && <TodoPanel todoKey={todoKey} todos={todos} onDismiss={() => setDismissedTodo(todoKey)} />}
             {rewindState && (
               <UndoRewindBanner
                 meta={{

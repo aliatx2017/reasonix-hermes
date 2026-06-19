@@ -1402,6 +1402,9 @@ export const en = {
   // todo bar
   "todo.title": "To-dos",
   "todo.dismiss": "Dismiss the task list",
+  "todo.pending": "Pending",
+  "todo.inProgress": "In progress",
+  "todo.completed": "Completed",
 
   // slash menu tags
   "slash.project": "project",

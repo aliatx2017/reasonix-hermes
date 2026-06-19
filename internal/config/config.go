@@ -18,6 +18,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 
+	"reasonix/internal/fileutil"
 	"reasonix/internal/netclient"
 	"reasonix/internal/provider"
 )
@@ -3072,9 +3073,12 @@ func SourcePathForRoot(root string) string {
 	return ""
 }
 
-// WriteFile writes the configuration to path as annotated TOML.
+// WriteFile writes the configuration to path as annotated TOML. The write is
+// atomic + fsynced so an interrupted write or power loss can never truncate the
+// main config into an unparseable state that leaves the app with no usable
+// models (#4615, #4708).
 func (c *Config) WriteFile(path string) error {
-	return os.WriteFile(path, []byte(RenderTOMLForScope(c, renderScopeForPath(path))), 0o644)
+	return fileutil.AtomicWriteFile(path, []byte(RenderTOMLForScope(c, renderScopeForPath(path))), configFilePerm(path))
 }
 
 // Provider returns the named provider entry.
