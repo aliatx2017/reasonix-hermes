@@ -88,6 +88,7 @@ type sessionState struct {
 	ctrl             *control.Controller
 	sink             *sessionEventSink
 	cancel           context.CancelFunc
+	platform         Platform
 	pendingAsks      map[string][]event.AskQuestion
 	pendingApprovals map[string]event.Approval
 	lastApprovalID   string
@@ -245,6 +246,29 @@ func (gw *BotGateway) AdapterWebhookURL(platform Platform) string {
 		}
 	}
 	return ""
+}
+
+// PlatformSessionCount returns the number of active sessions for a platform.
+func (gw *BotGateway) PlatformSessionCount(platform Platform) int {
+	gw.mu.Lock()
+	defer gw.mu.Unlock()
+	count := 0
+	for _, state := range gw.controllers {
+		if state.platform == platform {
+			count++
+		}
+	}
+	return count
+}
+
+// HasPlatform returns true if the gateway has at least one adapter for the platform.
+func (gw *BotGateway) HasPlatform(platform Platform) bool {
+	for _, binding := range gw.adapters {
+		if binding.Platform == platform {
+			return true
+		}
+	}
+	return false
 }
 
 // Stop 停止所有适配器并关闭所有 session。
@@ -940,6 +964,7 @@ func (gw *BotGateway) getOrCreateSession(ctx context.Context, key string, msg In
 	gw.controllers[key] = &sessionState{
 		ctrl:        ctrl,
 		sink:        sessionSink,
+		platform:    msg.Platform,
 		pendingAsks: make(map[string][]event.AskQuestion),
 		createdAt:   time.Now(),
 		lastActive:  time.Now(),

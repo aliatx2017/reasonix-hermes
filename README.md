@@ -258,6 +258,7 @@ commands, `@` references, and two-model setup are all in the
 | **[Spec](./docs/SPEC.md)** | Engineering contract — architecture, registries, data types, and design principles |
 | **[Hermes Guide](./docs/HERMES-GUIDE.md)** | Comprehensive Hermes feature guide — 20+ sections covering all extensions |
 | **[Project](./docs/PROJECT.md)** | Hermes fork architecture, commands, customizations, and contributor notes |
+| **[Domain Model](./CONTEXT.md)** | Project glossary — canonical terms, `_Avoid_` alternatives, and domain boundaries |
 | **[Desktop App](./docs/DESKTOP.md)** | Wails desktop app — Hermes dashboard, write mode, bot connections, live data |
 | **[Bot Guide](./docs/BOT_GUIDE.md)** | Connect Discord, Telegram, LINE, Slack, Feishu, WeChat, QQ bots |
 | **[Marketplace](./docs/MARKETPLACE.md)** | Community skill registry + LobeHub sync (360k+ skills) |
@@ -281,6 +282,7 @@ commands, `@` references, and two-model setup are all in the
 | **[工具权限模式 (中文)](./docs/TOOL_APPROVAL_MODES.zh-CN.md)** | 询问、自动与 Yolo 模式 |
 | **[推理语言 (中文)](./docs/REASONING_LANGUAGE.zh-CN.md)** | 强制模型以指定语言进行推理 |
 | **[Goal 执行 (中文)](./docs/GOAL_ENFORCEMENT.zh-CN.md)** | OMO 风格目标执行功能 |
+| **[Architecture Decisions](./docs/adr/)** | Recorded architectural decisions — cache-first prefix, controller seam |
 
 <br/>
 

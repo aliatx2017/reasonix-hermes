@@ -17,7 +17,7 @@ import type {
 
 interface HermesLiveData {
   cache: CacheEconomyView | null;
-  discord: BotLiveStatusView | null;
+  bot: BotLiveStatusView | null;
   goal: GoalProgressView | null;
   memory: MemoryDashboardView | null;
   cost: CostSummaryView | null;
@@ -50,7 +50,7 @@ const EVENT_CHANNEL = "hermes:dashboard";
 
 export function useHermesLiveData(tabId: string | undefined, enabled: boolean): HermesLiveData {
   const [data, setData] = useState<HermesLiveData>({
-    cache: null, discord: null, goal: null, memory: null, cost: null, tokens: null, compress: null, schedule: null, collab: null, council: null, learnPatterns: [], learnTrajectories: [],
+    cache: null, bot: null, goal: null, memory: null, cost: null, tokens: null, compress: null, schedule: null, collab: null, council: null, learnPatterns: [], learnTrajectories: [],
   });
 
   // Prefer Wails push events; fall back to polling.
@@ -65,7 +65,7 @@ export function useHermesLiveData(tabId: string | undefined, enabled: boolean): 
           if (!payload) return;
           setData({
             cache: payload.cache ?? null,
-            discord: payload.bot ?? null,
+            bot: payload.bot ?? null,
             goal: payload.goal ?? null,
             memory: payload.memory ?? null,
             cost: (payload as any).cost ?? null,
@@ -96,7 +96,7 @@ export function useHermesLiveData(tabId: string | undefined, enabled: boolean): 
     if (!enabled) return;
     try {
       const tid = tabId ?? "";
-      const [cache, discord, goal, memory, cost, tokens, compress, schedule, collab, council, learnPatterns, learnTrajectories] = await Promise.all([
+      const [cache, bot, goal, memory, cost, tokens, compress, schedule, collab, council, learnPatterns, learnTrajectories] = await Promise.all([
         tid ? app.CacheEconomyForTab(tid) : app.CacheEconomy(),
         app.BotLiveStatus(),
         tid ? app.GoalProgressForTab(tid) : app.GoalProgress(),
@@ -110,7 +110,7 @@ export function useHermesLiveData(tabId: string | undefined, enabled: boolean): 
         app.LearnedPatterns().then(([p, _t]) => p ?? []),
         app.LearnedPatterns().then(([_p, t]) => t ?? []),
       ]);
-      setData({ cache, discord, goal, memory, cost, tokens, compress, schedule, collab, council, learnPatterns, learnTrajectories });
+      setData({ cache, bot, goal, memory, cost, tokens, compress, schedule, collab, council, learnPatterns, learnTrajectories });
     } catch {
       // silent — bridge may not be ready
     }

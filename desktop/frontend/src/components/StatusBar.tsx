@@ -370,11 +370,16 @@ function DiscordMonitorCompact() {
     return () => clearInterval(id);
   }, []);
   if (!status || !status.running) return null;
+  const platforms = status.platforms || [];
   return (
-    <span title={`Discord: ${status.status} · ${status.activeSessions} sessions${status.webhookURL ? " · Webhook: " + status.webhookURL : ""}`} style={{ display: "inline-flex", alignItems: "center", gap: 2, fontSize: 11, color: "var(--color-text-muted)" }}>
-      <MessageCircle size={11} />
-      <Circle size={5} fill="var(--color-green)" color="var(--color-green)" />
-      {status.activeSessions > 0 && status.activeSessions}
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 11, color: "var(--color-text-muted)" }}>
+      {platforms.map((p) => (
+        <span key={p.platform} title={`${p.platform}: ${p.activeSessions} sessions${p.webhookURL ? " · Webhook: " + p.webhookURL : ""}`} style={{ display: "inline-flex", alignItems: "center", gap: 1 }}>
+          <MessageCircle size={10} />
+          <Circle size={4} fill="var(--color-green)" color="var(--color-green)" />
+          {p.activeSessions > 0 && p.activeSessions}
+        </span>
+      ))}
     </span>
   );
 }

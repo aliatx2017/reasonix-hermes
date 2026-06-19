@@ -1,10 +1,10 @@
 import { BarChart3, Calendar, Download, FileText, GitBranch, History, Keyboard, Network, Shield, Sliders, ShoppingBag, Zap } from "lucide-react";
-import type { SettingsView, HotbarView, ProfileView, CostSummaryView, SessionTokensView, CompressStatsView, ScheduleDashboardView, CollabView, CouncilDashboardView } from "../../lib/types";
+import type { SettingsView, HotbarView, ProfileView, BotLiveStatusView, CostSummaryView, SessionTokensView, CompressStatsView, ScheduleDashboardView, CollabView, CouncilDashboardView } from "../../lib/types";
 import { CacheEconomyGauge } from "./CacheEconomyGauge";
 import { CollabPanel } from "./CollabPanel";
 import { CouncilPanel } from "./CouncilPanel";
 import { CostWidget } from "./CostWidget";
-import { DiscordMonitor } from "./DiscordMonitor";
+import { BotLiveMonitor } from "./DiscordMonitor";
 import { GoalProgressWidget } from "./GoalProgressWidget";
 import { PublishWidget } from "./PublishWidget";
 import { ScheduleWidget } from "./ScheduleWidget";
@@ -25,7 +25,7 @@ interface HermesSettingsProps {
   onHotbarChange: (hotbar: HotbarView) => void;
   onProfileSelect: (name: string) => void;
   cache?: { hitTokens: number; missTokens: number; totalTokens: number; hitRate: number } | null;
-  discord?: { running: boolean; platform: string; activeSessions: number; status: string; webhookURL: string } | null;
+  bot?: BotLiveStatusView | null;
   goal?: { active: boolean; goal: string; status: string; turns: number; blocks: number } | null;
   cost?: CostSummaryView | null;
   tokens?: SessionTokensView | null;
@@ -62,7 +62,7 @@ function formatCompactBytes(n: number): string {
   return n.toString();
 }
 
-export function HermesSettings({ s, onHotbarChange: _onHotbar, onProfileSelect: _onProfile, cache, discord, goal, cost, tokens, compress, schedule, collab, council }: HermesSettingsProps) {
+export function HermesSettings({ s, onHotbarChange: _onHotbar, onProfileSelect: _onProfile, cache, bot, goal, cost, tokens, compress, schedule, collab, council }: HermesSettingsProps) {
   const profiles = Object.entries(s.profiles ?? {}) as [string, ProfileView][];
   const activeProfile = s.activeProfile || "";
 
@@ -76,7 +76,7 @@ export function HermesSettings({ s, onHotbarChange: _onHotbar, onProfileSelect: 
         </h3>
         <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap", alignItems: "center" }}>
           <CacheEconomyGauge cache={cache ?? null} />
-          <DiscordMonitor status={discord ?? null} />
+          <BotLiveMonitor status={bot ?? null} />
           <div style={{ flex: 1, minWidth: 200 }}>
             <GoalProgressWidget goal={goal ?? null} compact />
           </div>

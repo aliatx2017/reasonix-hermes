@@ -746,12 +746,16 @@ export interface MemoryFactView {
   hasDenseEmbedding: boolean; // true when the fact has a dense embedding vector
 }
 
+export interface BotPlatformStatus {
+  platform: string;
+  running: boolean;
+  activeSessions: number;
+  webhookURL: string;
+}
+
 export interface BotLiveStatusView {
   running: boolean;
-  platform: string;
-  activeSessions: number;
-  status: string;
-  webhookURL: string;
+  platforms: BotPlatformStatus[];
 }
 
 export interface GoalProgressView {

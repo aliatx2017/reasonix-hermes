@@ -95,6 +95,7 @@
     - 16.16 [Constitution System](#1616-constitution-system)
     - 16.17 [How-To: Force English Only](#1617-how-to-force-english-only)
     - 16.18 [How-To: Token Saving](#1618-how-to-token-saving)
+    - 16.24 [Domain Model & ADRs](#1624-domain-model--adrs)
 17. [Desktop App](#17-desktop-app)
 18. [Bot Gateway (Multi-Platform)](#18-bot-gateway-multi-platform)
 19. [Troubleshooting & FAQ](#19-troubleshooting--faq)
@@ -1817,6 +1818,13 @@ export DEEPSEEK_API_KEY=sk-...
 - **Project memory:** [REASONIX.md](../REASONIX.md), [AGENTS.md](../AGENTS.md)
 - **Ecosystem:** [Ecosystem reference](../reasonix-deepseek-ecosystem-2026.md)
 - **Implementation:** [Changelog](./CHANGELOG-HERMES.md)
+### 16.24 Domain Model & ADRs
+
+A project glossary (`CONTEXT.md`) defines 18 canonical terms (Turn, Prefix, Controller, Mesh, etc.) with `_Avoid_` alternatives for each. Architectural Decision Records (`docs/adr/`) capture the two hardest-to-reverse choices: cache-first immutable prefix (ADR-0001) and controller seam (ADR-0002).
+
+- **[Domain Model](../CONTEXT.md)** — full glossary
+- **[ADRs](../docs/adr/)** — recorded decisions
+
 - **Upstream Discord:** [discord.gg/XF78rEME2D](https://discord.gg/XF78rEME2D)
 - **Upstream GitHub:** [esengine/deepseek-reasonix](https://github.com/esengine/deepseek-reasonix)
 

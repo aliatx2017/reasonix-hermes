@@ -1,61 +1,44 @@
 ---
 name: ready-means-tested
-description: "Enforce 'nothing is ready until end-to-end tested with real evidence.' Gate that must pass before any component status changes to DONE/READY/LIVE. Encodes the substantiate-every-claim constitution rule."
-version: 1.0.0
-author: Theshire (adapted for Reasonix-Hermes)
-tags: [testing, verification, evidence, gate, constitution]
+description: "Nothing is ready until end-to-end tested with real evidence. Blocks DONE/READY/LIVE claims without build output in the same response."
+version: 2.0.0
+author: Reasonix-Hermes (rewritten with writing-great-skills principles)
+tags: [testing, verification, evidence, gate]
 ---
 
 # Ready Means Tested
 
+One rule, one gate, one evidence chain.
+
 ## Rule
 
-NO change, fix, or feature is READY/DONE/LIVE unless end-to-end verified with real evidence. Code inspection, "it compiles," "it deployed," "the tests pass locally" — do NOT qualify. You must show tool output from the actual execution proving the change works.
+No change is ready unless end-to-end verified with real evidence in the same response. Code inspection, "it compiles," "the tests pass locally" — these do not qualify. Show the tool output.
 
-**"Fixed" / "done" / "verified" / "working" — ONLY valid with evidence in the SAME response.** If you can't point to `go build`, `go test`, or `go vet` output proving it, say "should be resolved" — never "fixed." This is encoded in the constitution as the `never-say-fixed` and `substantiate-every-claim` rules.
+"Fixed" is a banned word — only the user declares something fixed. Say "should be resolved" or "try it."
 
-## Claim Words Require Evidence
+## Gate
 
-Before emitting any claim word, the SAME response must contain:
-- `go build ./...` output showing clean build
-- OR `go test ./...` output showing pass
-- OR `go vet ./...` output showing no warnings
-- OR an actual file diff or command output proving the change
+Must pass all before claiming a step is done:
 
-Default: if there's no tool output in the same response producing build/test/vet evidence, don't use claim words. Describe what was done, not that it works. Only the user declares something fixed after testing.
+1. `go build ./...` — clean
+2. `go vet ./...` — clean
+3. `go test ./...` for affected packages — pass
+4. `cd desktop/frontend && npx tsc --noEmit` for desktop changes — clean
+5. Show the output in the same response
 
-## Red Flags (BLOCK status change)
+If any step fails, the step is not done. Iterate, don't claim.
 
-- Agent claims "fixed" based on reading source code only
-- Agent claims "fixed" based on edit success without build verification
-- Agent claims "tests pass" without running them
-- Agent claims "builds" without `go build ./...`
-- Agent claims "done" without completing ALL steps of an approved plan
+## Evidence chain
 
-## Gate — must pass ALL before claiming DONE
+`complete_step` requires ≥1 evidence item per completion. Each verification evidence must include the exact command as it ran. The host matches commands against the session transcript — approximate citations are rejected. Use the command string from the bash output, verbatim.
 
-1. Run `go build ./...` — must pass
-2. Run `go vet ./...` — must pass
-3. Run `go test ./...` for the affected package — must pass
-4. Run `go test ./internal/...` for broader changes — must pass
-5. For desktop changes: `cd desktop/frontend && npx tsc --noEmit` — must pass
-6. Show the evidence inline (tool output in the same response)
-7. If ANY step fails: the step is not done, do not claim it is
+## Failure modes
 
-## Status vocabulary
-
-- NOT VERIFIED: change made, zero build/test verification
-- BUILDING: `go build` in progress
-- VERIFIED: build + vet + tests pass, evidence shown
-
-## Evidence Chain
-
-Every complete_step requires ≥1 evidence item with kind=verification, diff, files, or manual. Each verification evidence must include the exact command that was run. This is structural enforcement — the host rejects completions without evidence.
+- **Inspection-as-evidence** — reading code and concluding it works. Build output only.
+- **Stale-timestamp "passes"** — citing a test run from a previous turn. Re-run it.
+- **Command mismatch** — the host rejects evidence when the cited command doesn't match what actually ran. Copy the command from bash output exactly.
 
 ## Related
 
-- Constitution rule: `never-say-fixed` — banned word, only user declares fixed
-- Constitution rule: `substantiate-every-claim` — verify first, speak second
-- Constitution rule: `go-vet-clean` — `go build ./... && go vet ./...` must pass before committing
-- Constitution rule: `typescript-clean` — `tsc --noEmit` must pass for desktop changes
-- Project skill: `evidence-first-reasoning` — diagnostic method for ambiguity
+- `pre-action-gate` — pre-write safety checkpoint
+- `evidence-first-reasoning` — diagnostic verification under ambiguity

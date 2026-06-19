@@ -2957,8 +2957,9 @@ func activityStatusForTab(tab *WorkspaceTab) string {
 var legacyMigrationMu sync.Mutex
 
 func migrateLegacySessionsIntoGlobalTopics(dir string) []string {
+	var migratedTopicIDs = []string{}
 	if strings.TrimSpace(dir) == "" {
-		return nil
+		return migratedTopicIDs
 	}
 	// Determine scope from the directory. The global session dir gets Global
 	// topics; a project session dir gets project-scoped topics under the
@@ -2977,17 +2978,16 @@ func migrateLegacySessionsIntoGlobalTopics(dir string) []string {
 			}
 		}
 		if scope != "project" {
-			return nil // not a recognized project dir; skip
+			return migratedTopicIDs // not a recognized project dir; skip
 		}
 	}
 	legacyMigrationMu.Lock()
 	defer legacyMigrationMu.Unlock()
 	infos, err := agent.ListSessionOrder(dir)
 	if err != nil || len(infos) == 0 {
-		return nil
+		return migratedTopicIDs
 	}
 
-	var migratedTopicIDs []string
 	var titles map[string]string
 	var topicTitles map[string]string
 	var topicSources map[string]string

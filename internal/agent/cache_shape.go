@@ -103,19 +103,3 @@ func estimateTokens(s string) int {
 	}
 	return len(s) / 4
 }
-
-// SchemaTokenCosts returns per-tool token cost estimates for display.
-func SchemaTokenCosts(schemas []provider.ToolSchema) []ToolSchemaCost {
-	out := make([]ToolSchemaCost, 0, len(schemas))
-	for _, s := range schemas {
-		b, _ := json.Marshal(s)
-		out = append(out, ToolSchemaCost{Name: s.Name, Tokens: estimateTokens(string(b))})
-	}
-	return out
-}
-
-// ToolSchemaCost is a per-tool token cost estimate for diagnostic display.
-type ToolSchemaCost struct {
-	Name   string
-	Tokens int
-}

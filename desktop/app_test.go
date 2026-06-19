@@ -2153,7 +2153,8 @@ func TestClearSessionCancelsRunningRuntimeAndKeepsTopic(t *testing.T) {
 }
 
 func TestClearSessionRemovesRunningJobArtifacts(t *testing.T) {
-	isolateDesktopUserDirs(t)
+	home := isolateDesktopUserDirs(t)
+	t.Chdir(home) // avoid project reasonix.toml
 
 	dir := config.SessionDir()
 	if err := os.MkdirAll(dir, 0o755); err != nil {

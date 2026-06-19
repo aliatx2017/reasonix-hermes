@@ -9,11 +9,14 @@
 1. **Config- and plugin-driven core.** The core knows only interfaces. Concrete
    models and tools are resolved by name from registries, declared in config, or
    injected by plugins. No hardcoded `switch model`.
-2. **Single static binary.** `CGO_ENABLED=0`; cross-compile with one command;
-   CLI works out of the box.
-3. **Lean dependencies.** Standard library by default. A third-party dependency
-   must be pure-Go, lightweight, and must not compromise the single-binary /
-   cross-platform / distribution story. TOML parsing is the one accepted dependency.
+2. **Multiple static binaries.** Each CLI binary is `CGO_ENABLED=0` and
+   cross-compiles with one command. The desktop app (Wails) requires
+   platform-native build tooling. All binaries are Go-only — no external
+   runtimes needed.
+3. **Lean dependencies.** Dependencies are audited — every addition must justify
+   its weight. Bot adapters, MCP libraries, and TUI toolkits are accepted where
+   they replace substantial custom code. TOML (BurntSushi/toml) is the config
+   format. No framework-heavy ORMs, no cloud SDKs, no Node/Python runtimes.
 4. **Two extension tiers.** Compile-time built-ins (self-register via `init()`),
    and runtime external plugins (stdio JSON-RPC subprocesses, MCP-compatible).
 5. **Interface-first & registry-based.** `Provider` and `Tool` are interfaces.
@@ -129,7 +132,7 @@ reasonix/
 ```
 
 [Hermes] = Reasonix-Hermes custom additions (not present in upstream esengine/deepseek-reasonix).
-Total: 69 internal packages.
+Total: 70 internal packages.
 
 Dependency direction (acyclic): `cli → {agent, plugin, config} → {tool, provider}`.
 Built-in subpackages (`provider/openai`, `tool/builtin`) import their parent to

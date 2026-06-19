@@ -2728,7 +2728,7 @@ function makeMockApp(): AppBindings {
     },
     async AddScheduledTask(_name: string, _cronExpr: string, _prompt: string, _model: string, _enabled: boolean) { return true; },
     async BotLiveStatus(): Promise<BotLiveStatusView> {
-      return { running: false, platform: "discord", activeSessions: 0, status: "offline", webhookURL: "" };
+      return { running: false, platforms: [] };
     },
     async CacheEconomy(): Promise<CacheEconomyView> {
       return { hitRate: 0.87, hitTokens: 87000, missTokens: 13000, totalTokens: 100000 };

@@ -1,120 +1,86 @@
 ---
 name: doc-sweep
-description: Systematic audit and enrichment of project documentation against the live codebase — inventory, cross-reference, identify gaps, fix stale docs, create new docs, cross-link.
+description: "Systematic documentation audit — inventory every doc, cross-reference against the live codebase, fix stale claims, create missing docs, cross-link."
+version: 2.0.0
+author: Reasonix-Hermes (rewritten with writing-great-skills principles)
+tags: [documentation, audit, maintenance]
 ---
 
 # Documentation Sweep
 
-> Systematic audit and enrichment of project documentation against the live codebase.
+Five phases. Each has a completion criterion — don't move to the next until the current one is done.
 
-## When to Use
+## Phase A — inventory
 
-- After a major feature push — ensure docs match reality
-- Before a release — hunt stale claims and missing coverage
-- When onboarding — verify docs are complete and accurate
-- When `docs/` has grown organically and needs a fresh cross-reference
-
-## Process
-
-### Phase A: Inventory (5 min)
-
-Catalog every documentation file in the project:
+Catalog every documentation file and every code package:
 
 ```bash
 ls docs/*.md *.md deploy/*.md skills-hub/**/*.md .reasonix/**/*.md 2>/dev/null
-```
-
-Also inventory all code packages:
-
-```bash
 ls -d internal/*/ cmd/*/ desktop/ 2>/dev/null
 ```
 
-Count and group: root-level docs, feature guides, reference docs, historical docs.
+**Done when**: you have two lists — every doc path, every package path. Count them. State the counts.
 
-### Phase B: Cross-Reference Against Codebase (15 min)
+## Phase B — cross-reference
 
-For each doc, answer:
+For each doc, answer four questions:
+1. What packages does it claim to cover?
+2. What packages actually exist? (from Phase A inventory)
+3. Which actual packages have zero mentions in any doc? → **gap**
+4. Which doc claims are false against current code? → **staleness**
 
-1. **What features/packages does it claim to cover?** — list them
-2. **What features/packages actually exist?** — from `internal/*/` + `cmd/*/`
-3. **Gap**: which actual packages have zero mentions in any doc?
-4. **Staleness**: which doc claims are false against the current code?
+Key checks: binary names correct? package paths exist? features still live? clone URLs point at the right repo? version numbers current? bot platform list complete? i18n locales match?
 
-Key checks per doc:
-- Binary names still correct? (e.g. `reasonix-mcpbridge`, not `reasonix-bridge`)
-- Package paths still correct? (e.g. `internal/eval/`, not a deleted package)
-- Features listed still exist? (grep for symbols/files)
-- Clone URLs point to the right repo?
-- Version numbers current?
-- Platform/bot names complete? (Discord, Telegram, LINE, Slack, Feishu, WeChat, QQ)
-- i18n locales match? (en, zh, zh-TW)
+**Done when**: you have a gap list and a staleness list. Every item cites a specific doc:line and the evidence (grep/read that proves it).
 
-### Phase C: Identify Gaps (5 min)
+## Phase C — prioritize gaps
 
-Features with **no standalone doc** at all — for each, decide:
-- Needs a standalone doc (major feature, user-facing)
-- Needs a section in an existing guide (small feature, developer-facing)
-- Already covered in SPEC.md §2 (package reference, not user guide)
+For each undocumented feature, decide its tier:
+- **Standalone doc** — major feature, user-facing
+- **Section in existing guide** — small feature, developer-facing
+- **Covered by SPEC.md §2** — package reference, no doc needed
 
-Priority order: user-facing > developer-facing > internal-only.
+**Done when**: every gap has a tier assignment. State it.
 
-### Phase D: Fix and Enrich (20 min)
+## Phase D — fix and enrich
 
-For each identified issue:
+For each stale claim: update inline, add a historical note if the doc is very old.
 
-**Stale doc fix pattern:**
-1. Add a historical note at the top if the doc is old ("Historical — June 2025")
-2. Update all stale claims inline
-3. Add cross-reference to current docs
+For each new doc, use this template:
 
-**New doc template:**
 ```markdown
 # Feature Name
 
-> One-line elevator pitch — what it does and how to use it.
+> One-line elevator pitch.
 
 ## Quick Start
-
 ```bash
 reasonix <command> <args>
 ```
 
 ## What It Does
-
 ...
 
 ## Configuration
-
 ```toml
 [section]
 key = "value"
 ```
 
 ## Architecture
-
 Which packages power it.
 
 ## Related
-
 - `docs/OTHER-DOC.md` — related features
 ```
 
-**Cross-linking**: Every new doc must be linked from:
-1. `README.md` — Documentation table
-2. `docs/HERMES-GUIDE.md` — Contents + relevant section
-3. Any related feature guides
+Every new doc must be linked from `README.md` (Documentation table) and `docs/HERMES-GUIDE.md` (Contents + relevant section).
 
-### Phase E: Verify (2 min)
+**Done when**: every stale claim is fixed, every needed doc is created, and every new doc is cross-linked from README and HERMES-GUIDE.
 
-```bash
-go build ./... && go vet ./...
-ls -la docs/NEW-DOC.md docs/OTHER-NEW-DOC.md
-```
+## Phase E — output
 
-## Output
-
-A report like:
+Produce a summary table:
 
 ```
 ## Documentation Sweep
@@ -135,10 +101,10 @@ A report like:
 - feature-X: covered in HERMES-GUIDE §Y, standalone doc deferred
 ```
 
+**Done when**: the summary is complete and `go build ./...` passes.
+
 ## Rules
 
 - Never delete docs — mark as historical instead
-- Keep new docs focused (2000–5000 bytes) — link to HERMES-GUIDE for depth
-- Always cross-link new docs from README and HERMES-GUIDE
+- Keep new docs focused — link to HERMES-GUIDE for depth
 - Code examples must match the actual CLI/API as it exists today
-- Verify with `go build ./...` after every batch of changes

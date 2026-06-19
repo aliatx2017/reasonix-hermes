@@ -145,46 +145,54 @@ func (a *App) MemoryDashboard() MemoryDashboardView {
 	}
 }
 
-// --- Discord Bot Live Monitor ---
+// --- Bot Live Monitor ---
 
-// BotLiveStatusView carries live IM bot session stats.
-type BotLiveStatusView struct {
+// BotPlatformStatus carries per-platform live bot status.
+type BotPlatformStatus struct {
+	Platform       string `json:"platform"`       // "discord", "telegram", "line", "slack"
 	Running        bool   `json:"running"`
-	Platform       string `json:"platform"`
 	ActiveSessions int    `json:"activeSessions"`
-	Status         string `json:"status"`
 	WebhookURL     string `json:"webhookURL"`
 }
 
-// BotLiveStatus returns live bot runtime status.
+// BotLiveStatusView carries live IM bot session stats for all platforms.
+type BotLiveStatusView struct {
+	Running   bool                `json:"running"`   // any platform running
+	Platforms []BotPlatformStatus `json:"platforms"`  // per-platform breakdown
+}
+
+// BotLiveStatus returns live bot runtime status for all platforms.
 func (a *App) BotLiveStatus() BotLiveStatusView {
 	s := a.BotRuntimeStatus()
-	webhookURL := ""
+	var platforms []BotPlatformStatus
 	if a.botRuntime != nil {
 		a.botRuntime.mu.Lock()
 		gw := a.botRuntime.gw
 		a.botRuntime.mu.Unlock()
 		if gw != nil {
-			// Collect webhook URLs from all adapters that expose them.
-			var urls []string
 			for _, platform := range []bot.Platform{
-				bot.PlatformLine,
 				bot.PlatformDiscord,
 				bot.PlatformTelegram,
+				bot.PlatformLine,
+				bot.PlatformSlack,
 			} {
-				if u := gw.AdapterWebhookURL(platform); u != "" {
-					urls = append(urls, u)
+				if !gw.HasPlatform(platform) {
+					continue
 				}
+				webhookURL := gw.AdapterWebhookURL(platform)
+				sessions := gw.PlatformSessionCount(platform)
+				platforms = append(platforms, BotPlatformStatus{
+					Platform:       string(platform),
+					Running:        s.Running,
+					ActiveSessions: sessions,
+					WebhookURL:     webhookURL,
+				})
 			}
-			webhookURL = strings.Join(urls, ", ")
 		}
 	}
 	return BotLiveStatusView{
-		Running:        s.Running,
-		Platform:       "discord",
-		ActiveSessions: s.Connections,
-		Status:         s.Status,
-		WebhookURL:     webhookURL,
+		Running:   s.Running,
+		Platforms: platforms,
 	}
 }
 

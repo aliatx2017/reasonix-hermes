@@ -1,63 +1,39 @@
 ---
 name: pre-action-gate
-description: "Mandatory pre-action verification — load before ANY write, edit, or deploy. Gate checklist to prevent common mistakes: wrong target, missing evidence, premature claims."
-version: 1.0.0
-author: Theshire (adapted for Reasonix-Hermes)
-tags: [gate, verification, mandatory, safety]
+description: "Pre-write safety gate — re-read targets, lock hashes, and verify the build chain before calling any change complete."
+version: 2.0.0
+author: Reasonix-Hermes (rewritten with writing-great-skills principles)
+tags: [gate, verification, safety]
 ---
 
 # Pre-Action Gate
 
-## When to Use
+Load before any write, edit, or deploy. This is a _gate_ — it doesn't produce output; it blocks premature moves.
 
-Load BEFORE:
-- Any `edit_file`, `write_file`, `delete_range`, `multi_edit`, or `move_file` call
-- Any `bash` command that mutates files or the environment
-- Any claim of completion, success, or readiness
-- Any upstream merge or config change
+## The gate
 
-## Gate Checklist
+**Before any file mutation** — re-read the target area. Code drifts between reads; stale context is the #1 cause of garbled edits. Use `content_hash` on `edit_file` whenever you touch a file.
 
-### G1: Target Verification
-- Before any file write: re-read the target area to confirm the code hasn't changed since your last read. Use `content_hash` parameter on `edit_file` when possible.
-- Before any bash command: verify the working directory and target files exist.
-- After any config change: verify `go build ./...` still passes before proceeding.
+**After any change** — `go build ./...` must pass before you call the step done. Not "should pass," not "probably passes" — you run it and show the output. One change → one build. Iterate.
 
-### G2: Evidence Before Claim
-- Am I about to say "done," "works," "passes," "fixed"? → **BLOCKED.** Show tool output FIRST.
-- Use `complete_step` with verification evidence (command + result) before claiming a step is done.
-- Never claim something is fixed — say "should be resolved" or "try it." Only the user declares fixed.
+**Before claiming completion** — evidence must be in the _same response_ as the claim. `complete_step` enforces this structurally: the host rejects completions without verification commands. Don't fight it — feed it.
 
-### G3: Constitution Check
-- Does this change violate any constitution rule? Check:
-  - `spec-first`: Did I update SPEC.md first for internal changes?
-  - `controller-seam`: Am I adding behavior to control.Controller, not individual frontends?
-  - `init-registration`: Does a new built-in tool/provider need `init()` registration?
-  - `go-vet-clean`: Will `go build ./... && go vet ./...` still pass?
-  - `no-nil-slices`: Do Wails Go bindings return `[]T{}` not `nil`?
-  - `i18n-complete`: Do new i18n fields populate all 3 catalogs?
+## What this gate replaces
 
-### G4: Build Chain
-1. `go build ./...` — must pass before claiming a step is done
-2. `go vet ./...` — must pass
-3. Relevant tests must pass
-4. For desktop: `tsc --noEmit` must pass
-5. Full test suite for broad changes: `go test ./internal/...`
+This skill encodes three constitution rules into one behavioral checkpoint. Load it instead of consulting the constitution directly — it's the distilled form:
 
-### G5: Upstream Awareness
-- After every session: `git fetch upstream`, merge `upstream/main-v2`, rebuild, re-vet.
-- Never leave a session without checking upstream.
+- `go-vet-clean` → build chain check
+- `substantiate-every-claim` → evidence-before-claim
+- `never-say-fixed` → only the user declares fixed
 
-## Failure Modes
+## Failure modes
 
-- **Stale context edit**: Editing a file that changed since last read → garbled code. Always re-read before editing.
-- **Unverified claim**: Saying "done" without showing build output. Use `complete_step` with verification.
-- **Constitution violation**: Missing SPEC update, bypassing controller seam, returning nil slices.
-- **Forgotten upstream sync**: Session ends without `git fetch upstream`.
+- **Stale edit** — file changed since last read → garbled code. Re-read every time.
+- **Premature "done"** — claiming completion without build output. The host blocks it; don't waste the turn.
+- **Batch-and-pray** — 10 edits, then one build. One edit → one build. `multi_edit` for single-file batches only.
 
 ## Related
 
-- Constitution: `.reasonix/constitution.json` — 7 principles, 6 constraints, 7 rules
-- Project skill: `ready-means-tested` — evidence gate for status claims
-- Project skill: `evidence-first-reasoning` — diagnostic verification method
-- REASONIX.md — "Upstream sync every session wrap-up"
+- `ready-means-tested` — evidence gate for status claims
+- `evidence-first-reasoning` — diagnostic verification under ambiguity
+- Constitution: `.reasonix/constitution.json`

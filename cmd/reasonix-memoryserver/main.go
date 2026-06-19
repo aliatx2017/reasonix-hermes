@@ -470,37 +470,6 @@ func (ms *MemoryStore) SearchSimilar(query string, sessionID string, limit int) 
 	return results, nil
 }
 
-// MemoryStats holds aggregate counts for the desktop dashboard.
-type MemoryStats struct {
-	TotalFacts     int `json:"totalFacts"`
-	ActiveFacts    int `json:"activeFacts"`
-	DenseCount     int `json:"denseCount"`     // facts with dense embeddings
-	SparseCount    int `json:"sparseCount"`    // facts with TF-IDF vectors
-	EmbedAvailable bool `json:"embedAvailable"` // embedding client is configured
-}
-
-// Stats returns aggregate memory statistics.
-func (ms *MemoryStore) Stats() MemoryStats {
-	ms.mu.RLock()
-	defer ms.mu.RUnlock()
-	var s MemoryStats
-	s.EmbedAvailable = ms.embed != nil
-	for i := range ms.entries {
-		e := &ms.entries[i]
-		s.TotalFacts++
-		if !e.Expired() {
-			s.ActiveFacts++
-		}
-		if len(e.DenseVector) > 0 {
-			s.DenseCount++
-		}
-		if len(e.Vector) > 0 {
-			s.SparseCount++
-		}
-	}
-	return s
-}
-
 func (ms *MemoryStore) Reflect(sessionID string) string {
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()

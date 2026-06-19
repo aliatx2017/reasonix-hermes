@@ -1,13 +1,6 @@
 ---
 name: diagnosing-bugs
-description: 6-phase structured diagnosis: build tight feedback loop, reproduce+minimise, generate falsifiable hypotheses, instrument, fix+regression test, cleanup+post-mortem.
----
-
----
-name: diagnosing-bugs
-description: Diagnosis loop for hard bugs and performance regressions. Use when the user says "diagnose"/"debug this", or reports something broken/throwing/failing/slow.
-runAs: inline
-scope: project
+description: 6-phase structured diagnosis: build a tight red-capable feedback loop, reproduce+minimise, generate falsifiable hypotheses, instrument, fix+regression test, cleanup+post-mortem.
 ---
 
 # Diagnosing Bugs

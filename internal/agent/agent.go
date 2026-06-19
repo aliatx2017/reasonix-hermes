@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -1033,11 +1032,6 @@ func (e *MaxStepsPause) Error() string {
 	return fmt.Sprintf("paused after %d tool-call rounds (%s) — the work so far is saved; send another message to continue, or set %s higher or to 0 for no limit", e.Steps, e.Key, e.Key)
 }
 
-// IsMaxStepsPause reports whether err is (or wraps) a MaxStepsPause.
-func IsMaxStepsPause(err error) bool {
-	var mp *MaxStepsPause
-	return errors.As(err, &mp)
-}
 
 func (a *Agent) finalReadinessFailure() string {
 	return a.finalReadinessCheck().reason

@@ -182,6 +182,19 @@ Key milestones in the Hermes fork since June 2026.
 - Crash capture (Go panics/breadcrumbs/group summaries)
 - Local history + memory retrieval, Traditional Chinese (zh-TW) locale
 
+### Session 2026-06-19 (h35) — desktop bot live monitor, log rotation e2e, skill rewrites, domain model, bug fixes, dead code
+
+- **Desktop bot live monitor**: Multi-platform status badges replacing Discord-only. New `BotPlatformStatus` struct (per-platform); `BotLiveStatusView` now carries `[]BotPlatformStatus`. Gateway gained `PlatformSessionCount()` + `HasPlatform()`. Frontend: `BotLiveMonitor` component renders per-platform chips with platform-specific icons (Discord/Telegram/LINE/Slack), green/gray dots, session counts, and webhook tooltips. Wails push events (3s) + 10s polling fallback.
+- **Log rotation e2e**: Verified end-to-end — 14MB `agent.log` auto-rotated to `agent.log.1` on `Init()`, fresh log created with all 6 event types present.
+- **5 skill rewrites** (v2.0, applying `writing-great-skills` principles): `pre-action-gate` (62→37 lines, removed no-op "When to Use" + constitution duplication), `ready-means-tested` (61→45, removed "Claim Words" restatement + "Status vocabulary" taxonomy), `cache-first-architecture` (90→65, removed "Trigger Conditions" no-op + implementation table), `cost-aware-llm-pipeline` (130→63, removed `cache-first-architecture` duplication + "varies" no-op row), `doc-sweep` (145→107, added "Done when" completion criteria to each phase).
+- **`diagnosing-bugs`**: Removed stale first frontmatter block (sediment).
+- **Domain model**: Created `CONTEXT.md` — 18 canonical terms across 6 clusters with `_Avoid_` alternatives. Created `docs/adr/0001-cache-first-immutable-prefix.md` and `docs/adr/0002-controller-seam.md`. Cross-linked from README docs table and HERMES-GUIDE §16.24.
+- **Bug fixes (2)**: `TestClearSessionRemovesRunningJobArtifacts` — added missing `t.Chdir(home)` (project config isolation). `TestToWireUsageWithPricing` — added `Currency: "CNY"` to test Pricing (post-exchange-rate default is `"$"`). Desktop test suite now zero failures.
+- **Intent-gap analysis**: Cross-referenced SPEC §1, constitution, and AGENTS.md against live code. 4 priority fixes: SPEC §1.2 "Single static binary" → "Multiple static binaries", §1.3 "TOML is the one accepted dependency" → "Dependencies are audited", package count 69→70 across SPEC.md + AGENTS.md, nil slice `migrateLegacySessionsIntoGlobalTopics` → `[]string{}`.
+- **Dead code cleanup**: 4 genuinely dead symbols removed — `IsMaxStepsPause` + `errors` import (agent.go), `SchemaTokenCosts` + `ToolSchemaCost` type (cache_shape.go), `MemoryStore.Stats` + `MemoryStats` type (memoryserver/main.go). 3 test-only symbols skipped (per refactor-clean rules).
+- **Doc-sweep**: 41 docs inventoried, CONTEXT.md + ADRs cross-linked to README + HERMES-GUIDE. verify-session.sh binary count 8→9.
+- **Files**: 25 changed, 3 new (CONTEXT.md, 2 ADRs). 314 insertions, 477 deletions (net -163).
+
 ### Session 2026-06-19 (h34) — currency symbol root-cause fix + agent log rotation
 
 - **Currency symbol ¥ root cause**: Sub-agent Usage events from the task tool, skill runner, planner, and classifier bypassed exchange-rate cloning. `entry.Price` was passed raw to 4 sites in `boot.go` — all sub-agent paths. The sub-agent's `subSink` forwards Usage events to the parent → TUI overwrites `sessionCostSymbol` to `"¥"` each turn. Extracted `applyExchangeRate()` helper; all 4 sites now use cloned pricing with `ExchangeRate > 0`.

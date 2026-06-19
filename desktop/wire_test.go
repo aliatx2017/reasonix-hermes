@@ -118,7 +118,7 @@ func TestToWireUsageWithPricing(t *testing.T) {
 	e := event.Event{
 		Kind:    event.Usage,
 		Usage:   &provider.Usage{CacheHitTokens: 1_000_000, CacheMissTokens: 0, CompletionTokens: 0},
-		Pricing: &provider.Pricing{CacheHit: 1.0, Input: 2.0, Output: 10.0},
+		Pricing: &provider.Pricing{CacheHit: 1.0, Input: 2.0, Output: 10.0, Currency: "CNY"},
 	}
 	w := toWire(e)
 	if w.Usage == nil || w.Usage.Cost != 1.0 || w.Usage.CostUSD != 1.0 {
