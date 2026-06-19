@@ -18,6 +18,8 @@ jobs:
   npm:
     name: publish reasonix-hermes npm packages
     runs-on: ubuntu-latest
+    env:
+      NPM_CONFIG_REGISTRY: https://registry.npmjs.org
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-go@v6
@@ -39,19 +41,30 @@ jobs:
             echo "arg=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Check auth method
+        id: auth
+        run: |
+          if [ -n "$NPM_TOKEN" ]; then
+            echo "method=token" >> "$GITHUB_OUTPUT"
+            echo "Using NPM_TOKEN (classic automation token)"
+          else
+            echo "method=oidc" >> "$GITHUB_OUTPUT"
+            echo "No NPM_TOKEN set — using OIDC"
+          fi
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
       - name: Verify npm auth
         run: |
           echo "=== npm whoami ==="
-          npm whoami --registry https://registry.npmjs.org || echo "(OIDC auth may not be configured for all scoped packages)"
-          echo "=== npm config registry ==="
-          npm config get registry || true
+          npm whoami --registry https://registry.npmjs.org 2>&1 || echo "(not authenticated — will attempt during publish)"
 
       - name: Publish (classic token)
-        if: ${{ secrets.NPM_TOKEN != '' }}
+        if: steps.auth.outputs.method == 'token'
         run: node npm/build-hermes.mjs "${{ steps.ver.outputs.arg }}" --publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish (OIDC)
-        if: ${{ secrets.NPM_TOKEN == '' }}
+        if: steps.auth.outputs.method == 'oidc'
         run: node npm/build-hermes.mjs "${{ steps.ver.outputs.arg }}" --publish
