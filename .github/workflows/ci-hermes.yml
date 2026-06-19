@@ -1,6 +1,9 @@
 name: Hermes CI
 on: [push, pull_request]
 
+permissions:
+  contents: read
+
 jobs:
   lint:
     name: Lint & Vet
