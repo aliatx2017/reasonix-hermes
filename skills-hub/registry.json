@@ -2,97 +2,109 @@
   {
     "name": "evidence-first-reasoning",
     "description": "Evidence-first diagnostic reasoning — estimate ambiguity, generate hypotheses, verify discriminatively, report confidence. Use when debugging complex failures or analyzing root causes.",
-    "url": "https://raw.githubusercontent.com/aliatx2017/reasonix-hermes/main/skills-hub/skills/evidence-first-reasoning",
+    "category": "debugging",
+    "runAs": "inline",
     "author": "reasonix-hermes",
-    "tags": ["debugging", "reasoning", "diagnosis"],
-    "rating": 4.5
+    "url": "https://raw.githubusercontent.com/aliatx2017/reasonix-hermes/main/skills-hub/skills/evidence-first-reasoning",
+    "tags": ["debugging", "reasoning", "diagnosis"]
   },
   {
     "name": "golang-patterns",
     "description": "Idiomatic Go patterns, best practices, and conventions for building robust, efficient, and maintainable Go applications.",
-    "url": "https://raw.githubusercontent.com/aliatx2017/reasonix-hermes/main/skills-hub/skills/golang-patterns",
+    "category": "language",
+    "runAs": "inline",
     "author": "reasonix-hermes",
-    "tags": ["go", "patterns", "best-practices"],
-    "rating": 4.8
+    "url": "https://raw.githubusercontent.com/aliatx2017/reasonix-hermes/main/skills-hub/skills/golang-patterns",
+    "tags": ["go", "patterns", "best-practices"]
   },
   {
     "name": "golang-testing",
     "description": "Go testing patterns including table-driven tests, subtests, benchmarks, fuzzing, and test coverage. Follows TDD methodology.",
-    "url": "https://raw.githubusercontent.com/aliatx2017/reasonix-hermes/main/skills-hub/skills/golang-testing",
+    "category": "testing",
+    "runAs": "inline",
     "author": "reasonix-hermes",
-    "tags": ["go", "testing", "tdd"],
-    "rating": 4.6
+    "url": "https://raw.githubusercontent.com/aliatx2017/reasonix-hermes/main/skills-hub/skills/golang-testing",
+    "tags": ["go", "testing", "tdd"]
   },
   {
     "name": "python-patterns",
     "description": "Python development patterns, best practices, and conventions for building robust, efficient, and maintainable Python applications.",
-    "url": "https://raw.githubusercontent.com/aliatx2017/reasonix-hermes/main/skills-hub/skills/python-patterns",
+    "category": "language",
+    "runAs": "inline",
     "author": "reasonix-hermes",
-    "tags": ["python", "patterns", "best-practices"],
-    "rating": 4.5
+    "url": "https://raw.githubusercontent.com/aliatx2017/reasonix-hermes/main/skills-hub/skills/python-patterns",
+    "tags": ["python", "patterns", "best-practices"]
   },
   {
     "name": "python-review",
     "description": "Python code review checklist — type hints, exception handling, resource management, security. Use when reviewing Python code.",
-    "url": "https://raw.githubusercontent.com/aliatx2017/reasonix-hermes/main/skills-hub/skills/python-review",
+    "category": "quality",
+    "runAs": "inline",
     "author": "reasonix-hermes",
-    "tags": ["python", "review", "code-quality"],
-    "rating": 4.3
+    "url": "https://raw.githubusercontent.com/aliatx2017/reasonix-hermes/main/skills-hub/skills/python-review",
+    "tags": ["python", "review", "code-quality"]
   },
   {
     "name": "python-testing",
     "description": "Python testing patterns with pytest, including fixtures, parametrization, mocking, and coverage.",
-    "url": "https://raw.githubusercontent.com/aliatx2017/reasonix-hermes/main/skills-hub/skills/python-testing",
+    "category": "testing",
+    "runAs": "inline",
     "author": "reasonix-hermes",
-    "tags": ["python", "testing", "pytest"],
-    "rating": 4.4
+    "url": "https://raw.githubusercontent.com/aliatx2017/reasonix-hermes/main/skills-hub/skills/python-testing",
+    "tags": ["python", "testing", "pytest"]
   },
   {
     "name": "rust-patterns",
     "description": "Idiomatic Rust patterns — ownership, borrowing, error handling, traits, async. Use when writing or reviewing Rust code.",
-    "url": "https://raw.githubusercontent.com/aliatx2017/reasonix-hermes/main/skills-hub/skills/rust-patterns",
+    "category": "language",
+    "runAs": "inline",
     "author": "reasonix-hermes",
-    "tags": ["rust", "patterns", "systems"],
-    "rating": 4.2
+    "url": "https://raw.githubusercontent.com/aliatx2017/reasonix-hermes/main/skills-hub/skills/rust-patterns",
+    "tags": ["rust", "patterns", "systems"]
   },
   {
     "name": "frontend-patterns",
     "description": "Frontend development patterns for React, Next.js, state management, performance optimization, and UI best practices.",
-    "url": "https://raw.githubusercontent.com/aliatx2017/reasonix-hermes/main/skills-hub/skills/frontend-patterns",
+    "category": "frontend",
+    "runAs": "inline",
     "author": "reasonix-hermes",
-    "tags": ["react", "frontend", "typescript"],
-    "rating": 4.5
+    "url": "https://raw.githubusercontent.com/aliatx2017/reasonix-hermes/main/skills-hub/skills/frontend-patterns",
+    "tags": ["react", "frontend", "typescript"]
   },
   {
     "name": "api-design",
     "description": "REST API design patterns including resource naming, status codes, pagination, filtering, error responses, versioning, and authentication.",
-    "url": "https://raw.githubusercontent.com/aliatx2017/reasonix-hermes/main/skills-hub/skills/api-design",
+    "category": "architecture",
+    "runAs": "inline",
     "author": "reasonix-hermes",
-    "tags": ["api", "rest", "design"],
-    "rating": 4.6
+    "url": "https://raw.githubusercontent.com/aliatx2017/reasonix-hermes/main/skills-hub/skills/api-design",
+    "tags": ["api", "rest", "design"]
   },
   {
     "name": "backend-patterns",
     "description": "Backend architecture patterns, API design, database optimization, and server-side best practices for Node.js, Express, and general backend development.",
-    "url": "https://raw.githubusercontent.com/aliatx2017/reasonix-hermes/main/skills-hub/skills/backend-patterns",
+    "category": "architecture",
+    "runAs": "inline",
     "author": "reasonix-hermes",
-    "tags": ["backend", "architecture", "nodejs"],
-    "rating": 4.4
+    "url": "https://raw.githubusercontent.com/aliatx2017/reasonix-hermes/main/skills-hub/skills/backend-patterns",
+    "tags": ["backend", "architecture", "nodejs"]
   },
   {
     "name": "e2e-testing",
     "description": "Playwright E2E testing patterns, Page Object Model, configuration, CI/CD integration, artifact management, and flaky test handling.",
-    "url": "https://raw.githubusercontent.com/aliatx2017/reasonix-hermes/main/skills-hub/skills/e2e-testing",
+    "category": "testing",
+    "runAs": "inline",
     "author": "reasonix-hermes",
-    "tags": ["testing", "e2e", "playwright"],
-    "rating": 4.3
+    "url": "https://raw.githubusercontent.com/aliatx2017/reasonix-hermes/main/skills-hub/skills/e2e-testing",
+    "tags": ["testing", "e2e", "playwright"]
   },
   {
     "name": "code-review",
     "description": "Universal code review checklist covering correctness, security, performance, maintainability, and testing. Use before approving or submitting PRs.",
-    "url": "https://raw.githubusercontent.com/aliatx2017/reasonix-hermes/main/skills-hub/skills/code-review",
+    "category": "quality",
+    "runAs": "inline",
     "author": "reasonix-hermes",
-    "tags": ["review", "quality", "universal"],
-    "rating": 4.7
+    "url": "https://raw.githubusercontent.com/aliatx2017/reasonix-hermes/main/skills-hub/skills/code-review",
+    "tags": ["review", "quality", "universal"]
   }
 ]

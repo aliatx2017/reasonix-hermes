@@ -1,11 +1,11 @@
-import { defineConfig, type Plugin } from "vite";
-import react from "@vitejs/plugin-react";
-import { execSync } from "node:child_process";
-import { mkdir, readdir, rename, writeFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { defineConfig, type Plugin } from 'vite';
+import react from '@vitejs/plugin-react';
+import { execSync } from 'node:child_process';
+import { mkdir, readdir, rename, writeFile } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const devPort = Number(process.env.REASONIX_DESKTOP_VITE_PORT || "5173");
+const devPort = Number(process.env.REASONIX_DESKTOP_VITE_PORT || '5173');
 const configDir = dirname(fileURLToPath(import.meta.url));
 
 // Stamps the build commit into the bundle so a minified crash stack can be mapped
@@ -13,14 +13,14 @@ const configDir = dirname(fileURLToPath(import.meta.url));
 function buildCommit(): string {
   if (process.env.REASONIX_COMMIT) return process.env.REASONIX_COMMIT;
   try {
-    return execSync("git rev-parse --short HEAD", { cwd: configDir }).toString().trim();
+    return execSync('git rev-parse --short HEAD', { cwd: configDir }).toString().trim();
   } catch {
-    return "dev";
+    return 'dev';
   }
 }
 
 function buildChannel(): string {
-  return process.env.REASONIX_CHANNEL || "stable";
+  return process.env.REASONIX_CHANNEL || 'stable';
 }
 
 // On macOS ≤ 12 (Safari 15 WebKit) a crossorigin module/stylesheet fetched over the
@@ -28,9 +28,9 @@ function buildChannel(): string {
 // so the bundle never loads and the window paints blank; newer WebKit tolerates it.
 function stripCrossorigin(): Plugin {
   return {
-    name: "strip-crossorigin",
-    enforce: "post",
-    transformIndexHtml: (html) => html.replace(/\s+crossorigin(?==["']|[\s/>])/g, ""),
+    name: 'strip-crossorigin',
+    enforce: 'post',
+    transformIndexHtml: (html) => html.replace(/\s+crossorigin(?==["']|[\s/>])/g, ''),
   };
 }
 
@@ -41,30 +41,34 @@ function archiveHiddenSourcemaps(commit: string): Plugin {
     for (const entry of entries) {
       const p = resolve(dir, entry.name);
       if (entry.isDirectory()) files.push(...(await collectMapFiles(p)));
-      else if (entry.isFile() && entry.name.endsWith(".map")) files.push(p);
+      else if (entry.isFile() && entry.name.endsWith('.map')) files.push(p);
     }
     return files;
   }
 
   return {
-    name: "archive-hidden-sourcemaps",
-    apply: "build",
+    name: 'archive-hidden-sourcemaps',
+    apply: 'build',
     closeBundle: async () => {
-      const distDir = resolve(configDir, "dist");
+      const distDir = resolve(configDir, 'dist');
       const maps = await collectMapFiles(distDir);
       if (!maps.length) return;
 
-      const archiveDir = resolve(configDir, "sourcemaps", commit);
+      const archiveDir = resolve(configDir, 'sourcemaps', commit);
       await mkdir(archiveDir, { recursive: true });
       await Promise.all(
         maps.map(async (mapPath) => {
-          const rel = mapPath.slice(distDir.length + 1).replace(/[\\/]+/g, "__");
+          const rel = mapPath.slice(distDir.length + 1).replace(/[\\/]+/g, '__');
           await rename(mapPath, resolve(archiveDir, rel));
         }),
       );
       await writeFile(
-        resolve(archiveDir, "manifest.json"),
-        JSON.stringify({ commit, channel: buildChannel(), archivedAt: new Date().toISOString() }, null, 2) + "\n",
+        resolve(archiveDir, 'manifest.json'),
+        JSON.stringify(
+          { commit, channel: buildChannel(), archivedAt: new Date().toISOString() },
+          null,
+          2,
+        ) + '\n',
       );
     },
   };
@@ -75,12 +79,12 @@ function archiveHiddenSourcemaps(commit: string): Plugin {
 // Go's //go:embed all:frontend/dist still works on a fresh checkout.
 function keepDistPlaceholder(): Plugin {
   return {
-    name: "keep-dist-placeholder",
-    apply: "build",
+    name: 'keep-dist-placeholder',
+    apply: 'build',
     closeBundle: async () => {
-      const distDir = resolve(configDir, "dist");
+      const distDir = resolve(configDir, 'dist');
       await mkdir(distDir, { recursive: true });
-      await writeFile(resolve(distDir, ".gitkeep"), "\n");
+      await writeFile(resolve(distDir, '.gitkeep'), '\n');
     },
   };
 }
@@ -105,20 +109,20 @@ export default defineConfig({
     lightningcss: { errorRecovery: true },
   },
   plugins: [react(), stripCrossorigin(), archiveHiddenSourcemaps(commit), keepDistPlaceholder()],
-  base: "./",
+  base: './',
   define: { __BUILD_COMMIT__: JSON.stringify(commit), __BUILD_CHANNEL__: JSON.stringify(channel) },
   build: {
-    outDir: "dist",
+    outDir: 'dist',
     emptyOutDir: true,
-    sourcemap: "hidden",
-    target: "es2021",
+    sourcemap: 'hidden',
+    target: 'es2021',
     // Use terser for smaller output (esbuild is faster to build but produces
     // larger bundles). Disabled for dev builds via the default.
-    minify: "terser",
+    minify: 'terser',
     terserOptions: {
       compress: {
         // Keep warn/error so crash breadcrumbs still capture them; drop the noise.
-        drop_console: ["log", "debug", "info", "trace"],
+        drop_console: ['log', 'debug', 'info', 'trace'],
         passes: 2,
       },
       // Preserve names so minified crash stacks stay readable.
@@ -133,9 +137,9 @@ export default defineConfig({
         // changes) from the markdown stack (changes more often).
         codeSplitting: {
           groups: [
-            { name: "vendor-react", test: vendorReact },
-            { name: "vendor-markdown", test: vendorMarkdown },
-            { name: "vendor-highlight", test: vendorHighlight },
+            { name: 'vendor-react', test: vendorReact },
+            { name: 'vendor-markdown', test: vendorMarkdown },
+            { name: 'vendor-highlight', test: vendorHighlight },
           ],
         },
       },
@@ -147,7 +151,7 @@ export default defineConfig({
   server: {
     // Bind IPv4 — unset host listens on ::1, and the Wails dev proxy's [::1]
     // dial fails on Windows hosts where IPv6 loopback is filtered.
-    host: "127.0.0.1",
+    host: '127.0.0.1',
     port: devPort,
     strictPort: true,
   },
