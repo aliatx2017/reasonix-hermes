@@ -4,17 +4,20 @@ import (
 	"fmt"
 	"strings"
 
+	tea "charm.land/bubbletea/v2"
+
 	"reasonix/internal/i18n"
 	"reasonix/internal/learn"
 )
 
 // showLearn displays detected patterns and trajectories from the learner.
-// Handles subcommands: "/learn patterns" (default), "/learn trajectories".
-func (m *chatTUI) showLearn(input string) {
+// Handles subcommands: "/learn patterns" (default), "/learn trajectories",
+// "/learn reflect" — builds a reflection prompt and feeds it to the agent.
+func (m *chatTUI) showLearn(input string) tea.Cmd {
 	learner := m.ctrl.Learner()
 	if learner == nil {
 		m.notice(i18n.M.CmdLearn + " — learner not enabled. Set [learn].enabled = true in reasonix.toml")
-		return
+		return nil
 	}
 
 	args := strings.Fields(input)
@@ -26,8 +29,17 @@ func (m *chatTUI) showLearn(input string) {
 	switch mode {
 	case "trajectories", "traj":
 		m.showTrajectories(learner)
+		return nil
+	case "reflect":
+		prompt := learner.BuildReflectionPrompt()
+		if prompt == "" {
+			m.notice("no observations to reflect on — the learner needs data from agent turns first")
+			return nil
+		}
+		return m.startTurn(prompt, "/learn reflect", input)
 	default:
 		m.showPatterns(learner)
+		return nil
 	}
 }
 
@@ -55,6 +67,7 @@ func (m *chatTUI) showPatterns(l *learn.Learner) {
 		_ = i
 	}
 	b.WriteString(fmt.Sprintf("\n/learn trajectories — view multi-turn sequences\n"))
+	b.WriteString(fmt.Sprintf("/learn reflect — have the agent reflect and generate skills\n"))
 	b.WriteString(fmt.Sprintf("Set [learn].min_confidence to tune sensitivity"))
 
 	m.commitLine(b.String())
@@ -72,7 +85,8 @@ func (m *chatTUI) showTrajectories(l *learn.Learner) {
 	for _, t := range trajs {
 		b.WriteString(fmt.Sprintf("  %s (%d turns, %d×)\n", t.Label, t.Turns, t.Count))
 	}
-	b.WriteString(fmt.Sprintf("\n/learn patterns — view detected patterns"))
+	b.WriteString(fmt.Sprintf("\n/learn patterns — view detected patterns\n"))
+	b.WriteString(fmt.Sprintf("/learn reflect — have the agent reflect and generate skills"))
 
 	m.commitLine(b.String())
 }

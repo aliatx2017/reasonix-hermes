@@ -7,10 +7,8 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/slack-go/slack"
 	"github.com/slack-go/slack/slackevents"
@@ -244,14 +242,3 @@ func splitSlackMessage(text string) []string {
 	return chunks
 }
 
-func parseSlackTS(ts string) time.Time {
-	parts := strings.Split(ts, ".")
-	if len(parts) < 1 {
-		return time.Now()
-	}
-	secs, err := strconv.ParseInt(parts[0], 10, 64)
-	if err != nil {
-		return time.Now()
-	}
-	return time.Unix(secs, 0)
-}

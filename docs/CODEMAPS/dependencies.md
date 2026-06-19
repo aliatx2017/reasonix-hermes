@@ -42,13 +42,13 @@
 | `reasonix-hooks` | Hook runner |
 | `reasonix-bot` | Discord bot |
 | `reasonix-full` | Meta-package (all binaries) |
-| `devShells.default` | Go 1.24 + gopls + golangci-lint + nodejs 22 + pnpm |
+| `devShells.default` | Go 1.25 + gopls + golangci-lint + nodejs 22 + pnpm |
 
 `vendorHash = null` → proxy vendor mode via go.sum (fully reproducible on nixos-unstable).
 
 ## Docker (Dockerfile)
 - Multi-stage: `golang:1.25` build → `gcr.io/distroless/static` runtime
-- 5 binaries: reasonix, reasonix-mcpbridge, reasonix-memoryserver, reasonix-hooks, reasonix-bot
+- 7 binaries: reasonix, reasonix-mcpbridge, reasonix-memoryserver, reasonix-hooks, reasonix-bot, reasonix-pr-review, reasonix-e2ebench
 
 ## External API Endpoints (reachable at runtime)
 | Endpoint | Used By |

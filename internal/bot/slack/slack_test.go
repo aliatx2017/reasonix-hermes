@@ -4,7 +4,6 @@ import (
 	"context"
 	"log/slog"
 	"testing"
-	"time"
 
 	"reasonix/internal/bot"
 	"reasonix/internal/config"
@@ -197,33 +196,6 @@ func TestSplitSlackMessage_AtMaxLen(t *testing.T) {
 	got := splitSlackMessage(content)
 	if len(got) != 1 || len(got[0]) != 4000 {
 		t.Errorf("splitSlackMessage exactly maxLen: got %d chunks, want 1", len(got))
-	}
-}
-
-// --- parseSlackTS ---
-
-func TestParseSlackTS_Valid(t *testing.T) {
-	ts := "1234567890.123456"
-	got := parseSlackTS(ts)
-	want := time.Unix(1234567890, 0)
-	if !got.Equal(want) {
-		t.Errorf("parseSlackTS(%q) = %v, want %v", ts, got, want)
-	}
-}
-
-func TestParseSlackTS_Malformed(t *testing.T) {
-	before := time.Now()
-	got := parseSlackTS("not-a-timestamp")
-	if got.Before(before.Add(-time.Second)) {
-		t.Errorf("parseSlackTS malformed returned %v, want time.Now()", got)
-	}
-}
-
-func TestParseSlackTS_Empty(t *testing.T) {
-	before := time.Now()
-	got := parseSlackTS("")
-	if got.Before(before.Add(-time.Second)) {
-		t.Errorf("parseSlackTS empty returned %v, want time.Now()", got)
 	}
 }
 

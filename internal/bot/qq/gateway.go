@@ -652,10 +652,6 @@ func (a *adapter) qqSendURL(msg bot.OutboundMessage) string {
 	}
 }
 
-func qqSendURL(msg bot.OutboundMessage) string {
-	return (&adapter{}).qqSendURL(msg)
-}
-
 func (a *adapter) nextMessageSeq(replyTo string) int {
 	if strings.TrimSpace(replyTo) == "" {
 		return 0

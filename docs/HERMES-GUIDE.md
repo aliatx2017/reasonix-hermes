@@ -81,21 +81,28 @@
     - 16.2 [MCP Bridge Server](#162-mcp-bridge-server)
     - 16.3 [Hindsight Memory Server](#163-hindsight-memory-server)
     - 16.4 [Portable Mode](#164-portable-mode)
-    - 16.5 [Skills Hub & Marketplace](#165-skills-hub--marketplace)
-    - 16.6 [Telegram / LINE / Slack Bots](#166-telegram--line--slack-bots)
-    - 16.7 [Ollama Cloud Provider](#167-ollama-cloud-provider)
-    - 16.8 [Auxiliary Model Routing](#168-auxiliary-model-routing)
-    - 16.9 [Agent-to-Agent Mesh](#169-agent-to-agent-mesh)
-    - 16.10 [Live Collaboration](#1610-live-collaboration)
-    - 16.11 [Self-Improving Skill Loops](#1611-self-improving-skill-loops)
-    - 16.12 [Token Compressor](#1612-token-compressor)
-    - 16.13 [Cron Scheduler](#1613-cron-scheduler)
-    - 16.14 [Session Publishing & Export](#1614-session-publishing--export)
-    - 16.15 [Session Evaluation & Comparison](#1615-session-evaluation--comparison)
-    - 16.16 [Constitution System](#1616-constitution-system)
-    - 16.17 [How-To: Force English Only](#1617-how-to-force-english-only)
-    - 16.18 [How-To: Token Saving](#1618-how-to-token-saving)
-    - 16.24 [Domain Model & ADRs](#1624-domain-model--adrs)
+    - 16.5 [Skills Hub](#165-skills-hub)
+    - 16.6 [Token-Saving Compression](#166-token-saving-compression)
+    - 16.7 [Scheduled Tasks](#167-scheduled-tasks)
+    - 16.8 [Session Publishing](#168-session-publishing)
+    - 16.9 [Hash-Anchored Edits](#169-hash-anchored-edits)
+    - 16.10 [Provider Cost Tracking](#1610-provider-cost-tracking)
+    - 16.11 [CLI: `reasonix models`](#1611-cli-reasonix-models)
+    - 16.12 [Telegram / LINE / Slack Bots](#1612-telegram--line--slack-bots)
+    - 16.13 [Ollama Cloud Provider](#1613-ollama-cloud-provider)
+    - 16.14 [Auxiliary Model Routing](#1614-auxiliary-model-routing)
+    - 16.15 [Agent-to-Agent Mesh](#1615-agent-to-agent-mesh)
+    - 16.16 [Live Collaboration](#1616-live-collaboration)
+    - 16.17 [Self-Improving Skill Loops](#1617-self-improving-skill-loops)
+    - 16.18 [Token Compressor](#1618-token-compressor)
+    - 16.19 [Cron Scheduler](#1619-cron-scheduler)
+    - 16.20 [Session Evaluation & Comparison](#1620-session-evaluation--comparison)
+    - 16.21 [Constitution System](#1621-constitution-system)
+    - 16.22 [Skill Marketplace](#1622-skill-marketplace)
+    - 16.23 [How-To: Force English Only](#1623-how-to-force-english-only)
+    - 16.24 [How-To: Token Saving](#1624-how-to-token-saving)
+    - 16.25 [Operational Agent Logging](#1625-operational-agent-logging)
+    - 16.26 [Domain Model & ADRs](#1626-domain-model--adrs)
 17. [Desktop App](#17-desktop-app)
 18. [Bot Gateway (Multi-Platform)](#18-bot-gateway-multi-platform)
 19. [Troubleshooting & FAQ](#19-troubleshooting--faq)
@@ -1346,7 +1353,7 @@ The manifest (`reasonix-hermes.json`) enables installation via upstream's
 `install_source` tool. The skills hub website deploys to GitHub Pages via
 `.github/workflows/pages.yml`.
 
-### 16.5 Token-Saving Compression
+### 16.6 Token-Saving Compression
 
 Reasonix Hermes includes a built-in **tool output compressor** that reduces token
 consumption by 25-92% on tool results before they enter the model's context. It
@@ -1389,7 +1396,7 @@ command = "context-mode"
 args    = ["mcp"]
 ```
 
-### 16.6 Scheduled Tasks
+### 16.7 Scheduled Tasks
 
 Automated cron-driven agent tasks. The scheduler runs in the background and
 fires prompts at configured times.
@@ -1406,15 +1413,16 @@ enabled = true
 
 Results are logged and visible on the desktop Hermes dashboard.
 
-### 16.7 Session Publishing
+### 16.8 Session Publishing
 
 Export sessions as self-contained HTML with syntax-highlighted code blocks,
 light/dark mode, and inline CSS. No external dependencies.
 
 - **CLI:** `/publish` slash command in TUI — writes to `sessions/published/`
 - **API:** `internal/publish/` package — `ToHTML()` and `ToJSON()` for programmatic use
+- **Desktop:** Publish widget in Hermes dashboard
 
-### 16.8 Hash-Anchored Edits
+### 16.9 Hash-Anchored Edits
 
 The `edit_file` tool accepts an optional `content_hash` (SHA-256 of file content
 from a prior `read_file`). If the file changed between the read and the edit
@@ -1426,7 +1434,7 @@ file main.go changed since content_hash was computed — re-read the file and tr
 
 This prevents stale-context edits from corrupting files.
 
-### 16.9 Provider Cost Tracking
+### 16.10 Provider Cost Tracking
 
 Per-session cost accumulation via `provider.Pricing` (per 1M token rates). Cost
 is displayed in:
@@ -1440,7 +1448,7 @@ exchange rate from `api.exchangerate-api.com` on startup when
 DeepSeek's native CNY pricing displays as USD. Falls back to `0.14` on network
 error. Set `AGENT_LOG` to see the fetched rate in the operational log.
 
-### 16.10 CLI: `reasonix models`
+### 16.11 CLI: `reasonix models`
 
 Lists all configured providers with model, kind, pricing, and connectivity status:
 
@@ -1449,18 +1457,18 @@ reasonix models           # list providers
 reasonix models refresh   # test connectivity
 ```
 
-### 16.11 Telegram / LINE / Slack Bots
+### 16.12 Telegram / LINE / Slack Bots
 
 Hermes adds three bot platforms beyond upstream's Feishu/QQ/WeChat. Configuration
 is in `[bot.telegram]`, `[bot.line]`, `[bot.slack]`. See `docs/BOT_GUIDE.md`
 for connection instructions.
 
-### 16.12 Ollama Cloud Provider
+### 16.13 Ollama Cloud Provider
 
 Use `kind = "ollamacloud"` with 42 models via the ollama.com/v1 API. Ideal for
 cheap auxiliary models. See `docs/OLLAMACLOUD.md`.
 
-### 16.13 Auxiliary Model Routing
+### 16.14 Auxiliary Model Routing
 
 Offload compaction summaries, vision requests, and web extraction to cheaper/faster
 models via the `[agent.auxiliary]` config block:
@@ -1473,19 +1481,19 @@ vision_provider = "ollamacloud"
 vision_model = "gemini-3-flash-preview"
 ```
 
-### 16.14 Agent-to-Agent Mesh
+### 16.15 Agent-to-Agent Mesh
 
 `internal/mesh/` enables peer delegation, broadcast queries, and council mode for
 multi-agent collaboration. Configure peers in `[[mesh.peers]]`. See the CLI
 `/council` command.
 
-### 16.15 Live Collaboration
+### 16.16 Live Collaboration
 
 `internal/collab/` provides a WebSocket hub for session sharing between Reasonix
 instances. Configure via `[collab]`. Desktop users see the Collab panel in the
 Hermes dashboard.
 
-### 16.16 Self-Improving Skill Loops
+### 16.17 Self-Improving Skill Loops
 
 `internal/learn/` observes agent turn patterns, detects repeated tool sequences
 (edit-then-test, write-then-build), and generates skill suggestions. The agent
@@ -1499,14 +1507,14 @@ Patterns and observations persist to a `<session>.learning` JSON sidecar file
 `/learn patterns` shows historical patterns from prior sessions, not just the
 current one.
 
-### 16.17 Token Compressor
+### 16.18 Token Compressor
 
 `internal/compress/` reduces tool output token consumption via SHA-256 content
 caching, repeated-line collapsing, and JSON minification. Works transparently —
 the agent sees compact references instead of verbose output. Status bar shows
 `sqz↓N` (bytes saved). Enable via `[compress]`.
 
-### 16.18 Cron Scheduler
+### 16.19 Cron Scheduler
 
 `internal/scheduler/` runs automated agent tasks on cron schedules. Manage via
 desktop Schedule widget or CLI:
@@ -1515,16 +1523,6 @@ desktop Schedule widget or CLI:
 reasonix scheduler list
 reasonix scheduler add "daily-review" "@daily" "Review today's changes"
 ```
-
-### 16.19 Session Publishing & Export
-
-Export sessions as self-contained HTML or JSON via `internal/publish/`:
-
-```bash
-reasonix publish session-01.json --format html > report.html
-```
-
-Desktop: Publish widget in Hermes dashboard.
 
 ### 16.20 Session Evaluation & Comparison
 
@@ -1552,7 +1550,7 @@ reasonix marketplace sync      # sync from LobeHub
 
 See `docs/MARKETPLACE.md`. For the complete inventory of all 125+ skills (project, community, and global), see `docs/SKILLS-CATALOG.md`.
 
-### 16.17 How-To: Force English Only
+### 16.23 How-To: Force English Only
 
 Hard language enforcement — stops the model from switching to Chinese even when
 the user writes in Chinese. Injects a `CRITICAL`-level instruction at the end of
@@ -1566,7 +1564,7 @@ reasoning_language = "en"
 
 See `docs/HOWTO-FORCE-ENGLISH.md` for the full two-layer approach and design rationale.
 
-### 16.18 How-To: Token Saving
+### 16.24 How-To: Token Saving
 
 Step-by-step guide for grafting the **sqz** token compressor into any Reasonix
 fork. Covers SHA-256 content caching, repeated-line collapsing, JSON minification,
@@ -1581,7 +1579,7 @@ enabled = true
 See `docs/HOWTO-TOKEN-SAVING.md` for the implementation walkthrough. See also
 `docs/TOKEN-SAVINGS-ANALYSIS.md` for a quantitative analysis of compression rates.
 
-### 16.23 Operational Agent Logging
+### 16.25 Operational Agent Logging
 
 Structured JSON logging for debugging and observability. `internal/agentlog/`
 replaces the default `slog` handler with JSON output to stderr (and optionally
@@ -1818,7 +1816,7 @@ export DEEPSEEK_API_KEY=sk-...
 - **Project memory:** [REASONIX.md](../REASONIX.md), [AGENTS.md](../AGENTS.md)
 - **Ecosystem:** [Ecosystem reference](../reasonix-deepseek-ecosystem-2026.md)
 - **Implementation:** [Changelog](./CHANGELOG-HERMES.md)
-### 16.24 Domain Model & ADRs
+### 16.26 Domain Model & ADRs
 
 A project glossary (`CONTEXT.md`) defines 18 canonical terms (Turn, Prefix, Controller, Mesh, etc.) with `_Avoid_` alternatives for each. Architectural Decision Records (`docs/adr/`) capture the two hardest-to-reverse choices: cache-first immutable prefix (ADR-0001) and controller seam (ADR-0002).
 

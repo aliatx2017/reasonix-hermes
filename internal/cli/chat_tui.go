@@ -3839,7 +3839,7 @@ func (m *chatTUI) runSlashCommand(input string) tea.Cmd {
 		m.notice("stats shown — /stats to refresh")
 	case "/learn":
 		m.echoLocalCommand(input)
-		m.showLearn(input)
+		return m.showLearn(input)
 	case "/migrate", "/migration":
 		m.echoLocalCommand(input)
 		migration.RunLegacyRescue(event.FuncSink(func(e event.Event) {

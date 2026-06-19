@@ -9,10 +9,13 @@
 | `reasonix-mcpbridge` | `cmd/reasonix-mcpbridge/main.go` | MCP bridge server (6 tools) |
 | `reasonix-memoryserver` | `cmd/reasonix-memoryserver/main.go` | Hindsight MCP server (SQLite, TTL, vector) |
 | `reasonix-hooks` | `cmd/reasonix-hooks/main.go` | Shell env hooks runner |
-| `reasonix-bot` | `bot/main.go` | Standalone Discord bot binary |
+| `reasonix-bot` | `bot/main.go` | Multi-platform bot gateway (Discord/Telegram/LINE/Slack/QQ/Feishu/WeChat) |
 | `reasonix-plugin-example` | `cmd/reasonix-plugin-example/main.go` | Plugin skeleton |
+| `reasonix-pr-review` | `cmd/reasonix-pr-review/main.go` | PR review CLI for GitHub Actions |
+| `reasonix-e2ebench` | `cmd/reasonix-e2ebench/main.go` | E2E benchmarking tool |
+| `reasonix-learner-live-test` | `cmd/reasonix-learner-live-test/main.go` | Learner live e2e test |
 
-## Core Engine (internal/ — 52 packages, ~38k lines)
+## Core Engine (internal/ — 69 packages)
 
 | Package | Lines | Concern |
 |---------|-------|---------|

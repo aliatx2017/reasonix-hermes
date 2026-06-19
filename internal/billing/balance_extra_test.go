@@ -91,7 +91,7 @@ func TestFetchContextCancelled(t *testing.T) {
 	defer srv.Close()
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // cancel immediately
-	_, err := Fetch(ctx, srv.URL, "key")
+	_, err := FetchWithClient(ctx, nil, srv.URL, "key")
 	if err == nil {
 		t.Fatal("expected error for cancelled context")
 	}
@@ -103,7 +103,7 @@ func TestFetchMalformedJSON(t *testing.T) {
 		_, _ = w.Write([]byte(`{not valid json`))
 	}))
 	defer srv.Close()
-	_, err := Fetch(context.Background(), srv.URL, "key")
+	_, err := FetchWithClient(context.Background(), nil, srv.URL, "key")
 	if err == nil {
 		t.Fatal("expected error for malformed JSON")
 	}
@@ -120,7 +120,7 @@ func TestFetchNoAPIKey(t *testing.T) {
 		_, _ = w.Write([]byte(`{"is_available":true,"balance_infos":[]}`))
 	}))
 	defer srv.Close()
-	_, err := Fetch(context.Background(), srv.URL, "")
+	_, err := FetchWithClient(context.Background(), nil, srv.URL, "")
 	if err != nil {
 		t.Fatalf("Fetch: %v", err)
 	}
@@ -130,7 +130,7 @@ func TestFetchNoAPIKey(t *testing.T) {
 }
 
 func TestFetchWhitespaceURL(t *testing.T) {
-	b, err := Fetch(context.Background(), "   ", "key")
+	b, err := FetchWithClient(context.Background(), nil, "   ", "key")
 	if err != nil || b != nil {
 		t.Fatalf("whitespace URL should return (nil,nil), got (%v, %v)", b, err)
 	}
@@ -138,7 +138,7 @@ func TestFetchWhitespaceURL(t *testing.T) {
 
 func TestFetchServerUnavailable(t *testing.T) {
 	// Use a URL that won't connect.
-	_, err := Fetch(context.Background(), "http://127.0.0.1:1", "key")
+	_, err := FetchWithClient(context.Background(), nil, "http://127.0.0.1:1", "key")
 	if err == nil {
 		t.Fatal("expected error for unavailable server")
 	}

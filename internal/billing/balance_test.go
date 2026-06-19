@@ -25,7 +25,7 @@ func TestFetchDeepSeekShape(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	b, err := Fetch(context.Background(), srv.URL, "secret-key")
+	b, err := FetchWithClient(context.Background(), nil, srv.URL, "secret-key")
 	if err != nil {
 		t.Fatalf("Fetch: %v", err)
 	}
@@ -47,7 +47,7 @@ func TestFetchDeepSeekShape(t *testing.T) {
 // An empty url is "not configured", not an error: (nil, nil), and Display on a nil
 // balance is "".
 func TestFetchEmptyURL(t *testing.T) {
-	b, err := Fetch(context.Background(), "", "key")
+	b, err := FetchWithClient(context.Background(), nil, "", "key")
 	if err != nil || b != nil {
 		t.Fatalf("Fetch(\"\") = (%v, %v), want (nil, nil)", b, err)
 	}
@@ -63,7 +63,7 @@ func TestFetchHTTPError(t *testing.T) {
 		_, _ = w.Write([]byte(`{"error":"invalid key"}`))
 	}))
 	defer srv.Close()
-	if _, err := Fetch(context.Background(), srv.URL, "bad"); err == nil {
+	if _, err := FetchWithClient(context.Background(), nil, srv.URL, "bad"); err == nil {
 		t.Fatal("want error on 401, got nil")
 	}
 }

@@ -45,16 +45,10 @@ type deepseekResp struct {
 // line; the per-call ctx still cancels it on shutdown.
 var httpClient = &http.Client{Timeout: 12 * time.Second}
 
-// Fetch queries url (a DeepSeek-style balance endpoint) with a Bearer apiKey and
-// returns the normalized balance. An empty url yields (nil, nil) — "not
-// configured", not an error — so callers can treat both the same and just omit
-// the readout.
-func Fetch(ctx context.Context, url, apiKey string) (*Balance, error) {
-	return FetchWithClient(ctx, httpClient, url, apiKey)
-}
-
-// FetchWithClient queries the balance endpoint using the caller-provided client.
-// A nil client falls back to the package default.
+// FetchWithClient queries url (a DeepSeek-style balance endpoint) with a Bearer
+// apiKey and returns the normalized balance. An empty url yields (nil, nil) —
+// "not configured", not an error — so callers can treat both the same and just
+// omit the readout. When client is nil the package default is used.
 func FetchWithClient(ctx context.Context, client *http.Client, url, apiKey string) (*Balance, error) {
 	if strings.TrimSpace(url) == "" {
 		return nil, nil

@@ -184,7 +184,7 @@ func (a *App) LearnedPatterns() ([]LearnedPatternView, []LearnedTrajectoryView) 
 			Trigger:    p.Trigger,
 			Action:     p.Action,
 			Confidence: p.Confidence,
-			Draft:      "", // SuggestSkill not wired here; agent can generate later
+			Draft:      lr.SuggestSkill(p),
 		})
 	}
 

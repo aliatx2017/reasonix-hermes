@@ -36,11 +36,12 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 ## Notes
 
-- **Upstream synced**: `v1.9.x` (commit ba7a50b, 2026-06-18). 18 syncs total — merged ×2 this session: ebea82b (6 commits, heartbeat tasks) + ba7a50b (50 commits, goal enforcement, parallel_tasks, /prometheus, shared MCP, cache-impact guard). Previous sync: a3e63f5.
+- **Upstream synced**: `v1.9.x` (commit ba7a50b, 2026-06-18). 18 syncs total — merged ×2 in h30/h31: ebea82b (6 commits, heartbeat tasks) + ba7a50b (50 commits, goal enforcement, parallel_tasks, /prometheus, shared MCP, cache-impact guard). Checked h36 — no new commits. Previous sync: a3e63f5.
 - **Commit**: session 2026-06-18 (h30) — doc-sweep: Helm tag v1.8.2→v1.9.1, cross-linked HOWTO-FORCE-ENGLISH + HOWTO-TOKEN-SAVING + TOKEN-SAVINGS-ANALYSIS from README + HERMES-GUIDE. CHANGELOG-HERMES.md enriched with h29+h30. AGENTS.md sync count updated. All 9 verify checks green.
 - **Commit**: session 2026-06-18 (h31) — learner Observe wired into agent loop, desktop LearnedPatterns() fixed, MaxObservations config, Discord dup Approved./Denied. removed, currency symbol ¥→$, live CNY→USD exchange rate (billing/exchange.go), agent operational logging (agentlog/), doc-sweep (package counts, SPEC §2, HERMES-GUIDE §16.9/16.16/16.23). 2 upstream merges (ebea82b + ba7a50b, 56 commits). 15 files changed, 3 new.
 - **Commit**: session 2026-06-18 (h32) — agentlog stderr bleed fix (removed os.Stderr, file/io.Discard only), currency symbol fix (Symbol() returns "$" when ExchangeRate > 0, config currency → "CNY"), agent log enrichment (cache_miss, err, truncated fields). 3 files changed.
 - **Commit**: session 2026-06-18 (h33) — ToolCallInfo.Success gap fixed (executeBatch returns outcomes), learner integration tests (3 new), learner sidecar persistence (.learning JSON → snapshots), live learner e2e binary (cmd/learner-live-test/), agentlog spec + gap fixes (tool_exec success, api_call cost/err, agent.turn, agent.compact), 5 skills adopted from mattpocock/skills, SKILLS-CATALOG.md (125+ skills), doc-sweep (SPEC.md + learner-live-test, AGENTS.md, CHANGELOG-HERMES, HERMES-GUIDE §16.16 + sidecar + §16.23 log spec). 20+ files changed, 11 new.
+- **Commit**: session 2026-06-19 (h36) — learn pipeline wired end-to-end: SuggestSkill → desktop LearnedPatterns() binding, /learn reflect subcommand → BuildReflectionPrompt → agent turn; HERMES-GUIDE §16 renumbering (16.1–16.26, zero duplicates, TOC synced); dead-code test refactor (billing.Fetch→FetchWithClient, parseSlackTS deleted, qqSendURL→adapter method); host checks consolidated 2→1 (.reasonix/check helper); doc-sweep (5 stale claims fixed: index.html v1.8.x→v1.9.x, SPEC.md 70→69 packages, CODEMAPS Go 1.24→1.25 + 5→7 binaries, AUDIT historical note). 17 files changed, +89/-122.
 - **Commit**: session 2026-06-19 (h35) — desktop bot live monitor (multi-platform: Discord/Telegram/LINE/Slack, BotPlatformStatus struct, PlatformSessionCount+HasPlatform on gateway, BotLiveMonitor component with per-platform chips); log rotation e2e (14MB→agent.log.1 verified); 5 skill rewrites v2.0 (pre-action-gate, ready-means-tested, cache-first-architecture, cost-aware-llm-pipeline, doc-sweep) applying writing-great-skills principles; diagnosing-bugs stale frontmatter fix; domain model (CONTEXT.md 18 terms + 2 ADRs); 2 desktop test fixes (config isolation + currency symbol); intent-gap analysis + 4 fixes (SPEC §1.2/§1.3, package counts, nil slice); dead code cleanup (4 functions/types removed); doc-sweep (CONTEXT.md + ADRs cross-linked). 25 files changed, 3 new, 314 insertions, 477 deletions (net -163).
 - **Commit**: session 2026-06-19 (h34) — currency symbol ¥ root-cause fix (task tool/skill runner/planner/classifier bypassed ExchangeRate cloning → sub-agent Usage events overwrote TUI symbol to ¥); extracted applyExchangeRate() helper, all 4 bypass sites fixed. Agent log rotation (self-rotation on Init(), [agentlog] config section, 7 tests). Agent log coverage audit (all 8 event types verified). Doc-sweep: SPEC.md tree 69→69 (5 sub-packages added), README.zh-CN.md bot list fixed, HERMES-GUIDE §16.23 +log rotation, PROJECT.md +agentlog/billing, CHANGELOG-HERMES +h34, AGENTS.md +agentlog/billing, 6 orphaned docs linked. 13 files changed.
 - **Commit**: session 2026-06-18 (h29) — learn live-push wiring (HermesDashboardEvent + useHermesLiveData), Discord deny TOCTOU fix (hold lock through Approve). Upstream merged fb4c0c5 (5 commits, 2 conflicts resolved, 2 i18n keys added). 3 files changed, +21/-5.
@@ -184,8 +185,8 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 ## Next session — ideas & follow-ups
 
 - **Upstream sync**: Check for new commits on `upstream/main-v2`
-- **Test reference removal follow-up**: 3 functions skipped in dead-code cleanup (`billing.Fetch`, `parseSlackTS`, `qqSendURL`) are only exercised by tests — rewrite tests to call the production code path, then remove
-- **HERMES-GUIDE §16 numbering fix**: Subsections 16.5/16.17/16.18 are duplicated; renumber 16.5 Token-Saving→16.19, 16.17 How-To→16.20, 16.18 How-To→16.21, 16.23→16.22, 16.24→16.23
+- **CODEMAPS regeneration**: `architecture.md`, `data.md`, `frontend.md` are auto-generated from 2026-06-06 — package counts, binary lists, and line counts are stale
+- **Desktop rebuild**: Rebuild desktop after Go/TS changes this session
 
 ### Session 2026-06-13 (expansion plan execution)
 
@@ -467,5 +468,4 @@ desktop hotbar/profiles root-cause fix, 13 wedge tests, desktop-v1.8.2, collab+m
 
 ## Reasonix host checks
 
-- verify: go test -count=1 -run TestTaskToolBatchE2E ./internal/agent/
-- verify: ./.reasonix/verify-session.sh
+- verify: ./.reasonix/check

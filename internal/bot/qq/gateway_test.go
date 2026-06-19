@@ -76,7 +76,7 @@ func TestHandleDispatchC2CUsesUserOpenID(t *testing.T) {
 }
 
 func TestQQSendURLDirectMessage(t *testing.T) {
-	got := qqSendURL(bot.OutboundMessage{ChatType: bot.ChatDirect, ChatID: "guild-1"})
+	got := (&adapter{}).qqSendURL(bot.OutboundMessage{ChatType: bot.ChatDirect, ChatID: "guild-1"})
 	want := fmt.Sprintf("%s/v2/dms/%s/messages", qqBaseURL, "guild-1")
 	if got != want {
 		t.Fatalf("url = %q, want %q", got, want)
