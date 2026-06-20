@@ -104,6 +104,7 @@ type QQBotView struct {
 	AppID        string `json:"appId"`
 	AppSecretEnv string `json:"appSecretEnv"`
 	SecretSet    bool   `json:"secretSet"`
+	Sandbox      bool   `json:"sandbox"`
 }
 
 type FeishuBotView struct {
@@ -141,31 +142,31 @@ type BotSettingsView struct {
 
 // SettingsView is the whole Settings panel payload.
 type SettingsView struct {
-	DefaultModel      string          `json:"defaultModel"`
-	PlannerModel      string          `json:"plannerModel"`
-	SubagentModel     string          `json:"subagentModel"`
-	SubagentEffort    string          `json:"subagentEffort"`
-	AutoPlan          string          `json:"autoPlan"`
-	Providers         []ProviderView  `json:"providers"`
-	OfficialProviders []ProviderView  `json:"officialProviders"`
-	Permissions       PermissionsView `json:"permissions"`
-	Sandbox           SandboxView     `json:"sandbox"`
-	Network           NetworkView     `json:"network"`
-	Agent             AgentView       `json:"agent"`
-	Bot               BotSettingsView `json:"bot"`
-	DesktopLanguage   string          `json:"desktopLanguage"`
-	DesktopTheme      string          `json:"desktopTheme"`
-	DesktopThemeStyle string          `json:"desktopThemeStyle"`
+	DefaultModel       string          `json:"defaultModel"`
+	PlannerModel       string          `json:"plannerModel"`
+	SubagentModel      string          `json:"subagentModel"`
+	SubagentEffort     string          `json:"subagentEffort"`
+	AutoPlan           string          `json:"autoPlan"`
+	Providers          []ProviderView  `json:"providers"`
+	OfficialProviders  []ProviderView  `json:"officialProviders"`
+	Permissions        PermissionsView `json:"permissions"`
+	Sandbox            SandboxView     `json:"sandbox"`
+	Network            NetworkView     `json:"network"`
+	Agent              AgentView       `json:"agent"`
+	Bot                BotSettingsView `json:"bot"`
+	DesktopLanguage    string          `json:"desktopLanguage"`
 	DesktopLayoutStyle string          `json:"desktopLayoutStyle"`
-	CloseBehavior     string          `json:"closeBehavior"`
-	DisplayMode       string          `json:"displayMode"`
-	StatusBarStyle    string          `json:"statusBarStyle"`
-	StatusBarItems    []string        `json:"statusBarItems"`
-	CheckUpdates      bool            `json:"checkUpdates"`
-	Telemetry         bool            `json:"telemetry"`
-	Metrics           bool            `json:"metrics"`
-	ExpandThinking    bool            `json:"expandThinking"`
-	ConfigPath        string          `json:"configPath"`
+	DesktopTheme       string          `json:"desktopTheme"`
+	DesktopThemeStyle  string          `json:"desktopThemeStyle"`
+	CloseBehavior      string          `json:"closeBehavior"`
+	DisplayMode        string          `json:"displayMode"`
+	StatusBarStyle     string          `json:"statusBarStyle"`
+	StatusBarItems     []string        `json:"statusBarItems"`
+	CheckUpdates       bool            `json:"checkUpdates"`
+	Telemetry          bool            `json:"telemetry"`
+	Metrics            bool            `json:"metrics"`
+	ExpandThinking     bool            `json:"expandThinking"`
+	ConfigPath         string          `json:"configPath"`
 	// ProviderKinds lists the provider implementations the kernel actually
 	// registered (provider.Kinds()), so the editor's "kind" picker offers only
 	// kinds that resolve — selecting an unregistered one would fail the rebuild.
@@ -176,33 +177,6 @@ type SettingsView struct {
 	AutoApproveTools bool `json:"autoApproveTools"`
 	// Bypass is the legacy JSON key for the same live state.
 	Bypass bool `json:"bypass"`
-	// Hermes fields
-	Hotbar        HotbarView                 `json:"hotbar"`
-	Profiles      map[string]ProfileView     `json:"profiles"`
-	ActiveProfile string                     `json:"activeProfile"`
-}
-
-// HotbarView mirrors the frontend HotbarView for desktop hotbar configuration.
-type HotbarView struct {
-	Key1 string `json:"key1"`
-	Key2 string `json:"key2"`
-	Key3 string `json:"key3"`
-	Key4 string `json:"key4"`
-	Key5 string `json:"key5"`
-	Key6 string `json:"key6"`
-	Key7 string `json:"key7"`
-}
-
-// ProfileView mirrors the frontend ProfileView for harness profile display.
-type ProfileView struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Model       string `json:"model"`
-	Effort      string `json:"effort"`
-	ToolApproveMode string `json:"toolApproveMode"`
-	AutoPlan    string `json:"autoPlan"`
-	OutputStyle string `json:"outputStyle"`
-	Yolo        bool   `json:"yolo"`
 }
 
 // DesktopStartupSettingsView is the lightweight Settings subset needed during
@@ -225,46 +199,6 @@ func nonNil(s []string) []string {
 		return []string{}
 	}
 	return s
-}
-
-func defaultHotbarView() HotbarView {
-	return HotbarView{
-		Key1: "palette", Key2: "workspace", Key3: "new",
-		Key4: "history", Key5: "dock", Key6: "sidebar", Key7: "settings",
-	}
-}
-
-func hotbarView(h config.HotbarConfig) HotbarView {
-	// Use defaults for any empty key.
-	d := defaultHotbarView()
-	if h.Key1 != "" { d.Key1 = h.Key1 }
-	if h.Key2 != "" { d.Key2 = h.Key2 }
-	if h.Key3 != "" { d.Key3 = h.Key3 }
-	if h.Key4 != "" { d.Key4 = h.Key4 }
-	if h.Key5 != "" { d.Key5 = h.Key5 }
-	if h.Key6 != "" { d.Key6 = h.Key6 }
-	if h.Key7 != "" { d.Key7 = h.Key7 }
-	return d
-}
-
-func profileViews(cfg map[string]config.ProfileConfig) map[string]ProfileView {
-	if cfg == nil {
-		return map[string]ProfileView{}
-	}
-	out := make(map[string]ProfileView, len(cfg))
-	for name, p := range cfg {
-		out[name] = ProfileView{
-			Name:            name,
-			Description:     p.Description,
-			Model:           p.Model,
-			Effort:          p.Effort,
-			ToolApproveMode: p.ToolApproveMode,
-			AutoPlan:        p.AutoPlan,
-			OutputStyle:     p.OutputStyle,
-			Yolo:            p.Yolo,
-		}
-	}
-	return out
 }
 
 func providerRemovalFallbackRef(c *config.Config, name string) string {
@@ -502,8 +436,6 @@ func (a *App) Settings() SettingsView {
 			Telemetry:          true,
 			Metrics:            true,
 			ExpandThinking:     false,
-			Hotbar:             defaultHotbarView(),
-			Profiles:           map[string]ProfileView{},
 		}
 	}
 	ctrl := a.activeCtrl()
@@ -546,27 +478,24 @@ func (a *App) Settings() SettingsView {
 				Password: cfg.Network.Proxy.Password,
 			},
 		},
-		Agent:             AgentView{Temperature: cfg.Agent.Temperature, MaxSteps: cfg.Agent.MaxSteps, PlannerMaxSteps: cfg.Agent.PlannerMaxSteps, SystemPrompt: cfg.Agent.SystemPrompt, ColdResumePrune: cfg.ColdResumePruneEnabled(), ReasoningLanguage: cfg.ReasoningLanguage()},
-		Bot:               botSettingsView(cfg.Bot),
-		DesktopLanguage:   cfg.DesktopLanguage(),
-		DesktopTheme:      cfg.DesktopTheme(),
-		DesktopThemeStyle: cfg.DesktopThemeStyle(),
+		Agent:              AgentView{Temperature: cfg.Agent.Temperature, MaxSteps: cfg.Agent.MaxSteps, PlannerMaxSteps: cfg.Agent.PlannerMaxSteps, SystemPrompt: cfg.Agent.SystemPrompt, ColdResumePrune: cfg.ColdResumePruneEnabled(), ReasoningLanguage: cfg.ReasoningLanguage()},
+		Bot:                botSettingsView(cfg.Bot),
+		DesktopLanguage:    cfg.DesktopLanguage(),
 		DesktopLayoutStyle: cfg.DesktopLayoutStyle(),
-		CloseBehavior:     cfg.DesktopCloseBehavior(),
-		DisplayMode:       cfg.DesktopDisplayMode(),
-		StatusBarStyle:    cfg.DesktopStatusBarStyle(),
-		StatusBarItems:    cfg.DesktopStatusBarItems(),
-		CheckUpdates:      cfg.DesktopCheckUpdates(),
-		Telemetry:         cfg.DesktopTelemetry(),
-		Metrics:           cfg.DesktopMetrics(),
-		ExpandThinking:    cfg.Desktop.ExpandThinking,
-		ConfigPath:        cfgPath,
-		ProviderKinds:     nonNil(provider.Kinds()),
-		AutoApproveTools:  ctrl != nil && ctrl.AutoApproveTools(),
-		Bypass:            ctrl != nil && ctrl.AutoApproveTools(),
-		Hotbar:            hotbarView(cfg.Desktop.Hotbar),
-		Profiles:          profileViews(cfg.Profiles),
-		ActiveProfile:     cfg.ActiveProfile,
+		DesktopTheme:       cfg.DesktopTheme(),
+		DesktopThemeStyle:  cfg.DesktopThemeStyle(),
+		CloseBehavior:      cfg.DesktopCloseBehavior(),
+		DisplayMode:        cfg.DesktopDisplayMode(),
+		StatusBarStyle:     cfg.DesktopStatusBarStyle(),
+		StatusBarItems:     cfg.DesktopStatusBarItems(),
+		CheckUpdates:       cfg.DesktopCheckUpdates(),
+		Telemetry:          cfg.DesktopTelemetry(),
+		Metrics:            cfg.DesktopMetrics(),
+		ExpandThinking:     cfg.Desktop.ExpandThinking,
+		ConfigPath:         cfgPath,
+		ProviderKinds:      nonNil(provider.Kinds()),
+		AutoApproveTools:   ctrl != nil && ctrl.AutoApproveTools(),
+		Bypass:             ctrl != nil && ctrl.AutoApproveTools(),
 	}
 	added := providerAccessSet(cfg.Desktop.ProviderAccess)
 	root := a.activeWorkspaceRoot()
@@ -605,6 +534,7 @@ func botSettingsView(b config.BotConfig) BotSettingsView {
 			AppID:        b.QQ.AppID,
 			AppSecretEnv: b.QQ.AppSecretEnv,
 			SecretSet:    strings.TrimSpace(b.QQ.AppSecretEnv) != "" && os.Getenv(b.QQ.AppSecretEnv) != "",
+			Sandbox:      b.QQ.Sandbox,
 		},
 		Feishu: FeishuBotView{
 			Enabled:           b.Feishu.Enabled,
@@ -803,7 +733,7 @@ func desktopBotConfigConfigured(bot config.BotConfig) bool {
 		len(bot.Allowlist.QQGroups)+len(bot.Allowlist.FeishuGroups)+len(bot.Allowlist.WeixinGroups) > 0 {
 		return true
 	}
-	if bot.QQ.Enabled || strings.TrimSpace(bot.QQ.AppID) != "" || bot.QQ.AppSecretEnv != defaults.QQ.AppSecretEnv {
+	if bot.QQ.Enabled || strings.TrimSpace(bot.QQ.AppID) != "" || bot.QQ.AppSecretEnv != defaults.QQ.AppSecretEnv || bot.QQ.Sandbox != defaults.QQ.Sandbox {
 		return true
 	}
 	if bot.Feishu.Enabled ||
@@ -929,7 +859,7 @@ func (a *App) rebuild() error {
 	prevPath := ""
 	if tab.Ctrl != nil {
 		prevPath = tab.Ctrl.SessionPath()
-		_ = tab.Ctrl.Snapshot()
+		_ = a.snapshotTab(tab)
 		carried = tab.Ctrl.History()
 		tab.Ctrl.Close()
 	}
@@ -1349,8 +1279,9 @@ func (a *App) RemoveProviderAccess(name string) error {
 }
 
 type providerRemovalTab struct {
-	id   string
-	ctrl control.SessionAPI
+	id       string
+	ctrl     control.SessionAPI
+	readOnly bool
 }
 
 func providerAccessFallbackRef(c *config.Config, name string) string {
@@ -1415,7 +1346,7 @@ func (a *App) removeBuiltInProviderAccessAndRetargetTabs(name string) error {
 				a.mu.RUnlock()
 				return fmt.Errorf("finish or cancel active work using %q before removing the provider access", name)
 			}
-			affected = append(affected, providerRemovalTab{id: id, ctrl: tab.Ctrl})
+			affected = append(affected, providerRemovalTab{id: id, ctrl: tab.Ctrl, readOnly: tab.ReadOnly})
 		}
 		a.mu.RUnlock()
 	}
@@ -1435,7 +1366,9 @@ func (a *App) removeBuiltInProviderAccessAndRetargetTabs(name string) error {
 	}
 	for _, item := range affected {
 		if item.ctrl != nil {
-			_ = item.ctrl.Snapshot()
+			if !item.readOnly {
+				_ = item.ctrl.Snapshot()
+			}
 			item.ctrl.Close()
 		}
 	}
@@ -1494,7 +1427,7 @@ func (a *App) deleteProviderAndRetargetTabs(name string) error {
 			a.mu.RUnlock()
 			return fmt.Errorf("finish or cancel active work using %q before deleting the provider", name)
 		}
-		affected = append(affected, providerRemovalTab{id: id, ctrl: tab.Ctrl})
+		affected = append(affected, providerRemovalTab{id: id, ctrl: tab.Ctrl, readOnly: tab.ReadOnly})
 	}
 	a.mu.RUnlock()
 
@@ -1519,7 +1452,9 @@ func (a *App) deleteProviderAndRetargetTabs(name string) error {
 	}
 	for _, item := range affected {
 		if item.ctrl != nil {
-			_ = item.ctrl.Snapshot()
+			if !item.readOnly {
+				_ = item.ctrl.Snapshot()
+			}
 			item.ctrl.Close()
 		}
 	}
@@ -1707,6 +1642,7 @@ func (a *App) SetBotSettings(b BotSettingsView) error {
 			Enabled:      b.QQ.Enabled,
 			AppID:        strings.TrimSpace(b.QQ.AppID),
 			AppSecretEnv: strings.TrimSpace(b.QQ.AppSecretEnv),
+			Sandbox:      b.QQ.Sandbox,
 		}
 		c.Bot.Feishu = config.FeishuBotConfig{
 			Enabled:           b.Feishu.Enabled,
@@ -1804,6 +1740,12 @@ func (a *App) SetTrayLocale(locale string) error {
 // rebuild the active controller and must stay out of provider-visible requests.
 func (a *App) SetDesktopAppearance(theme, style string) error {
 	return a.applyConfigOnly(func(c *config.Config) error { return c.SetDesktopAppearance(theme, style) })
+}
+
+// SetDesktopLayoutStyle updates only the desktop layout style. It does not
+// rebuild the active controller and must stay out of provider-visible requests.
+func (a *App) SetDesktopLayoutStyle(style string) error {
+	return a.applyConfigOnly(func(c *config.Config) error { return c.SetDesktopLayoutStyle(style) })
 }
 
 // SetDesktopCheckUpdates updates only the desktop startup update-check
@@ -1925,38 +1867,4 @@ func trimList(in []string) []string {
 		}
 	}
 	return out
-}
-
-// SetDesktopHotbar saves the hotbar configuration.
-func (a *App) SetDesktopHotbar(h HotbarView) error {
-	cfg := config.LoadForEdit(config.UserConfigPath())
-	hc := config.HotbarConfig{
-		Key1: h.Key1, Key2: h.Key2, Key3: h.Key3,
-		Key4: h.Key4, Key5: h.Key5, Key6: h.Key6, Key7: h.Key7,
-	}
-	if err := cfg.SetDesktopHotbar(hc); err != nil {
-		return err
-	}
-	return cfg.SaveTo(config.UserConfigPath())
-}
-
-// SetProfiles saves the profiles configuration.
-func (a *App) SetProfiles(profiles map[string]ProfileView) error {
-	cfg := config.LoadForEdit(config.UserConfigPath())
-	pc := make(map[string]config.ProfileConfig, len(profiles))
-	for name, p := range profiles {
-		pc[name] = config.ProfileConfig{
-			Description:     p.Description,
-			Model:           p.Model,
-			Effort:          p.Effort,
-			ToolApproveMode: p.ToolApproveMode,
-			AutoPlan:        p.AutoPlan,
-			OutputStyle:     p.OutputStyle,
-			Yolo:            p.Yolo,
-		}
-	}
-	if err := cfg.SetProfiles(pc); err != nil {
-		return err
-	}
-	return cfg.SaveTo(config.UserConfigPath())
 }

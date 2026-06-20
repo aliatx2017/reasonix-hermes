@@ -50,12 +50,16 @@ func desktopSessionDir(root string) string {
 // loadSessionTitles reads the basename→title map (missing/corrupt → empty).
 func loadSessionTitles(dir string) map[string]string {
 	m := map[string]string{}
-	b, err := os.ReadFile(sessionTitlesPath(dir))
+	b, err := readFileWithTimeout(sessionTitlesPath(dir), topicFileReadTimeout)
 	if err != nil {
 		return m
 	}
 	_ = json.Unmarshal(b, &m)
 	return m
+}
+
+func loadSessionTitlesForUpdate(dir string) (map[string]string, error) {
+	return loadStringMapForUpdate(sessionTitlesPath(dir))
 }
 
 // saveSessionTitles writes the map atomically (temp file + rename).
@@ -90,7 +94,10 @@ func setSessionTitle(dir, sessionPath, title string) error {
 	if err != nil {
 		return err
 	}
-	m := loadSessionTitles(dir)
+	m, err := loadSessionTitlesForUpdate(dir)
+	if err != nil {
+		return err
+	}
 	key := filepath.Base(sessionPath)
 	if strings.TrimSpace(title) == "" {
 		delete(m, key)
@@ -315,7 +322,10 @@ func purgeTrashedSessionFile(dir, path string) error {
 	if err := os.RemoveAll(itemDir); err != nil {
 		return err
 	}
-	m := loadSessionTitles(dir)
+	m, err := loadSessionTitlesForUpdate(dir)
+	if err != nil {
+		return err
+	}
 	if _, ok := m[key]; ok {
 		delete(m, key)
 		if err := saveSessionTitles(dir, m); err != nil {

@@ -2777,6 +2777,56 @@ func TestOpenChannelSessionForTabIsReadOnly(t *testing.T) {
 	}
 }
 
+func TestCloseReadOnlyChannelTabDoesNotSnapshotTranscript(t *testing.T) {
+	isolateDesktopUserDirs(t)
+
+	dir := config.SessionDir()
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("mkdir session dir: %v", err)
+	}
+	path := filepath.Join(dir, "bot-channel.jsonl")
+	if err := os.WriteFile(path, []byte(`{"role":"user","content":"from channel"}`+"\n"), 0o644); err != nil {
+		t.Fatalf("write session: %v", err)
+	}
+
+	app := NewApp()
+	ctrl := control.New(control.Options{SessionDir: dir, SessionPath: filepath.Join(dir, "active.jsonl"), Label: "test"})
+	app.setTestCtrl(ctrl, "")
+	defer ctrl.Close()
+
+	if _, err := app.OpenChannelSessionForTab("test", path); err != nil {
+		t.Fatalf("OpenChannelSessionForTab: %v", err)
+	}
+	app.mu.Lock()
+	app.tabs["survivor"] = &WorkspaceTab{ID: "survivor", Scope: "global", Ready: true, disabledMCP: map[string]ServerView{}}
+	app.tabOrder = []string{"test", "survivor"}
+	app.activeTabID = "test"
+	app.mu.Unlock()
+
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0)
+	if err != nil {
+		t.Fatalf("open append: %v", err)
+	}
+	if _, err := f.WriteString(`{"role":"user","content":"external close follow-up"}` + "\n"); err != nil {
+		f.Close()
+		t.Fatalf("append external message: %v", err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatalf("close append: %v", err)
+	}
+
+	if err := app.CloseTab("test"); err != nil {
+		t.Fatalf("CloseTab: %v", err)
+	}
+	afterClose, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read after close: %v", err)
+	}
+	if !strings.Contains(string(afterClose), "external close follow-up") {
+		t.Fatalf("closing read-only channel tab overwrote external append:\n%s", afterClose)
+	}
+}
+
 func TestResumeSessionRejectsCleanupPending(t *testing.T) {
 	isolateDesktopUserDirs(t)
 

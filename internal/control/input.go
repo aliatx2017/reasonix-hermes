@@ -67,7 +67,7 @@ func IsSyntheticUserMessage(content string) bool {
 }
 
 // syntheticPrefixes must be kept in sync with the synthetic user messages
-// injected by the controller (planApprovedMessage), agent loop
+// injected by the controller (planApprovedMessage, goal loop turns), agent loop
 // (streamRecoveryMessage, finalReadinessRetryMessage, emptyFinalRetryMessage,
 // executorHandoffRetryMessage in internal/agent/agent.go), and compaction
 // folds (internal/agent/compact.go), which store summaries as user-role
@@ -83,6 +83,10 @@ var syntheticPrefixes = []string{
 	"<compaction-summary>",
 	"Summary of the later conversation (compacted from here on):",
 	"Summary of earlier conversation (compacted up to here):",
+	"Continue pursuing the active goal.",
+	"The agent signaled goal completion and all tasks are marked done.",
+	"Goal signaled complete but issues remain:",
+	"No tool calls in recent turns.",
 }
 
 // Compose applies the plan-mode marker to a turn's text when plan mode is on,

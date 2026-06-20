@@ -16,7 +16,6 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -173,7 +172,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	// receives this clone so Symbol() returns "$" and Cost() reflects USD.
 	entryPrice := applyExchangeRate(entry.Price, cfg)
 
-	// Serialize the frontend's sink once: background jobs emit from their
+	// Serialize the frontend's sink once: background jobs (below) emit from their
 	// own goroutines, which can overlap a running turn's emission, so every emitter
 	// shares this synchronized sink. The job manager is session-scoped — its jobs
 	// outlive a turn and are cancelled by Controller.Close.
@@ -235,6 +234,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	if st, ok := outputstyle.Resolve(cfg.Agent.OutputStyle, outputstyle.Dirs()); ok {
 		sysPrompt = outputstyle.Apply(sysPrompt, st)
 	}
+	sysPrompt += "\n\n" + config.LanguagePolicy
 	if tokenEconomy {
 		sysPrompt += "\n\n" + tokenEconomyPrompt
 	}
@@ -456,8 +456,6 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	registerDeferred(lazySpecs, false)
 	registerDeferred(bgSpecs, true)
 
-	slog.Info("boot.mcp", "eager", len(eagerSpecs), "lazy", len(lazySpecs), "background", len(bgSpecs), "tools", reg.Len())
-
 	for _, msg := range demoteMessages {
 		sink.Emit(event.Event{Kind: event.Notice, Level: event.LevelInfo, Text: msg})
 	}
@@ -496,7 +494,6 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	if opts.MaxSteps > 0 {
 		maxSteps = opts.MaxSteps
 	}
-	slog.Info("boot.config", "max_steps", maxSteps, "temperature", cfg.Agent.Temperature)
 	subagentStore, err := newSubagentStore(sessionDir)
 	if err != nil {
 		return nil, err
@@ -572,7 +569,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 			return "task tool is already enabled."
 		}
 		taskToolAdded = true
-		tt := agent.NewTaskTool(execProv, entryPrice, reg, maxSteps,
+		tt := agent.NewTaskTool(execProv, entry.Price, reg, maxSteps,
 			entry.ContextWindow, cfg.Agent.RecentKeep, cfg.Agent.SoftCompactRatio, cfg.Agent.CompactRatio, cfg.Agent.CompactForceRatio,
 			cfg.Agent.Temperature, config.ArchiveDir(), "", headlessGate,
 			keepPolicy,
@@ -616,7 +613,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	// Its tool activity nests under the invoking call, like `task`.
 	skillRunner := func(sctx context.Context, sk skill.Skill, task string, runOpts skill.SubagentRunOptions) (string, error) {
 		sk = skill.WithCodeGraphTools(sk, skill.CodeGraphReadTools(reg))
-		prov, price, ctxWin := execProv, entryPrice, entry.ContextWindow
+		prov, price, ctxWin := execProv, entry.Price, entry.ContextWindow
 		modelRef := subagentModelRef(cfg, sk)
 		effortRef := subagentEffortRef(cfg, sk)
 		if modelRef != "" || effortRef != "" {
@@ -872,26 +869,11 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 		})
 	}
 
-	// Learner: self-improving pattern detection. Config at [learn].
-	// Created early so it can be passed to both the agent and controller.
-	var lc *learn.Learner
-	if cfg.Learn.Enabled {
-		lc = learn.New(learn.Config{
-			Enabled:         cfg.Learn.Enabled,
-			MaxPatterns:     cfg.Learn.MaxPatterns,
-			MinConfidence:   cfg.Learn.MinConfidence,
-			MaxObservations: cfg.Learn.MaxObservations,
-		})
-	}
-
-	// Use the exchange-rate-cloned pricing computed during entry resolution.
-	pricing := entryPrice
-
-	execSess := agent.NewSession(finalizeSystemPrompt(sysPrompt, cfg.Language))
+	execSess := agent.NewSession(sysPrompt)
 	executor := agent.New(execProv, reg, execSess, agent.Options{
 		MaxSteps:             maxSteps,
 		Temperature:          cfg.Agent.Temperature,
-		Pricing:              pricing,
+		Pricing:              entryPrice,
 		Gate:                 headlessGate,
 		Hooks:                hookRunner,
 		Jobs:                 jm,
@@ -902,21 +884,30 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 		CompactForceRatio:    cfg.Agent.CompactForceRatio,
 		RecentKeep:           cfg.Agent.RecentKeep,
 		ArchiveDir:           config.ArchiveDir(),
-		WorkshopThreshold:    workshopThreshold,
-		Workshop:             workshopSynthesizer(jm, execProv, reg, entry, cfg.Agent),
-		CompressToolOutput:   compressEnabled(cfg.Agent.CompressToolOutput),
+		KeepPolicy:           keepPolicy,
+		ReasoningLanguage:    cfg.ReasoningLanguage(),
 		CompressionProv:      compressionProv,
 		VisionProv:           visionProv,
 		WebExtractProv:       webExtractProv,
-		KeepPolicy:           keepPolicy,
-		ReasoningLanguage:    cfg.ReasoningLanguage(),
 		PlanModeAllowedTools: cfg.Agent.PlanModeAllowedTools,
-		Learner:              lc,
 	}, sink)
 
 	var runner agent.Runner = executor
 	label := entry.Model
 	var classifier *control.ProviderAutoPlanClassifier
+
+	if !tokenEconomy && !strings.EqualFold(strings.TrimSpace(cfg.Agent.AutoPlan), "off") && cfg.Agent.AutoPlanClassifier != "" {
+		cm := cfg.Agent.AutoPlanClassifier
+		ce, ok := cfg.ResolveModel(cm)
+		if !ok {
+			return nil, fmt.Errorf("auto_plan_classifier %q is not a configured provider", cm)
+		}
+		classifierProv, err := NewProviderWithProxy(ce, proxySpec)
+		if err != nil {
+			return nil, fmt.Errorf("auto_plan_classifier %q: %w", cm, err)
+		}
+		classifier = control.NewBillableProviderAutoPlanClassifier(classifierProv, ce.Price, sink)
+	}
 
 	// Two-model collaboration: a distinct planner_model wraps the executor in a
 	// Coordinator with its own session, kept separate for cache stability. The
@@ -934,7 +925,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 			}
 			plannerSess := agent.NewSession(agent.PlannerPromptWithContext(mem.Block()))
 			plannerTools := agent.PlannerToolRegistry(reg)
-			runner = agent.NewCoordinator(plannerProv, plannerSess, applyExchangeRate(pe.Price, cfg), plannerTools, agent.Options{
+			runner = agent.NewCoordinator(plannerProv, plannerSess, pe.Price, plannerTools, agent.Options{
 				MaxSteps:          cfg.Agent.PlannerMaxSteps,
 				MaxStepsKey:       "agent.planner_max_steps",
 				Gate:              headlessGate,
@@ -946,22 +937,24 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 				ArchiveDir:        config.ArchiveDir(),
 				KeepPolicy:        keepPolicy,
 				ReasoningLanguage: cfg.ReasoningLanguage(),
-			}, executor, cfg.Agent.Temperature, sink, control.TaskWarrantsPlanner)
+			}, executor, cfg.Agent.Temperature, sink, control.NewPlannerGate(classifier))
 			label = entry.Model + " + planner " + pe.Model
 		}
 	}
-	if !tokenEconomy && !strings.EqualFold(strings.TrimSpace(cfg.Agent.AutoPlan), "off") && cfg.Agent.AutoPlanClassifier != "" {
-		cm := cfg.Agent.AutoPlanClassifier
-		ce, ok := cfg.ResolveModel(cm)
-		if !ok {
-			return nil, fmt.Errorf("auto_plan_classifier %q is not a configured provider", cm)
-		}
-		classifierProv, err := NewProviderWithProxy(ce, proxySpec)
-		if err != nil {
-			return nil, fmt.Errorf("auto_plan_classifier %q: %w", cm, err)
-		}
-		classifier = control.NewBillableProviderAutoPlanClassifier(classifierProv, applyExchangeRate(ce.Price, cfg), sink)
+
+	// Learner: self-improving pattern detection. Config at [learn].
+	// Created early so it can be passed to both the agent and controller.
+	var lc *learn.Learner
+	if cfg.Learn.Enabled {
+		lc = learn.New(learn.Config{
+			Enabled:         cfg.Learn.Enabled,
+			MaxPatterns:     cfg.Learn.MaxPatterns,
+			MinConfidence:   cfg.Learn.MinConfidence,
+			MaxObservations: cfg.Learn.MaxObservations,
+		})
 	}
+
+	// Use the exchange-rate-cloned pricing computed during entry resolution.
 
 	ctrlOpts := control.Options{
 		Runner:                 runner,
@@ -970,7 +963,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 		Policy:                 policy,
 		Label:                  label,
 		ModelRef:               modelRef,
-		SystemPrompt:           finalizeSystemPrompt(sysPrompt, cfg.Language),
+		SystemPrompt:           sysPrompt,
 		SessionDir:             sessionDir,
 		Host:                   pluginHost,
 		Commands:               cmds,
@@ -994,17 +987,32 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 		Shell:                  shell,
 		PlanModeAllowedTools:   cfg.Agent.PlanModeAllowedTools,
 		ApprovalTimeout:        opts.ApprovalTimeout,
+		Learner:                lc,
 		OnRemember: func(rule string) control.RememberResult {
 			return rememberPermissionRule(root, rule)
 		},
-		ScheduleConfig: buildScheduleConfig(cfg),
 	}
 	if classifier != nil {
 		ctrlOpts.Classifier = classifier
 	}
+	// Schedule: cron-driven automated agent tasks. Config at [schedule].
+	if len(cfg.Schedule.Tasks) > 0 {
+		schedCfg := scheduler.Config{}
+		for _, t := range cfg.Schedule.Tasks {
+			schedCfg.Tasks = append(schedCfg.Tasks, scheduler.Task{
+				Name:    t.Name,
+				Cron:    t.Cron,
+				Prompt:  t.Prompt,
+				Model:   t.Model,
+				Enabled: t.Enabled,
+			})
+		}
+		ctrlOpts.ScheduleConfig = &schedCfg
+	}
+
 	ctrl := control.New(ctrlOpts)
 
-	// Mesh: agent-to-agent MCP delegation. Config at [mesh].
+	// Mesh: agent-to-agent MCP peer network. Config at [mesh].
 	if cfg.Mesh.Enabled && len(cfg.Mesh.Peers) > 0 {
 		var meshPeers []mesh.PeerConfig
 		for _, p := range cfg.Mesh.Peers {
@@ -1454,36 +1462,31 @@ func providerNames(cfg *config.Config) string {
 	return strings.Join(names, "/")
 }
 
-// workshopThreshold is the byte size above which tool results are routed to the
-// workshop sidecar for background synthesis.
-const workshopThreshold = 12 * 1024
-
-// WorkshopSynthesisText is the system-prompt prefix for workshop synthesis jobs.
-const WorkshopSynthesisText = "Synthesize this large tool output into a concise summary. Focus on key findings, patterns, errors, and actionable items. Omit repetitive content. Return the synthesis only."
-
-// workshopSynthesizer returns a callback that, when a tool result exceeds the
-// threshold, spawns a background sub-agent to synthesize it and returns a note
-// pointing to the synthesis ref, plus a truncated version of the raw output.
-// buildScheduleConfig converts the TOML schedule block to a scheduler.Config.
-func buildScheduleConfig(cfg *config.Config) *scheduler.Config {
-	tasks := make([]scheduler.Task, len(cfg.Schedule.Tasks))
-	for i, t := range cfg.Schedule.Tasks {
-		tasks[i] = scheduler.Task{
-			Name:    t.Name,
-			Cron:    t.Cron,
-			Prompt:  t.Prompt,
-			Model:   t.Model,
-			Enabled: t.Enabled,
-		}
+// applyExchangeRate clones the pricing and sets the CNY→USD exchange rate so
+// Cost() and Symbol() return USD values. The clone is used in place of the
+// config entry's pricing for every sub-agent, task tool, and planner.
+func applyExchangeRate(pricing *provider.Pricing, cfg *config.Config) *provider.Pricing {
+	if pricing == nil {
+		return nil
 	}
-	return &scheduler.Config{Tasks: tasks}
+	if pricing.ExchangeRate > 0 {
+		return pricing
+	}
+	if pricing.Currency != "¥" && pricing.Currency != "CNY" && pricing.Currency != "RMB" {
+		return pricing
+	}
+	clone := *pricing
+	rate := billing.DefaultCNYToUSD
+	if cfg.Billing.AutoExchangeRate {
+		rate = billing.FetchCNYToUSD()
+	}
+	clone.ExchangeRate = rate
+	return &clone
 }
 
 // resolveAuxProviders creates optional providers for background jobs
-// (compaction summarization, vision, web extraction) from the [agent.auxiliary]
-// config block. Each returns nil when unconfigured, which means "use the main
-// provider". Resolution errors are surfaced as notices, not hard failures —
-// a missing auxiliary model shouldn't block the session.
+// (compaction summarization, vision, web extraction) from [agent.auxiliary].
+// nil means "use the main provider".
 func resolveAuxProviders(cfg *config.Config, proxy netclient.ProxySpec, sink event.Sink) (compression, vision, webExtract provider.Provider) {
 	aux := cfg.Agent.Auxiliary
 	resolve := func(ref config.AuxModelRef, label string) provider.Provider {
@@ -1509,103 +1512,4 @@ func resolveAuxProviders(cfg *config.Config, proxy netclient.ProxySpec, sink eve
 	return resolve(aux.Compression, "compression"),
 		resolve(aux.Vision, "vision"),
 		resolve(aux.WebExtract, "web_extract")
-}
-
-// compressEnabled resolves the CompressToolOutput config: nil = default true.
-func compressEnabled(override *bool) bool {
-	if override == nil {
-		return true
-	}
-	return *override
-}
-
-func workshopSynthesizer(jm *jobs.Manager, prov provider.Provider, reg *tool.Registry, entry *config.ProviderEntry, agentCfg config.AgentConfig) func(ctx context.Context, toolName string, rawResult string) string {
-	if jm == nil || prov == nil {
-		return nil
-	}
-	return func(ctx context.Context, toolName string, rawResult string) string {
-		// Truncate the raw output for the synthesis prompt — the sub-agent doesn't
-		// need unlimited context either.
-		synthInput := rawResult
-		const maxSynthesisInput = 64 * 1024
-		if len(synthInput) > maxSynthesisInput {
-			synthInput = synthInput[:maxSynthesisInput] + "\n\n[...truncated for synthesis]"
-		}
-
-		prompt := fmt.Sprintf("%s\n\nTool: %s\nOutput:\n%s", WorkshopSynthesisText, toolName, synthInput)
-
-		job := jm.Start("workshop", "synthesize "+toolName, func(jobCtx context.Context, _ io.Writer) (string, error) {
-			sess := agent.NewSession("You are a synthesis sidecar. " + WorkshopSynthesisText)
-			return agent.RunSubAgentWithSession(jobCtx, prov, reg, sess, prompt, agent.Options{
-				MaxSteps: 3,
-				Gate:     nil,
-			}, event.Discard)
-		})
-
-		// Return a compact note that replaces the raw output in the model's context.
-		return fmt.Sprintf("[Workshop sidecar: %d-byte %s output routed to background synthesis job %q. Use wait(job_ids=[%q]) to retrieve the condensed summary.]\n\nHead of raw output:\n%s",
-			len(rawResult), toolName, job.ID, job.ID,
-			truncateHead(rawResult, 2048))
-	}
-}
-
-func truncateHead(s string, maxLen int) string {
-	if len(s) <= maxLen {
-		return s
-	}
-	// Try to snap to a newline boundary.
-	cut := maxLen
-	for i := maxLen; i > maxLen-200 && i > 0; i-- {
-		if s[i] == '\n' {
-			cut = i
-			break
-		}
-	}
-	return s[:cut] + "\n\n[... " + strconv.Itoa(len(s)-cut) + " more bytes]"
-}
-
-// finalizeSystemPrompt applies post-assembly adjustments — most importantly the
-// language instruction, placed at the very end so it has maximum weight.
-func finalizeSystemPrompt(sysPrompt, explicitLang string) string {
-	return sysPrompt + "\n\n" + languagePolicy(explicitLang)
-}
-
-// languagePolicy returns the language instruction appended to the system prompt.
-// When an explicit language is configured (not auto/empty), it enforces that
-// language instead of the adaptive follow-the-user policy.
-func languagePolicy(explicitLang string) string {
-	switch strings.ToLower(strings.TrimSpace(explicitLang)) {
-	case "en":
-		return "CRITICAL: You must respond in English only. Never use Chinese, Japanese, Korean, or any other language — even if the user writes in another language. All responses, reasoning, code comments, and explanations must be in English. This rule overrides any other language-related instructions."
-	case "zh":
-		return config.LanguagePolicy
-	default:
-		return config.LanguagePolicy
-	}
-}
-
-// applyExchangeRate clones the pricing and sets ExchangeRate for consistent USD
-// display. When pricing is nil or already has an exchange rate, it returns it
-// as-is. Otherwise it sets ExchangeRate to the live rate (when auto_exchange_rate
-// is enabled) or the hardcoded DefaultCNYToUSD fallback.
-//
-// Used by Build() for entry, planner, and classifier pricing.
-
-func applyExchangeRate(pricing *provider.Pricing, cfg *config.Config) *provider.Pricing {
-	if pricing == nil {
-		return nil
-	}
-	if pricing.ExchangeRate > 0 {
-		return pricing
-	}
-	if pricing.Currency != "¥" && pricing.Currency != "CNY" && pricing.Currency != "RMB" {
-		return pricing
-	}
-	clone := *pricing
-	rate := billing.DefaultCNYToUSD
-	if cfg.Billing.AutoExchangeRate {
-		rate = billing.FetchCNYToUSD()
-	}
-	clone.ExchangeRate = rate
-	return &clone
 }

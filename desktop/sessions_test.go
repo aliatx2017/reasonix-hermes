@@ -10,6 +10,27 @@ import (
 	"reasonix/internal/jobs"
 )
 
+func occupyReadFileWithTimeoutSlots(t *testing.T) func() {
+	t.Helper()
+	filled := 0
+	for filled < cap(readFileWithTimeoutSlots) {
+		readFileWithTimeoutSlots <- struct{}{}
+		filled++
+	}
+	released := false
+	release := func() {
+		if released {
+			return
+		}
+		released = true
+		for i := 0; i < filled; i++ {
+			<-readFileWithTimeoutSlots
+		}
+	}
+	t.Cleanup(release)
+	return release
+}
+
 // --- loadSessionTitles ---
 
 func TestLoadSessionTitlesMissing(t *testing.T) {
@@ -108,6 +129,27 @@ func TestSetSessionTitleTrimsWhitespace(t *testing.T) {
 	m := loadSessionTitles(dir)
 	if m["s.jsonl"] != "trimmed" {
 		t.Errorf("title = %q, want trimmed", m["s.jsonl"])
+	}
+}
+
+func TestSetSessionTitlePreservesExistingTitlesWhenTimedReadSlotsFull(t *testing.T) {
+	dir := t.TempDir()
+	if err := saveSessionTitles(dir, map[string]string{"old.jsonl": "Old"}); err != nil {
+		t.Fatalf("save old title: %v", err)
+	}
+	sessionPath := filepath.Join(dir, "new.jsonl")
+	release := occupyReadFileWithTimeoutSlots(t)
+	if err := setSessionTitle(dir, sessionPath, "New"); err != nil {
+		t.Fatalf("setSessionTitle: %v", err)
+	}
+	release()
+
+	m := loadSessionTitles(dir)
+	if got := m["old.jsonl"]; got != "Old" {
+		t.Fatalf("old title = %q, want Old (all titles: %v)", got, m)
+	}
+	if got := m["new.jsonl"]; got != "New" {
+		t.Fatalf("new title = %q, want New (all titles: %v)", got, m)
 	}
 }
 

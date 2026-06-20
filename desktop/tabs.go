@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -34,19 +35,19 @@ import (
 // memory, permissions) scoped to a workspace root, so multiple projects and
 // topics can be active concurrently without interfering.
 type WorkspaceTab struct {
-	ID            string              // stable random id
-	Scope         string              // "project" | "global"
-	WorkspaceRoot string              // project root dir (empty for global)
-	SharedHostKey string              // opaque key for the shared plugin host (set by buildTabController)
-	TopicID       string              // topic within the project
-	TopicTitle    string              // display title
-	SessionPath   string              // exact .jsonl file this tab continues
-	ReadOnly      bool                // true for external channel transcripts opened for browsing
+	ID            string             // stable random id
+	Scope         string             // "project" | "global"
+	WorkspaceRoot string             // project root dir (empty for global)
+	SharedHostKey string             // opaque key for the shared plugin host (set by buildTabController)
+	TopicID       string             // topic within the project
+	TopicTitle    string             // display title
+	SessionPath   string             // exact .jsonl file this tab continues
+	ReadOnly      bool               // true for external channel transcripts opened for browsing
 	Ctrl          control.SessionAPI // nil while booting / on error
-	Label         string              // model label (for the tab badge)
-	Ready         bool                // true once boot.Build completes
-	StartupErr    string              // build error, surfaced to the frontend
-	sink          *tabEventSink       // routes events with this tab's ID
+	Label         string             // model label (for the tab badge)
+	Ready         bool               // true once boot.Build completes
+	StartupErr    string             // build error, surfaced to the frontend
+	sink          *tabEventSink      // routes events with this tab's ID
 
 	ActivityStatus string // transient project-tree status for the in-flight turn
 
@@ -840,6 +841,7 @@ type TabMeta struct {
 	TopicID           string `json:"topicId"`
 	TopicTitle        string `json:"topicTitle"`
 	SessionPath       string `json:"sessionPath,omitempty"`
+	ReadOnly          bool   `json:"readOnly,omitempty"`
 	ProjectColor      string `json:"projectColor,omitempty"`
 	Label             string `json:"label"`
 	Ready             bool   `json:"ready"`
@@ -852,7 +854,6 @@ type TabMeta struct {
 	CollaborationMode string `json:"collaborationMode"`
 	ToolApprovalMode  string `json:"toolApprovalMode"`
 	TokenMode         string `json:"tokenMode"`
-	ReadOnly          bool   `json:"readOnly"`
 	Goal              string `json:"goal,omitempty"`
 	GoalStatus        string `json:"goalStatus,omitempty"`
 	StartupErr        string `json:"startupErr,omitempty"`
@@ -886,13 +887,13 @@ func (a *App) tabMeta(tab *WorkspaceTab, active bool) TabMeta {
 		TopicID:           tab.TopicID,
 		TopicTitle:        tab.TopicTitle,
 		SessionPath:       tab.currentSessionPath(),
+		ReadOnly:          tab.ReadOnly,
 		Label:             tab.Label,
 		Ready:             tab.Ready,
 		Mode:              currentTabMode(tab),
 		CollaborationMode: currentTabCollaborationMode(tab),
 		ToolApprovalMode:  currentTabToolApprovalMode(tab),
 		TokenMode:         currentTabTokenMode(tab),
-		ReadOnly:          tab.ReadOnly,
 		Goal:              currentTabGoal(tab),
 		GoalStatus:        currentTabGoalStatus(tab),
 		StartupErr:        tab.StartupErr,
@@ -1410,6 +1411,14 @@ func (a *App) CloseTab(tabID string) error {
 		a.mu.Unlock()
 		return fmt.Errorf("cannot close the last tab")
 	}
+	// Snapshot the session state before removing the tab from a.tabs.
+	// This closes a race window with DeleteSession: if Snapshot runs
+	// after delete(a.tabs, tabID), a concurrent DeleteSession can delete
+	// the session files, and the deferred Snapshot recreates them.
+	if tab.Ctrl != nil && !tab.ReadOnly {
+		_ = tab.Ctrl.Snapshot()
+	}
+
 	ordered := a.orderedTabIDsLocked()
 	closedIndex := -1
 	for i, id := range ordered {
@@ -1439,15 +1448,6 @@ func (a *App) CloseTab(tabID string) error {
 
 	// Tear down outside the lock.
 	if tab.Ctrl != nil {
-		// Final snapshot while the controller still owns its session path.
-		// a.mu stays free during the disk write; the two resurrection
-		// vectors are neutralized below before DeleteSession can see the
-		// tab as gone:
-		//   (1) clear the controller's session path so any later Snapshot
-		//       (including the autosave loop) is a no-op;
-		//   (2) drain any in-flight tabSnapshotLoop before returning, so no
-		//       background write can land after the file is trashed.
-		_ = tab.Ctrl.Snapshot()
 		if tab.hasActiveRuntimeWork() && a.detachSessionRuntime(tab) {
 			// Detached runtimes keep running and must keep saving: do not
 			// clear the path or drain for them.
@@ -1910,7 +1910,7 @@ func (a *App) tabSnapshotLoop(tab *WorkspaceTab) {
 		ctrl := tab.Ctrl
 		a.mu.RUnlock()
 		if ctrl != nil {
-			if err := ctrl.Snapshot(); err == nil {
+			if err := a.snapshotTab(tab); err == nil {
 				if !a.maybeAutoTitleTopic(tab) {
 					a.emitProjectTreeChanged()
 				}
@@ -2050,6 +2050,7 @@ type desktopTabEntry struct {
 	WorkspaceRoot    string  `json:"workspaceRoot"`
 	TopicID          string  `json:"topicId"`
 	SessionPath      string  `json:"sessionPath,omitempty"`
+	ReadOnly         bool    `json:"readOnly,omitempty"`
 	Model            string  `json:"model,omitempty"`
 	Effort           *string `json:"effort,omitempty"`
 	TokenMode        string  `json:"tokenMode,omitempty"`
@@ -2092,6 +2093,7 @@ func (a *App) saveTabsCollectLocked() (string, []desktopTabEntry, string, uint64
 				WorkspaceRoot:    tab.WorkspaceRoot,
 				TopicID:          tab.TopicID,
 				SessionPath:      tab.currentSessionPath(),
+				ReadOnly:         tab.ReadOnly,
 				Model:            tab.model,
 				Effort:           cloneStringPtr(tab.effort),
 				TokenMode:        persistedTabTokenMode(currentTabTokenMode(tab)),
@@ -2643,9 +2645,42 @@ func topicCreatedAtsPath(workspaceRoot string) string {
 	return filepath.Join(workspaceRoot, ".reasonix", topicCreatedAtsFile)
 }
 
+const topicFileReadTimeout = 200 * time.Millisecond
+
+var readFileWithTimeoutSlots = make(chan struct{}, 16)
+
+func readFileWithTimeout(path string, timeout time.Duration) ([]byte, error) {
+	if timeout <= 0 {
+		return os.ReadFile(path)
+	}
+	select {
+	case readFileWithTimeoutSlots <- struct{}{}:
+	default:
+		return nil, fmt.Errorf("too many pending file reads")
+	}
+	type result struct {
+		data []byte
+		err  error
+	}
+	ch := make(chan result, 1)
+	go func() {
+		data, err := os.ReadFile(path)
+		<-readFileWithTimeoutSlots
+		ch <- result{data: data, err: err}
+	}()
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	select {
+	case r := <-ch:
+		return r.data, r.err
+	case <-timer.C:
+		return nil, fmt.Errorf("timed out after %v reading %s", timeout, filepath.Base(path))
+	}
+}
+
 func loadTopicTitles(workspaceRoot string) map[string]string {
 	m := map[string]string{}
-	b, err := os.ReadFile(topicTitlesPath(workspaceRoot))
+	b, err := readFileWithTimeout(topicTitlesPath(workspaceRoot), topicFileReadTimeout)
 	if err != nil {
 		return m
 	}
@@ -2655,7 +2690,7 @@ func loadTopicTitles(workspaceRoot string) map[string]string {
 
 func loadTopicTitleSources(workspaceRoot string) map[string]string {
 	m := map[string]string{}
-	b, err := os.ReadFile(topicTitleSourcesPath(workspaceRoot))
+	b, err := readFileWithTimeout(topicTitleSourcesPath(workspaceRoot), topicFileReadTimeout)
 	if err != nil {
 		return m
 	}
@@ -2665,12 +2700,54 @@ func loadTopicTitleSources(workspaceRoot string) map[string]string {
 
 func loadTopicCreatedAts(workspaceRoot string) map[string]int64 {
 	m := map[string]int64{}
-	b, err := os.ReadFile(topicCreatedAtsPath(workspaceRoot))
+	b, err := readFileWithTimeout(topicCreatedAtsPath(workspaceRoot), topicFileReadTimeout)
 	if err != nil {
 		return m
 	}
 	_ = json.Unmarshal(b, &m)
 	return m
+}
+
+func loadStringMapForUpdate(path string) (map[string]string, error) {
+	m := map[string]string{}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return m, nil
+		}
+		return nil, err
+	}
+	if err := json.Unmarshal(b, &m); err != nil || m == nil {
+		return map[string]string{}, nil
+	}
+	return m, nil
+}
+
+func loadInt64MapForUpdate(path string) (map[string]int64, error) {
+	m := map[string]int64{}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return m, nil
+		}
+		return nil, err
+	}
+	if err := json.Unmarshal(b, &m); err != nil || m == nil {
+		return map[string]int64{}, nil
+	}
+	return m, nil
+}
+
+func loadTopicTitlesForUpdate(workspaceRoot string) (map[string]string, error) {
+	return loadStringMapForUpdate(topicTitlesPath(workspaceRoot))
+}
+
+func loadTopicTitleSourcesForUpdate(workspaceRoot string) (map[string]string, error) {
+	return loadStringMapForUpdate(topicTitleSourcesPath(workspaceRoot))
+}
+
+func loadTopicCreatedAtsForUpdate(workspaceRoot string) (map[string]int64, error) {
+	return loadInt64MapForUpdate(topicCreatedAtsPath(workspaceRoot))
 }
 
 func saveTopicTitles(workspaceRoot string, m map[string]string) error {
@@ -2767,7 +2844,10 @@ func setTopicTitle(workspaceRoot, topicID, title string) error {
 }
 
 func setTopicTitleWithSource(workspaceRoot, topicID, title, source string) error {
-	m := loadTopicTitles(workspaceRoot)
+	m, err := loadTopicTitlesForUpdate(workspaceRoot)
+	if err != nil {
+		return err
+	}
 	if strings.TrimSpace(title) == "" {
 		delete(m, topicID)
 	} else {
@@ -2777,7 +2857,10 @@ func setTopicTitleWithSource(workspaceRoot, topicID, title, source string) error
 		return err
 	}
 
-	sources := loadTopicTitleSources(workspaceRoot)
+	sources, err := loadTopicTitleSourcesForUpdate(workspaceRoot)
+	if err != nil {
+		return err
+	}
 	if strings.TrimSpace(title) == "" || strings.TrimSpace(source) == "" {
 		delete(sources, topicID)
 	} else {
@@ -2787,7 +2870,10 @@ func setTopicTitleWithSource(workspaceRoot, topicID, title, source string) error
 }
 
 func setTopicCreatedAt(workspaceRoot, topicID string, createdAt int64) error {
-	created := loadTopicCreatedAts(workspaceRoot)
+	created, err := loadTopicCreatedAtsForUpdate(workspaceRoot)
+	if err != nil {
+		return err
+	}
 	topicID = strings.TrimSpace(topicID)
 	if topicID == "" || createdAt <= 0 {
 		delete(created, topicID)
@@ -2798,7 +2884,10 @@ func setTopicCreatedAt(workspaceRoot, topicID string, createdAt int64) error {
 }
 
 func deleteTopicCreatedAt(workspaceRoot, topicID string) {
-	created := loadTopicCreatedAts(workspaceRoot)
+	created, err := loadTopicCreatedAtsForUpdate(workspaceRoot)
+	if err != nil {
+		return
+	}
 	delete(created, topicID)
 	_ = saveTopicCreatedAts(workspaceRoot, created)
 }
@@ -2988,9 +3077,8 @@ func markTopicMigrationDone(dir string) {
 }
 
 func migrateLegacySessionsIntoGlobalTopics(dir string) []string {
-	var migratedTopicIDs = []string{}
 	if strings.TrimSpace(dir) == "" {
-		return migratedTopicIDs
+		return nil
 	}
 	// One-shot per dir: once the migration pass has completed, skip the full
 	// per-render session scan entirely.
@@ -3014,7 +3102,7 @@ func migrateLegacySessionsIntoGlobalTopics(dir string) []string {
 			}
 		}
 		if scope != "project" {
-			return migratedTopicIDs // not a recognized project dir; skip
+			return nil // not a recognized project dir; skip
 		}
 	}
 	legacyMigrationMu.Lock()
@@ -3029,6 +3117,7 @@ func migrateLegacySessionsIntoGlobalTopics(dir string) []string {
 		return nil // transient read error — retry on the next render, leave unmarked
 	}
 
+	var migratedTopicIDs []string
 	var titles map[string]string
 	var topicTitles map[string]string
 	var topicSources map[string]string
@@ -3560,26 +3649,46 @@ func (a *App) DeleteTopic(topicID string) error {
 	f := loadProjectsFile()
 	found := false
 	for _, p := range f.Projects {
-		m := loadTopicTitles(p.Root)
+		m, err := loadTopicTitlesForUpdate(p.Root)
+		if err != nil {
+			return err
+		}
 		if _, ok := m[topicID]; ok {
 			delete(m, topicID)
-			_ = saveTopicTitles(p.Root, m)
-			sources := loadTopicTitleSources(p.Root)
+			if err := saveTopicTitles(p.Root, m); err != nil {
+				return err
+			}
+			sources, err := loadTopicTitleSourcesForUpdate(p.Root)
+			if err != nil {
+				return err
+			}
 			delete(sources, topicID)
-			_ = saveTopicTitleSources(p.Root, sources)
+			if err := saveTopicTitleSources(p.Root, sources); err != nil {
+				return err
+			}
 			deleteTopicCreatedAt(p.Root, topicID)
 			found = true
 			break
 		}
 	}
 	if !found {
-		m := loadTopicTitles("")
+		m, err := loadTopicTitlesForUpdate("")
+		if err != nil {
+			return err
+		}
 		if _, ok := m[topicID]; ok {
 			delete(m, topicID)
-			_ = saveTopicTitles("", m)
-			sources := loadTopicTitleSources("")
+			if err := saveTopicTitles("", m); err != nil {
+				return err
+			}
+			sources, err := loadTopicTitleSourcesForUpdate("")
+			if err != nil {
+				return err
+			}
 			delete(sources, topicID)
-			_ = saveTopicTitleSources("", sources)
+			if err := saveTopicTitleSources("", sources); err != nil {
+				return err
+			}
 			deleteTopicCreatedAt("", topicID)
 			f.GlobalTopics = removeString(f.GlobalTopics, topicID)
 			f.GlobalPinnedTopics = removeString(f.GlobalPinnedTopics, topicID)
@@ -3659,14 +3768,15 @@ func (a *App) TrashTopic(topicID string) error {
 		return err
 	}
 	removed, fallback := a.removeTopicRuntimeBindings(topicID)
-	if err := prepareRemovedSessionRuntimes(removed); err != nil {
+	if err := a.prepareRemovedSessionRuntimes(removed); err != nil {
 		a.closeRemovedSessionRuntimes(removed)
 		return err
 	}
 	destroyBegun := false
+	closedRemoved := map[control.SessionAPI]bool{}
 	defer func() {
 		if destroyBegun {
-			a.closeRemovedSessionRuntimesAfterDestroy(removed)
+			a.closeRemainingRemovedSessionRuntimesAfterDestroy(removed, closedRemoved)
 			return
 		}
 		a.closeRemovedSessionRuntimes(removed)
@@ -3677,7 +3787,9 @@ func (a *App) TrashTopic(topicID string) error {
 		if len(destroys) > 0 {
 			destroyBegun = true
 		}
-		if waitDestroyHandles(destroys) {
+		teardownTimedOut := waitDestroyHandles(destroys)
+		a.closeRemovedSessionRuntimesForSessionAfterDestroy(removed, target.dir, target.sessionPath, closedRemoved)
+		if teardownTimedOut {
 			if err := agent.MarkCleanupPending(target.sessionPath, "delete"); err != nil {
 				return err
 			}
@@ -3780,7 +3892,12 @@ type topicSummary struct {
 	lastActivityAt int64
 }
 
+var listProjectTreeMu sync.Mutex
+
 func (a *App) ListProjectTree() []ProjectNode {
+	listProjectTreeMu.Lock()
+	defer listProjectTreeMu.Unlock()
+
 	migrateLegacySessionsIntoGlobalTopics(config.SessionDir())
 	f := loadProjectsFile()
 	out := []ProjectNode{}
@@ -3801,23 +3918,32 @@ func (a *App) ListProjectTree() []ProjectNode {
 	// Read session listings from all known directories concurrently, since
 	// each dir is independent I/O. With N workspaces × dozens of sessions,
 	// sequential reads add up to seconds of wall time on cold start.
-	var (
-		mergeMu sync.Mutex
-		wg      sync.WaitGroup
-	)
 	cacheToken := projectSessionCache.versionToken()
-	for _, dir := range a.knownSessionDirs() {
+	type sessionDirLoadResult struct {
+		dir    string
+		infos  []agent.SessionInfo
+		titles map[string]string
+		ok     bool
+	}
+	knownDirs := a.knownSessionDirs()
+	results := make(chan sessionDirLoadResult, len(knownDirs))
+	pendingLoads := 0
+	for _, dir := range knownDirs {
 		infos, titles, ok := projectSessionCache.get(dir)
 		if ok {
-			mergeMu.Lock()
 			mergeSessionInfos(dir, infos, titles, sessionInfos, sessionTitles, topicSummaries)
-			mergeMu.Unlock()
 			continue
 		}
-		wg.Add(1)
+		pendingLoads++
 		dir := dir // capture
 		go func() {
-			defer wg.Done()
+			result := sessionDirLoadResult{dir: dir}
+			defer func() {
+				if recover() != nil {
+					result.ok = false
+				}
+				results <- result
+			}()
 
 			// Sidecar-backed listing: ListSessions reads turn count + preview from
 			// each session's .meta sidecar, so even large directories list in a few
@@ -3829,13 +3955,26 @@ func (a *App) ListProjectTree() []ProjectNode {
 			}
 			titles := loadSessionTitles(dir)
 			projectSessionCache.put(dir, infos, titles, cacheToken)
-
-			mergeMu.Lock()
-			mergeSessionInfos(dir, infos, titles, sessionInfos, sessionTitles, topicSummaries)
-			mergeMu.Unlock()
+			result.infos = infos
+			result.titles = titles
+			result.ok = true
 		}()
 	}
-	wg.Wait()
+	if pendingLoads > 0 {
+		timer := time.NewTimer(5 * time.Second)
+		for received := 0; received < pendingLoads; {
+			select {
+			case result := <-results:
+				received++
+				if result.ok {
+					mergeSessionInfos(result.dir, result.infos, result.titles, sessionInfos, sessionTitles, topicSummaries)
+				}
+			case <-timer.C:
+				received = pendingLoads
+			}
+		}
+		timer.Stop()
+	}
 
 	runtimeSessionsByTopic := map[string][]runtimeSessionStatus{}
 	a.mu.RLock()
@@ -3967,7 +4106,28 @@ func (a *App) ListProjectTree() []ProjectNode {
 	}
 
 	// Project sections.
-	for _, p := range f.Projects {
+	type projectTopics struct {
+		project    desktopProject
+		titles     map[string]string
+		createdAts map[string]int64
+	}
+	projectTopicResults := make([]projectTopics, len(f.Projects))
+	var topicLoadWg sync.WaitGroup
+	for i, p := range f.Projects {
+		i, p := i, p
+		topicLoadWg.Add(1)
+		go func() {
+			defer topicLoadWg.Done()
+			projectTopicResults[i] = projectTopics{
+				project:    p,
+				titles:     loadTopicTitles(p.Root),
+				createdAts: loadTopicCreatedAts(p.Root),
+			}
+		}()
+	}
+	topicLoadWg.Wait()
+	for _, loaded := range projectTopicResults {
+		p := loaded.project
 		title := p.Title
 		if title == "" {
 			title = workspaceName(p.Root)
@@ -3980,15 +4140,15 @@ func (a *App) ListProjectTree() []ProjectNode {
 		}
 
 		// Gather topics: explicit topic list + all known topic titles.
-		titleMap := loadTopicTitles(p.Root)
-		createdMap := loadTopicCreatedAts(p.Root)
+		titleMap := loaded.titles
+		createdMap := loaded.createdAts
 		topicIDs := pinnedTopicIDs(orderedTopicIDs(p.Topics, titleMap), p.PinnedTopics)
 
 		children := make([]ProjectNode, 0, len(topicIDs))
 		for _, tid := range topicIDs {
 			topicTitle := strings.TrimSpace(titleMap[tid])
 			if topicTitle == "" {
-				topicTitle = topicTitleForTab("project", p.Root, tid)
+				topicTitle = defaultTopicTitle
 			}
 			summary := topicSummaries[topicSummaryKey("project", p.Root, tid)]
 			open, running, status := topicRuntimeStatus(topicSummaryKey("project", p.Root, tid))
@@ -4596,9 +4756,8 @@ func (c *sessionListCache) invalidate() {
 
 var projectSessionCache = &sessionListCache{byDir: map[string]sessionListCacheEntry{}}
 
-// mergeSessionInfos merges one directory's session listing into the shared maps
-// used by ListProjectTree. Called concurrently from multiple goroutines, each
-// processing a different session directory; the caller must hold mergeMu.
+// mergeSessionInfos merges one directory's session listing into the maps used by
+// ListProjectTree. The result collection loop calls it serially.
 func mergeSessionInfos(dir string, infos []agent.SessionInfo, titles map[string]string, sessionInfos map[string]agent.SessionInfo, sessionTitles map[string]string, topicSummaries map[string]topicSummary) {
 	for _, info := range infos {
 		sessionKey := sessionRuntimeKey(info.Path)

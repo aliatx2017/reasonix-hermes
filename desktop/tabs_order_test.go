@@ -51,6 +51,15 @@ func assertTabIDs(t *testing.T, got []TabMeta, want ...string) {
 	}
 }
 
+type resetCountingSession struct {
+	control.SessionAPI
+	resets int
+}
+
+func (s *resetCountingSession) ResetPlannerSession() {
+	s.resets++
+}
+
 func TestListTabsKeepsExplicitOrderWhenActiveChanges(t *testing.T) {
 	app := testAppWithOrderedTabs(t, "b", "a", "b", "c")
 
@@ -61,6 +70,24 @@ func TestListTabsKeepsExplicitOrderWhenActiveChanges(t *testing.T) {
 	assertTabIDs(t, app.ListTabs(), "a", "b", "c")
 	if got := app.activeTabID; got != "c" {
 		t.Fatalf("active tab = %q, want c", got)
+	}
+}
+
+func TestSetActiveTabDoesNotResetPlannerSession(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	ctrlA := &resetCountingSession{SessionAPI: control.New(control.Options{Label: "a"})}
+	ctrlB := &resetCountingSession{SessionAPI: control.New(control.Options{Label: "b"})}
+	defer ctrlA.Close()
+	defer ctrlB.Close()
+	app := testAppWithOrderedTabs(t, "a", "a", "b")
+	app.tabs["a"].Ctrl = ctrlA
+	app.tabs["b"].Ctrl = ctrlB
+
+	if err := app.SetActiveTab("b"); err != nil {
+		t.Fatalf("SetActiveTab: %v", err)
+	}
+	if ctrlA.resets != 0 || ctrlB.resets != 0 {
+		t.Fatalf("planner resets on tab activation = active:%d inactive:%d, want 0", ctrlA.resets, ctrlB.resets)
 	}
 }
 
@@ -141,6 +168,23 @@ func TestCloseActiveTabChoosesNeighborByOrder(t *testing.T) {
 	assertTabIDs(t, app.ListTabs(), "a")
 	if got := app.activeTabID; got != "a" {
 		t.Fatalf("active tab after closing last = %q, want a", got)
+	}
+}
+
+func TestCloseActiveTabDoesNotResetSurvivorPlannerSession(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	ctrlClosed := control.New(control.Options{Label: "closed"})
+	ctrlSurvivor := &resetCountingSession{SessionAPI: control.New(control.Options{Label: "survivor"})}
+	defer ctrlSurvivor.Close()
+	app := testAppWithOrderedTabs(t, "a", "a", "b")
+	app.tabs["a"].Ctrl = ctrlClosed
+	app.tabs["b"].Ctrl = ctrlSurvivor
+
+	if err := app.CloseTab("a"); err != nil {
+		t.Fatalf("CloseTab: %v", err)
+	}
+	if ctrlSurvivor.resets != 0 {
+		t.Fatalf("survivor planner resets = %d, want 0", ctrlSurvivor.resets)
 	}
 }
 

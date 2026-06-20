@@ -175,6 +175,52 @@ func TestRenameSessionInvalidatesProjectTreeCache(t *testing.T) {
 	}
 }
 
+func TestTopicMetadataUpdatesPreserveExistingEntriesWhenTimedReadSlotsFull(t *testing.T) {
+	isolateDesktopUserDirs(t)
+
+	projectRoot := t.TempDir()
+	if err := saveTopicTitles(projectRoot, map[string]string{"old": "Old"}); err != nil {
+		t.Fatalf("save old title: %v", err)
+	}
+	if err := saveTopicTitleSources(projectRoot, map[string]string{"old": topicTitleSourceManual}); err != nil {
+		t.Fatalf("save old source: %v", err)
+	}
+	if err := saveTopicCreatedAts(projectRoot, map[string]int64{"old": 100}); err != nil {
+		t.Fatalf("save old created-at: %v", err)
+	}
+
+	release := occupyReadFileWithTimeoutSlots(t)
+	if err := setTopicTitleWithSource(projectRoot, "new", "New", topicTitleSourceAuto); err != nil {
+		t.Fatalf("setTopicTitleWithSource: %v", err)
+	}
+	if err := setTopicCreatedAt(projectRoot, "new", 200); err != nil {
+		t.Fatalf("setTopicCreatedAt: %v", err)
+	}
+	release()
+
+	titles := loadTopicTitles(projectRoot)
+	if got := titles["old"]; got != "Old" {
+		t.Fatalf("old title = %q, want Old (all titles: %v)", got, titles)
+	}
+	if got := titles["new"]; got != "New" {
+		t.Fatalf("new title = %q, want New (all titles: %v)", got, titles)
+	}
+	sources := loadTopicTitleSources(projectRoot)
+	if got := sources["old"]; got != topicTitleSourceManual {
+		t.Fatalf("old source = %q, want %q (all sources: %v)", got, topicTitleSourceManual, sources)
+	}
+	if got := sources["new"]; got != topicTitleSourceAuto {
+		t.Fatalf("new source = %q, want %q (all sources: %v)", got, topicTitleSourceAuto, sources)
+	}
+	created := loadTopicCreatedAts(projectRoot)
+	if got := created["old"]; got != 100 {
+		t.Fatalf("old created-at = %d, want 100 (all created: %v)", got, created)
+	}
+	if got := created["new"]; got != 200 {
+		t.Fatalf("new created-at = %d, want 200 (all created: %v)", got, created)
+	}
+}
+
 func TestDeleteTopicKeepsSessionHistory(t *testing.T) {
 	isolateDesktopUserDirs(t)
 
