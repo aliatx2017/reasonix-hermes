@@ -94,17 +94,15 @@
     - 16.15 [Agent-to-Agent Mesh](#1615-agent-to-agent-mesh)
     - 16.16 [Live Collaboration](#1616-live-collaboration)
     - 16.17 [Self-Improving Skill Loops](#1617-self-improving-skill-loops)
-    - 16.18 [Token Compressor](#1618-token-compressor)
-    - 16.19 [Cron Scheduler](#1619-cron-scheduler)
-    - 16.20 [Session Evaluation & Comparison](#1620-session-evaluation--comparison)
-    - 16.21 [Constitution System](#1621-constitution-system)
-    - 16.22 [Skill Marketplace](#1622-skill-marketplace)
-    - 16.23 [How-To: Force English Only](#1623-how-to-force-english-only)
-    - 16.24 [How-To: Token Saving](#1624-how-to-token-saving)
-    - 16.25 [Operational Agent Logging](#1625-operational-agent-logging)
-    - 16.26 [Domain Model & ADRs](#1626-domain-model--adrs)
-    - 16.27 [Multi-Agent Orchestration](#1627-multi-agent-orchestration)
-    - 16.28 [E2E Benchmarking](#1628-e2e-benchmarking)
+    - 16.18 [Session Evaluation & Comparison](#1618-session-evaluation--comparison)
+    - 16.19 [Constitution System](#1619-constitution-system)
+    - 16.20 [Skill Marketplace](#1620-skill-marketplace)
+    - 16.21 [How-To: Force English Only](#1621-how-to-force-english-only)
+    - 16.22 [How-To: Token Saving](#1622-how-to-token-saving)
+    - 16.23 [Operational Agent Logging](#1623-operational-agent-logging)
+    - 16.24 [Domain Model & ADRs](#1624-domain-model--adrs)
+    - 16.25 [Multi-Agent Orchestration](#1625-multi-agent-orchestration)
+    - 16.26 [E2E Benchmarking](#1626-e2e-benchmarking)
 17. [Desktop App](#17-desktop-app)
 18. [Bot Gateway (Multi-Platform)](#18-bot-gateway-multi-platform)
 19. [Troubleshooting & FAQ](#19-troubleshooting--faq)
@@ -1509,24 +1507,7 @@ Patterns and observations persist to a `<session>.learning` JSON sidecar file
 `/learn patterns` shows historical patterns from prior sessions, not just the
 current one.
 
-### 16.18 Token Compressor
-
-`internal/compress/` reduces tool output token consumption via SHA-256 content
-caching, repeated-line collapsing, and JSON minification. Works transparently —
-the agent sees compact references instead of verbose output. Status bar shows
-`sqz↓N` (bytes saved). Enable via `[compress]`.
-
-### 16.19 Cron Scheduler
-
-`internal/scheduler/` runs automated agent tasks on cron schedules. Manage via
-desktop Schedule widget or CLI:
-
-```bash
-reasonix scheduler list
-reasonix scheduler add "daily-review" "@daily" "Review today's changes"
-```
-
-### 16.20 Session Evaluation & Comparison
+### 16.18 Session Evaluation & Comparison
 
 Compare two agent sessions structurally — turns, tools, tokens, cost, similarity:
 
@@ -1536,12 +1517,12 @@ reasonix eval compare session-a.json session-b.json
 
 See `docs/EVAL.md` for the full guide.
 
-### 16.21 Constitution System
+### 16.19 Constitution System
 
 `.reasonix/constitution.json` defines project invariants the agent checks before
 every tool call. See `docs/CONSTITUTION.md`.
 
-### 16.22 Skill Marketplace
+### 16.20 Skill Marketplace
 
 Community skill registry (agentskills.io-compatible) + LobeHub sync (360k+ skills):
 
@@ -1552,7 +1533,7 @@ reasonix marketplace sync      # sync from LobeHub
 
 See `docs/MARKETPLACE.md`. For the complete inventory of all 125+ skills (project, community, and global), see `docs/SKILLS-CATALOG.md`.
 
-### 16.23 How-To: Force English Only
+### 16.21 How-To: Force English Only
 
 Hard language enforcement — stops the model from switching to Chinese even when
 the user writes in Chinese. Injects a `CRITICAL`-level instruction at the end of
@@ -1566,7 +1547,7 @@ reasoning_language = "en"
 
 See `docs/HOWTO-FORCE-ENGLISH.md` for the full two-layer approach and design rationale.
 
-### 16.24 How-To: Token Saving
+### 16.22 How-To: Token Saving
 
 Step-by-step guide for grafting the **sqz** token compressor into any Reasonix
 fork. Covers SHA-256 content caching, repeated-line collapsing, JSON minification,
@@ -1581,7 +1562,7 @@ enabled = true
 See `docs/HOWTO-TOKEN-SAVING.md` for the implementation walkthrough. See also
 `docs/TOKEN-SAVINGS-ANALYSIS.md` for a quantitative analysis of compression rates.
 
-### 16.25 Operational Agent Logging
+### 16.23 Operational Agent Logging
 
 Structured JSON logging for debugging and observability. `internal/agentlog/`
 replaces the default `slog` handler with JSON output to stderr (and optionally
@@ -1637,6 +1618,13 @@ max_backups = 5    # keep this many numbered backups
 
 Defaults: rotation ON, 10 MB threshold, 5 backups. Set `enabled = false` to
 disable logging entirely (only when the section is explicitly configured).
+
+### 16.24 Domain Model & ADRs
+
+A project glossary (`CONTEXT.md`) defines 18 canonical terms (Turn, Prefix, Controller, Mesh, etc.) with `_Avoid_` alternatives for each. Architectural Decision Records (`docs/adr/`) capture the two hardest-to-reverse choices: cache-first immutable prefix (ADR-0001) and controller seam (ADR-0002).
+
+- **[Domain Model](../CONTEXT.md)** — full glossary
+- **[ADRs](../docs/adr/)** — recorded decisions
 
 ---
 
@@ -1819,7 +1807,7 @@ export DEEPSEEK_API_KEY=sk-...
 - **Ecosystem:** [Ecosystem reference](../reasonix-deepseek-ecosystem-2026.md)
 - **[ADRs](../docs/adr/)** — recorded decisions
 
-### 16.27 Multi-Agent Orchestration
+### 16.25 Multi-Agent Orchestration
 
 `internal/orchestrate/` provides three built-in multi-agent workflows accessible via slash commands:
 
@@ -1831,9 +1819,9 @@ export DEEPSEEK_API_KEY=sk-...
 
 Builds on mesh infrastructure. No configuration required.
 
-**Related:** [Agent-to-Agent Mesh](#1615-agent-to-agent-mesh) · [Slash Commands](#13-slash-commands)
+**Related:** [Agent-to-Agent Mesh](#1615-agent-to-agent-mesh) · [Slash Commands](#10-slash-commands)
 
-### 16.28 E2E Benchmarking
+### 16.26 E2E Benchmarking
 
 `cmd/e2ebench/` runs end-to-end regression tests against a real LLM provider,
 measuring correctness and token cost. The test suite lives in `benchmarks/e2e/`.
@@ -1849,15 +1837,9 @@ measuring correctness and token cost. The test suite lives in `benchmarks/e2e/`.
 CI triggers this via `/e2e` or `/e2e diff` comments on PRs (gated to trusted authors).
 The Go harness is in `internal/e2e/`.
 
-**Related:** [Session Evaluation](#1620-session-evaluation--comparison) · [PR Review](#pr-review-ci)
+**Related:** [Session Evaluation](#1618-session-evaluation--comparison) · [PR Review](#pr-review-ci)
 
 - **Implementation:** [Changelog](./CHANGELOG-HERMES.md)
-### 16.26 Domain Model & ADRs
-
-A project glossary (`CONTEXT.md`) defines 18 canonical terms (Turn, Prefix, Controller, Mesh, etc.) with `_Avoid_` alternatives for each. Architectural Decision Records (`docs/adr/`) capture the two hardest-to-reverse choices: cache-first immutable prefix (ADR-0001) and controller seam (ADR-0002).
-
-- **[Domain Model](../CONTEXT.md)** — full glossary
-- **[ADRs](../docs/adr/)** — recorded decisions
 
 - **Upstream Discord:** [discord.gg/XF78rEME2D](https://discord.gg/XF78rEME2D)
 - **Upstream GitHub:** [esengine/deepseek-reasonix](https://github.com/esengine/deepseek-reasonix)

@@ -157,7 +157,7 @@ See the [Desktop Guide](./DESKTOP.md) for full details.
 
 Hermes tracks [esengine/deepseek-reasonix](https://github.com/esengine/deepseek-reasonix) (branch `main-v2`). Automated sync via `.github/workflows/sync-upstream.yml` runs daily at 20:00 UTC — clean merge → build+test → push. On conflict, opens a PR for manual resolution.
 
-**Current upstream target**: v1.9.x (commit f944dfb, 2026-06-17).
+**Current upstream target**: v1.9.x (commit 33545f6, 2026-06-19).
 
 ```sh
 git fetch upstream

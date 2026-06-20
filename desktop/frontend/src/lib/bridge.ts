@@ -373,7 +373,7 @@ export interface AppBindings {
   SyncLobeHubMarketplace(provider?: string, model?: string): Promise<any>;
   TurnTimeline(tabID?: string): Promise<any>;
   TurnUsageHistory(tabID?: string): Promise<any>;
-  UpdateTrayIcon(style: string): Promise<void>;
+  UpdateTrayIcon(): Promise<void>;
   AddScheduledTask(name: string, cron: string, prompt: string, model?: string, enabled?: boolean): Promise<void>;
   RemoveScheduledTask(id: string): Promise<void>;
   ExportSession(tabId: string): Promise<string>;
@@ -3100,7 +3100,7 @@ function makeMockApp(): AppBindings {
     async SyncLobeHubMarketplace(_provider?: string, _model?: string) { return {}; },
     async TurnTimeline(_tabID?: string) { return []; },
     async TurnUsageHistory(_tabID?: string) { return []; },
-    async UpdateTrayIcon(_style: string): Promise<void> {},
+    async UpdateTrayIcon(): Promise<void> {},
     async AddScheduledTask(_name: string, _cron: string, _prompt: string, _model?: string, _enabled?: boolean): Promise<void> {},
     async RemoveScheduledTask(_id: string): Promise<void> {},
     async ExportSession(_tabId: string): Promise<string> { return ""; },
