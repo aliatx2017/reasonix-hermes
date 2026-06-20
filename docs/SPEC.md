@@ -97,7 +97,6 @@ reasonix/
     ├── history/            # local session history search (BM25 retrieval)
     ├── hook/               # user-configured shell-command hooks (PreToolUse, Stop, etc.)
     ├── i18n/               # CLI translatable strings + locale detection (en/zh/zh-TW)
-    ├── inspect/            # projects running agent capabilities into plain serializable views
     ├── installsource/      # install_source tool: two-phase install plan + apply for skills/MCP
     ├── instruction/        # system prompt instruction assembly
     ├── jobs/               # session-scoped background-job registry (bash/task parallelism)
@@ -126,6 +125,7 @@ reasonix/
     ├── scheduler/          # [Hermes] cron-driven automated agent tasks
     ├── serve/              # HTTP/SSE server exposing a Controller over the wire
     ├── skill/              # invokable playbooks loaded from Markdown skill files
+    ├── store/              # session-sidecar layout ownership and path helpers
     ├── sysproxy/           # OS-level proxy resolution (Windows system/PAC)
     └── tool/               # Tool interface + Registry
         ├── builtin/        # read_file/write_file/edit_file/move_file/bash/ls/glob/grep/delete_range

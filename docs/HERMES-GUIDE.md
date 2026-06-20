@@ -112,7 +112,7 @@
 ## 1. What is Reasonix Hermes
 
 **Reasonix Hermes** is an extended fork of [esengine/deepseek-reasonix](https://github.com/esengine/deepseek-reasonix)
-(synced to v1.9.x), the DeepSeek-native AI coding agent. Reasonix itself is a
+(synced to v1.10.x), the DeepSeek-native AI coding agent. Reasonix itself is a
 **config- and plugin-driven** harness — a single static Go binary tuned around
 DeepSeek's automatic prefix cache so token costs stay low across long sessions.
 
@@ -1847,7 +1847,7 @@ The Go harness is in `internal/e2e/`.
 ---
 
 <p align="center">
-  <sub>Reasonix Hermes — built on <a href="https://github.com/esengine/deepseek-reasonix">esengine/deepseek-reasonix</a> v1.9.x</sub>
+  <sub>Reasonix Hermes — built on <a href="https://github.com/esengine/deepseek-reasonix">esengine/deepseek-reasonix</a> v1.10.x</sub>
   <br/>
   <sub>MIT — see <a href="../LICENSE">LICENSE</a></sub>
 </p>

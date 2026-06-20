@@ -187,8 +187,9 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 ## Next session — ideas & follow-ups
 
 - **Upstream sync**: ✅ Done — merged 2909ef1 (h41, v1.10.0). Check again next session.
-- **Desktop pnpm migration**: Upstream switched from npm→pnpm. package-lock.json deleted, pnpm-lock.yaml now tracked.
-- **Doc sweep**: SPEC.md needs update for new `store` package; AGENTS.md sync point needs update.
+- **Doc sweep**: ✅ Done — 13 stale claims fixed, v1.9.x→v1.10.x across 9 files.
+- **npm**: Tag `hermes-npm-v1.10.0` pushed — CI pipeline will publish.
+- **Desktop pnpm**: pnpm-lock.yaml tracked; package-lock.json deleted (upstream migration).
 
 ### Session 2026-06-13 (expansion plan execution)
 

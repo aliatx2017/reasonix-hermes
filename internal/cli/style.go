@@ -117,5 +117,5 @@ func resolveVersion() string {
 		return string(bytes.TrimSpace(out))
 	}
 	// Last resort — keep this updated when cutting a new major/minor tag.
-	return "v1.8.0"
+	return "v1.10.0"
 }
