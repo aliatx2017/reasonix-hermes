@@ -23,7 +23,7 @@
 <br/>
 
 <h3 align="center">A DeepSeek-native AI coding agent — forked and extended for the community.</h3>
-<p align="center">Single Go binary. Config-driven. Plugin-driven. Tuned for DeepSeek's prefix cache so token costs stay low across long sessions.</p>
+<p align="center">Statically-linked Go binaries. Config-driven. Plugin-driven. Tuned for DeepSeek's prefix cache so token costs stay low across long sessions.</p>
 
 <br/>
 
@@ -112,7 +112,7 @@ external MCP servers plug in at runtime over stdio or HTTP.
   Discord.
 - **Desktop app.** Wails v2 shell with React 19 + TypeScript frontend —
   themable workspace, file tree, checkpoints/rewind, bot gateway.
-- **Zero-friction.** `CGO_ENABLED=0` single binary; cross-compile to six
+- **Zero-friction.** `CGO_ENABLED=0` statically-linked binaries; cross-compile
   targets with one command.
 
 See the [Guide](./docs/GUIDE.md), [Spec](./docs/SPEC.md), and [Hermes Guide](./docs/HERMES-GUIDE.md) for the full picture.

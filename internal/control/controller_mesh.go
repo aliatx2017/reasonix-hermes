@@ -25,7 +25,7 @@ func (c *Controller) SetLearner(l *learn.Learner) {
 // MeshPeers returns the list of configured peer names for the mesh council.
 func (c *Controller) MeshPeers() []string {
 	if c.mesh == nil {
-		return nil
+		return []string{}
 	}
 	return c.mesh.Peers()
 }

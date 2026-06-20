@@ -44,6 +44,8 @@ reasonix/
 │   ├── reasonix-pr-review/       # [Hermes] PR review CLI for GitHub Actions
 │   ├── e2ebench/                 # [Hermes] e2e benchmarking tool
 │   └── learner-live-test/        # [Hermes] learner live e2e test binary
+├── bot/                          # [Hermes] multi-platform IM bot gateway (Discord, Telegram, LINE, Slack, QQ, Feishu, WeChat)
+├── desktop/                      # [Hermes] Wails v2 desktop app — React 19 frontend + Go kernel
 └── internal/
     ├── acp/                # Agent Client Protocol — stdio JSON-RPC 2.0 adapter for editors
     ├── agent/              # Core agent loop: wires Provider + Tool Registry + Session
@@ -133,7 +135,7 @@ reasonix/
 ```
 
 [Hermes] = Reasonix-Hermes custom additions (not present in upstream esengine/deepseek-reasonix).
-Total: 70 internal packages.
+Total: 71 internal packages.
 
 Dependency direction (acyclic): `cli → {agent, plugin, config} → {tool, provider}`.
 Built-in subpackages (`provider/openai`, `tool/builtin`) import their parent to
