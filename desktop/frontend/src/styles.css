@@ -3777,6 +3777,8 @@ a[href] {
   word-break: break-word;
   font-weight: 450;
   line-height: 1.65;
+  max-height: 40vh;
+  overflow-y: auto;
 }
 .msg--im-source .msg__body {
   min-width: min(520px, 82%);

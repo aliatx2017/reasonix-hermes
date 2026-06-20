@@ -400,7 +400,8 @@ func (ms *MemoryStore) Recall(sessionID, query string, limit int) ([]MemoryEntry
 		results = results[:limit]
 	}
 
-	// Increment access counts and boost importance (in-memory only; persisted on next Retain/Tidy).
+	// Increment access counts and boost importance, then persist immediately
+	// so crash-recovery sees the updated metadata.
 	if len(results) > 0 {
 		matched := make(map[string]bool, len(results))
 		for _, r := range results {
@@ -409,12 +410,13 @@ func (ms *MemoryStore) Recall(sessionID, query string, limit int) ([]MemoryEntry
 		for i := range ms.entries {
 			if matched[ms.entries[i].ID] {
 				ms.entries[i].AccessCount++
-				// Boost importance (capped at 1.0); frequently recalled = longer effective TTL
 				ms.entries[i].Importance = min(1.0, ms.entries[i].Importance+importanceBoostOnRecall)
-				// Extend expiry: each recall pushes ExpiresAt forward by boost * defaultTTL
 				boost := time.Duration(importanceBoostOnRecall * float64(defaultTTL))
 				ms.entries[i].ExpiresAt = ms.entries[i].ExpiresAt.Add(boost)
 			}
+		}
+		if err := ms.save(); err != nil {
+			logger.Warn("failed to persist recall boosts", "err", err)
 		}
 	}
 
@@ -640,9 +642,22 @@ func main() {
 
 	// Parse flags: --backend file|sqlite, --http [--port N]
 	backend := "sqlite"
+	httpMode := false
+	port := "8080"
 	for i := 0; i < len(os.Args); i++ {
-		if os.Args[i] == "--backend" && i+1 < len(os.Args) {
-			backend = os.Args[i+1]
+		switch os.Args[i] {
+		case "--backend":
+			if i+1 < len(os.Args) {
+				backend = os.Args[i+1]
+				i++
+			}
+		case "--http":
+			httpMode = true
+		case "--port":
+			if i+1 < len(os.Args) {
+				port = os.Args[i+1]
+				i++
+			}
 		}
 	}
 
@@ -670,6 +685,18 @@ func main() {
 	}
 	store.Tidy() // clean up expired entries on startup
 
+	// Periodically purge expired entries and decay importance so long-running
+	// servers do not accumulate stale data in memory.  Hourly is frequent enough
+	// without meaningful CPU cost.
+	go func() {
+		ticker := time.NewTicker(1 * time.Hour)
+		defer ticker.Stop()
+		for range ticker.C {
+			store.Tidy()
+			logger.Debug("ran periodic tidy")
+		}
+	}()
+
 	// Wire optional dense embedding client (reads EMBEDDING_PROVIDER / EMBEDDING_MODEL / EMBEDDING_API_KEY).
 	ec := newEmbeddingClientFromEnv()
 	if ec != nil {
@@ -688,12 +715,7 @@ func main() {
 		Handle:  h.handle,
 	}
 
-	if len(os.Args) > 1 && os.Args[1] == "--http" {
-		port := "8080"
-		if len(os.Args) > 3 && os.Args[2] == "--port" {
-			port = os.Args[3]
-		}
-
+	if httpMode {
 		// Run HTTP server in a goroutine so we can listen for signals.
 		errCh := make(chan error, 1)
 		go func() { errCh <- srv.ServeHTTP("127.0.0.1:"+port, "MEMORY_API_KEY") }()

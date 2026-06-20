@@ -4,6 +4,18 @@ Key milestones in the Hermes fork since June 2026.
 
 ## v1.9.x (June 2026)
 
+### Session 2026-06-20 (h46) — upstream sync + audit bug fixes + desktop CSS fix
+
+- **Upstream**: merged 91fe06d (4 commits: MiMo built-ins migration to custom providers, codebase-memory MCP auto-indexing). 4 conflicts resolved: README.md, README.zh-CN.md (upstream bullet-point foundation section), desktop/settings_app_test.go (MiMo test replacement), internal/config/config.go (deleted Hermes MiMo backfill functions). 27 syncs total (~540 commits).
+- **Upstream regression fixed**: `normalizeLegacyDesktopProviderAccessForSettings` in `desktop/settings_app.go` was calling `cfg.SaveTo(path)` on project config path using `RenderScopeProject`, which stripped the `[desktop]` section — destroying desktop settings (theme, style, close_behavior) on disk. Removed spurious save. Bug also confirmed on clean upstream checkout.
+- **Audit verification**: analyzed 34 claims from `docs/reasonix-audit-06202026.md` (2 versions). Found 5 real bugs, debunked 10 false claims, identified 4 self-debunked items, ranked 15 enhancement ideas into 4 tiers.
+- **5 bugs fixed** (audit findings):
+  - `cmd/reasonix-hooks/main.go`: `json.Marshal` errors now handled explicitly (was `_`)
+  - `cmd/reasonix-mcpbridge/main.go`: flag parsing rewritten as loop-based; `--http --port N` works in any order
+  - `cmd/reasonix-memoryserver/main.go` (3 fixes): `--port`/`--http`/`--backend` consolidated into single loop parser; `Recall()` now persists boosts via `ms.save()`; hourly `Tidy()` goroutine added
+- **Desktop CSS fix**: added `max-height: 40vh; overflow-y: auto` to `.msg--user .msg__text` in `desktop/frontend/src/styles.css` — long user messages now get their own scrollbar instead of consuming the entire viewport.
+- **Files**: 8 changed (3 Go binaries, 1 desktop Go, 1 CSS, 2 docs). All 9 binaries rebuilt. Full test suite + desktop tests + tsc clean.
+
 ### Session 2026-06-18 (h31) — learner wiring, exchange rates, agent logging, Discord fix
 
 - **Upstream**: merged ×2 — ebea82b (6 commits, heartbeat task system) + ba7a50b (50 commits, goal enforcement, parallel_tasks, /prometheus interview, shared MCP host, cache-impact guard). 3 conflicts resolved across CONTRIBUTING.md, GUIDE.md, chat_tui.go. 18 syncs total (~352 commits).

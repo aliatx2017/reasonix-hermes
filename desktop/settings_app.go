@@ -764,16 +764,7 @@ func normalizeLegacyDesktopProviderAccessForSettings(cfg *config.Config, path st
 		return nil
 	}
 	config.NormalizeLegacyDesktopProviderAccess(cfg)
-	if len(cfg.Desktop.ProviderAccess) == 0 || strings.TrimSpace(path) == "" {
-		return nil
-	}
-	if _, err := os.Stat(path); err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
-		return err
-	}
-	return cfg.SaveTo(path)
+	return nil
 }
 
 func configDeclaresProviderAccess(path string) bool {

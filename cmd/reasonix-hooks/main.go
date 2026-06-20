@@ -103,7 +103,11 @@ func doRetain(url, key string, timeout time.Duration, p hookPayload) {
 		"tags":    []string{"tool_use", tool},
 	})
 
-	body, _ := json.Marshal(req)
+	body, err := json.Marshal(req)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "[reasonix-hooks] retain marshal: %v\n", err)
+		return
+	}
 	if err := postJSON(url, key, timeout, body); err != nil {
 		fmt.Fprintf(os.Stderr, "[reasonix-hooks] retain: %v\n", err)
 	}
@@ -120,7 +124,11 @@ func doReflect(url, key string, timeout time.Duration, p hookPayload) {
 		"query":      "session summary",
 	})
 
-	body, _ := json.Marshal(req)
+	body, err := json.Marshal(req)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "[reasonix-hooks] reflect marshal: %v\n", err)
+		return
+	}
 	if err := postJSON(url, key, timeout, body); err != nil {
 		fmt.Fprintf(os.Stderr, "[reasonix-hooks] reflect: %v\n", err)
 	}

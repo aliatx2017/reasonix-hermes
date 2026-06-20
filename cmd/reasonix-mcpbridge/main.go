@@ -548,8 +548,17 @@ func (b *Bridge) Server() *mcputil.Server {
 
 func main() {
 	port := "9090"
-	if len(os.Args) > 2 && os.Args[1] == "--port" {
-		port = os.Args[2]
+	httpMode := false
+	for i := 1; i < len(os.Args); i++ {
+		switch os.Args[i] {
+		case "--port":
+			if i+1 < len(os.Args) {
+				port = os.Args[i+1]
+				i++
+			}
+		case "--http":
+			httpMode = true
+		}
 	}
 
 	workDir, _ := os.Getwd()
@@ -562,7 +571,7 @@ func main() {
 		Handle:  b.handle,
 	}
 
-	if len(os.Args) > 1 && os.Args[1] == "--http" {
+	if httpMode {
 		log.Fatal(srv.ServeHTTP(":"+port, "MCP_API_KEY"))
 	}
 
