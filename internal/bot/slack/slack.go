@@ -97,8 +97,8 @@ func (a *Adapter) Start(parentCtx context.Context) error {
 						continue
 					}
 					if err := a.sock.Ack(*evt.Request); err != nil {
-					a.logger.Warn("slack: ack", "err", err)
-				}
+						a.logger.Warn("slack: ack", "err", err)
+					}
 					a.handleEvent(apiEvent)
 				case socketmode.EventTypeDisconnect:
 					a.logger.Info("slack: socket disconnected")
@@ -243,4 +243,3 @@ func splitSlackMessage(text string) []string {
 	}
 	return chunks
 }
-
