@@ -45,22 +45,16 @@ Hermes 保留上游核心 —— agent 循环、provider、工具、权限、插
 
 ## 上游基础
 
-Reasonix 本身是一个**配置与插件驱动**的 coding agent —— 单一静态 Go 二进制。
-没有硬编码的模型。所有 provider、工具和插件都在 `reasonix.toml` 中声明。
-内置工具编译期自注册；外部 MCP server 运行时通过 stdio 或 HTTP 接入。
-
-- **多模型**：DeepSeek V4 Flash/Pro 和 MiMo v2.5 Pro 作为预设内置。任何
-  OpenAI 兼容端点都只是一条配置。可选让 planner + executor 在两个独立、
-  缓存稳定的 session 中协同工作。
-- **权限控制**：每次工具调用进行 allow/ask/deny 判断 —— `Bash(go test:*)`、
-  `Edit(docs/**)`、glob 匹配。在 chat、desktop 和 Discord 中均支持交互式审批。
-- **桌面应用**：Wails v2 + React 19 + TypeScript 前端 —— 可切换主题的工作区、
-  文件树、checkpoint/rewind、bot gateway。
-- **零摩擦**：`CGO_ENABLED=0` 单二进制；一条命令交叉编译到六个目标平台。
+- **配置驱动**：provider、agent、启用的工具、插件全部在 `reasonix.toml` 中声明，
+  内核无硬编码模型。
+- **多模型 · 可组合**：DeepSeek 作为预设内置；任何 OpenAI 兼容
+  端点都只是一条配置。可选让两个模型协同（执行器 + 规划器），各自独立、缓存稳定的 session。
+- **插件驱动**：外部工具以子进程形式运行，通过 stdio JSON-RPC 通信（MCP 兼容）；
+  内置工具在编译期自注册。
+- **零摩擦分发**：`CGO_ENABLED=0` 单二进制；一条命令交叉编译到六个目标平台。
+  唯一依赖是一个 TOML 解析库。
 
 详见 [指南](./docs/GUIDE.zh-CN.md)、[规格](./docs/SPEC.md) 和 [Hermes 指南](./docs/HERMES-GUIDE.md)。
-
-<br/>
 
 ## 安装
 
@@ -125,7 +119,7 @@ reasonix-bot
 export DEEPSEEK_API_KEY=sk-...      # 也可以让 setup 保存到凭据存储
 reasonix                            # 然后在会话里运行 /init 生成 AGENTS.md（项目记忆）
 reasonix run "把 main.go 里的 TODO 实现掉"
-reasonix run --model mimo-pro "给这个函数补单元测试"
+reasonix run --model deepseek-pro "给这个函数补单元测试"
 echo "解释这段代码" | reasonix run
 ```
 

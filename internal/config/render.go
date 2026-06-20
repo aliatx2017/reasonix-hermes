@@ -239,7 +239,7 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 	if c.Agent.PlannerModel != "" {
 		fmt.Fprintf(&b, "planner_model = %q   # low-frequency planner (two-model collaboration)\n", c.Agent.PlannerModel)
 	} else {
-		b.WriteString("# planner_model = \"mimo\"   # optional: enable two-model collaboration\n")
+		b.WriteString("# planner_model = \"deepseek-pro\"   # optional: enable two-model collaboration\n")
 	}
 	if c.Agent.SubagentModel != "" {
 		fmt.Fprintf(&b, "subagent_model = %q   # default model for runAs=subagent skills\n", c.Agent.SubagentModel)

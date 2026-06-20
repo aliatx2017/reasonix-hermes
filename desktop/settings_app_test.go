@@ -410,32 +410,9 @@ func TestSaveProviderPreservesExplicitEmptyVisionModels(t *testing.T) {
 	}
 }
 
-func TestOfficialMimoAPITemplateIncludesVisionModels(t *testing.T) {
-	entries, keyEnv, err := officialProviderTemplate("mimo-api", "en")
-	if err != nil {
-		t.Fatalf("officialProviderTemplate: %v", err)
-	}
-	if keyEnv != "MIMO_API_KEY" || len(entries) != 1 {
-		t.Fatalf("template = %v/%q, want one MIMO_API_KEY entry", entries, keyEnv)
-	}
-	got := entries[0]
-	if !got.HasModel("mimo-v2.5-pro") {
-		t.Fatalf("mimo-api models = %v, missing mimo-v2.5-pro", got.ModelList())
-	}
-	if got.DefaultModel() != "mimo-v2.5-pro" {
-		t.Fatalf("mimo-api default = %q, want mimo-v2.5-pro", got.DefaultModel())
-	}
-	if got.Prices["mimo-v2.5-pro"] == nil || got.Prices["mimo-v2.5-pro"].Currency != "¥" || got.Prices["mimo-v2.5-pro"].Output != 6 {
-		t.Fatalf("mimo-v2.5-pro price = %+v, want RMB domestic pricing", got.Prices["mimo-v2.5-pro"])
-	}
-	if got.Prices["mimo-v2.5"] == nil || got.Prices["mimo-v2.5"].Currency != "¥" || got.Prices["mimo-v2.5"].Output != 2 {
-		t.Fatalf("mimo-v2.5 price = %+v, want RMB domestic pricing", got.Prices["mimo-v2.5"])
-	}
-	if got.Prices["mimo-v2-omni"] == nil || got.Prices["mimo-v2-omni"].Currency != "¥" || got.Prices["mimo-v2-omni"].Output != 2 {
-		t.Fatalf("mimo-v2-omni price = %+v, want RMB domestic pricing", got.Prices["mimo-v2-omni"])
-	}
-	if want := []string{"mimo-v2.5", "mimo-v2-omni"}; !reflect.DeepEqual(got.VisionModels, want) {
-		t.Fatalf("mimo-api vision_models = %v, want %v", got.VisionModels, want)
+func TestOfficialMimoAPITemplateRemoved(t *testing.T) {
+	if entries, keyEnv, err := officialProviderTemplate("mimo-api", "en"); err == nil {
+		t.Fatalf("officialProviderTemplate(mimo-api) = entries=%v key=%q nil error, want unknown template", entries, keyEnv)
 	}
 }
 

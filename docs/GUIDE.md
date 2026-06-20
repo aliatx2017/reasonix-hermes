@@ -52,7 +52,7 @@ default_model = "deepseek-flash"   # executor; set [agent].planner_model to add 
 max_steps = 0                    # executor tool-call rounds; 0 = no limit
 planner_max_steps = 12           # planner read-only tool-call rounds; 0 = no limit
 reasoning_language = "auto"      # visible reasoning text: auto|zh|en
-# planner_model = "mimo-pro"          # optional low-frequency planner
+# planner_model = "deepseek-pro"      # optional low-frequency planner
 # subagent_model = "deepseek-pro"     # optional default for runAs=subagent skills
 # subagent_models = { review = "deepseek-pro", security_review = "deepseek-pro" }
 auto_plan = "off"                  # off|on; off keeps plan mode manual
@@ -64,7 +64,7 @@ kind        = "openai"
 base_url    = "https://api.deepseek.com"
 model       = "deepseek-v4-flash"
 api_key_env = "DEEPSEEK_API_KEY"
-# also preset: deepseek-pro, mimo-pro (mimo-v2.5-pro), mimo-flash (mimo-v2.5) @ token-plan-cn.xiaomimimo.com/v1
+# also preset: deepseek-pro
 
 [tools]
 enabled = []   # omit/empty = all built-ins

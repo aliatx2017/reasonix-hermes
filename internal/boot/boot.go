@@ -146,6 +146,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	if modelName == "" {
 		modelName = cfg.DefaultModel
 	}
+	config.NormalizeLegacyMimoCustomProvidersForRefs(cfg, modelName)
 	tokenMode := NormalizeTokenMode(opts.TokenMode)
 	tokenEconomy := tokenMode == TokenModeEconomy
 	keepPolicy := agentKeepPolicy(cfg.Agent.Keep)
@@ -440,9 +441,11 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 				// subprocess only starts on the first actual tool call.
 				// This avoids spawning MCP processes (e.g. CodeGraph) for
 				// every workspace root on boot — a tab that sits unused for
-				// days never pays the startup cost.
+				// days never pays the startup cost. Known session indexers can
+				// opt in because their initialize handshake is the auto-index
+				// trigger for the active workspace root.
 				cs, _ := plugin.LoadCachedSchema(s.Name, plugin.SpecFingerprint(s))
-				for _, t := range plugin.LazyToolset(s, cs, pluginHost, reg, ctx, false) {
+				for _, t := range plugin.LazyToolset(s, cs, pluginHost, reg, ctx, kick && s.SharedHostBackgroundStart) {
 					reg.Add(t)
 				}
 			} else {

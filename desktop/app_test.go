@@ -867,8 +867,8 @@ func TestSettingsSurfacesOfficialProviderTemplatesSeparately(t *testing.T) {
 	if providers["mimo-api"] {
 		t.Fatalf("mimo-api should not be mixed into configured providers: %+v", got.Providers)
 	}
-	if !official["deepseek"] || !official["mimo-api"] || !official["mimo-token-plan"] {
-		t.Fatalf("official providers = %+v, want deepseek, mimo-api, and mimo-token-plan", got.OfficialProviders)
+	if !official["deepseek"] || official["mimo-api"] || official["mimo-token-plan"] {
+		t.Fatalf("official providers = %+v, want only deepseek", got.OfficialProviders)
 	}
 }
 
@@ -992,8 +992,8 @@ api_key_env = "MIMO_API_KEY"
 	if !providers["deepseek"].Added || !providers["deepseek"].KeySet {
 		t.Fatalf("deepseek provider = %+v, want inferred added key-set provider", providers["deepseek"])
 	}
-	if !providers["mimo-token-plan"].Added || !providers["mimo-token-plan"].KeySet {
-		t.Fatalf("mimo-token-plan provider = %+v, want inferred added key-set provider", providers["mimo-token-plan"])
+	if !providers["mimo-pro"].Added || !providers["mimo-pro"].KeySet || providers["mimo-pro"].BuiltIn {
+		t.Fatalf("mimo-pro provider = %+v, want inferred custom key-set provider", providers["mimo-pro"])
 	}
 	if got.DefaultModel != "deepseek/deepseek-v4-pro" {
 		t.Fatalf("default_model = %q, want deepseek/deepseek-v4-pro", got.DefaultModel)
@@ -1044,8 +1044,8 @@ func TestSettingsInfersConfiguredBuiltInsWithoutConfigFile(t *testing.T) {
 	if !providers["deepseek"].Added || !providers["deepseek"].KeySet {
 		t.Fatalf("deepseek provider = %+v, want inferred added provider from configured key", providers["deepseek"])
 	}
-	if !providers["mimo-token-plan"].Added || !providers["mimo-token-plan"].KeySet {
-		t.Fatalf("mimo-token-plan provider = %+v, want inferred added provider from configured key", providers["mimo-token-plan"])
+	if _, ok := providers["mimo-token-plan"]; ok {
+		t.Fatalf("mimo-token-plan should not be inferred from MIMO_API_KEY alone: %+v", providers["mimo-token-plan"])
 	}
 }
 
@@ -1259,11 +1259,11 @@ api_key_env = "MIMO_API_KEY"
 	}
 	cfg := config.LoadForEdit(config.UserConfigPath())
 	access := providerAccessSet(cfg.Desktop.ProviderAccess)
-	if access["deepseek"] || !access["mimo-token-plan"] {
-		t.Fatalf("provider_access = %+v, want only mimo-token-plan", cfg.Desktop.ProviderAccess)
+	if access["deepseek"] || !access["mimo-pro"] {
+		t.Fatalf("provider_access = %+v, want only mimo-pro", cfg.Desktop.ProviderAccess)
 	}
-	if cfg.DefaultModel != "mimo-token-plan/mimo-v2.5-pro" {
-		t.Fatalf("default_model = %q, want mimo-token-plan/mimo-v2.5-pro", cfg.DefaultModel)
+	if cfg.DefaultModel != "mimo-pro/mimo-v2.5-pro" {
+		t.Fatalf("default_model = %q, want mimo-pro/mimo-v2.5-pro", cfg.DefaultModel)
 	}
 }
 
@@ -1289,8 +1289,8 @@ func TestModelsForTabOnlyListsProviderAccessWhenConfigured(t *testing.T) {
 	for _, want := range []string{
 		"deepseek/deepseek-v4-flash",
 		"deepseek/deepseek-v4-pro",
-		"mimo-token-plan/mimo-v2.5-pro",
-		"mimo-token-plan/mimo-v2.5",
+		"mimo-pro/mimo-v2.5-pro",
+		"mimo-pro/mimo-v2.5",
 	} {
 		if !refs[want] {
 			t.Fatalf("Models() refs = %+v, missing %s", models, want)
@@ -1439,7 +1439,7 @@ func TestModelsForTabKeepsUserProvidersWithProjectConfig(t *testing.T) {
 	t.Setenv("MIMO_API_KEY", "sk-test")
 
 	userCfg := config.Default()
-	userCfg.DefaultModel = "mimo-token-plan/mimo-v2.5-pro"
+	userCfg.DefaultModel = "mimo-pro/mimo-v2.5-pro"
 	userCfg.Desktop.ProviderAccess = []string{"deepseek-flash", "mimo-pro"}
 	if err := userCfg.SaveTo(config.UserConfigPath()); err != nil {
 		t.Fatalf("save user config: %v", err)
@@ -1471,8 +1471,7 @@ api_key_env = "DEEPSEEK_API_KEY"
 	refs := modelRefsFromView(models)
 	for _, want := range []string{
 		"deepseek/deepseek-v4-flash",
-		"mimo-token-plan/mimo-v2.5-pro",
-		"mimo-token-plan/mimo-v2.5",
+		"mimo-pro/mimo-v2.5-pro",
 	} {
 		if !refs[want] {
 			t.Fatalf("ModelsForTab refs = %+v, missing %s", models, want)
@@ -1488,6 +1487,7 @@ func TestSetModelForTabRejectsProviderOutsideAccess(t *testing.T) {
 	cfg := config.Default()
 	cfg.DefaultModel = "deepseek-flash/deepseek-v4-flash"
 	cfg.Desktop.ProviderAccess = []string{"deepseek-flash"}
+	cfg.Providers = append(cfg.Providers, config.ProviderEntry{Name: "other", Kind: "openai", BaseURL: "https://example.invalid/v1", Model: "other-model"})
 	if err := cfg.SaveTo(config.UserConfigPath()); err != nil {
 		t.Fatalf("save config: %v", err)
 	}
@@ -1499,7 +1499,7 @@ func TestSetModelForTabRejectsProviderOutsideAccess(t *testing.T) {
 	app.tabOrder = []string{tab.ID}
 	app.activeTabID = tab.ID
 
-	err := app.SetModelForTab(tab.ID, "mimo-flash/mimo-v2.5")
+	err := app.SetModelForTab(tab.ID, "other/other-model")
 	if err == nil || !strings.Contains(err.Error(), "not available") {
 		t.Fatalf("SetModelForTab hidden provider error = %v, want not available", err)
 	}

@@ -92,6 +92,7 @@ func TestWriteRootsForRootExcludesUserConfigDirByDefault(t *testing.T) {
 // an equivalent config — i.e. the wizard never writes a file it can't read.
 func TestRenderTOMLRoundTrips(t *testing.T) {
 	orig := Default()
+	orig.Providers = append(orig.Providers, legacyMimoCustomProvider("mimo-pro"))
 	orig.DefaultModel = "mimo-pro"
 	orig.Language = "zh"
 	orig.UI.Theme = "light"

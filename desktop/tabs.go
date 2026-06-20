@@ -1564,6 +1564,7 @@ func (a *App) buildTabControllerWithLoadedSession(tab *WorkspaceTab, loadedSessi
 
 	model := strings.TrimSpace(tab.model)
 	if sessionModel, ok := agent.LoadSessionModel(startupSessionPath); ok {
+		config.NormalizeLegacyMimoCustomProvidersForRefs(cfg, sessionModel)
 		if _, ok := cfg.ResolveModel(sessionModel); ok {
 			model = sessionModel
 		}
@@ -1571,6 +1572,7 @@ func (a *App) buildTabControllerWithLoadedSession(tab *WorkspaceTab, loadedSessi
 	if model == "" {
 		model = cfg.DefaultModel
 	}
+	config.NormalizeLegacyMimoCustomProvidersForRefs(cfg, model)
 	requestedModel := model
 	if resolved, fallback, ok := cfg.ResolveModelWithFallback(model); ok {
 		if fallback && strings.TrimSpace(tab.model) != "" {

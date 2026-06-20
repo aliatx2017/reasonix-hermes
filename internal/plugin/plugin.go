@@ -61,6 +61,10 @@ type Spec struct {
 	// LowPriority runs a stdio subprocess below normal scheduling priority, for
 	// background indexers that must not starve the user's machine.
 	LowPriority bool
+	// SharedHostBackgroundStart lets a known background-tier stdio server connect
+	// at desktop tab startup even when the host is shared by several tabs. Keep
+	// this opt-in: most background MCP servers should stay deferred until used.
+	SharedHostBackgroundStart bool
 }
 
 // transport carries JSON-RPC messages to and from one MCP server. call sends a

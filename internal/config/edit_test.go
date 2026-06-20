@@ -14,11 +14,11 @@ import (
 
 func TestSetDefaultModel(t *testing.T) {
 	c := Default()
-	if err := c.SetDefaultModel("mimo-pro"); err != nil {
+	if err := c.SetDefaultModel("deepseek-pro"); err != nil {
 		t.Fatalf("set valid default: %v", err)
 	}
-	if c.DefaultModel != "mimo-pro" {
-		t.Errorf("default = %q, want mimo-pro", c.DefaultModel)
+	if c.DefaultModel != "deepseek-pro" {
+		t.Errorf("default = %q, want deepseek-pro", c.DefaultModel)
 	}
 	if err := c.SetDefaultModel("nope"); err == nil {
 		t.Error("expected error for unknown provider")
@@ -26,13 +26,13 @@ func TestSetDefaultModel(t *testing.T) {
 	// "provider/model" form is also accepted: the /model picker stores the
 	// full ref so a user can land on a non-default model under the same
 	// provider across restarts.
-	if err := c.SetDefaultModel("mimo-pro/mimo-v2.5-pro"); err != nil {
+	if err := c.SetDefaultModel("deepseek-pro/deepseek-v4-pro"); err != nil {
 		t.Fatalf("set provider/model default: %v", err)
 	}
-	if c.DefaultModel != "mimo-pro/mimo-v2.5-pro" {
-		t.Errorf("default = %q, want mimo-pro/mimo-v2.5-pro", c.DefaultModel)
+	if c.DefaultModel != "deepseek-pro/deepseek-v4-pro" {
+		t.Errorf("default = %q, want deepseek-pro/deepseek-v4-pro", c.DefaultModel)
 	}
-	if err := c.SetDefaultModel("mimo-pro/missing"); err == nil {
+	if err := c.SetDefaultModel("deepseek-pro/missing"); err == nil {
 		t.Error("expected error for unknown model under known provider")
 	}
 	if err := c.SetDefaultModel(""); err == nil {
@@ -529,8 +529,9 @@ func TestResolveModelPreservesProviderEffort(t *testing.T) {
 	}
 }
 
-func TestEffectiveVisionForOfficialMimoModels(t *testing.T) {
+func TestEffectiveVisionForMimoEndpointModels(t *testing.T) {
 	c := Default()
+	c.Providers = append(c.Providers, legacyMimoCustomProvider("mimo-api"))
 	c.Desktop.ProviderAccess = []string{"mimo-api"}
 	normalizeDesktopOfficialProviderAccess(c)
 
@@ -870,7 +871,7 @@ func TestClearPluginAuthentication(t *testing.T) {
 // re-decodes the file to confirm the changes survived a write/read cycle.
 func TestSaveToRoundTrips(t *testing.T) {
 	c := Default()
-	if err := c.SetDefaultModel("mimo-pro"); err != nil {
+	if err := c.SetDefaultModel("deepseek-pro"); err != nil {
 		t.Fatal(err)
 	}
 	if err := c.SetPlannerModel("deepseek-pro"); err != nil {
@@ -909,7 +910,7 @@ func TestSaveToRoundTrips(t *testing.T) {
 	if _, err := toml.DecodeFile(path, &got); err != nil {
 		t.Fatalf("saved file does not parse: %v", err)
 	}
-	if got.DefaultModel != "mimo-pro" {
+	if got.DefaultModel != "deepseek-pro" {
 		t.Errorf("default_model = %q", got.DefaultModel)
 	}
 	if got.Agent.PlannerModel != "deepseek-pro" {

@@ -1,6 +1,9 @@
 package plugin
 
-import "strings"
+import (
+	"path/filepath"
+	"strings"
+)
 
 const (
 	codeGraphDaemonIdleTimeoutEnv = "CODEGRAPH_DAEMON_IDLE_TIMEOUT_MS"
@@ -27,6 +30,21 @@ func ApplyKnownOverrides(s Spec, workspaceRoot string) Spec {
 		// never wired to the spec, so it stayed disabled.
 		s.LowPriority = true
 	}
+	if isCodebaseMemorySpec(s) {
+		if isStdioSpecType(s.Type) && s.Dir == "" {
+			s.Dir = strings.TrimSpace(workspaceRoot)
+		}
+		// codebase-memory-mcp detects the session root from its subprocess cwd
+		// during initialize, then optionally starts its own auto-index thread.
+		// Connect the background-tier server at tab startup so that handshake can
+		// happen without waiting for the first model tool call.
+		if isStdioSpecType(s.Type) {
+			s.SharedHostBackgroundStart = true
+		}
+		// Its initial full-tree indexing can be CPU-heavy; keep it out of the
+		// foreground scheduling lane just like CodeGraph.
+		s.LowPriority = true
+	}
 	return s
 }
 
@@ -39,6 +57,42 @@ func ApplyKnownReadOnlyOverrides(s Spec) Spec {
 
 func isCodeGraphSpecName(name string) bool {
 	return strings.EqualFold(strings.TrimSpace(name), "codegraph")
+}
+
+func isCodebaseMemorySpec(s Spec) bool {
+	if isCodebaseMemoryID(s.Name) || isCodebaseMemoryCommand(s.Command) {
+		return true
+	}
+	for _, arg := range s.Args {
+		if isCodebaseMemoryID(arg) {
+			return true
+		}
+	}
+	return false
+}
+
+func isCodebaseMemoryCommand(command string) bool {
+	command = strings.TrimSpace(command)
+	if command == "" {
+		return false
+	}
+	command = strings.ReplaceAll(command, `\`, `/`)
+	return isCodebaseMemoryID(filepath.Base(command))
+}
+
+func isCodebaseMemoryID(raw string) bool {
+	id := strings.ToLower(strings.TrimSpace(raw))
+	id = strings.TrimSuffix(id, ".exe")
+	id = strings.TrimPrefix(id, "io.github.deusdata/")
+	if strings.HasPrefix(id, "codebase-memory-mcp@") {
+		return true
+	}
+	switch id {
+	case "codebase-memory-mcp", "codebase-memory":
+		return true
+	default:
+		return false
+	}
 }
 
 func isStdioSpecType(typ string) bool {

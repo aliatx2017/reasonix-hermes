@@ -156,14 +156,6 @@ function providerLabel(provider: string, t: ReturnType<typeof useT>): string {
     case "deepseek-flash":
     case "deepseek-pro":
       return t("settings.providerLabel.deepseek");
-    case "mimo-api":
-    case "mimo":
-    case "xiaomi-mimo":
-      return t("settings.providerLabel.mimoApi");
-    case "mimo-token-plan":
-    case "mimo-pro":
-    case "mimo-flash":
-      return t("settings.providerLabel.mimoTokenPlan");
     default:
       return provider;
   }

@@ -99,25 +99,17 @@ The terminal chat UI has been enhanced:
 
 ## Upstream foundation
 
-Reasonix itself is a **config- and plugin-driven coding agent** — a single
-static Go binary. No hardcoded models. Every provider, tool, and plugin is
-declared in `reasonix.toml`. Built-in tools self-register at compile time;
-external MCP servers plug in at runtime over stdio or HTTP.
-
-- **Multi-model.** DeepSeek V4 Flash/Pro and MiMo v2.5 Pro ship as presets.
-  Any OpenAI-compatible endpoint is a config entry. Optionally run a planner +
-  executor in separate, cache-stable sessions.
-- **Permission gating.** Per-call allow/ask/deny rules — `Bash(go test:*)`,
-  `Edit(docs/**)`, glob matching. Interactive approval in chat, desktop, and
-  Discord.
-- **Desktop app.** Wails v2 shell with React 19 + TypeScript frontend —
-  themable workspace, file tree, checkpoints/rewind, bot gateway.
-- **Zero-friction.** `CGO_ENABLED=0` statically-linked binaries; cross-compile
-  targets with one command.
+- **Config-driven.** Providers, the agent, enabled tools, and plugins are all
+  declared in `reasonix.toml`. No hardcoded models.
+- **Multi-model & composable.** DeepSeek ships as a preset; any
+  OpenAI-compatible endpoint is a config entry, not new code. Optionally run
+  two models together (executor + planner) in separate, cache-stable sessions.
+- **Plugin-driven.** External tools run as subprocesses over stdio JSON-RPC
+  (MCP-compatible). Built-in tools self-register at compile time.
+- **Zero-friction distribution.** `CGO_ENABLED=0` single binary; cross-compile
+  to six targets with one command. The only dependency is a TOML parser.
 
 See the [Guide](./docs/GUIDE.md), [Spec](./docs/SPEC.md), and [Hermes Guide](./docs/HERMES-GUIDE.md) for the full picture.
-
-<br/>
 
 ## Install
 
@@ -183,7 +175,7 @@ reasonix-bot
 export DEEPSEEK_API_KEY=sk-...      # or let setup save it to the credential store
 reasonix                            # then run /init to generate AGENTS.md (project memory)
 reasonix run "implement the TODOs in main.go"
-reasonix run --model mimo-pro "add unit tests for this function"
+reasonix run --model deepseek-pro "add unit tests for this function"
 echo "explain this code" | reasonix run
 ```
 

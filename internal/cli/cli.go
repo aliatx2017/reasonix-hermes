@@ -912,7 +912,7 @@ func selectLanguage() (string, error) {
 }
 
 // selectEnabledProviders prompts a single multi-select of provider families
-// (DeepSeek / MiMo / custom / …) and returns one ProviderEntry per chosen
+// (DeepSeek / custom / …) and returns one ProviderEntry per chosen
 // family, carrying the models the user picked. Built-in families try the
 // OpenAI-compatible GET /models endpoint first (so the user sees the real
 // list, not a stale hard-coded one) and fall back to the preset's static
@@ -1221,8 +1221,7 @@ func providerSlug(kind, baseURL string) string {
 
 // providerFamily is a wizard-only grouping of provider SKUs by vendor; it does
 // not exist in config because users editing reasonix.toml deal with SKU names
-// directly. Keys mirror the SKU name prefix (deepseek-*, mimo) so adding a new
-// preset only requires a familyOf case.
+// directly.
 type providerFamily struct {
 	key  string
 	name string
@@ -1233,8 +1232,6 @@ func familyOf(name string) providerFamily {
 	switch {
 	case strings.HasPrefix(name, "deepseek"):
 		return providerFamily{key: "deepseek", name: "DeepSeek", desc: "fast & cheap, plus a stronger Pro SKU"}
-	case strings.HasPrefix(name, "mimo"):
-		return providerFamily{key: "mimo", name: "MiMo (Xiaomi)", desc: "long-horizon agentic"}
 	default:
 		return providerFamily{key: name, name: name}
 	}
@@ -1467,10 +1464,8 @@ func groupByFamily(providers []config.ProviderEntry) ([]string, map[string][]int
 	return order, members, info
 }
 
-// withBuiltinFamilies guarantees the wizard always offers the built-in provider
-// families (DeepSeek, MiMo) even when the loaded config replaced them — a
-// reasonix.toml that defines only [[providers]] for deepseek otherwise hides
-// MiMo from setup, since [[providers]] replaces the presets wholesale.
+// withBuiltinFamilies guarantees the wizard always offers the built-in DeepSeek
+// family even when the loaded config replaced the defaults.
 // Built-in entries whose exact name already exists in the user's config are
 // kept as-is (preserving customizations); missing built-in entries within an
 // existing family are appended so the model picker always shows the full
@@ -1497,10 +1492,9 @@ func withBuiltinFamiliesForLanguage(providers []config.ProviderEntry, pricingLan
 
 // providersWithMissingKeys returns the providers the active configuration
 // actually references (default/planner/subagent models) whose api_key_env is
-// declared but not set. Merely-available presets stay silent — a DeepSeek-only
-// user must not be prompted for MIMO_API_KEY (#3939); the chat banner still
-// warns if they later switch to a model whose key is missing. configureKeys
-// dedupes shared envs, so duplicates are fine to leave in.
+// declared but not set. Merely-available providers stay silent; the chat banner
+// still warns if users later switch to a model whose key is missing.
+// configureKeys dedupes shared envs, so duplicates are fine to leave in.
 func providersWithMissingKeys(cfg *config.Config) []config.ProviderEntry {
 	if cfg == nil {
 		return nil

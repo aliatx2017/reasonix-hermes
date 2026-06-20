@@ -237,14 +237,6 @@ func officialProviderKindFromEntry(p config.ProviderEntry) string {
 		if host == "api.deepseek.com" {
 			return "deepseek"
 		}
-	case "mimo-api":
-		if host == "api.xiaomimimo.com" {
-			return "mimo-api"
-		}
-	case "mimo-token-plan":
-		if host == "token-plan-cn.xiaomimimo.com" {
-			return "mimo-token-plan"
-		}
 	}
 	return ""
 }
@@ -340,7 +332,7 @@ func officialProviderViewsForRootWithResolver(added map[string]bool, pricingLang
 	if resolver == nil {
 		resolver = config.NewCredentialResolverForRoot(root)
 	}
-	for _, kind := range []string{"deepseek", "mimo-api", "mimo-token-plan"} {
+	for _, kind := range []string{"deepseek"} {
 		entries, _, err := officialProviderTemplate(kind, pricingLanguage)
 		if err != nil {
 			continue
@@ -641,7 +633,9 @@ func (a *App) loadDesktopUserConfigForEdit() (*config.Config, string, error) {
 	}
 	if _, err := os.Stat(userPath); err == nil {
 		cfg := config.LoadForEdit(userPath)
-		normalizeLegacyDesktopProviderAccessForSettings(cfg, userPath)
+		if err := normalizeLegacyDesktopProviderAccessForSettings(cfg, userPath); err != nil {
+			return nil, "", err
+		}
 		if err := a.migrateLegacyBotConfigToUser(cfg, userPath); err != nil {
 			return nil, "", err
 		}
@@ -650,11 +644,15 @@ func (a *App) loadDesktopUserConfigForEdit() (*config.Config, string, error) {
 	cfg := config.LoadForEdit(userPath)
 	legacyPath := config.SourcePathForRoot(a.activeWorkspaceRoot())
 	if legacyPath == "" || sameConfigPath(legacyPath, userPath) {
-		normalizeLegacyDesktopProviderAccessForSettings(cfg, userPath)
+		if err := normalizeLegacyDesktopProviderAccessForSettings(cfg, userPath); err != nil {
+			return nil, "", err
+		}
 		return cfg, userPath, nil
 	}
 	legacyCfg := config.LoadForEdit(legacyPath)
-	normalizeLegacyDesktopProviderAccessForSettings(legacyCfg, legacyPath)
+	if err := normalizeLegacyDesktopProviderAccessForSettings(legacyCfg, legacyPath); err != nil {
+		return nil, "", err
+	}
 	legacyCfg.ConfigVersion = config.Default().ConfigVersion
 	if err := migrateLegacyBotConfigToUser(cfg, legacyCfg, userPath); err != nil {
 		return nil, "", err
@@ -669,7 +667,9 @@ func (a *App) loadDesktopUserConfigForView() (*config.Config, string, error) {
 	}
 	if _, err := os.Stat(userPath); err == nil {
 		cfg := config.LoadForEditWithoutCredentials(userPath)
-		normalizeLegacyDesktopProviderAccessForSettings(cfg, userPath)
+		if err := normalizeLegacyDesktopProviderAccessForSettings(cfg, userPath); err != nil {
+			return nil, "", err
+		}
 		legacyPath := config.SourcePathForRoot(a.activeWorkspaceRoot())
 		if legacyPath != "" && !sameConfigPath(legacyPath, userPath) {
 			legacyCfg := config.LoadForEditWithoutCredentials(legacyPath)
@@ -682,11 +682,15 @@ func (a *App) loadDesktopUserConfigForView() (*config.Config, string, error) {
 	cfg := config.LoadForEditWithoutCredentials(userPath)
 	legacyPath := config.SourcePathForRoot(a.activeWorkspaceRoot())
 	if legacyPath == "" || sameConfigPath(legacyPath, userPath) {
-		normalizeLegacyDesktopProviderAccessForSettings(cfg, userPath)
+		if err := normalizeLegacyDesktopProviderAccessForSettings(cfg, userPath); err != nil {
+			return nil, "", err
+		}
 		return cfg, userPath, nil
 	}
 	legacyCfg := config.LoadForEditWithoutCredentials(legacyPath)
-	normalizeLegacyDesktopProviderAccessForSettings(legacyCfg, legacyPath)
+	if err := normalizeLegacyDesktopProviderAccessForSettings(legacyCfg, legacyPath); err != nil {
+		return nil, "", err
+	}
 	legacyCfg.ConfigVersion = config.Default().ConfigVersion
 	if err := migrateLegacyBotConfigToUser(cfg, legacyCfg, userPath); err != nil {
 		return nil, "", err
@@ -755,11 +759,21 @@ func desktopBotConfigConfigured(bot config.BotConfig) bool {
 	return false
 }
 
-func normalizeLegacyDesktopProviderAccessForSettings(cfg *config.Config, path string) {
+func normalizeLegacyDesktopProviderAccessForSettings(cfg *config.Config, path string) error {
 	if cfg == nil || len(cfg.Desktop.ProviderAccess) > 0 || configDeclaresProviderAccess(path) {
-		return
+		return nil
 	}
 	config.NormalizeLegacyDesktopProviderAccess(cfg)
+	if len(cfg.Desktop.ProviderAccess) == 0 || strings.TrimSpace(path) == "" {
+		return nil
+	}
+	if _, err := os.Stat(path); err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	return cfg.SaveTo(path)
 }
 
 func configDeclaresProviderAccess(path string) bool {
@@ -1063,41 +1077,6 @@ func officialProviderTemplate(kind, pricingLanguage string) ([]config.ProviderEn
 			ContextWindow: 1_000_000,
 			Prices:        config.DeepSeekV4PricesForLanguage(pricingLanguage),
 		}}, "DEEPSEEK_API_KEY", nil
-	case "mimo-api", "xiaomi-mimo", "xiaomi_mimo":
-		models := []string{"mimo-v2.5-pro", "mimo-v2.5", "mimo-v2-omni"}
-		return []config.ProviderEntry{{
-			Name:          "mimo-api",
-			Kind:          "openai",
-			BaseURL:       "https://api.xiaomimimo.com/v1",
-			Models:        models,
-			VisionModels:  []string{"mimo-v2.5", "mimo-v2-omni"},
-			Default:       "mimo-v2.5-pro",
-			APIKeyEnv:     "MIMO_API_KEY",
-			ContextWindow: 1_048_576,
-			Prices: map[string]*provider.Pricing{
-				"mimo-v2.5-pro": &provider.Pricing{CacheHit: 0.025, Input: 3, Output: 6, Currency: "¥"},
-				"mimo-v2.5":     &provider.Pricing{CacheHit: 0.02, Input: 1, Output: 2, Currency: "¥"},
-				"mimo-v2-omni":  &provider.Pricing{CacheHit: 0.02, Input: 1, Output: 2, Currency: "¥"},
-			},
-			NoProxy: true,
-		}}, "MIMO_API_KEY", nil
-	case "mimo-token-plan", "xiaomi-mimo-token-plan", "xiaomi_mimo_token_plan":
-		models := []string{"mimo-v2.5-pro", "mimo-v2.5"}
-		return []config.ProviderEntry{{
-			Name:          "mimo-token-plan",
-			Kind:          "openai",
-			BaseURL:       "https://token-plan-cn.xiaomimimo.com/v1",
-			Models:        models,
-			VisionModels:  []string{"mimo-v2.5"},
-			Default:       "mimo-v2.5-pro",
-			APIKeyEnv:     "MIMO_API_KEY",
-			ContextWindow: 1_048_576,
-			Prices: map[string]*provider.Pricing{
-				"mimo-v2.5-pro": &provider.Pricing{CacheHit: 0.025, Input: 3, Output: 6, Currency: "¥"},
-				"mimo-v2.5":     &provider.Pricing{CacheHit: 0.02, Input: 1, Output: 2, Currency: "¥"},
-			},
-			NoProxy: true,
-		}}, "MIMO_API_KEY", nil
 	default:
 		return nil, "", fmt.Errorf("unknown official provider template %q", kind)
 	}

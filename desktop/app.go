@@ -5313,10 +5313,6 @@ func providerEffortTargetNames(cfg *config.Config, entry *config.ProviderEntry) 
 	switch kind {
 	case "deepseek":
 		family = []string{"deepseek", "deepseek-flash", "deepseek-pro"}
-	case "mimo-token-plan":
-		family = []string{"mimo-token-plan", "mimo-pro", "mimo-flash"}
-	case "mimo-api":
-		family = []string{"mimo-api"}
 	}
 	for _, name := range family {
 		if seen[name] {
@@ -5752,6 +5748,7 @@ func (a *App) currentProviderEntryForTab(tabID string) (*config.ProviderEntry, e
 	if strings.TrimSpace(ref) == "" {
 		ref = cfg.DefaultModel
 	}
+	config.NormalizeLegacyMimoCustomProvidersForRefs(cfg, ref)
 	resolved, _, ok := cfg.ResolveModelWithFallback(ref)
 	if !ok {
 		return nil, fmt.Errorf("unknown model %q", ref)
@@ -5778,6 +5775,7 @@ func (a *App) resolvedModelForTab(tab *WorkspaceTab) (string, bool, error) {
 	if ref == "" {
 		ref = cfg.DefaultModel
 	}
+	config.NormalizeLegacyMimoCustomProvidersForRefs(cfg, ref)
 	resolved, fallback, ok := cfg.ResolveModelWithFallback(ref)
 	if !ok {
 		return "", false, fmt.Errorf("unknown model %q", ref)

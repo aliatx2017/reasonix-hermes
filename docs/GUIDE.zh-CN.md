@@ -49,7 +49,7 @@ default_model = "deepseek-flash"   # 执行器；设 [agent].planner_model 可�
 max_steps = 0                    # 执行器工具调用轮数；0 表示不限
 planner_max_steps = 12           # 规划器只读工具调用轮数；0 表示不限
 reasoning_language = "auto"      # 可见思考过程语言：auto|zh|en
-# planner_model = "mimo-pro"          # 可选的低频规划器
+# planner_model = "deepseek-pro"      # 可选的低频规划器
 # subagent_model = "deepseek-pro"     # runAs=subagent skill 的默认模型
 # subagent_models = { review = "deepseek-pro", security_review = "deepseek-pro" }
 auto_plan = "off"                  # off|on；off 表示计划模式仅手动开启
@@ -61,7 +61,7 @@ kind        = "openai"
 base_url    = "https://api.deepseek.com"
 model       = "deepseek-v4-flash"
 api_key_env = "DEEPSEEK_API_KEY"
-# 还有预设：deepseek-pro、mimo-pro（mimo-v2.5-pro）、mimo-flash（mimo-v2.5） @ token-plan-cn.xiaomimimo.com/v1
+# 还有预设：deepseek-pro
 
 [tools]
 enabled = []   # 省略/为空 = 全部内置工具

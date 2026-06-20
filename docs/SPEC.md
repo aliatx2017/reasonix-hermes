@@ -170,7 +170,7 @@ type Config struct {
 ```
 
 - The `openai` kind is an OpenAI-compatible `/chat/completions` implementation.
-- **DeepSeek and MiMo are not code — they are config instances** of `kind = "openai"`,
+- **OpenAI-compatible vendors are config instances** of `kind = "openai"`,
   differing only in `base_url` / `model` / `api_key_env`. Adding another OpenAI-
   compatible model is a config edit, not a code change.
 - **A provider is a vendor endpoint** (one `base_url` + `api_key_env`) that offers
@@ -557,7 +557,7 @@ max_steps         = 0    # executor tool-call rounds; 0 = no limit
 planner_max_steps = 12   # planner read-only tool-call rounds; 0 = no limit
 temperature       = 0.0
 reasoning_language = "auto"       # visible reasoning text: auto|zh|en
-# planner_model = "mimo"   # optional: two-model collaboration (low-frequency planner)
+# planner_model = "deepseek-pro"   # optional: two-model collaboration (low-frequency planner)
 # subagent_model = "deepseek-pro"   # optional default for runAs=subagent skills
 # subagent_models = { review = "deepseek-pro", security_review = "deepseek-pro" }
 
@@ -571,20 +571,7 @@ default        = "deepseek-v4-flash"   # optional; defaults to models[0]
 api_key_env    = "DEEPSEEK_API_KEY"
 context_window = 1000000   # tokens; harness compacts older history near this limit (0 disables)
 
-# A single-model entry (use when a model needs its own base_url/context_window/price).
-[[providers]]
-name        = "mimo-pro"
-kind        = "openai"
-base_url    = "https://token-plan-cn.xiaomimimo.com/v1"
-model       = "mimo-v2.5-pro"
-api_key_env = "MIMO_API_KEY"
-
-[[providers]]
-name        = "mimo-flash"
-kind        = "openai"
-base_url    = "https://token-plan-cn.xiaomimimo.com/v1"
-model       = "mimo-v2.5"
-api_key_env = "MIMO_API_KEY"
+# A single-model entry still works for custom OpenAI-compatible endpoints.
 
 [tools]
 enabled = []   # omit/empty = all built-ins

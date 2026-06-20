@@ -37,7 +37,7 @@ auto_plan         = "off"   # off|on; off keeps plan mode manual
 soft_compact_ratio  = 0.5   # notice only; keeps the cache-first prefix intact
 compact_ratio       = 0.8   # try compacting when prompt reaches this fraction
 compact_force_ratio = 0.9   # force compacting at this high-water mark
-# planner_model = "mimo-pro"   # optional: enable two-model collaboration
+# planner_model = "deepseek-pro"   # optional: enable two-model collaboration
 # subagent_model = "deepseek-pro"   # optional default for runAs=subagent skills
 # subagent_models = { review = "deepseek-pro", security_review = "deepseek-pro" }   # per-skill overrides
 # output_style = "explanatory"   # persona/tone folded into the prompt: explanatory | learning | concise,
@@ -69,27 +69,8 @@ context_window = 1000000
 # DeepSeek thinking is always on; effort: high | max. Omit for auto (provider default).
 effort      = "high"
 
-# A single-model provider still works (use `model = "..."`) — pick this form when a
-# model needs its own base_url / context_window / price (e.g. the two MiMo SKUs
-# below have different context windows).
-
-[[providers]]
-name           = "mimo-pro"
-kind           = "openai"
-base_url       = "https://api.xiaomimimo.com/v1"
-model          = "mimo-v2.5-pro"   # thinking-mode on by default; reasoning_content rendered dim above the answer
-api_key_env    = "MIMO_API_KEY"
-context_window = 1000000
-price          = { cache_hit = 0.025, input = 3, output = 6, currency = "¥" }   # per 1M tokens
-
-[[providers]]
-name           = "mimo-flash"
-kind           = "openai"
-base_url       = "https://api.xiaomimimo.com/v1"
-model          = "mimo-v2-flash"   # thinking-mode off by default; cheaper / faster
-api_key_env    = "MIMO_API_KEY"
-context_window = 65536
-price          = { cache_hit = 0.07, input = 0.70, output = 2.10, currency = "¥" }   # per 1M tokens
+# A single-model provider still works (use `model = "..."`) — pick this form when
+# a model needs its own base_url / context_window / price.
 
 # Custom /effort levels for a provider. When supported_efforts is set, the
 # /effort command exposes these levels; default_effort is what "/effort auto"
@@ -97,14 +78,14 @@ price          = { cache_hit = 0.07, input = 0.70, output = 2.10, currency = "¥
 # (DeepSeek models: high|max; Anthropic: low|medium|high|xhigh|max). DeepSeek
 # models behind a proxy are detected by model name; set reasoning_protocol =
 # "none" to disable that or "openai" to force ordinary reasoning_effort.
-# Other kinds (e.g. mimo-pro) don't expose /effort unless you opt in here.
+# Other OpenAI-compatible providers don't expose /effort unless you opt in here.
 #
 # [[providers]]
-# name           = "mimo-custom"
+# name           = "openai-compatible-custom"
 # kind           = "openai"
-# base_url       = "https://token-plan-cn.xiaomimimo.com/v1"
-# model          = "mimo-v2.5-pro"
-# api_key_env    = "MIMO_API_KEY"
+# base_url       = "https://api.example.com/v1"
+# model          = "example-reasoning-model"
+# api_key_env    = "EXAMPLE_API_KEY"
 # reasoning_protocol = "openai"   # auto|deepseek|openai|none
 # supported_efforts = ["low", "medium", "high"]
 # default_effort    = "high"
