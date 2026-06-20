@@ -170,6 +170,21 @@ type SessionPersistence interface {
 	ReleaseResources()
 }
 
+// Input covers composing a turn's text (plan/goal/memory injection) and
+// resolving @-references before submission.
+type Input interface {
+	Compose(text string) string
+	ComposeSynthetic(text string) string
+	ResolveRefs(ctx context.Context, line string) (block string, errs []string)
+	HasRefs(line string) bool
+}
+
+// Settings covers runtime session settings that don't fit a richer domain.
+type Settings interface {
+	SetReasoningLanguage(lang string)
+	SetDisplayRecorder(fn func(content, display string))
+}
+
 // SessionAPI is the full driving port — the composition of every sub-port. A
 // rich frontend (the HTTP server, the desktop app, the TUI) depends on this;
 // leaner frontends (bot, acp) depend on just the sub-ports they use.
@@ -183,6 +198,8 @@ type SessionAPI interface {
 	Capabilities
 	Status
 	SessionPersistence
+	Input
+	Settings
 }
 
 // Compile-time proof that the concrete controller satisfies each sub-port and
@@ -198,5 +215,7 @@ var (
 	_ Capabilities       = (*Controller)(nil)
 	_ Status             = (*Controller)(nil)
 	_ SessionPersistence = (*Controller)(nil)
+	_ Input              = (*Controller)(nil)
+	_ Settings           = (*Controller)(nil)
 	_ SessionAPI         = (*Controller)(nil)
 )

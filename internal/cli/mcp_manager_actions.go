@@ -179,7 +179,7 @@ func (m chatTUI) applyMCPMode(tier string) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func recordMCPModePluginFailure(ctrl *control.Controller, e config.PluginEntry, err error) {
+func recordMCPModePluginFailure(ctrl control.Capabilities, e config.PluginEntry, err error) {
 	if ctrl == nil || ctrl.Host() == nil || err == nil {
 		return
 	}
@@ -405,7 +405,7 @@ func mcpCanClearAuth(v mcpServerView) bool {
 	return mcpdiag.IsRemoteTransport(v.Transport)
 }
 
-func mcpConnected(ctrl *control.Controller, name string) bool {
+func mcpConnected(ctrl control.Capabilities, name string) bool {
 	if ctrl == nil || ctrl.Host() == nil {
 		return false
 	}

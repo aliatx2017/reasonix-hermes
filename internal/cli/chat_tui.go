@@ -46,7 +46,7 @@ import (
 // prevents taps from raising the soft keyboard, so it stays in the normal buffer
 // and commits finalized output to native scrollback via tea.Println.
 type chatTUI struct {
-	ctrl    *control.Controller
+	ctrl    control.SessionAPI
 	label   string
 	missing string // missing-key warning surfaced once in the banner, "" when ready
 
@@ -317,7 +317,7 @@ type chatTUI struct {
 	// and kills plugin subprocesses, both of which corrupt the terminal's
 	// raw mode). Instead they are closed at process exit when the terminal
 	// is already being restored.
-	oldControllers []*control.Controller
+	oldControllers []control.SessionAPI
 
 	// completion is the live autocomplete menu (slash commands; @-refs later).
 	completion completion
@@ -413,8 +413,8 @@ func (m chatTUI) refreshGitStatus() tea.Cmd {
 // mode that would occur if Close() were called from the build goroutine.
 type modelSwitchMsg struct {
 	ref      string
-	ctrl     *control.Controller
-	oldCtrl  *control.Controller
+	ctrl     control.SessionAPI
+	oldCtrl  control.SessionAPI
 	label    string
 	commands []command.Command
 	skills   []skill.Skill
@@ -425,7 +425,7 @@ type modelSwitchMsg struct {
 // fetchBalance queries the provider's wallet balance off the event loop. It's a
 // no-op readout ("") when the provider declares no balance_url or the fetch
 // fails, so the status line stays quiet rather than surfacing an error.
-func fetchBalance(ctrl *control.Controller) tea.Cmd {
+func fetchBalance(ctrl control.Status) tea.Cmd {
 	return func() tea.Msg {
 		b, err := ctrl.Balance(context.Background())
 		if err != nil || b == nil {
@@ -469,7 +469,7 @@ type clipboardPasteMsg struct {
 // with an event sink that feeds eventCh; the TUI issues commands to it and
 // renders the events it emits. Label, history, host, and commands are read from
 // the controller, so a resumed session pre-populates scrollback.
-func newChatTUI(ctrl *control.Controller, missing string, eventCh chan event.Event, termW int) chatTUI {
+func newChatTUI(ctrl control.SessionAPI, missing string, eventCh chan event.Event, termW int) chatTUI {
 	ti := textarea.New()
 	configureChatTextarea(&ti)
 
