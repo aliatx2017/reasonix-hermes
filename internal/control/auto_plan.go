@@ -43,10 +43,9 @@ func (c *Controller) shouldAutoPlan(ctx context.Context, input string) bool {
 	c.mu.Lock()
 	mode := c.autoPlan
 	plan := c.planMode
-	goalActive := strings.TrimSpace(c.goal) != "" && c.goalStatus == GoalStatusRunning
 	classifier := c.classifier
 	c.mu.Unlock()
-	if mode == autoPlanOff || plan || goalActive {
+	if mode == autoPlanOff || plan || c.goals.active() {
 		return false
 	}
 	score := autoPlanScore(input)

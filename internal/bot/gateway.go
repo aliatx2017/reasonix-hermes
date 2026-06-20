@@ -89,8 +89,18 @@ type BotGateway struct {
 	logger *slog.Logger
 }
 
+// botController is the slice of the controller's driving port the gateway needs:
+// session lifecycle, turn execution, and approval/ask handling. The bot never
+// touches goals, checkpoints, or memory, so it depends on those sub-ports only —
+// not the concrete *control.Controller and its ~99 methods.
+type botController interface {
+	control.Lifecycle
+	control.TurnControl
+	control.Approvals
+}
+
 type sessionState struct {
-	ctrl             *control.Controller
+	ctrl             botController
 	sink             *sessionEventSink
 	cancel           context.CancelFunc
 	platform         Platform
@@ -772,7 +782,7 @@ func parseToolApprovalModeArg(arg string) (mode string, statusOnly bool, ok bool
 
 func (gw *BotGateway) setToolApprovalModeForMessage(key string, msg InboundMessage, mode string) error {
 	mode = normalizeBotToolApprovalMode(mode)
-	var ctrl *control.Controller
+	var ctrl botController
 
 	gw.mu.Lock()
 	if state, ok := gw.controllers[key]; ok {
@@ -813,7 +823,7 @@ func (gw *BotGateway) updateToolApprovalModeDefaultLocked(msg InboundMessage, mo
 }
 
 func (gw *BotGateway) currentToolApprovalMode(key string, msg InboundMessage) string {
-	var ctrl *control.Controller
+	var ctrl botController
 	gw.mu.Lock()
 	if state, ok := gw.controllers[key]; ok {
 		ctrl = state.ctrl
@@ -982,7 +992,7 @@ func (gw *BotGateway) getOrCreateSession(ctx context.Context, key string, msg In
 	return state
 }
 
-func ensureControllerSessionPath(ctrl *control.Controller) {
+func ensureControllerSessionPath(ctrl botController) {
 	if ctrl == nil || ctrl.SessionPath() != "" || ctrl.SessionDir() == "" {
 		return
 	}
@@ -1018,7 +1028,7 @@ func botSessionDir(workspaceRoot string) string {
 	return config.SessionDir()
 }
 
-func (gw *BotGateway) rememberSessionReady(msg InboundMessage, ctrl *control.Controller) {
+func (gw *BotGateway) rememberSessionReady(msg InboundMessage, ctrl botController) {
 	if gw.cfg.OnSessionReady == nil || ctrl == nil {
 		return
 	}

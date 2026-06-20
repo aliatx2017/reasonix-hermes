@@ -13,6 +13,7 @@ import (
 
 	"reasonix/internal/fileutil"
 	"reasonix/internal/provider"
+	"reasonix/internal/store"
 )
 
 const cleanupPendingExt = ".cleanup-pending.json"
@@ -138,10 +139,12 @@ type SessionOrderInfo struct {
 	WorkspaceRoot  string
 	TopicID        string
 	TopicTitle     string
-	// Turns and Preview are the cached listing fields from the sidecar, when
-	// recorded (Turns > 0). ListSessions uses them to skip the whole-file decode.
-	Turns   int
-	Preview string
+	// Turns and Preview are the cached listing fields from the sidecar; SchemaVersion
+	// >= agent.BranchMetaCountsVersion means they were recorded from content and can
+	// be trusted (even Turns == 0). ListSessions uses them to skip the whole-file decode.
+	Turns         int
+	Preview       string
+	SchemaVersion int
 }
 
 // CleanupPendingMeta records that a session was logically removed but still has
@@ -161,11 +164,7 @@ type CleanupPendingInfo struct {
 
 // CleanupPendingPath returns the durable marker path for a session transcript.
 func CleanupPendingPath(sessionPath string) string {
-	sessionPath = strings.TrimSpace(sessionPath)
-	if sessionPath == "" {
-		return ""
-	}
-	return strings.TrimSuffix(sessionPath, ".jsonl") + cleanupPendingExt
+	return store.SessionCleanupPending(sessionPath)
 }
 
 // MarkCleanupPending hides a logically removed session from resume/list surfaces
@@ -311,6 +310,7 @@ func ListSessionOrder(dir string) ([]SessionOrderInfo, error) {
 		topicTitle := ""
 		turns := 0
 		preview := ""
+		schemaVersion := 0
 		if meta, ok, err := LoadBranchMeta(full); err == nil && ok {
 			if !meta.CreatedAt.IsZero() {
 				createdAt = meta.CreatedAt
@@ -324,6 +324,7 @@ func ListSessionOrder(dir string) ([]SessionOrderInfo, error) {
 			topicTitle = meta.TopicTitle
 			turns = meta.Turns
 			preview = meta.Preview
+			schemaVersion = meta.SchemaVersion
 		}
 		out = append(out, SessionOrderInfo{
 			Path:           full,
@@ -336,6 +337,7 @@ func ListSessionOrder(dir string) ([]SessionOrderInfo, error) {
 			TopicTitle:     topicTitle,
 			Turns:          turns,
 			Preview:        preview,
+			SchemaVersion:  schemaVersion,
 		})
 	}
 	sort.Slice(out, func(i, j int) bool {
@@ -359,19 +361,19 @@ func ListSessions(dir string) ([]SessionInfo, error) {
 	var out []SessionInfo
 	for _, session := range ordered {
 		preview, turns := session.Preview, session.Turns
-		if turns <= 0 {
-			// No recorded turn count in the sidecar — a legacy session from
-			// before the counts were persisted, or a genuinely empty one. Decode
-			// the .jsonl once to find out, then backfill the sidecar so every
-			// later listing is O(1) instead of O(file size).
+		if session.SchemaVersion < BranchMetaCountsVersion {
+			// The sidecar's counts weren't recorded from content (a legacy session
+			// from before they were persisted). Decode the .jsonl once, then backfill
+			// + stamp the sidecar so every later listing is O(1) — and so a genuinely
+			// empty session is recorded once instead of being re-decoded forever.
 			preview, turns = previewSession(session.Path)
-			if turns == 0 {
-				// Never had user interaction — an empty conversation that should
-				// not appear in the history panel or the resume picker.
-				continue
-			}
 			// Best-effort: a failure here just means we decode again next time.
 			_ = UpdateSessionMeta(session.Path, "", preview, turns, false)
+		}
+		if turns == 0 {
+			// Never had user interaction — an empty conversation that should not
+			// appear in the history panel or the resume picker.
+			continue
 		}
 		out = append(out, SessionInfo{
 			Path:           session.Path,

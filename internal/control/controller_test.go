@@ -870,9 +870,7 @@ func TestPermissionRequestHookDoesNotFireForAutoApprovalMode(t *testing.T) {
 
 func TestPermissionRequestHookDoesNotFireForSessionGrant(t *testing.T) {
 	c, _, payloads := permissionHookController(t, "bash")
-	c.mu.Lock()
-	c.granted[permission.SessionGrantRuleForScope("bash", "go test ./...")] = true
-	c.mu.Unlock()
+	c.approval.grantSession("bash", "go test ./...")
 
 	allow, _, err := c.requestApproval(context.Background(), "bash", "go test ./...", nil)
 	if err != nil || !allow {

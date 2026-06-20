@@ -70,15 +70,11 @@ func (c *Controller) PlanModeStr() string {
 }
 
 func (c *Controller) GoalBlocks() int {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return c.goalBlocks
+	return c.goals.Blocks()
 }
 
 func (c *Controller) GoalTurns() int {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return c.goalTurns
+	return c.goals.Turns()
 }
 
 func (c *Controller) profileListText() string {

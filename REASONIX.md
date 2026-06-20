@@ -36,8 +36,8 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 ## Notes
 
-- **Upstream synced**: `v1.9.x` (commit 33545f6, 2026-06-19). 23 syncs total — merged: 33545f6 (h40, 6 commits: session disk cache removal, fork sidecar seed, session list sidecar counts). Previous sync: 7032f39 (h39, 5 commits).
-- **Commit**: session 2026-06-19 (h40) — upstream merged (33545f6, 6 commits, 1 conflict: controller.go — kept learner .learning sidecar + adopted UpdateSessionMeta consolidation). Tray icon fix (UpdateTrayIcon argument mismatch — 0 args in Go, 1 arg in frontend → Wails rejection on startup). CODEMAPS regenerated (5 files, all stale since 2026-06-06). HERMES-GUIDE §16 reordered (removed 2 duplicate sections, Domain Model moved to correct position, 16.1–16.26 sequential). npm published v1.9.2-rc.1 (7 packages via OIDC trusted publishing). Doc-sweep: 4 stale claims fixed (SPEC.md 71→70 packages, PROJECT.md + AGENTS.md upstream commit, REASONIX.md sync point). 12 files changed, +222/-147.
+- **Upstream synced**: `v1.10.0` (commit 2909ef1, 2026-06-20). 24 syncs total — merged: 2909ef1 (h41, 20 commits: major control refactoring — SessionAPI driving port, store package, approvalManager extraction, goalMachine FSM, memMu for lock-free memory writes, desktop pnpm migration, legacy topic migration gate). Previous sync: 33545f6 (h40, 6 commits).
+- **Commit**: session 2026-06-20 (h41) — upstream merged (2909ef1, 20 commits, 3 conflicts: controller.go struct + constructor, tabs.go legacy migration). Resolutions: kept Hermes fields (schedule/mesh/learner/learnerLoaded) alongside upstream memMu + approvalManager; adopted upstream double-check-under-lock pattern in tabs.go; accepted package-lock.json deletion (pnpm migration). Added Turns()/Blocks() getters on goalMachine. Desktop: pnpm install + tsc + wails build. All 9 binaries rebuilt. All 72 test packages pass.
 - **Commit**: session 2026-06-19 (h39) — upstream merges: db43de8 (33 commits: list_sessions/read_session tools, MCP session reinit, history normalization, todo panel fixes, crash stats, credential hardening) + 7032f39 (5 commits: skill scripts listing). 15 conflicts resolved (3 Go, 12 TSX/CSS). HljsDiff.tsx type fix (stale diffRowsFromUnifiedDiff import). doc-sweep: 6 stale claims fixed (SPEC.md 69→71 packages + sessiontool entry, AGENTS.md test counts, PROJECT.md 75→71, README binary list). GH issues #13,#14,#15 closed. 9 binaries rebuilt. All tests pass.
 - **Commit**: session 2026-06-18 (h30) — doc-sweep: Helm tag v1.8.2→v1.9.1, cross-linked HOWTO-FORCE-ENGLISH + HOWTO-TOKEN-SAVING + TOKEN-SAVINGS-ANALYSIS from README + HERMES-GUIDE. CHANGELOG-HERMES.md enriched with h29+h30. AGENTS.md sync count updated. All 9 verify checks green.
 - **Commit**: session 2026-06-18 (h31) — learner Observe wired into agent loop, desktop LearnedPatterns() fixed, MaxObservations config, Discord dup Approved./Denied. removed, currency symbol ¥→$, live CNY→USD exchange rate (billing/exchange.go), agent operational logging (agentlog/), doc-sweep (package counts, SPEC §2, HERMES-GUIDE §16.9/16.16/16.23). 2 upstream merges (ebea82b + ba7a50b, 56 commits). 15 files changed, 3 new.
@@ -186,9 +186,9 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 - **Upstream**: Merged 5 commits (a029618). Desktop-v1.8.1 tag.
 ## Next session — ideas & follow-ups
 
-- **Upstream sync**: ✅ Done — merged 33545f6 (h40). Check again next session.
-- **Commit and push doc changes**: 12 files with doc updates pending commit.
-- **npm**: Published v1.9.2-rc.1 — stable release candidate.
+- **Upstream sync**: ✅ Done — merged 2909ef1 (h41, v1.10.0). Check again next session.
+- **Desktop pnpm migration**: Upstream switched from npm→pnpm. package-lock.json deleted, pnpm-lock.yaml now tracked.
+- **Doc sweep**: SPEC.md needs update for new `store` package; AGENTS.md sync point needs update.
 
 ### Session 2026-06-13 (expansion plan execution)
 

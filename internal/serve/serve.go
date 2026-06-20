@@ -36,7 +36,7 @@ var indexHTML []byte
 // same sink the controller was constructed with, so events reach SSE clients.
 type Server struct {
 	mu         sync.RWMutex // guards ctrl, which switchModel swaps at runtime
-	ctrl       *control.Controller
+	ctrl       control.SessionAPI
 	bc         *Broadcaster
 	titleProv  provider.Provider // lightweight flash provider for session titles
 	titlePrice *provider.Pricing
@@ -44,7 +44,7 @@ type Server struct {
 }
 
 // New builds a Server. bc must be the controller's event sink.
-func New(ctrl *control.Controller, bc *Broadcaster) *Server {
+func New(ctrl control.SessionAPI, bc *Broadcaster) *Server {
 	s := &Server{ctrl: ctrl, bc: bc, titles: newTitleCache(ctrl.SessionDir())}
 	s.initTitleProvider()
 	return s
@@ -52,7 +52,7 @@ func New(ctrl *control.Controller, bc *Broadcaster) *Server {
 
 // ctl returns the current controller. Handlers must read it through here, never
 // the field directly, because switchModel replaces it under the write lock.
-func (s *Server) ctl() *control.Controller {
+func (s *Server) ctl() control.SessionAPI {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.ctrl

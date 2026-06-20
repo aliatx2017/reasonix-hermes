@@ -141,12 +141,12 @@ func TestApprovalTimeoutZeroWaitsIndefinitely(t *testing.T) {
 	}
 
 	// Clean up so the goroutine doesn't linger: answer the prompt.
-	c.mu.Lock()
+	c.approval.mu.Lock()
 	var ids []string
-	for id := range c.asks {
+	for id := range c.approval.asks {
 		ids = append(ids, id)
 	}
-	c.mu.Unlock()
+	c.approval.mu.Unlock()
 
 	for _, id := range ids {
 		c.AnswerQuestion(id, []event.AskAnswer{{QuestionID: "q1", Selected: []string{"x"}}})

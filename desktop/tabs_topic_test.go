@@ -416,6 +416,54 @@ func TestLegacySessionsMigrateIntoGlobalTopics(t *testing.T) {
 	}
 }
 
+func TestTopicMigrationMarkerGatesRescan(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	dir := config.SessionDir()
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("mkdir sessions: %v", err)
+	}
+	writeLegacySession(t, dir, "first.jsonl", "first legacy prompt", time.Now().Add(-time.Hour))
+
+	// First render migrates the legacy session and, with nothing deferred, stamps
+	// the one-shot marker so later renders can skip the scan.
+	NewApp().ListProjectTree()
+	if _, err := os.Stat(filepath.Join(dir, topicMigrationMarker)); err != nil {
+		t.Fatalf("expected migration marker after a complete pass: %v", err)
+	}
+
+	// A legacy session added after the marker is left un-migrated: the gate skips
+	// the per-render scan entirely (real new sessions are born with a TopicID, so
+	// no fresh legacy files actually appear after the pass).
+	second := writeLegacySession(t, dir, "second.jsonl", "second legacy prompt", time.Now())
+	NewApp().ListProjectTree()
+	meta, ok, err := agent.LoadBranchMeta(second)
+	if err != nil {
+		t.Fatalf("load second meta: %v", err)
+	}
+	if ok && strings.TrimSpace(meta.TopicID) != "" {
+		t.Fatalf("marker should have gated re-scan, but second session was migrated: %+v", meta)
+	}
+}
+
+func TestTopicMigrationDefersEmptyLegacySession(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	dir := config.SessionDir()
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("mkdir sessions: %v", err)
+	}
+	// An empty legacy session (no user turns) is not migratable yet but could gain
+	// content later, so the pass must NOT mark the dir done — otherwise the gate
+	// would hide it forever.
+	if err := os.WriteFile(filepath.Join(dir, "empty.jsonl"), nil, 0o644); err != nil {
+		t.Fatalf("write empty session: %v", err)
+	}
+
+	NewApp().ListProjectTree()
+	if _, err := os.Stat(filepath.Join(dir, topicMigrationMarker)); err == nil {
+		t.Fatal("an empty legacy session must defer marking, but the dir was marked done")
+	}
+}
+
 func TestV05LegacyEventSessionsImportIntoGlobalTopic(t *testing.T) {
 	home := isolateDesktopUserDirs(t)
 

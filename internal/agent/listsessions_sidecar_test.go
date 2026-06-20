@@ -115,3 +115,56 @@ func TestListSessionsBackfillsLegacySession(t *testing.T) {
 		t.Fatalf("backfill bumped UpdatedAt: got %v want %v", meta.UpdatedAt, updated)
 	}
 }
+
+// A counts-authoritative sidecar (SchemaVersion stamped) that records Turns == 0
+// must be trusted as empty and skipped WITHOUT decoding the .jsonl. We prove the
+// version gate by planting a file that actually has content but a meta claiming
+// it is empty: if the session is decoded it would be listed; trusting the meta
+// skips it.
+func TestListSessionsTrustsRecordedEmptyWithoutDecoding(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "20260101-000000-deepseek-chat.jsonl")
+	writeSessionFile(t, path, []provider.Message{
+		{Role: provider.RoleUser, Content: "real content the meta will lie about"},
+		{Role: provider.RoleAssistant, Content: "a"},
+	})
+	if err := SaveBranchMeta(path, BranchMeta{ID: BranchID(path), Turns: 0, SchemaVersion: BranchMetaCountsVersion}); err != nil {
+		t.Fatalf("SaveBranchMeta: %v", err)
+	}
+
+	infos, err := ListSessions(dir)
+	if err != nil {
+		t.Fatalf("ListSessions: %v", err)
+	}
+	if len(infos) != 0 {
+		t.Fatalf("a counts-authoritative empty session should be skipped without decoding; got %d", len(infos))
+	}
+}
+
+// A genuinely-empty legacy session (no counts-aware meta) must be decoded once
+// and then recorded as authoritative-empty, so later listings trust it instead
+// of re-decoding the .jsonl on every refresh (the Turns == 0 overload bug).
+func TestListSessionsRecordsEmptyLegacySessionOnce(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "20260101-000000-deepseek-chat.jsonl")
+	writeSessionFile(t, path, []provider.Message{
+		{Role: provider.RoleSystem, Content: "system prompt"},
+		{Role: provider.RoleAssistant, Content: "a greeting with no user turn"},
+	})
+
+	infos, err := ListSessions(dir)
+	if err != nil {
+		t.Fatalf("ListSessions: %v", err)
+	}
+	if len(infos) != 0 {
+		t.Fatalf("empty session must not be listed; got %d", len(infos))
+	}
+
+	meta, ok, err := LoadBranchMeta(path)
+	if err != nil || !ok {
+		t.Fatalf("empty session should have been stamped: ok=%v err=%v", ok, err)
+	}
+	if meta.SchemaVersion != BranchMetaCountsVersion || meta.Turns != 0 {
+		t.Fatalf("empty session not recorded as authoritative-empty: version=%d turns=%d", meta.SchemaVersion, meta.Turns)
+	}
+}

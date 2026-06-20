@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"reasonix/internal/fileutil"
+	"reasonix/internal/store"
 )
 
 // BranchMeta is the small sidecar record that turns flat session files into a
@@ -28,15 +29,30 @@ type BranchMeta struct {
 	TopicID          string    `json:"topic_id,omitempty"`
 	TopicTitle       string    `json:"topic_title,omitempty"`
 	Model            string    `json:"model,omitempty"`
+	// SchemaVersion records the BranchMeta version that last wrote the listing
+	// fields (Turns/Preview) FROM the session's content. It is stamped only by the
+	// writers that actually derive those counts — Controller.snapshot's
+	// UpdateSessionMeta and Fork/Branch — never by EnsureBranchMeta / TouchBranchMeta
+	// / rename / set-model, which don't know the turn count. So ListSessions can
+	// tell a meta whose counts are authoritative (>= BranchMetaCountsVersion: trust
+	// Turns even when 0 = genuinely empty) from a legacy/contentless one
+	// (< version: decode once, then backfill + stamp).
+	SchemaVersion int `json:"schema_version,omitempty"`
 	// Turns and Preview are listing-only fields the desktop sidebar and CLI
 	// pickers show ("5 turns · 'help me debug…'") without decoding the whole
 	// .jsonl. The autosave path (Controller.snapshot) keeps them fresh from the
 	// in-memory conversation, so ListSessions stays O(1) per session instead of
-	// O(file size). Turns == 0 means "not recorded yet" — listing falls back to a
-	// one-time decode and backfills these.
+	// O(file size). Gated by SchemaVersion (above), not Turns == 0, so a
+	// genuinely-empty session is recorded once and never re-decoded.
 	Turns   int    `json:"turns,omitempty"`
 	Preview string `json:"preview,omitempty"`
 }
+
+// BranchMetaCountsVersion is stamped into BranchMeta.SchemaVersion whenever a
+// writer records Turns/Preview from session content (UpdateSessionMeta,
+// Fork/Branch). Bump it when the meaning of those listing fields changes so
+// existing listings re-derive them instead of trusting a stale cache.
+const BranchMetaCountsVersion = 1
 
 func (m BranchMeta) DefaultScope() string {
 	switch m.Scope {
@@ -69,10 +85,7 @@ func BranchID(path string) string {
 }
 
 func BranchMetaPath(sessionPath string) string {
-	if sessionPath == "" {
-		return ""
-	}
-	return sessionPath + ".meta"
+	return store.SessionMeta(sessionPath)
 }
 
 func LoadBranchMeta(sessionPath string) (BranchMeta, bool, error) {
@@ -294,5 +307,8 @@ func UpdateSessionMeta(sessionPath, model, preview string, turns int, markActivi
 	}
 	m.Preview = preview
 	m.Turns = turns
+	// These counts were derived from the current content, so mark them
+	// authoritative — listing can then trust Turns (even 0) without re-decoding.
+	m.SchemaVersion = BranchMetaCountsVersion
 	return saveBranchMeta(sessionPath, m, markActivity)
 }
