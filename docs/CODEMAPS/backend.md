@@ -1,4 +1,4 @@
-<!-- Generated: 2026-06-19 | Files: 368 Go (non-test) + 373 test + 180 TS/TSX | Token estimate: ~950 -->
+<!-- Generated: 2026-06-20 | Files: 371 Go (non-test) + 378 test + 180 TS/TSX | Token estimate: ~950 -->
 
 # Backend — Reasonix Hermes Engine
 
@@ -19,45 +19,45 @@
 
 | Package | Lines (non-test) | Concern |
 |---------|------------------|---------|
-| `cli/` | 18,490 | CLI command routing, chat TUI, /slash commands, eval, learn, models |
-| `config/` | 8,299 | TOML loader, edit, migrate, render |
-| `agent/` | 7,937 | Agent loop, subagents, compaction, goal mode, workshop |
-| `control/` | 7,643 | Session controller: compose, dispatch, respond |
-| `bot/` | 5,849 | Multi-platform IM gateway + 7 adapters |
+| `cli/` | 18,484 | CLI command routing, chat TUI, /slash commands, eval, learn, models |
+| `config/` | 8,365 | TOML loader, edit, migrate, render |
+| `agent/` | 8,288 | Agent loop, subagents, compaction, goal mode, workshop |
+| `control/` | 8,253 | Session controller: compose, dispatch, respond |
+| `bot/` | 5,858 | Multi-platform IM gateway + 7 adapters |
 | `tool/builtin/` | 5,114 | 18 built-in tools (init-registered) |
-| `plugin/` | 3,144 | MCP client: stdio, HTTP, SSE transports |
+| `plugin/` | 3,202 | MCP client: stdio, HTTP, SSE transports |
 | `provider/` | 2,510 | LLM providers: OpenAI, Anthropic, OllamaCloud |
-| `boot/` | 1,822 | Controller bootstrap: config → provider → agent → controller |
+| `boot/` | 1,729 | Controller bootstrap: config → provider → agent → controller |
 | `skill/` | 1,720 | Built-in skills registry (7: init, explore, research, install, review, security-review, test) |
-| `sandbox/` | — | macOS Seatbelt + Linux bubblewrap + remote OpenSandbox |
-| `constitution/` | — | .reasonix/constitution.json invariants |
-| `codegraph/` | — | Semantic code index (symbol-level queries) |
-| `checkpoint/` | — | Snapshot-based edit safety net |
-| `permission/` | — | Tool-call permission gating |
+| `sandbox/` | 999 | macOS Seatbelt + Linux bubblewrap + remote OpenSandbox |
+| `constitution/` | 171 | .reasonix/constitution.json invariants |
+| `codegraph/` | 1,003 | Semantic code index (symbol-level queries) |
+| `checkpoint/` | 333 | Snapshot-based edit safety net |
+| `permission/` | 734 | Tool-call permission gating |
 | `netclient/` | — | HTTP client with proxy resolution |
-| `memory/` | — | Agent-triggered memory hooks |
-| `hook/` | — | PreToolUse/Stop hook execution |
+| `memory/` | 1,610 | Agent-triggered memory hooks |
+| `hook/` | 950 | PreToolUse/Stop hook execution |
 | `installsource/` | — | Skill/MCP install from URL/local/package |
-| `history/` | — | Session history search (BM25) |
-| `i18n/` | — | Translation engine (en, zh, zh-TW) |
-| `agentlog/` | — | Structured operational logging (slog, log rotation) |
-| `billing/` | — | Balance tracking + live CNY→USD exchange |
-| `collab/` | — | Live collaboration WebSocket hub |
-| `compress/` | — | Tool output token compressor (SHA-256, dedup, JSON min) |
-| `e2e/` | — | Regression testing harness |
-| `eval/` | — | Session comparison (Jaccard, structural diff) |
-| `learn/` | — | Self-improving skill loops (pattern detection) |
-| `marketplace/` | — | Community skill registry + LobeHub sync |
-| `mesh/` | — | Agent-to-agent MCP mesh (delegate, broadcast, council) |
-| `orchestrate/` | — | Multi-agent orchestration (chain, pair, CI-fix) |
-| `publish/` | — | Session transcript export (HTML/JSON) |
-| `scheduler/` | — | Cron-driven agent task scheduler |
-| `serve/` | — | HTTP/SSE web UI server |
-| `migration/` | — | Config/migration-rescue |
-| `mcpdiag/` | — | MCP server diagnostics |
-| `acp/` | — | Agent Client Protocol dispatch |
-| `proc/` | — | Process management |
-| `outputstyle/` | — | Output formatting |
+| `history/` | 753 | Session history search (BM25) |
+| `i18n/` | 1,685 | Translation engine (en, zh, zh-TW) |
+| `agentlog/` | 177 | Structured operational logging (slog, log rotation) |
+| `billing/` | 174 | Balance tracking + live CNY→USD exchange |
+| `collab/` | 323 | Live collaboration WebSocket hub |
+| `compress/` | 386 | Tool output token compressor (SHA-256, dedup, JSON min) |
+| `e2e/` | 246 | Regression testing harness |
+| `eval/` | 311 | Session comparison (Jaccard, structural diff) |
+| `learn/` | 484 | Self-improving skill loops (pattern detection) |
+| `marketplace/` | 560 | Community skill registry + LobeHub sync |
+| `mesh/` | 678 | Agent-to-agent MCP mesh (delegate, broadcast, council) |
+| `orchestrate/` | 195 | Multi-agent orchestration (chain, pair, CI-fix) |
+| `publish/` | 298 | Session transcript export (HTML/JSON) |
+| `scheduler/` | 449 | Cron-driven agent task scheduler |
+| `serve/` | 1,440 | HTTP/SSE web UI server |
+| `migration/` | 406 | Config/migration-rescue |
+| `mcpdiag/` | 184 | MCP server diagnostics |
+| `acp/` | 2,801 | Agent Client Protocol dispatch |
+| `proc/` | 267 | Process management |
+| `outputstyle/` | 197 | Output formatting |
 
 ## Provider Chain
 ```

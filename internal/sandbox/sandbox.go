@@ -69,7 +69,7 @@ func writeAllowDirs(roots []string) []string {
 	dirs := append([]string{}, roots...)
 	dirs = append(dirs, "/dev", "/tmp", os.TempDir())
 	if home, err := os.UserHomeDir(); err == nil {
-		for _, sub := range []string{".cache", ".npm", ".cargo", "go"} {
+		for _, sub := range []string{".agent-reach", ".cache", ".local/share", ".npm", ".cargo", "go"} {
 			dirs = append(dirs, filepath.Join(home, sub))
 		}
 	}

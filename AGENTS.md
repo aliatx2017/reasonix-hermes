@@ -38,7 +38,7 @@ cd desktop && wails build -o ../bin/reasonix-desktop
 go build ./...
 go vet ./...
 
-# Run tests (83 test packages, all pass)
+# Run tests (83 Go packages, 76 test packages pass)
 go test ./cmd/... ./pkg/... ./internal/bot/...
 
 # Run the CLI
@@ -145,13 +145,13 @@ skills-hub/            17-skill community registry + static catalog site
 ## Notes
 
 - Upstream remote: `https://github.com/esengine/deepseek-reasonix.git` (branch `main-v2`)
-- **Upstream target**: v1.10.0 (June 2026) — ✅ synced (49c1476). ~536 commits merged across 26 syncs.
+- **Upstream target**: v1.10.0 (June 2026) — ✅ synced (91fe06d). ~540 commits merged across 27 syncs.
 - Our fork: `https://github.com/aliatx2017/reasonix-hermes.git` (branch `main`)
 - To pull upstream updates: `git fetch upstream && git merge upstream/main-v2`
 - `reasonix.toml` is gitignored (upstream convention) — never commit secrets
 - Discord bot uses `github.com/bwmarrin/discordgo` (added to go.mod)
 - Discord bot must use `control.Controller` like every other frontend — not inline chat history
-- **Tests**: 83 test packages, ~2,250+ test cases across all packages. `go test ./...`
+- **Tests**: 83 Go packages total, 76 test packages pass. ~2,250+ test cases across all packages. `go test ./...`
 - **New packages (custom)**: `internal/acp/` (Agent Client Protocol), `internal/learn/` (self-improving skill loops), `internal/mesh/` (agent-to-agent MCP mesh), `internal/collab/` (live collaboration WebSocket hub), `internal/compress/` (tool output token compressor), `internal/scheduler/` (cron-driven tasks), `internal/publish/` (session transcript export), `internal/bot/telegram/`, `internal/bot/line/`, `internal/bot/slack/` (multi-platform bot adapters), `internal/e2e/` (regression testing harness), `internal/marketplace/` (community skill registry + LobeHub sync), `internal/provider/ollamacloud/` (Ollama Cloud API provider), `internal/constitution/` (project invariants), `internal/agentlog/` (operational JSON logging with log rotation), `internal/billing/` (live CNY→USD exchange rate), `cmd/reasonix-pr-review/` (PR review CLI), `cmd/e2ebench/` (e2e benchmark tool), `cmd/learner-live-test/` (learner e2e validation).
 - **CodeWhale features** (10/10 done, 2026-06-04): Shell env hooks, parallel sub-agent batch dispatch, completion sound, harness profiles, constitution system, workshop sidecar, desktop hotbar, external sandbox, Nix flake, Dockerfile.
 - **CI & tooling** (2026-06-06): `biome format` check on desktop frontend (105 files), `wails build` CI job, `taplo` TOML lint (CI + pre-commit hook), Go `go-version-file: go.mod` (toolchain 1.26.4), 7-job Hermes CI pipeline all-green.

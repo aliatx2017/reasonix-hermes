@@ -268,6 +268,7 @@ commands, `@` references, and two-model setup are all in the
 | **[Session Memory Retrieval](./docs/SESSION_MEMORY_RETRIEVAL.md)** | Lightweight local history + BM25 retrieval |
 | **[Session Reference Architecture](./docs/SESSION_REFERENCE_ARCHITECTURE.md)** | upstream-issue reference for session state routing |
 | **[Ecosystem Reference](./reasonix-deepseek-ecosystem-2026.md)** | Full landscape: MCP bridges, skills, desktop, IDE, forks, protocols |
+| **[Repo Evaluations](./docs/repo-evaluations-2026-06-20.md)** | 17-repo deep-dive audit — Adopt/Watch/Skip verdicts with rationale |
 | **[Reasoning Language](./docs/REASONING_LANGUAGE.md)** | Force the model to reason in a specific language |
 | **[Force English — Reddit case study](./docs/FORCE-ENGLISH-REDDIT.md)** | Real-world Reddit post showing why force-english matters |
 | **[Codebase Audit (Historical)](./AUDIT.md)** | June 2025 audit — all bugs resolved, kept for reference |

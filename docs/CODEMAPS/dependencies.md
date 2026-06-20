@@ -1,4 +1,4 @@
-<!-- Generated: 2026-06-19 | go.sum: 193 lines | desktop go.sum: 165 lines | Nix + Docker | Token estimate: ~600 -->
+<!-- Generated: 2026-06-20 | go.sum: 193 lines | desktop go.sum: 165 lines | Nix + Docker | Token estimate: ~600 -->
 
 # Dependencies — Reasonix Hermes
 

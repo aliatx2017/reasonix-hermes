@@ -37,6 +37,7 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 ## Notes
 
 - **Upstream synced**: `v1.10.0` (commit 91fe06d, 2026-06-20). 27 syncs total — merged: 91fe06d (h46, 4 commits). Previous sync: 49c1476 (h44, 8 commits).
+- **Commit**: session 2026-06-20 (h47) — doc-sweep, repo evaluations, tool adoptions, sandbox fix. Docs: CODEMAPS regenerated (5 files, 2026-06-20 data), HERMES-GUIDE §16.25-16.26 reordered inline, CHANGELOG-HERMES caught up (10 missing sessions: h28, h32, h36, h39-h45), doc-sweep (4 stale claims fixed: package counts 71→70, test counts clarified, binary name reasonix-memory→reasonix-memoryserver). Repo evaluations: 17 repos deep-dived (8 Adopt, 7 Watch), documented in docs/repo-evaluations-2026-06-20.md. Adoptions: taste-skill (13 sub-skills installed), headroom v0.26.0, markitdown v0.1.5 + MCP server, agent-reach v1.5.0 (installed in .venv-tools/). Sandbox fix: ~/.agent-reach + ~/.local/share added to write whitelist (internal/sandbox/sandbox.go) — enables agent-reach in CLI sessions. 14 files changed, 1 new. All 9 binaries rebuilt. Full test suite + desktop tests + tsc clean.
 - **Commit**: session 2026-06-20 (h46) — upstream sync (91fe06d, 4 commits: MiMo built-ins migration, codebase-memory MCP auto-indexing) + audit verification & bug fixes. 1 upstream regression fixed: normalizeLegacyDesktopProviderAccessForSettings data loss (removed cfg.SaveTo call that stripped [desktop] on project configs). Audit: analyzed 34 claims from docs/reasonix-audit-06202026.md, debunked 10 false claims, fixed 5 real bugs (hooks json.Marshal handling, mcpbridge + memoryserver flag parsing, Recall() persistence, periodic Tidy scheduling). Desktop CSS: max-height on user messages to prevent viewport flooding. 8 files changed. All 9 binaries rebuilt. Full test suite + desktop tests + tsc clean.
 - **Commit**: session 2026-06-20 (h44) — upstream merged (49c1476, 8 commits). 4 conflicts resolved: desktop/app.go (channel functions moved), desktop/tabs.go (whitespace), desktop/settings_app.go (readOnly field), internal/boot/boot.go (classifier code moved — re-applied all Hermes customizations on top of upstream refactored boot.go: agentlog, exchange rate, aux providers, remote sandbox, learn/mesh/schedule). Additional fix: historyToolCall Arguments + canArchive — restored full tool call arguments and results in historyMessages (upstream "slim history payloads" optimization (d562e37) broke TestHistoryMessagesIncludeAssistantReasoning). All 9 binaries rebuilt. All 83 test packages pass. Desktop tests + tsc clean.
 - **Commit**: session 2026-06-20 (h43) — desktop SessionAPI migration: WorkspaceTab.Ctrl, activeCtrl(), activeCtrlLocked(), ctrlByTabID() all changed from *control.Controller to control.SessionAPI across 12 non-test files + 6 test files. Zero *control.Controller remains in the desktop Go tree. HermesState sub-port extended with Mesh/Schedule/AddScheduledTask/RemoveScheduledTask. SessionHistory + TurnControl + Status extended with CheckpointFileSnaps, SessionMessages, ActivePricing. All 79 desktop ctrl.* methods now on the port. Desktop builds, tests, tsc — all green. 9 binaries rebuilt.
@@ -190,9 +191,13 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 - **Upstream**: Merged 5 commits (a029618). Desktop-v1.8.1 tag.
 ## Next session — ideas & follow-ups
 
-- **Upstream sync**: ✅ Done — merged 49c1476 (h44). Check again next session.
-- **CHANGELOG-HERMES**: h42-h45 entries pending — add next session.
-- **Desktop port migration**: ✅ Done — all desktop Go files now use SessionAPI. bridge.ts auto-generation from port is now feasible.
+- **Upstream sync**: ✅ Done — 91fe06d (h46). Check again next session.
+- **CHANGELOG-HERMES**: ✅ Done — 10 missing sessions added (h28, h32, h36, h39-h45). 31 entries total.
+- **NPM tag**: Consider cutting when we have a more substantial batch (only 1 code change: sandbox paths).
+- **agent-reach e2e**: Verify agent-reach works from within a new Reasonix CLI session (sandbox fix requires binary restart).
+- **headroom integration**: Wire `headroom mcp` as a squeeze-gated MCP server, or `headroom proxy` as a cost-saving proxy.
+- **markitdown-mcp integration**: Register `.venv-tools/bin/markitdown-mcp` as a stdio MCP server in config.
+- **taste-skill testing**: Test the design-direction skills on desktop frontend changes.
 
 ### Session 2026-06-13 (expansion plan execution)
 

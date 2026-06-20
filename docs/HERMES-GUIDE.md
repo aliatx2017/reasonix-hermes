@@ -1628,6 +1628,38 @@ A project glossary (`CONTEXT.md`) defines 18 canonical terms (Turn, Prefix, Cont
 
 ---
 
+### 16.25 Multi-Agent Orchestration
+
+`internal/orchestrate/` provides three built-in multi-agent workflows accessible via slash commands:
+
+| Command | What it does |
+|---------|-------------|
+| `/chain <task>` | Runs a sequence of subtasks in dependency order |
+| `/pair <task>` | Dispatches two independent agents, merges outputs |
+| `/ci-fix <cmd>` | Runs a command; on failure, dispatches agents to fix |
+
+Builds on mesh infrastructure. No configuration required.
+
+**Related:** [Agent-to-Agent Mesh](#1615-agent-to-agent-mesh) · [Slash Commands](#10-slash-commands)
+
+### 16.26 E2E Benchmarking
+
+`cmd/e2ebench/` runs end-to-end regression tests against a real LLM provider,
+measuring correctness and token cost. The test suite lives in `benchmarks/e2e/`.
+
+```bash
+# Run the fixed suite
+./bin/reasonix-e2ebench -bin ./bin/reasonix -suite benchmarks/e2e -budget 400000
+
+# Diff mode: auto-generate tests from PR changes
+./bin/reasonix-e2ebench -mode diff -bin ./bin/reasonix -repo . -base main -attempts 3
+```
+
+CI triggers this via `/e2e` or `/e2e diff` comments on PRs (gated to trusted authors).
+The Go harness is in `internal/e2e/`.
+
+**Related:** [Session Evaluation](#1618-session-evaluation--comparison) · [PR Review](#pr-review-ci)
+
 ## 17. Desktop App
 
 Reasonix ships a full **Wails v2 desktop application** with a React 19 +
@@ -1806,38 +1838,7 @@ export DEEPSEEK_API_KEY=sk-...
 - **Project memory:** [REASONIX.md](../REASONIX.md), [AGENTS.md](../AGENTS.md)
 - **Ecosystem:** [Ecosystem reference](../reasonix-deepseek-ecosystem-2026.md)
 - **[ADRs](../docs/adr/)** — recorded decisions
-
-### 16.25 Multi-Agent Orchestration
-
-`internal/orchestrate/` provides three built-in multi-agent workflows accessible via slash commands:
-
-| Command | What it does |
-|---------|-------------|
-| `/chain <task>` | Runs a sequence of subtasks in dependency order |
-| `/pair <task>` | Dispatches two independent agents, merges outputs |
-| `/ci-fix <cmd>` | Runs a command; on failure, dispatches agents to fix |
-
-Builds on mesh infrastructure. No configuration required.
-
-**Related:** [Agent-to-Agent Mesh](#1615-agent-to-agent-mesh) · [Slash Commands](#10-slash-commands)
-
-### 16.26 E2E Benchmarking
-
-`cmd/e2ebench/` runs end-to-end regression tests against a real LLM provider,
-measuring correctness and token cost. The test suite lives in `benchmarks/e2e/`.
-
-```bash
-# Run the fixed suite
-./bin/reasonix-e2ebench -bin ./bin/reasonix -suite benchmarks/e2e -budget 400000
-
-# Diff mode: auto-generate tests from PR changes
-./bin/reasonix-e2ebench -mode diff -bin ./bin/reasonix -repo . -base main -attempts 3
-```
-
-CI triggers this via `/e2e` or `/e2e diff` comments on PRs (gated to trusted authors).
-The Go harness is in `internal/e2e/`.
-
-**Related:** [Session Evaluation](#1618-session-evaluation--comparison) · [PR Review](#pr-review-ci)
+- **Repo Evaluations:** [17-repo audit](./repo-evaluations-2026-06-20.md) — Adopt/Watch/Skip verdicts
 
 - **Implementation:** [Changelog](./CHANGELOG-HERMES.md)
 

@@ -1,4 +1,4 @@
-<!-- Generated: 2026-06-19 | Storage backends: 4 (SQLite, filesystem, JSON sidecars, embeddings) | Token estimate: ~500 -->
+<!-- Generated: 2026-06-20 | Storage backends: 4 (SQLite, filesystem, JSON sidecars, embeddings) | Token estimate: ~500 -->
 
 # Data Layer — Reasonix Hermes
 

@@ -16,6 +16,100 @@ Key milestones in the Hermes fork since June 2026.
 - **Desktop CSS fix**: added `max-height: 40vh; overflow-y: auto` to `.msg--user .msg__text` in `desktop/frontend/src/styles.css` — long user messages now get their own scrollbar instead of consuming the entire viewport.
 - **Files**: 8 changed (3 Go binaries, 1 desktop Go, 1 CSS, 2 docs). All 9 binaries rebuilt. Full test suite + desktop tests + tsc clean.
 
+### Session 2026-06-20 (h45) — session notes + next-session todos
+
+- **Docs**: REASONIX.md updated with h45 session wrap-up notes. Next-session todos saved for CHANGELOG catch-up, CODEMAPS regeneration, HERMES-GUIDE reorder.
+- **Clean working tree**: No uncommitted changes.
+
+### Session 2026-06-20 (h44) — upstream sync (v1.10.0) + historyToolCall fix
+
+- **Upstream**: merged 49c1476 (8 commits, v1.10.0). 4 conflicts resolved: desktop/app.go (channel functions moved), desktop/tabs.go (whitespace), desktop/settings_app.go (readOnly field), internal/boot/boot.go (classifier code moved — re-applied all Hermes customizations on top of upstream refactored boot.go: agentlog, exchange rate, aux providers, remote sandbox, learn/mesh/schedule).
+- **historyToolCall Arguments + canArchive fix**: restored full tool call arguments and results in historyMessages after upstream "slim history payloads" optimization (d562e37) broke `TestHistoryMessagesIncludeAssistantReasoning`.
+- **Build**: All 9 binaries rebuilt. All 83 test packages pass. Desktop tests + tsc clean.
+
+### Session 2026-06-20 (h43) — desktop SessionAPI migration complete
+
+- **SessionAPI port migration**: `WorkspaceTab.Ctrl`, `activeCtrl()`, `activeCtrlLocked()`, `ctrlByTabID()` all changed from `*control.Controller` to `control.SessionAPI` across 12 non-test files + 6 test files. Zero `*control.Controller` remains in the desktop Go tree.
+- **HermesState sub-port**: Extended with Mesh/Schedule/AddScheduledTask/RemoveScheduledTask.
+- **API surface**: SessionHistory + TurnControl + Status extended with CheckpointFileSnaps, SessionMessages, ActivePricing. All 79 desktop `ctrl.*` methods now on the port.
+- **Build**: Desktop builds, tests, tsc — all green. 9 binaries rebuilt.
+
+### Session 2026-06-20 (h42) — upstream merge + Hermes SessionAPI port extension
+
+- **Upstream**: merged c202f97 (2 commits: CLI TUI migrated to SessionAPI port). No conflicts — clean auto-merge.
+- **Hermes methods surfaced on port**: Added HermesState sub-port (Learner/Council/MeshStatus), extended Status (SessionTokensIn/Out/Turns/Cost, CompressStats, AuxTokens, TurnUsageHistory, CompactionHistory), extended Goals (GoalTurns/GoalBlocks).
+- **Build**: All 9 binaries rebuilt. All 72 test packages pass. tsc + desktop tests clean.
+
+### Session 2026-06-20 (h41) — upstream merge + pnpm migration
+
+- **Upstream**: merged 2909ef1 (20 commits). 3 conflicts resolved: controller.go struct + constructor, tabs.go legacy migration. Resolutions: kept Hermes fields (schedule/mesh/learner/learnerLoaded) alongside upstream memMu + approvalManager; adopted upstream double-check-under-lock pattern in tabs.go; accepted package-lock.json deletion (pnpm migration).
+- **GoalMachine**: Added `Turns()`/`Blocks()` getters.
+- **Desktop**: pnpm install + tsc + wails build. All 9 binaries rebuilt. All 72 test packages pass.
+
+### Session 2026-06-19 (h40) — tray icon fix + CODEMAPS + HERMES-GUIDE reorder + doc-sweep
+
+- **Tray icon fix**: `UpdateTrayIcon` argument mismatch resolved — 0 args in Go, 1 in frontend.
+- **CODEMAPS regenerated**: 5 files (architecture, backend, dependencies, data, frontend) — all stale since 2026-06-06.
+- **HERMES-GUIDE reorder**: §16 sections renumbered 16.1–16.26 sequentially, 2 duplicates removed.
+- **Doc-sweep**: 4 stale claims fixed — SPEC 71→70 packages, PROJECT + AGENTS upstream commits.
+- **Files**: 12 changed (+222/-147).
+
+### Session 2026-06-19 (h39) — upstream merges (33 + 5 commits) + doc-sweep + GH issues
+
+- **Upstream**: merged db43de8 (33 commits: list_sessions/read_session tools, MCP session reinit, history normalization, todo panel fixes, crash stats, credential hardening) + 7032f39 (5 commits: skill scripts listing). 15 conflicts resolved (3 Go, 12 TSX/CSS).
+- **HljsDiff.tsx type fix**: stale `diffRowsFromUnifiedDiff` import removed.
+- **Doc-sweep**: 6 stale claims fixed — SPEC.md 69→71 packages + sessiontool entry, AGENTS.md test counts, PROJECT.md 75→71, README binary list.
+- **GitHub issues**: #13, #14, #15 closed.
+- **Build**: 9 binaries rebuilt. All tests pass.
+
+### Session 2026-06-19 (h36) — learn pipeline end-to-end + HERMES-GUIDE renumbering + dead-code refactor
+
+- **Learn pipeline wired end-to-end**: `SuggestSkill` → desktop `LearnedPatterns()` binding, `/learn reflect` subcommand → `BuildReflectionPrompt` → agent turn.
+- **HERMES-GUIDE §16 renumbering**: 16.1–16.26 sequential with zero duplicates, TOC synced.
+- **Dead-code test refactor**: `billing.Fetch` → `FetchWithClient`, `parseSlackTS` deleted, `qqSendURL` → adapter method.
+- **Host checks consolidated**: 2 → 1 (`.reasonix/check` helper).
+- **Doc-sweep**: 5 stale claims fixed — index.html v1.8.x→v1.9.x, SPEC.md 70→69 packages, CODEMAPS Go 1.24→1.25 + 5→7 binaries, AUDIT historical note.
+- **Files**: 17 changed (+89/-122).
+
+### Session 2026-06-19 (h35) — desktop bot live monitor, log rotation e2e, skill rewrites, domain model, bug fixes, dead code
+
+- **Desktop bot live monitor**: Multi-platform status badges replacing Discord-only. New `BotPlatformStatus` struct (per-platform); `BotLiveStatusView` now carries `[]BotPlatformStatus`. Gateway gained `PlatformSessionCount()` + `HasPlatform()`. Frontend: `BotLiveMonitor` component renders per-platform chips with platform-specific icons (Discord/Telegram/LINE/Slack), green/gray dots, session counts, and webhook tooltips. Wails push events (3s) + 10s polling fallback.
+- **Log rotation e2e**: Verified end-to-end — 14MB `agent.log` auto-rotated to `agent.log.1` on `Init()`, fresh log created with all 6 event types present.
+- **5 skill rewrites** (v2.0, applying `writing-great-skills` principles): `pre-action-gate` (62→37 lines), `ready-means-tested` (61→45), `cache-first-architecture` (90→65), `cost-aware-llm-pipeline` (130→63), `doc-sweep` (145→107).
+- **`diagnosing-bugs`**: Removed stale first frontmatter block (sediment).
+- **Domain model**: Created `CONTEXT.md` — 18 canonical terms across 6 clusters with `_Avoid_` alternatives. Created `docs/adr/0001-cache-first-immutable-prefix.md` and `docs/adr/0002-controller-seam.md`.
+- **Bug fixes (2)**: `TestClearSessionRemovesRunningJobArtifacts` + `TestToWireUsageWithPricing` — config isolation + currency field.
+- **Intent-gap analysis**: 4 priority fixes — SPEC §1.2 "Single static binary" → "Multiple static binaries", §1.3 dependency language updated, package counts 69→70, nil slice fix.
+- **Dead code cleanup**: 4 symbols removed — `IsMaxStepsPause`, `SchemaTokenCosts`, `ToolSchemaCost`, `MemoryStore.Stats` + `MemoryStats`.
+- **Doc-sweep**: 41 docs inventoried, CONTEXT.md + ADRs cross-linked. verify-session.sh binary count 8→9.
+- **Files**: 25 changed, 3 new (CONTEXT.md, 2 ADRs). 314 insertions, 477 deletions (net -163).
+
+### Session 2026-06-19 (h34) — currency symbol root-cause fix + agent log rotation
+
+- **Currency symbol ¥ root cause**: Sub-agent Usage events from task tool, skill runner, planner, and classifier bypassed exchange-rate cloning — 4 sites in `boot.go`. Extracted `applyExchangeRate()` helper; all 4 sites now use cloned pricing with `ExchangeRate > 0`.
+- **Agent log rotation**: Self-rotation on `Init()` — checks `agent.log` size, rotates `.log` → `.log.1`, shifts chain up to `max_backups` (default 5). New `[agentlog]` config section.
+- **Agent log coverage audit**: All 8 contracted event types verified logged. 7 new agentlog tests.
+- **Doc-sweep**: SPEC.md tree 69→69 (5 sub-packages added), README.zh-CN.md bot list fixed, HERMES-GUIDE §16.23 +log rotation, PROJECT.md +agentlog/billing.
+- **Files**: 7 changed.
+
+### Session 2026-06-18 (h33) — learner Success gap fix, sidecar persistence, live e2e
+
+- **ToolCallInfo.Success populated**: `executeBatch` now returns outcomes alongside results — learner knows which tools failed.
+- **Learner sidecar persistence**: Patterns + observations saved to `<session>.learning` JSON sidecar via `snapshot()`. Auto-loads on session resume. 4 new tests.
+- **Live learner e2e**: `cmd/learner-live-test/` — 5 real DeepSeek turns detected `workflow-bash (confidence=4)`.
+- **7 new tests**: 3 agent integration + 4 learn persistence.
+- **Agentlog spec + gap fixes**: `tool_exec` now logs `success`, `api_call` logs `cost` and `err`, new `agent.turn` and `agent.compact` events.
+- **Skills adoption**: 5 skills from mattpocock/skills + SKILLS-CATALOG.md (125+ skills).
+- **Files**: 11 changed, 9 new.
+
+### Session 2026-06-18 (h32) — agentlog stderr bleed fix + currency symbol fix + log enrichment
+
+- **Agentlog stderr bleed**: Removed `os.Stderr` from logger config — file and `io.Discard` only (stderr was leaking structured JSON into TUI output).
+- **Currency symbol fix**: `Symbol()` now returns `"$"` when `ExchangeRate > 0`. Config `currency` field set to `"CNY"`.
+- **Agent log enrichment**: Added `cache_miss` (bool), `err` (string), `truncated` (bool) fields to `api_call` events.
+- **Files**: 3 changed.
+
+
 ### Session 2026-06-18 (h31) — learner wiring, exchange rates, agent logging, Discord fix
 
 - **Upstream**: merged ×2 — ebea82b (6 commits, heartbeat task system) + ba7a50b (50 commits, goal enforcement, parallel_tasks, /prometheus interview, shared MCP host, cache-impact guard). 3 conflicts resolved across CONTRIBUTING.md, GUIDE.md, chat_tui.go. 18 syncs total (~352 commits).
@@ -41,6 +135,13 @@ Key milestones in the Hermes fork since June 2026.
 - **Learn live-push**: `LearnPatterns`/`LearnTrajectories` fields added to `HermesDashboardEvent` struct (Go) and `HermesLiveData`/`HermesDashboardPayload` (TS). Wired into Wails event loop + polling fallback in `useHermesLiveData.ts`.
 - **Discord deny TOCTOU**: `gateway.go` — deny handler now holds lock through `Approve()` (was releasing between check and call, causing "No pending action found" to fire alongside valid approvals).
 - **Files**: 3 changed (+21/-5).
+
+### Session 2026-06-17 (h28) — 3 audit fixes: MCP bridge graceful shutdown, learn deferral, SQLite default backend
+
+- **MCP bridge stdio graceful shutdown**: Added SIGINT/SIGTERM signal handler (was dying mid-message; HTTP mode already had graceful shutdown).
+- **Learn pattern detection deferral**: Moved from `Observe()` (O(n²) every session) to `Patterns()`/`BuildReflectionPrompt()` (O(n) on read only).
+- **Memory server default backend**: Changed from file to SQLite (write-amplification-safe; file still available via `--backend file`).
+- **Build**: All 7 CLI binaries rebuilt. Build/vet/test/tsc/verify-session green.
 
 ### Session 2026-06-17 (h27) — upstream sync + 7 audit bug fixes
 
@@ -194,36 +295,6 @@ Key milestones in the Hermes fork since June 2026.
 - Crash capture (Go panics/breadcrumbs/group summaries)
 - Local history + memory retrieval, Traditional Chinese (zh-TW) locale
 
-### Session 2026-06-19 (h35) — desktop bot live monitor, log rotation e2e, skill rewrites, domain model, bug fixes, dead code
-
-- **Desktop bot live monitor**: Multi-platform status badges replacing Discord-only. New `BotPlatformStatus` struct (per-platform); `BotLiveStatusView` now carries `[]BotPlatformStatus`. Gateway gained `PlatformSessionCount()` + `HasPlatform()`. Frontend: `BotLiveMonitor` component renders per-platform chips with platform-specific icons (Discord/Telegram/LINE/Slack), green/gray dots, session counts, and webhook tooltips. Wails push events (3s) + 10s polling fallback.
-- **Log rotation e2e**: Verified end-to-end — 14MB `agent.log` auto-rotated to `agent.log.1` on `Init()`, fresh log created with all 6 event types present.
-- **5 skill rewrites** (v2.0, applying `writing-great-skills` principles): `pre-action-gate` (62→37 lines, removed no-op "When to Use" + constitution duplication), `ready-means-tested` (61→45, removed "Claim Words" restatement + "Status vocabulary" taxonomy), `cache-first-architecture` (90→65, removed "Trigger Conditions" no-op + implementation table), `cost-aware-llm-pipeline` (130→63, removed `cache-first-architecture` duplication + "varies" no-op row), `doc-sweep` (145→107, added "Done when" completion criteria to each phase).
-- **`diagnosing-bugs`**: Removed stale first frontmatter block (sediment).
-- **Domain model**: Created `CONTEXT.md` — 18 canonical terms across 6 clusters with `_Avoid_` alternatives. Created `docs/adr/0001-cache-first-immutable-prefix.md` and `docs/adr/0002-controller-seam.md`. Cross-linked from README docs table and HERMES-GUIDE §16.24.
-- **Bug fixes (2)**: `TestClearSessionRemovesRunningJobArtifacts` — added missing `t.Chdir(home)` (project config isolation). `TestToWireUsageWithPricing` — added `Currency: "CNY"` to test Pricing (post-exchange-rate default is `"$"`). Desktop test suite now zero failures.
-- **Intent-gap analysis**: Cross-referenced SPEC §1, constitution, and AGENTS.md against live code. 4 priority fixes: SPEC §1.2 "Single static binary" → "Multiple static binaries", §1.3 "TOML is the one accepted dependency" → "Dependencies are audited", package count 69→70 across SPEC.md + AGENTS.md, nil slice `migrateLegacySessionsIntoGlobalTopics` → `[]string{}`.
-- **Dead code cleanup**: 4 genuinely dead symbols removed — `IsMaxStepsPause` + `errors` import (agent.go), `SchemaTokenCosts` + `ToolSchemaCost` type (cache_shape.go), `MemoryStore.Stats` + `MemoryStats` type (memoryserver/main.go). 3 test-only symbols skipped (per refactor-clean rules).
-- **Doc-sweep**: 41 docs inventoried, CONTEXT.md + ADRs cross-linked to README + HERMES-GUIDE. verify-session.sh binary count 8→9.
-- **Files**: 25 changed, 3 new (CONTEXT.md, 2 ADRs). 314 insertions, 477 deletions (net -163).
-
-### Session 2026-06-19 (h34) — currency symbol root-cause fix + agent log rotation
-
-- **Currency symbol ¥ root cause**: Sub-agent Usage events from the task tool, skill runner, planner, and classifier bypassed exchange-rate cloning. `entry.Price` was passed raw to 4 sites in `boot.go` — all sub-agent paths. The sub-agent's `subSink` forwards Usage events to the parent → TUI overwrites `sessionCostSymbol` to `"¥"` each turn. Extracted `applyExchangeRate()` helper; all 4 sites now use cloned pricing with `ExchangeRate > 0`.
-- **Agent log rotation**: Self-rotation on `Init()` — checks `agent.log` size against `max_size_mb` (default 10), rotates by renaming `agent.log` → `agent.log.1`, shifting `.1`→`.2`… up to `max_backups` (default 5), deleting the oldest. Zero new dependencies. New `[agentlog]` config section with `enabled`, `max_size_mb`, `max_backups`.
-- **Agent log coverage audit**: All 8 contracted event types verified logged — `api_call`, `tool_exec`, `agent.turn`, `agent.compact`, `boot.model`, `boot.mcp`, `boot.config`, `boot.learner`. Older entries (pre-spec) lack `cache_miss` and `cost`; current code always emits both.
-- **Tests**: 7 new agentlog tests (rotation: under-threshold, over-threshold, shift chain, oldest deletion, missing file, disabled, basic init).
-- **Doc-sweep**: SPEC.md tree now shows all 69 packages (5 sub-packages added), README.zh-CN.md bot list fixed (Slack+LINE added), HERMES-GUIDE §16.23 enriched with log rotation, PROJECT.md added agentlog+billing row, CHANGELOG-HERMES.md this entry.
-- **Files**: 7 changed, 0 new.
-
-### Session 2026-06-18 (h33) — learner Success gap fix, sidecar persistence, live e2e
-- **ToolCallInfo.Success populated**: `executeBatch` now returns outcomes alongside results — learner knows which tools failed (`write_file✗` vs `bash✓`).
-- **Learner sidecar persistence**: Patterns + observations saved to `<session>.learning` JSON sidecar via `snapshot()`. Auto-loads on session resume. 4 new tests.
-- **Live learner e2e**: `cmd/learner-live-test/` — 5 real DeepSeek turns detected `workflow-bash (confidence=4)`. Full `agent.Run()→learner.Observe()→detectPatterns()` chain proven.
-- **7 new tests**: 3 agent integration (observe chain, failure tracking, disabled no-op) + 4 learn persistence (save/load round-trip, missing file, turn counter resume).
-- **Agentlog spec + gap fixes**: `tool_exec` now logs `success` (bool), `api_call` logs `cost` (float) and `err` on failure, new `agent.turn` (turn+steps) and `agent.compact` (ratio+messages+kept) events. Full event contract in `internal/agentlog/agentlog.go` package doc.
-- **Skills adoption**: 5 skills from mattpocock/skills (diagnosing-bugs, writing-great-skills, domain-modeling, codebase-design, prototype) + SKILLS-CATALOG.md documenting all 125+ skills.
-- **Files**: 11 changed, 9 new (skills, tests, catalog, agentlog spec).
 
 ## Expansion Packs (June–July 2026)
 | Feature | Package | Tests |

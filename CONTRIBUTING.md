@@ -28,7 +28,7 @@ Build all Hermes binaries:
 go build -o bin/reasonix ./cmd/reasonix
 go build -o bin/reasonix-bot ./bot
 go build -o bin/reasonix-mcpbridge ./cmd/reasonix-mcpbridge
-go build -o bin/reasonix-memory ./cmd/reasonix-memoryserver
+go build -o bin/reasonix-memoryserver ./cmd/reasonix-memoryserver
 go build -o bin/reasonix-hooks ./cmd/reasonix-hooks
 go build -o bin/reasonix-pr-review ./cmd/reasonix-pr-review
 ```

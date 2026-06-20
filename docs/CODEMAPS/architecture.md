@@ -1,4 +1,4 @@
-<!-- Generated: 2026-06-19 | Packages: 56 internal + 8 cmd + 7 bot adapters + 2 pkg | Token estimate: ~950 -->
+<!-- Generated: 2026-06-20 | Packages: 56 internal + 8 cmd + 7 bot adapters + 2 pkg | Token estimate: ~950 -->
 
 # Architecture — Reasonix Hermes
 
