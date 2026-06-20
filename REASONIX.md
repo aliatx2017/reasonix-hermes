@@ -36,7 +36,8 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 ## Notes
 
-- **Upstream synced**: `v1.10.0` (commit c202f97, 2026-06-20). 25 syncs total — merged: c202f97 (h42, 2 commits: CLI TUI migrated to SessionAPI port — chatTUI.ctrl, modelSwitchMsg.ctrl/oldCtrl, oldControllers[] now use control.SessionAPI; two missing surfaces added: Input sub-port (Compose/ComposeSynthetic/ResolveRefs/HasRefs) and Settings sub-port (SetReasoningLanguage/SetDisplayRecorder); HermesState sub-port added with Learner/Council/MeshStatus + Status extended with SessionTokensIn/Out/Turns/Cost and CompressStats/AuxTokens/TurnUsageHistory/CompactionHistory to complete the port for the TUI). Previous sync: 2909ef1 (h41, 20 commits).
+- **Upstream synced**: `v1.10.0` (commit 49c1476, 2026-06-20). 26 syncs total — merged: 49c1476 (h44, 8 commits: upstream desktop SessionAPI port migration (dbb6f83) + coordinator refactoring, sidebar resilience fixes, PE handoff fixes). Previous sync: c202f97 (h42, 2 commits).
+- **Commit**: session 2026-06-20 (h44) — upstream merged (49c1476, 8 commits). 4 conflicts resolved: desktop/app.go (channel functions moved), desktop/tabs.go (whitespace), desktop/settings_app.go (readOnly field), internal/boot/boot.go (classifier code moved — re-applied all Hermes customizations on top of upstream refactored boot.go: agentlog, exchange rate, aux providers, remote sandbox, learn/mesh/schedule). Additional fix: historyToolCall Arguments + canArchive — restored full tool call arguments and results in historyMessages (upstream "slim history payloads" optimization (d562e37) broke TestHistoryMessagesIncludeAssistantReasoning). All 9 binaries rebuilt. All 83 test packages pass. Desktop tests + tsc clean.
 - **Commit**: session 2026-06-20 (h43) — desktop SessionAPI migration: WorkspaceTab.Ctrl, activeCtrl(), activeCtrlLocked(), ctrlByTabID() all changed from *control.Controller to control.SessionAPI across 12 non-test files + 6 test files. Zero *control.Controller remains in the desktop Go tree. HermesState sub-port extended with Mesh/Schedule/AddScheduledTask/RemoveScheduledTask. SessionHistory + TurnControl + Status extended with CheckpointFileSnaps, SessionMessages, ActivePricing. All 79 desktop ctrl.* methods now on the port. Desktop builds, tests, tsc — all green. 9 binaries rebuilt.
 - **Commit**: session 2026-06-20 (h42) — upstream merged (c202f97, 2 commits: CLI TUI migrated to SessionAPI port). No conflicts — clean auto-merge. Hermes methods surfaced on port: added HermesState sub-port (Learner/Council/MeshStatus), extended Status (SessionTokensIn/Out/Turns/Cost, CompressStats, AuxTokens, TurnUsageHistory, CompactionHistory), extended Goals (GoalTurns/GoalBlocks). All 9 binaries rebuilt. All 72 test packages pass. tsc + desktop tests clean.
 - **Commit**: session 2026-06-20 (h41) — upstream merged (2909ef1, 20 commits, 3 conflicts: controller.go struct + constructor, tabs.go legacy migration). Resolutions: kept Hermes fields (schedule/mesh/learner/learnerLoaded) alongside upstream memMu + approvalManager; adopted upstream double-check-under-lock pattern in tabs.go; accepted package-lock.json deletion (pnpm migration). Added Turns()/Blocks() getters on goalMachine. Desktop: pnpm install + tsc + wails build. All 9 binaries rebuilt. All 72 test packages pass.
@@ -188,8 +189,8 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 - **Upstream**: Merged 5 commits (a029618). Desktop-v1.8.1 tag.
 ## Next session — ideas & follow-ups
 
-- **Upstream sync**: ✅ Done — merged c202f97 (h42). Check again next session.
-- **Desktop port migration**: ✅ Done — all desktop Go files now use SessionAPI. Last frontend migrated. bridge.ts auto-generation from port is now feasible.
+- **Upstream sync**: ✅ Done — merged 49c1476 (h44). Check again next session.
+- **Desktop port migration**: ✅ Done — all desktop Go files now use SessionAPI. bridge.ts auto-generation from port is now feasible.
 
 ### Session 2026-06-13 (expansion plan execution)
 
