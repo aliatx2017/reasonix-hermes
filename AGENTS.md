@@ -103,6 +103,7 @@ skills-hub/            17-skill community registry + static catalog site
 | `pkg/mcputil/` + `pkg/httputil/` | Shared Go libraries | Bearer auth middleware + MCP types/helpers |
 | `cmd/reasonix-mcpbridge/` | MCP bridge server (6 tools) | Expose Reasonix to Claude Code/Codex via MCP |
 | `cmd/reasonix-memoryserver/` | Hindsight memory (3 tools, SQLite, TTL, vector) | Cross-session persistent memory with dense+sparse vector search |
+| `internal/acp/` | Agent Client Protocol | stdio JSON-RPC 2.0 adapter — editor/IDE integrations connect via ACP |
 | `bot/` + `internal/bot/discord/` | Discord bot (+ /goal + /model) | Discord integration (upstream has Feishu/WeChat/QQ only) |
 | `internal/bot/telegram/` | Telegram bot adapter | Long-polling Telegram integration via go-telegram-bot-api/v5 |
 | `internal/bot/line/` | LINE bot adapter | Webhook-based LINE integration via line-bot-sdk-go/v8 |

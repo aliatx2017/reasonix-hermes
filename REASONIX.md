@@ -353,7 +353,7 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 ### Session 2026-06-15 (h11) — Completeness sweep + eval GUI + analytics + orchestrate + docs
 
-- **Completeness sweep**: Audited 4 surfaces — slash commands, i18n (332 keys × 3 catalogs = zero drift), Wails bindings, config render.go.
+- **Completeness sweep**: Audited 4 surfaces — slash commands, i18n (333 keys × 3 catalogs = zero drift), Wails bindings, config render.go.
   - **Slash commands**: 6 orphan completers added (`/stats`, `/cost`, `/council`, `/learn`, `/publish`, `/todo`)
   - **Wails bindings**: Removed stale `CompareSessions` from `KnownMissingFromGenerated` (already in generated wailsjs). `TurnTimeline` remains the sole legitimate exclude.
   - **Config render.go data-loss bug fixed**: 10 sections were missing from rendering, silent data loss on `Config.Save()`. Added rendering for `[schedule]`, `[learn]`, `[mesh]`, `[collab]`, `[marketplace]` + `[marketplace.lobehub]`, `[embedding]`, `[bot.discord]`, `[bot.telegram]`, `[bot.line]`, `[bot.slack]`, remote sandbox fields, allowlist fields (discord/telegram/line users+groups), and `active_profile`.
