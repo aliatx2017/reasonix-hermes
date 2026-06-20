@@ -22,7 +22,15 @@ func (c *Controller) SetLearner(l *learn.Learner) {
 	c.learner = l
 }
 
-// Mesh returns the mesh instance (may be nil).
+// MeshPeers returns the list of configured peer names for the mesh council.
+func (c *Controller) MeshPeers() []string {
+	if c.mesh == nil {
+		return nil
+	}
+	return c.mesh.Peers()
+}
+
+// Mesh returns the mesh instance (may be nil) — internal use only (ConfineCouncil wiring).
 func (c *Controller) Mesh() *mesh.Mesh {
 	return c.mesh
 }

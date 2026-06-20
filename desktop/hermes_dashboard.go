@@ -589,14 +589,12 @@ func (a *App) ScheduleDashboard() ScheduleDashboardView {
 		return ScheduleDashboardView{Active: false, Tasks: []ScheduleTaskView{}, RecentRuns: []ScheduleResultView{}}
 	}
 
-	sched := ctrl.Schedule()
-	if sched == nil {
+	// Tasks
+	tasks := ctrl.ScheduleTasks()
+	if len(tasks) == 0 {
 		return ScheduleDashboardView{Active: false, Tasks: []ScheduleTaskView{}, RecentRuns: []ScheduleResultView{}}
 	}
-
-	// Tasks
-	tasks := sched.Tasks()
-	nextRuns := sched.AllNextRuns()
+	nextRuns := ctrl.ScheduleNextRuns()
 	taskViews := make([]ScheduleTaskView, len(tasks))
 	for i, t := range tasks {
 		nextRun := ""
@@ -618,7 +616,7 @@ func (a *App) ScheduleDashboard() ScheduleDashboardView {
 	}
 
 	// Recent results
-	results := sched.Results(10)
+	results := ctrl.ScheduleResults(10)
 	resultViews := make([]ScheduleResultView, len(results))
 	for i, r := range results {
 		summary := r.Summary
@@ -772,11 +770,8 @@ func (a *App) CouncilDashboard() CouncilDashboardView {
 	if ctrl == nil {
 		return CouncilDashboardView{}
 	}
-	m := ctrl.Mesh()
-	if m == nil {
-		return CouncilDashboardView{Status: "disabled"}
-	}
-	peerNames := m.Peers()
+	m := ctrl.MeshPeers()
+	peerNames := m
 	peers := make([]CouncilPeerView, 0, len(peerNames))
 	for _, name := range peerNames {
 		peers = append(peers, CouncilPeerView{Name: name, Enabled: true})

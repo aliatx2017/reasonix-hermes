@@ -72,8 +72,8 @@ func (c *Controller) ActivePricing() *provider.Pricing {
 	return c.executor.Pricing()
 }
 
-// ScheduleStatus returns the next scheduled task run times.
-func (c *Controller) ScheduleStatus() map[string]time.Time {
+// ScheduleNextRuns returns the next scheduled task run times.
+func (c *Controller) ScheduleNextRuns() map[string]time.Time {
 	if c.schedule == nil {
 		return nil
 	}
@@ -88,9 +88,12 @@ func (c *Controller) ScheduleResults(limit int) []scheduler.Result {
 	return c.schedule.Results(limit)
 }
 
-// Schedule returns the scheduler, or nil when not configured.
-func (c *Controller) Schedule() *scheduler.Scheduler {
-	return c.schedule
+// ScheduleTasks returns the configured scheduled tasks.
+func (c *Controller) ScheduleTasks() []scheduler.Task {
+	if c.schedule == nil {
+		return nil
+	}
+	return c.schedule.Tasks()
 }
 
 // AddScheduledTask adds or updates a scheduled task at runtime.

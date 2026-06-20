@@ -2,6 +2,7 @@ package control
 
 import (
 	"context"
+	"time"
 
 	"reasonix/internal/agent"
 	"reasonix/internal/billing"
@@ -14,7 +15,6 @@ import (
 	"reasonix/internal/jobs"
 	"reasonix/internal/learn"
 	"reasonix/internal/memory"
-	"reasonix/internal/mesh"
 	"reasonix/internal/scheduler"
 	"reasonix/internal/plugin"
 	"reasonix/internal/provider"
@@ -199,7 +199,7 @@ type Input interface {
 
 // MeshState covers Hermes agent-to-agent mesh: delegate, broadcast, council, and status.
 type MeshState interface {
-	Mesh() *mesh.Mesh
+	MeshPeers() []string
 	Council(ctx context.Context, task string) (string, error)
 	MeshStatus() string
 }
@@ -211,7 +211,9 @@ type LearnState interface {
 
 // ScheduleState covers cron-driven automated agent tasks.
 type ScheduleState interface {
-	Schedule() *scheduler.Scheduler
+	ScheduleTasks() []scheduler.Task
+	ScheduleNextRuns() map[string]time.Time
+	ScheduleResults(limit int) []scheduler.Result
 	AddScheduledTask(t scheduler.Task) bool
 	RemoveScheduledTask(name string) bool
 }
