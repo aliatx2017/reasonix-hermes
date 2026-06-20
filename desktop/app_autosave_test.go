@@ -26,7 +26,7 @@ func (stubProvider) Stream(_ context.Context, _ provider.Request) (<-chan provid
 	return ch, nil
 }
 
-func controllerWithContent(t *testing.T, path string) *control.Controller {
+func controllerWithContent(t *testing.T, path string) control.SessionAPI {
 	t.Helper()
 	sess := agent.NewSession("system")
 	sess.Add(provider.Message{Role: provider.RoleUser, Content: "remember this turn"})

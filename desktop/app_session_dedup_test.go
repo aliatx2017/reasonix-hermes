@@ -12,7 +12,7 @@ import (
 	"reasonix/internal/tool"
 )
 
-func carryingController(carried []provider.Message, path string) *control.Controller {
+func carryingController(carried []provider.Message, path string) control.SessionAPI {
 	sess := &agent.Session{}
 	sess.Replace(carried)
 	ag := agent.New(stubProvider{}, tool.NewRegistry(), sess, agent.Options{}, event.Discard)

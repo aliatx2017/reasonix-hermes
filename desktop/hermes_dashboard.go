@@ -233,7 +233,7 @@ func (a *App) GoalProgressForTab(tabID string) GoalProgressView {
 
 // --- helpers ---
 
-func (a *App) ctrlForTab(tabID string) *control.Controller {
+func (a *App) ctrlForTab(tabID string) control.SessionAPI {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 	if tabID == "" {

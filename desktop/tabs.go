@@ -42,7 +42,7 @@ type WorkspaceTab struct {
 	TopicTitle    string              // display title
 	SessionPath   string              // exact .jsonl file this tab continues
 	ReadOnly      bool                // true for external channel transcripts opened for browsing
-	Ctrl          *control.Controller // nil while booting / on error
+	Ctrl          control.SessionAPI // nil while booting / on error
 	Label         string              // model label (for the tab badge)
 	Ready         bool                // true once boot.Build completes
 	StartupErr    string              // build error, surfaced to the frontend
@@ -692,7 +692,7 @@ func (s *tabEventSink) recordReadTelemetry(e event.Event) {
 	}
 	s.app.mu.RLock()
 	tab := s.app.tabByEventSinkIDLocked(s.tabID)
-	var ctrl *control.Controller
+	var ctrl control.SessionAPI
 	if tab != nil {
 		ctrl = tab.Ctrl
 	}
@@ -778,7 +778,7 @@ func (s *tabEventSink) telemetryTab() (*WorkspaceTab, string) {
 	}
 	s.app.mu.RLock()
 	tab := s.app.tabByEventSinkIDLocked(s.tabID)
-	var ctrl *control.Controller
+	var ctrl control.SessionAPI
 	if tab != nil {
 		ctrl = tab.Ctrl
 	}
@@ -1816,14 +1816,14 @@ func (a *App) activeTabLocked() *WorkspaceTab {
 
 // activeCtrl returns the controller of the active tab, or nil.
 // Self-locking; safe to call from any goroutine without external lock.
-func (a *App) activeCtrl() *control.Controller {
+func (a *App) activeCtrl() control.SessionAPI {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 	return a.activeCtrlLocked()
 }
 
 // activeCtrlLocked is like activeCtrl but assumes the caller already holds a.mu.
-func (a *App) activeCtrlLocked() *control.Controller {
+func (a *App) activeCtrlLocked() control.SessionAPI {
 	t := a.activeTabLocked()
 	if t == nil {
 		return nil
@@ -1844,7 +1844,7 @@ func (a *App) tabByIDLocked(tabID string) *WorkspaceTab {
 	return a.tabs[tabID]
 }
 
-func (a *App) ctrlByTabID(tabID string) *control.Controller {
+func (a *App) ctrlByTabID(tabID string) control.SessionAPI {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 	tab := a.tabByIDLocked(tabID)
@@ -4097,7 +4097,7 @@ type ChangedFileInfo struct {
 func (a *App) ContextPanel(tabID string) ContextPanelInfo {
 	a.mu.RLock()
 	tab, ok := a.tabs[tabID]
-	var ctrl *control.Controller
+	var ctrl control.SessionAPI
 	if ok && tab != nil {
 		ctrl = tab.Ctrl
 	}

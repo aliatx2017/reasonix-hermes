@@ -36,7 +36,9 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 ## Notes
 
-- **Upstream synced**: `v1.10.0` (commit 2909ef1, 2026-06-20). 24 syncs total — merged: 2909ef1 (h41, 20 commits: major control refactoring — SessionAPI driving port, store package, approvalManager extraction, goalMachine FSM, memMu for lock-free memory writes, desktop pnpm migration, legacy topic migration gate). Previous sync: 33545f6 (h40, 6 commits).
+- **Upstream synced**: `v1.10.0` (commit c202f97, 2026-06-20). 25 syncs total — merged: c202f97 (h42, 2 commits: CLI TUI migrated to SessionAPI port — chatTUI.ctrl, modelSwitchMsg.ctrl/oldCtrl, oldControllers[] now use control.SessionAPI; two missing surfaces added: Input sub-port (Compose/ComposeSynthetic/ResolveRefs/HasRefs) and Settings sub-port (SetReasoningLanguage/SetDisplayRecorder); HermesState sub-port added with Learner/Council/MeshStatus + Status extended with SessionTokensIn/Out/Turns/Cost and CompressStats/AuxTokens/TurnUsageHistory/CompactionHistory to complete the port for the TUI). Previous sync: 2909ef1 (h41, 20 commits).
+- **Commit**: session 2026-06-20 (h43) — desktop SessionAPI migration: WorkspaceTab.Ctrl, activeCtrl(), activeCtrlLocked(), ctrlByTabID() all changed from *control.Controller to control.SessionAPI across 12 non-test files + 6 test files. Zero *control.Controller remains in the desktop Go tree. HermesState sub-port extended with Mesh/Schedule/AddScheduledTask/RemoveScheduledTask. SessionHistory + TurnControl + Status extended with CheckpointFileSnaps, SessionMessages, ActivePricing. All 79 desktop ctrl.* methods now on the port. Desktop builds, tests, tsc — all green. 9 binaries rebuilt.
+- **Commit**: session 2026-06-20 (h42) — upstream merged (c202f97, 2 commits: CLI TUI migrated to SessionAPI port). No conflicts — clean auto-merge. Hermes methods surfaced on port: added HermesState sub-port (Learner/Council/MeshStatus), extended Status (SessionTokensIn/Out/Turns/Cost, CompressStats, AuxTokens, TurnUsageHistory, CompactionHistory), extended Goals (GoalTurns/GoalBlocks). All 9 binaries rebuilt. All 72 test packages pass. tsc + desktop tests clean.
 - **Commit**: session 2026-06-20 (h41) — upstream merged (2909ef1, 20 commits, 3 conflicts: controller.go struct + constructor, tabs.go legacy migration). Resolutions: kept Hermes fields (schedule/mesh/learner/learnerLoaded) alongside upstream memMu + approvalManager; adopted upstream double-check-under-lock pattern in tabs.go; accepted package-lock.json deletion (pnpm migration). Added Turns()/Blocks() getters on goalMachine. Desktop: pnpm install + tsc + wails build. All 9 binaries rebuilt. All 72 test packages pass.
 - **Commit**: session 2026-06-19 (h39) — upstream merges: db43de8 (33 commits: list_sessions/read_session tools, MCP session reinit, history normalization, todo panel fixes, crash stats, credential hardening) + 7032f39 (5 commits: skill scripts listing). 15 conflicts resolved (3 Go, 12 TSX/CSS). HljsDiff.tsx type fix (stale diffRowsFromUnifiedDiff import). doc-sweep: 6 stale claims fixed (SPEC.md 69→71 packages + sessiontool entry, AGENTS.md test counts, PROJECT.md 75→71, README binary list). GH issues #13,#14,#15 closed. 9 binaries rebuilt. All tests pass.
 - **Commit**: session 2026-06-18 (h30) — doc-sweep: Helm tag v1.8.2→v1.9.1, cross-linked HOWTO-FORCE-ENGLISH + HOWTO-TOKEN-SAVING + TOKEN-SAVINGS-ANALYSIS from README + HERMES-GUIDE. CHANGELOG-HERMES.md enriched with h29+h30. AGENTS.md sync count updated. All 9 verify checks green.
@@ -186,10 +188,8 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 - **Upstream**: Merged 5 commits (a029618). Desktop-v1.8.1 tag.
 ## Next session — ideas & follow-ups
 
-- **Upstream sync**: ✅ Done — merged 2909ef1 (h41, v1.10.0). Check again next session.
-- **Doc sweep**: ✅ Done — 13 stale claims fixed, v1.9.x→v1.10.x across 9 files.
-- **npm**: Tag `hermes-npm-v1.10.0` pushed — CI pipeline will publish.
-- **Desktop pnpm**: pnpm-lock.yaml tracked; package-lock.json deleted (upstream migration).
+- **Upstream sync**: ✅ Done — merged c202f97 (h42). Check again next session.
+- **Desktop port migration**: ✅ Done — all desktop Go files now use SessionAPI. Last frontend migrated. bridge.ts auto-generation from port is now feasible.
 
 ### Session 2026-06-13 (expansion plan execution)
 

@@ -7,11 +7,15 @@ import (
 	"reasonix/internal/billing"
 	"reasonix/internal/checkpoint"
 	"reasonix/internal/command"
+	"reasonix/internal/compress"
 	"reasonix/internal/config"
 	"reasonix/internal/event"
 	"reasonix/internal/hook"
 	"reasonix/internal/jobs"
+	"reasonix/internal/learn"
 	"reasonix/internal/memory"
+	"reasonix/internal/mesh"
+	"reasonix/internal/scheduler"
 	"reasonix/internal/plugin"
 	"reasonix/internal/provider"
 	"reasonix/internal/skill"
@@ -62,6 +66,7 @@ type TurnControl interface {
 	Turn() int
 	History() []provider.Message
 	ToolResult(toolID string) *ToolResultData
+	SessionMessages() []provider.Message
 }
 
 // Approvals covers tool-approval and ask prompts plus the runtime approval
@@ -86,6 +91,8 @@ type Approvals interface {
 type Goals interface {
 	Goal() string
 	GoalStatus() string
+	GoalTurns() int
+	GoalBlocks() int
 	SetGoal(goal string)
 	SetGoalWithResearchMode(goal string, researchMode GoalResearchMode)
 	GoalStrict(strict bool)
@@ -113,6 +120,7 @@ type SessionHistory interface {
 	CompactRatio() float64
 	SummarizeFrom(ctx context.Context, turn int) error
 	SummarizeUpTo(ctx context.Context, turn int) error
+	CheckpointFileSnaps(turn int) []checkpoint.FileSnap
 }
 
 // MemoryControl covers session/project memory reads and mutations.
@@ -156,6 +164,15 @@ type Status interface {
 	LastUsage() *provider.Usage
 	Balance(ctx context.Context) (*billing.Balance, error)
 	Jobs() []jobs.View
+	AuxTokens() int
+	CompressStats() compress.Stats
+	TurnUsageHistory() []provider.Usage
+	CompactionHistory() []event.Compaction
+	SessionTokensIn() int
+	SessionTokensOut() int
+	SessionTurns() int
+	SessionCost() float64
+	ActivePricing() *provider.Pricing
 }
 
 // SessionPersistence covers snapshotting a session and tearing down its on-disk
@@ -179,6 +196,25 @@ type Input interface {
 	HasRefs(line string) bool
 }
 
+// MeshState covers Hermes agent-to-agent mesh: delegate, broadcast, council, and status.
+type MeshState interface {
+	Mesh() *mesh.Mesh
+	Council(ctx context.Context, task string) (string, error)
+	MeshStatus() string
+}
+
+// LearnState covers the self-improving skill loop: pattern detection and reflection.
+type LearnState interface {
+	Learner() *learn.Learner
+}
+
+// ScheduleState covers cron-driven automated agent tasks.
+type ScheduleState interface {
+	Schedule() *scheduler.Scheduler
+	AddScheduledTask(t scheduler.Task) bool
+	RemoveScheduledTask(name string) bool
+}
+
 // Settings covers runtime session settings that don't fit a richer domain.
 type Settings interface {
 	SetReasoningLanguage(lang string)
@@ -200,6 +236,9 @@ type SessionAPI interface {
 	SessionPersistence
 	Input
 	Settings
+	MeshState
+	LearnState
+	ScheduleState
 }
 
 // Compile-time proof that the concrete controller satisfies each sub-port and
@@ -217,5 +256,8 @@ var (
 	_ SessionPersistence = (*Controller)(nil)
 	_ Input              = (*Controller)(nil)
 	_ Settings           = (*Controller)(nil)
+	_ MeshState          = (*Controller)(nil)
+	_ LearnState         = (*Controller)(nil)
+	_ ScheduleState      = (*Controller)(nil)
 	_ SessionAPI         = (*Controller)(nil)
 )

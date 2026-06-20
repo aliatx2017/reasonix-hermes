@@ -22,6 +22,14 @@ _Avoid_: Truncation, summarization (compaction includes both)
 An isolated child agent spawned by the parent for a focused sub-task. Its tool calls and reasoning never enter the parent's context — only its final answer returns.
 _Avoid_: Worker, child task, delegate
 
+**Plan Mode**:
+A read-only agent posture that denies writer tools (write_file, edit_file, apply_patch) while permitting reads. Activated by `/plan` or auto-detected from ambiguous input. Prepends a `[PLAN MODE]` marker to user turns so the LLM knows writes will be blocked.
+_Avoid_: Dry run, preview mode
+
+**Goal**:
+An active-task finite-state machine that tracks a multi-step objective across turns. Statuses: `running`, `complete`, `blocked`, `stopped`. Supports research sub-modes where the agent auto-outlines before executing. Managed by the GoalMachine — a strict leaf that never calls back into the Controller.
+_Avoid_: Task, objective, mission
+
 **Tool**:
 A capability the agent invokes (bash, read, write, edit, etc.). Registered via `init()` for built-ins or via MCP for external plugins.
 _Avoid_: Function, action, command
@@ -33,8 +41,12 @@ _Avoid_: Prompt, template, rule
 ### Architecture
 
 **Controller**:
-The transport-agnostic central orchestrator. Every frontend (CLI TUI, HTTP/SSE, Wails desktop) routes through one Controller. Owns the message pipeline, tool approval, compaction, and session persistence.
+The concrete implementation behind the SessionAPI port. Constructs the agent, wires tools, and orchestrates turns. Frontends never couple to Controller directly — they depend on the SessionAPI interface.
 _Avoid_: Handler, dispatcher, engine
+
+**Port / SessionAPI**:
+The driving port — a typed, segregated interface surface that frontends consume instead of coupling to the concrete Controller. Composed of 14 sub-ports (Lifecycle, TurnControl, Approvals, Goals, SessionHistory, MemoryControl, Capabilities, Status, SessionPersistence, Input, Settings, MeshState, LearnState, ScheduleState). Each frontend depends only on the sub-ports it uses.
+_Avoid_: API, facade, wrapper
 
 **Prefix**:
 The byte-stable front of the context window — system prompt, tool schemas, and memory files. Frozen after the first turn so DeepSeek's automatic prefix cache stays warm across turns. Never mutated mid-session.

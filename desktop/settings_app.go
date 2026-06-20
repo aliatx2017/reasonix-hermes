@@ -1350,7 +1350,7 @@ func (a *App) RemoveProviderAccess(name string) error {
 
 type providerRemovalTab struct {
 	id   string
-	ctrl *control.Controller
+	ctrl control.SessionAPI
 }
 
 func providerAccessFallbackRef(c *config.Config, name string) string {
@@ -1897,7 +1897,7 @@ func (a *App) SetReasoningLanguage(lang string) error {
 func (a *App) applyReasoningLanguageToLiveControllers(fallback string) {
 	type liveTab struct {
 		root string
-		ctrl *control.Controller
+		ctrl control.SessionAPI
 	}
 	var tabs []liveTab
 	a.mu.RLock()

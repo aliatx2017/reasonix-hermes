@@ -268,6 +268,25 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 	}
 	b.WriteString("\n")
 
+	// [agent.auxiliary] — optional cheaper providers for compaction, vision, and web extraction.
+	renderAuxModel := func(label string, ref AuxModelRef) {
+		if ref.IsSet() {
+			fmt.Fprintf(&b, "%s = { provider = %q, model = %q }\n", label, ref.Provider, ref.Model)
+		} else {
+			fmt.Fprintf(&b, "# %s = { provider = \"deepseek\", model = \"deepseek-v4-flash\" }\n", label)
+		}
+	}
+	hasAux := c.Agent.Auxiliary.Compression.IsSet() || c.Agent.Auxiliary.Vision.IsSet() || c.Agent.Auxiliary.WebExtract.IsSet()
+	if hasAux {
+		b.WriteString("[agent.auxiliary]\n")
+		renderAuxModel("compression", c.Agent.Auxiliary.Compression)
+		renderAuxModel("vision", c.Agent.Auxiliary.Vision)
+		renderAuxModel("web_extract", c.Agent.Auxiliary.WebExtract)
+		b.WriteString("\n")
+	}
+
+	b.WriteString("\n")
+
 	if len(c.Profiles) > 0 && (scope == RenderScopeFull || scope == RenderScopeUser) {
 		renderProfiles(&b, c.Profiles)
 	}
