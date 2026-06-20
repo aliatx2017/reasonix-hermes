@@ -229,7 +229,7 @@ func (b *Bridge) doctorCheck() (string, error) {
 		report.WriteString("⚠️  **Go**: Not available\n")
 	}
 
-	report.WriteString(fmt.Sprintf("\n---\nBridge version: %s\nTimestamp: %s\n", version, time.Now().Format(time.RFC3339)))
+	fmt.Fprintf(&report, "\n---\nBridge version: %s\nTimestamp: %s\n", version, time.Now().Format(time.RFC3339))
 	return report.String(), nil
 }
 
@@ -294,9 +294,9 @@ func (b *Bridge) orchestrateTask(task string) (string, error) {
 	sb.WriteString(decomposition)
 	sb.WriteString("\n\n## Execution Results\n")
 	for _, r := range results {
-		sb.WriteString(fmt.Sprintf("### Step %d: %s\n", r.index+1, r.desc))
+		fmt.Fprintf(&sb, "### Step %d: %s\n", r.index+1, r.desc)
 		if r.err != nil {
-			sb.WriteString(fmt.Sprintf("❌ Error: %v\n", r.err))
+			fmt.Fprintf(&sb, "❌ Error: %v\n", r.err)
 		} else {
 			sb.WriteString(r.out)
 			if !strings.HasSuffix(r.out, "\n") {

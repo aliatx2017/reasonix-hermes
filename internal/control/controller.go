@@ -2214,7 +2214,9 @@ func (c *Controller) snapshot(markActivity bool) error {
 	if c.learner != nil {
 		c.mu.Lock()
 		if !c.learnerLoaded {
-			c.learner.Load(learningPath(path))
+			if err := c.learner.Load(learningPath(path)); err != nil {
+				slog.Warn("controller: load learner", "err", err)
+			}
 			c.learnerLoaded = true
 		}
 		c.mu.Unlock()

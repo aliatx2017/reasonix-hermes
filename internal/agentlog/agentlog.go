@@ -164,7 +164,7 @@ func rotateLog(logPath string, maxBytes int64, maxBackups int) {
 	for i := maxBackups - 1; i >= 1; i-- {
 		old := logPath + "." + strconv.Itoa(i)
 		new := logPath + "." + strconv.Itoa(i+1)
-		os.Rename(old, new)
+		_ = os.Rename(old, new)
 	}
 
 	// Rotate the current file: logPath → logPath.1.

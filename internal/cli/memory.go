@@ -57,7 +57,7 @@ func (m *chatTUI) publishSession() {
 	html := publish.ToHTML(s)
 
 	outDir := filepath.Join(m.ctrl.SessionDir(), "published")
-	os.MkdirAll(outDir, 0o755)
+	_ = os.MkdirAll(outDir, 0o755)
 	fname := fmt.Sprintf("session-%s.html", time.Now().Format("2006-01-02-150405"))
 	outPath := filepath.Join(outDir, fname)
 	if err := os.WriteFile(outPath, []byte(html), 0o644); err != nil {

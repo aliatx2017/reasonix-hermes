@@ -2,8 +2,6 @@
 package control
 
 import (
-	"fmt"
-
 	"reasonix/internal/config"
 )
 
@@ -34,16 +32,4 @@ func (c *Controller) ToggleSound(on bool) bool {
 		c.notice("completion sound off")
 	}
 	return true
-}
-
-// beep writes an ASCII bell character to stdout when the completion-sound config
-// flag is enabled. Called after each turn completes.
-func (c *Controller) beep() {
-	cfg, err := config.Load()
-	if err != nil {
-		return
-	}
-	if cfg.Notifications.Sound {
-		fmt.Print("\a")
-	}
 }

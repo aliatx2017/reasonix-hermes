@@ -120,7 +120,7 @@ type BashFunc func(ctx context.Context, command string) (string, error)
 func CIFix(ctx context.Context, runBash BashFunc, runTurn TurnFunc, ciCommand string) (*CIFixResult, error) {
 	ciOutput, err := runBash(ctx, ciCommand)
 	if err != nil {
-		// Non-zero exit is expected when tests fail. Still parse the output.
+		_ = err // expected: non-zero exit when tests fail, still parse output
 	}
 	failures := parseCIFailures(ciOutput)
 	if len(failures) == 0 {

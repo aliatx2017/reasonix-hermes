@@ -158,9 +158,9 @@ func (l *Learner) BuildReflectionPrompt() string {
 	if len(l.patterns) > 0 {
 		b.WriteString("## Detected Patterns\n\n")
 		for _, p := range l.patterns {
-			b.WriteString(fmt.Sprintf("- **%s** (confidence=%d)\n", p.Name, p.Confidence))
-			b.WriteString(fmt.Sprintf("  Trigger: %s\n", p.Trigger))
-			b.WriteString(fmt.Sprintf("  Action: %s\n\n", p.Action))
+			fmt.Fprintf(&b, "- **%s** (confidence=%d)\n", p.Name, p.Confidence)
+			fmt.Fprintf(&b, "  Trigger: %s\n", p.Trigger)
+			fmt.Fprintf(&b, "  Action: %s\n\n", p.Action)
 		}
 	}
 
@@ -170,7 +170,7 @@ func (l *Learner) BuildReflectionPrompt() string {
 		start = len(l.observations) - 10
 	}
 	for _, obs := range l.observations[start:] {
-		b.WriteString(fmt.Sprintf("Turn %d: %s\n", obs.Turn, obs.Task))
+		fmt.Fprintf(&b, "Turn %d: %s\n", obs.Turn, obs.Task)
 		if len(obs.ToolCalls) > 0 {
 			names := make([]string, len(obs.ToolCalls))
 			for i, tc := range obs.ToolCalls {
@@ -180,7 +180,7 @@ func (l *Learner) BuildReflectionPrompt() string {
 				}
 				names[i] = stat + tc.Name
 			}
-			b.WriteString(fmt.Sprintf("  Tools: %s\n", strings.Join(names, ", ")))
+			fmt.Fprintf(&b, "  Tools: %s\n", strings.Join(names, ", "))
 		}
 	}
 
@@ -196,15 +196,15 @@ func (l *Learner) SuggestSkill(p Pattern) string {
 		name = "skill-" + name
 	}
 	b.WriteString("---\n")
-	b.WriteString(fmt.Sprintf("name: %s\n", name))
-	b.WriteString(fmt.Sprintf("description: Auto-detected pattern: %s (confidence=%d)\n", p.Name, p.Confidence))
-	b.WriteString(fmt.Sprintf("trigger: %s\n", p.Trigger))
+	fmt.Fprintf(&b, "name: %s\n", name)
+	fmt.Fprintf(&b, "description: Auto-detected pattern: %s (confidence=%d)\n", p.Name, p.Confidence)
+	fmt.Fprintf(&b, "trigger: %s\n", p.Trigger)
 	b.WriteString("runAs: inline\n")
 	b.WriteString("---\n\n")
-	b.WriteString(fmt.Sprintf("# %s\n\n", p.Name))
-	b.WriteString(fmt.Sprintf("**Detected by Reasonix learner** (observed %d times).\n\n", p.Confidence))
-	b.WriteString(fmt.Sprintf("## Trigger\n\n%s\n\n", p.Trigger))
-	b.WriteString(fmt.Sprintf("## Action\n\n%s\n\n", p.Action))
+	fmt.Fprintf(&b, "# %s\n\n", p.Name)
+	fmt.Fprintf(&b, "**Detected by Reasonix learner** (observed %d times).\n\n", p.Confidence)
+	fmt.Fprintf(&b, "## Trigger\n\n%s\n\n", p.Trigger)
+	fmt.Fprintf(&b, "## Action\n\n%s\n\n", p.Action)
 	b.WriteString("## Review\n\n")
 	b.WriteString("This skill was automatically suggested. Please review the trigger and action ")
 	b.WriteString("before saving — the learner may have detected a coincidence, not a genuine workflow.\n")

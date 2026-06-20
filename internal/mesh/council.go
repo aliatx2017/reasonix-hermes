@@ -71,7 +71,7 @@ func (c *Council) Consensus() string {
 
 	var succeeded, failed int
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("## Council Results (%d peers)\n\n", len(c.proposals)))
+	fmt.Fprintf(&b, "## Council Results (%d peers)\n\n", len(c.proposals))
 
 	// Sort by name for stable output
 	sorted := make([]DelegationResult, len(c.proposals))
@@ -81,14 +81,14 @@ func (c *Council) Consensus() string {
 	for _, r := range sorted {
 		if r.Success {
 			succeeded++
-			b.WriteString(fmt.Sprintf("### %s ✅ (%v)\n%s\n\n", r.Peer, r.Duration.Round(time.Millisecond), r.Response))
+			fmt.Fprintf(&b, "### %s ✅ (%v)\n%s\n\n", r.Peer, r.Duration.Round(time.Millisecond), r.Response)
 		} else {
 			failed++
-			b.WriteString(fmt.Sprintf("### %s ❌ (%v)\nError: %s\n\n", r.Peer, r.Duration.Round(time.Millisecond), r.Error))
+			fmt.Fprintf(&b, "### %s ❌ (%v)\nError: %s\n\n", r.Peer, r.Duration.Round(time.Millisecond), r.Error)
 		}
 	}
 
-	b.WriteString(fmt.Sprintf("---\n**Summary**: %d succeeded, %d failed out of %d peers.\n", succeeded, failed, len(sorted)))
+	fmt.Fprintf(&b, "---\n**Summary**: %d succeeded, %d failed out of %d peers.\n", succeeded, failed, len(sorted))
 
 	return b.String()
 }
@@ -116,7 +116,7 @@ func (c *Council) Merge() string {
 	b.WriteString("Note agreements, disagreements, and any unique insights from individual peers.\n\n")
 
 	for i, r := range succeeded {
-		b.WriteString(fmt.Sprintf("## Peer %d: %s\n%s\n\n", i+1, r.Peer, r.Response))
+		fmt.Fprintf(&b, "## Peer %d: %s\n%s\n\n", i+1, r.Peer, r.Response)
 	}
 
 	if len(succeeded) > 1 {
@@ -148,7 +148,7 @@ func (c *Council) judgePrompt() string {
 	b.WriteString("Here are the peer responses:\n\n")
 
 	for i, r := range succeeded {
-		b.WriteString(fmt.Sprintf("--- Model %d: %s ---\n%s\n\n", i+1, r.Peer, r.Response))
+		fmt.Fprintf(&b, "--- Model %d: %s ---\n%s\n\n", i+1, r.Peer, r.Response)
 	}
 	return b.String()
 }

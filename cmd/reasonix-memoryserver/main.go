@@ -257,7 +257,7 @@ func (ms *MemoryStore) load() error {
 	var maxID int64
 	for _, e := range ms.entries {
 		var n int64
-		fmt.Sscanf(e.ID, "mem-%d-", &n)
+		_, _ = fmt.Sscanf(e.ID, "mem-%d-", &n)
 		if n > maxID {
 			maxID = n
 		}
@@ -488,16 +488,16 @@ func (ms *MemoryStore) Reflect(sessionID string) string {
 	}
 
 	var out strings.Builder
-	out.WriteString(fmt.Sprintf("# Session Reflection: %s\n\n", sessionID))
-	out.WriteString(fmt.Sprintf("%d memories retained:\n\n", len(sessionMemories)))
+	fmt.Fprintf(&out, "# Session Reflection: %s\n\n", sessionID)
+	fmt.Fprintf(&out, "%d memories retained:\n\n", len(sessionMemories))
 	var denseCount int
 	for _, e := range sessionMemories {
-		out.WriteString(fmt.Sprintf("- [%s] %s\n", e.CreatedAt.Format("Jan 2 15:04"), truncateStr(e.Content, 100)))
+		fmt.Fprintf(&out, "- [%s] %s\n", e.CreatedAt.Format("Jan 2 15:04"), truncateStr(e.Content, 100))
 		if len(e.DenseVector) > 0 {
 			denseCount++
 		}
 	}
-	out.WriteString(fmt.Sprintf("\n---\n%d/%d have dense embeddings.\n", denseCount, len(sessionMemories)))
+	fmt.Fprintf(&out, "\n---\n%d/%d have dense embeddings.\n", denseCount, len(sessionMemories))
 	return out.String()
 }
 
@@ -610,9 +610,9 @@ func (h *memoryHandler) handle(name string, args map[string]any) (string, error)
 			return "No matching memories found.", nil
 		}
 		var sb strings.Builder
-		sb.WriteString(fmt.Sprintf("# Found %d memories:\n\n", len(entries)))
+		fmt.Fprintf(&sb, "# Found %d memories:\n\n", len(entries))
 		for _, e := range entries {
-			sb.WriteString(fmt.Sprintf("- [%s] %s\n", e.ID, e.Content))
+			fmt.Fprintf(&sb, "- [%s] %s\n", e.ID, e.Content)
 		}
 		return sb.String(), nil
 

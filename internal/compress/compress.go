@@ -171,27 +171,6 @@ func sha256Hex(s string) string {
 	return fmt.Sprintf("%x", h)
 }
 
-// evictLocked removes the oldest half of cache entries. Must be called with mu held.
-func (c *Compressor) evictLocked() {
-	target := c.maxCache / 2
-	if target < 1 {
-		target = 1
-	}
-	// Collect entries sorted by turn (oldest first).
-	type item struct {
-		key  string
-		turn int
-	}
-	items := make([]item, 0, len(c.cache))
-	for k, v := range c.cache {
-		items = append(items, item{key: k, turn: v.turn})
-	}
-	sort.Slice(items, func(i, j int) bool { return items[i].turn < items[j].turn })
-	for _, it := range items[:len(items)-target] {
-		delete(c.cache, it.key)
-	}
-}
-
 func firstLine(s string, maxLen int) string {
 	// Take the first non-empty line, trimmed. Uses rune-aware truncation to
 	// avoid cutting multi-byte UTF-8 characters in half.

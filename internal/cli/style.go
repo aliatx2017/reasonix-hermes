@@ -42,10 +42,6 @@ const (
 	// still refer to this concrete escape sequence.
 	ansiAccent = "\033[38;5;173m"
 
-	// Logo palette — matches the Diamond Wing SVG gradient.
-	ansiLogoIndigo = "\033[38;2;99;102;241m" // #6366f1
-	ansiLogoCyan   = "\033[38;2;6;182;212m"  // #06b6d4
-	ansiLogoPink   = "\033[38;2;217;70;239m"  // #d946ef
 )
 
 func sgr(code, s string) string {

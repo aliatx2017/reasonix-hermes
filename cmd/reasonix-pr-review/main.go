@@ -165,11 +165,11 @@ func buildReviewPrompt(title, body, diff string) string {
 	b.WriteString("- Final summary: one-paragraph verdict with merge recommendation.\n")
 	b.WriteString("- Be concise. Skip praise — focus on what would cause rejection.\n\n")
 
-	b.WriteString(fmt.Sprintf("## PR: %s\n\n", title))
+	fmt.Fprintf(&b, "## PR: %s\n\n", title)
 	if body != "" {
-		b.WriteString(fmt.Sprintf("### Description\n%s\n\n", body))
+		fmt.Fprintf(&b, "### Description\n%s\n\n", body)
 	}
-	b.WriteString(fmt.Sprintf("### Diff\n```diff\n%s\n```\n", truncate(diff, 50000)))
+	fmt.Fprintf(&b, "### Diff\n```diff\n%s\n```\n", truncate(diff, 50000))
 
 	return b.String()
 }

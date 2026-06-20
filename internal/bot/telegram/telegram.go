@@ -199,7 +199,8 @@ func (a *Adapter) handleUpdate(update tgbotapi.Update) {
 	} else if m.Chat.IsSuperGroup() || m.Chat.IsGroup() {
 		chatType = bot.ChatGroup
 		if m.IsCommand() {
-			// Commands in groups need @botname unless it's a DM
+			// TODO: handle group commands with @botname
+			_ = chatType // placeholder; will be replaced when command handling is added
 		}
 	} else if m.Chat.IsChannel() {
 		chatType = bot.ChatGuild

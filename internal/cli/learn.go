@@ -51,7 +51,7 @@ func (m *chatTUI) showPatterns(l *learn.Learner) {
 	}
 
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("Learner: %d pattern(s) detected\n", len(patterns)))
+	fmt.Fprintf(&b, "Learner: %d pattern(s) detected\n", len(patterns))
 	for i, p := range patterns {
 		conf := "▁"
 		if p.Confidence >= 3 {
@@ -63,12 +63,12 @@ func (m *chatTUI) showPatterns(l *learn.Learner) {
 		if p.Confidence >= 8 {
 			conf = "█"
 		}
-		b.WriteString(fmt.Sprintf("  %s %s → %s (×%d)\n", conf, p.Trigger, p.Action, p.Confidence))
+		fmt.Fprintf(&b, "  %s %s → %s (×%d)\n", conf, p.Trigger, p.Action, p.Confidence)
 		_ = i
 	}
-	b.WriteString(fmt.Sprintf("\n/learn trajectories — view multi-turn sequences\n"))
-	b.WriteString(fmt.Sprintf("/learn reflect — have the agent reflect and generate skills\n"))
-	b.WriteString(fmt.Sprintf("Set [learn].min_confidence to tune sensitivity"))
+	b.WriteString("\n/learn trajectories — view multi-turn sequences\n")
+	b.WriteString("/learn reflect — have the agent reflect and generate skills\n")
+	b.WriteString("Set [learn].min_confidence to tune sensitivity")
 
 	m.commitLine(b.String())
 }
@@ -81,12 +81,12 @@ func (m *chatTUI) showTrajectories(l *learn.Learner) {
 	}
 
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("Learner: %d trajectory(s)\n", len(trajs)))
+	fmt.Fprintf(&b, "Learner: %d trajectory(s)\n", len(trajs))
 	for _, t := range trajs {
-		b.WriteString(fmt.Sprintf("  %s (%d turns, %d×)\n", t.Label, t.Turns, t.Count))
+		fmt.Fprintf(&b, "  %s (%d turns, %d×)\n", t.Label, t.Turns, t.Count)
 	}
-	b.WriteString(fmt.Sprintf("\n/learn patterns — view detected patterns\n"))
-	b.WriteString(fmt.Sprintf("/learn reflect — have the agent reflect and generate skills"))
+	b.WriteString("\n/learn patterns — view detected patterns\n")
+	b.WriteString("/learn reflect — have the agent reflect and generate skills")
 
 	m.commitLine(b.String())
 }

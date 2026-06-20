@@ -97,7 +97,7 @@ func (s *sqliteStorage) Save(entries []MemoryEntry) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	// Use INSERT OR REPLACE so each entry is its own atomic upsert.
 	// The id column has a PRIMARY KEY constraint — INSERT OR REPLACE

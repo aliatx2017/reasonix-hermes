@@ -186,7 +186,7 @@ func (h *Hub) Broadcast(sessionID string, ev Event) {
 	for _, p := range targets {
 		p.mu.Lock()
 		if p.conn != nil {
-			p.conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
+			_ = p.conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
 			_ = p.conn.WriteMessage(websocket.TextMessage, raw)
 		}
 		p.mu.Unlock()

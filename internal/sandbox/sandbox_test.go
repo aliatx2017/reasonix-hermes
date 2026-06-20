@@ -535,7 +535,7 @@ func TestCommandRemoteTimeout(t *testing.T) {
 	_, err := commandRemote(spec, "sleep 10")
 	// Either succeeds quickly or times out; either way, shouldn't hang.
 	if err != nil && !strings.Contains(err.Error(), "timeout") && !strings.Contains(err.Error(), "deadline") && !strings.Contains(err.Error(), "context") {
-		// Some other error is fine too, just not a panic or hang.
+		_ = err // any other error is acceptable; test guards against panic/hang
 	}
 }
 

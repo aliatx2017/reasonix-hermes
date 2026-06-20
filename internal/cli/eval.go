@@ -87,7 +87,7 @@ func evalCommand(args []string) int {
 		return 0
 	case "list":
 		if err := evalSharedList(evalCLIRoot, out); err != nil {
-			// Non-fatal: treat as informational.
+			_ = err // Non-fatal: treat as informational.
 		}
 		return 0
 	case "clean":
@@ -209,7 +209,7 @@ func evalSharedCheck(rootDir func() string, name string, out evalOutput) error {
 
 	logPath := filepath.Join(rootDir(), name, "results.log")
 	logDir := filepath.Dir(logPath)
-	os.MkdirAll(logDir, 0o755)
+	_ = os.MkdirAll(logDir, 0o755)
 
 	f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
@@ -335,9 +335,9 @@ func evalSharedReport(rootDir func() string, name string, out evalOutput) error 
 	regPass, regTotal := evalCountResults(logData, regressions)
 
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("EVAL REPORT: %s\n", name))
+	fmt.Fprintf(&b, "EVAL REPORT: %s\n", name)
 	b.WriteString("=========================\n")
-	b.WriteString(fmt.Sprintf("Generated: %s\n\n", time.Now().Format(time.RFC3339)))
+	fmt.Fprintf(&b, "Generated: %s\n\n", time.Now().Format(time.RFC3339))
 
 	b.WriteString("CAPABILITY EVALS\n")
 	b.WriteString("----------------\n")
@@ -346,7 +346,7 @@ func evalSharedReport(rootDir func() string, name string, out evalOutput) error 
 	} else {
 		for _, c := range capabilities {
 			status := evalLatestStatus(logData, c)
-			b.WriteString(fmt.Sprintf("  [%s] %s\n", status, c))
+			fmt.Fprintf(&b, "  [%s] %s\n", status, c)
 		}
 	}
 
@@ -357,7 +357,7 @@ func evalSharedReport(rootDir func() string, name string, out evalOutput) error 
 	} else {
 		for _, r := range regressions {
 			status := evalLatestStatus(logData, r)
-			b.WriteString(fmt.Sprintf("  [%s] %s\n", status, r))
+			fmt.Fprintf(&b, "  [%s] %s\n", status, r)
 		}
 	}
 
@@ -378,9 +378,9 @@ func evalSharedReport(rootDir func() string, name string, out evalOutput) error 
 
 	b.WriteString("\nMETRICS\n")
 	b.WriteString("-------\n")
-	b.WriteString(fmt.Sprintf("Capability pass@1: %d%%\n", passAt1))
-	b.WriteString(fmt.Sprintf("Capability pass@3: %d/%d runs all-green\n", passAt3, min(3, evalCountCheckRuns(logData))))
-	b.WriteString(fmt.Sprintf("Regression pass@1: %d%%\n", regPassAt3))
+	fmt.Fprintf(&b, "Capability pass@1: %d%%\n", passAt1)
+	fmt.Fprintf(&b, "Capability pass@3: %d/%d runs all-green\n", passAt3, min(3, evalCountCheckRuns(logData)))
+	fmt.Fprintf(&b, "Regression pass@1: %d%%\n", regPassAt3)
 
 	b.WriteString("\nNOTES\n")
 	b.WriteString("-----\n")
@@ -551,7 +551,7 @@ func evalSharedList(rootDir func() string, out evalOutput) error {
 
 		defData, err := os.ReadFile(defPath)
 		if err != nil {
-			b.WriteString(fmt.Sprintf("  %-20s [ERROR: cannot read definition]\n", name))
+			fmt.Fprintf(&b, "  %-20s [ERROR: cannot read definition]\n", name)
 			continue
 		}
 		logData := ""
@@ -578,7 +578,7 @@ func evalSharedList(rootDir func() string, out evalOutput) error {
 			}
 		}
 
-		b.WriteString(fmt.Sprintf("  %-20s [%s]\n", name, status))
+		fmt.Fprintf(&b, "  %-20s [%s]\n", name, status)
 	}
 
 	out.line(b.String())
@@ -707,23 +707,23 @@ func (m *chatTUI) runEvalSubcommand(input string) {
 			out.notice("usage: /eval define <name>")
 			return
 		}
-		evalSharedDefine(m.evalTUIDir, parts[1], out)
+		_ = evalSharedDefine(m.evalTUIDir, parts[1], out)
 	case "check":
 		if len(parts) < 2 {
 			out.notice("usage: /eval check <name>")
 			return
 		}
-		evalSharedCheck(m.evalTUIDir, parts[1], out)
+		_ = evalSharedCheck(m.evalTUIDir, parts[1], out)
 	case "report":
 		if len(parts) < 2 {
 			out.notice("usage: /eval report <name>")
 			return
 		}
-		evalSharedReport(m.evalTUIDir, parts[1], out)
+		_ = evalSharedReport(m.evalTUIDir, parts[1], out)
 	case "list":
-		evalSharedList(m.evalTUIDir, out)
+		_ = evalSharedList(m.evalTUIDir, out)
 	case "clean":
-		evalSharedClean(m.evalTUIDir, out)
+		_ = evalSharedClean(m.evalTUIDir, out)
 	default:
 		out.notice(fmt.Sprintf("unknown eval subcommand: %s — try one of: define, check, report, list, clean", sub))
 	}

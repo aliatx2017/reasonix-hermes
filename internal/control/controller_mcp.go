@@ -38,10 +38,6 @@ func (c *Controller) ConnectCodegraphMCPServerForRoot(cfg *config.Config, root s
 	return c.connectCodegraphMCPServerForRoot(cfg, root)
 }
 
-func (c *Controller) connectCodegraphMCPServer(cfg *config.Config) (int, error) {
-	return c.ConnectCodegraphMCPServer(cfg)
-}
-
 func (c *Controller) connectCodegraphMCPServerForRoot(cfg *config.Config, root string) (int, error) {
 	if !cfg.Codegraph.Enabled {
 		return 0, fmt.Errorf("codegraph is disabled in config")

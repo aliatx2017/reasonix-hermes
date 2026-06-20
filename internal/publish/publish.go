@@ -102,21 +102,21 @@ code { font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospa
 	}
 	b.WriteString(s.Date.Format("January 2, 2006 15:04"))
 	b.WriteString(" · ")
-	b.WriteString(fmt.Sprintf("%d messages", len(s.Messages)))
+	fmt.Fprintf(&b, "%d messages", len(s.Messages))
 	b.WriteString("</p>\n")
 
 	// ── session stats (when available) ──
 	if s.TokensIn+s.TokensOut > 0 || s.Turns > 0 {
 		b.WriteString(`<div class="stats">`)
 		if s.TokensIn+s.TokensOut > 0 {
-			b.WriteString(fmt.Sprintf("Tokens: %d↓ / %d↑", s.TokensIn, s.TokensOut))
+			fmt.Fprintf(&b, "Tokens: %d↓ / %d↑", s.TokensIn, s.TokensOut)
 			if s.Cost > 0 {
-				b.WriteString(fmt.Sprintf(" · Cost: $%.4f", s.Cost))
+				fmt.Fprintf(&b, " · Cost: $%.4f", s.Cost)
 			}
 			b.WriteString(" · ")
 		}
 		if s.Turns > 0 {
-			b.WriteString(fmt.Sprintf("Turns: %d", s.Turns))
+			fmt.Fprintf(&b, "Turns: %d", s.Turns)
 		}
 		b.WriteString("</div>\n")
 	}

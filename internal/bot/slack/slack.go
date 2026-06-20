@@ -96,7 +96,9 @@ func (a *Adapter) Start(parentCtx context.Context) error {
 					if !ok {
 						continue
 					}
-					a.sock.Ack(*evt.Request)
+					if err := a.sock.Ack(*evt.Request); err != nil {
+					a.logger.Warn("slack: ack", "err", err)
+				}
 					a.handleEvent(apiEvent)
 				case socketmode.EventTypeDisconnect:
 					a.logger.Info("slack: socket disconnected")

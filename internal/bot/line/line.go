@@ -110,7 +110,9 @@ func (a *Adapter) Start(ctx context.Context) error {
 	go func() {
 		<-ctx.Done()
 		a.logger.Info("line: shutting down")
-		a.server.Shutdown(context.Background())
+		if err := a.server.Shutdown(context.Background()); err != nil {
+			a.logger.Error("line: shutdown", "err", err)
+		}
 		close(a.msgs)
 	}()
 

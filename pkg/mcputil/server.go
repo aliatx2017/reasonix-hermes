@@ -98,7 +98,7 @@ func (s *Server) HandleHTTP(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	resp := s.HandleMessage(body)
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(resp)
+	_, _ = w.Write(resp)
 }
 
 // ServeHTTP runs the server over HTTP with optional Bearer auth.
@@ -115,7 +115,7 @@ func (s *Server) ServeHTTP(addr, authKeyEnv string) error {
 		defer r.Body.Close()
 		resp := s.HandleMessage(body)
 		w.Header().Set("Content-Type", "application/json")
-		w.Write(resp)
+		_, _ = w.Write(resp)
 	})
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -141,7 +141,9 @@ func (s *Server) ServeHTTP(addr, authKeyEnv string) error {
 		log.Printf("[%s] shutting down...", s.Name)
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		srv.Shutdown(ctx)
+		if err := srv.Shutdown(ctx); err != nil {
+			log.Printf("[%s] shutdown error: %v", s.Name, err)
+		}
 	}()
 
 	log.Printf("[%s] HTTP server listening on %s", s.Name, addr)
