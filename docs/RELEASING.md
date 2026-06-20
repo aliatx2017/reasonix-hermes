@@ -44,8 +44,8 @@ the `release` environment deployment.
 
 1. **Develop** — PRs land on `main-v2` (branch auto-deletes on merge).
 2. **Cut a canary** before the intended release (e.g. heading for `1.4.0`):
-   - Desktop: Actions → **Release desktop** → `channel: canary`, `base_version: 1.8.0`
-   - CLI: Actions → **Release npm** → `base_version: 1.8.0`
+   - Desktop: Actions → **Release desktop** → `channel: canary`, `base_version: 1.10.0`
+   - CLI: Actions → **Release npm** → `base_version: 1.10.0`
    - Publishes `1.4.0-canary.N` to the desktop R2 `canary/` pointer (no GitHub release) and npm `@canary`.
 3. **Test** — testers install `reasonix@canary` (CLI) or grab the desktop canary
    build from its R2 link, and report bugs.

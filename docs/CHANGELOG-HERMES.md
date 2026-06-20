@@ -2,7 +2,7 @@
 
 Key milestones in the Hermes fork since June 2026.
 
-## v1.9.x (July 2026)
+## v1.9.x (June 2026)
 
 ### Session 2026-06-18 (h31) — learner wiring, exchange rates, agent logging, Discord fix
 
@@ -34,7 +34,7 @@ Key milestones in the Hermes fork since June 2026.
 
 - **Upstream merged**: v1.9.x (ef1f38c, 6 commits) — tool-call name/args backfill on old-session replay, desktop perf (redundant session reload avoidance), Windows Authenticode signing CI, test additions.
 - **1 conflict resolved**: desktop/app.go — accepted upstream's `OpenChannelSessionForTab` + `setTabReadOnly` (refactored `rebindTabToLoadedSessionPath`), removed Hermes duplicates.
-- **7 audit bug fixes** from the July 2026 deep audit:
+- **7 audit bug fixes** from the June 2026 deep audit:
   - §1.2: API key length disclosure already fixed (confirmed)
   - §2.3: Path traversal in `findSkillFile` — rejects `..`, `/`, `\` in skill names
   - §1.15: Hooks now exits 1 on errors (was always 0, masking failures)
@@ -55,7 +55,7 @@ Key milestones in the Hermes fork since June 2026.
 - **All 8 binaries rebuilt**: Jun 17 timestamps against v1.9.1.
 - **Doc-sweep**: 6 docs de-staled (v1.8.x→v1.9.x) — README, README.zh-CN, HERMES-GUIDE, PROJECT.md, RELEASING.md. SPEC.md §2 verified comprehensive (57 packages, 7 bots).
 
-## v1.8.x (July 2026)
+## v1.8.x (June 2026)
 
 ### Session 2026-06-16 (h22) — npm publish, upstream merges, token-saving doc
 - **npm publish**: `npm i -g reasonix-hermes` — one-line install published for all 6 platforms (darwin/linux/windows × arm64/amd64). Trusted publishing (OIDC) wired — future releases are CI-driven, token-free.
@@ -94,7 +94,7 @@ Key milestones in the Hermes fork since June 2026.
 - **13 test failures fixed** (zero tolerance): CWD isolation via `t.Chdir()`, HOME isolation for crash tests, restored Hermes fields dropped by merge (`SessionMeta` channel metadata, `TabMeta.ReadOnly`, `DesktopLayoutStyle`, `snapshotTab`, `OpenChannelSessionForTab`, live reasoning language propagation).
 - **Constitution**: `zero-test-failures` ERROR rule — no test failure tolerated, ever, no "pre-existing" excuse.
 
-## v1.7.0+ (July 2026)
+## v1.7.0+ (June 2026)
 
 ### Session 2026-06-15 (h13) — Golang audit, dead code, t.Parallel, council judge, docs
 - Golang patterns audit: `go vet` + `staticcheck` → 5 dead code items removed
@@ -170,7 +170,7 @@ Key milestones in the Hermes fork since June 2026.
 - Discord bot: desktop token-input UI, ConnectDiscordBot binding, CLI bot start
 - 7 new React components, 20+ Wails bindings, 38 files changed
 
-## v1.6.1 (July 2026)
+## v1.6.1 (June 2026)
 - Upstream merge: sandbox nul, cold-resume, GSAP, compact sound
 
 ## v1.6.0 (June 2026) — Fork Foundation
