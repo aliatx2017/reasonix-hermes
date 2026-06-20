@@ -144,63 +144,12 @@ func TestSessionListCacheRefillsAfterInvalidate(t *testing.T) {
 	}
 }
 
-func TestSessionDiskCachePersistsDirectorySignatures(t *testing.T) {
-	cachePath := filepath.Join(t.TempDir(), "project-session-cache.json")
-	dir := t.TempDir()
-	sessionPath := filepath.Join(dir, "one.jsonl")
-	signature := []topicSessionFileSignature{{
-		Name:    "one.jsonl",
-		Size:    42,
-		ModTime: time.Now().UnixNano(),
-	}}
-	session := agent.SessionInfo{
-		Path:           sessionPath,
-		CreatedAt:      time.Now().Add(-time.Minute),
-		LastActivityAt: time.Now(),
-		Preview:        "hello",
-		Turns:          1,
-		Scope:          "project",
-		WorkspaceRoot:  dir,
-		TopicID:        "topic-cache",
-		TopicTitle:     "Cache",
-	}
-
-	writer := &sessionDiskCache{path: cachePath}
-	if err := writer.putDir(dir, signature, []agent.SessionInfo{session}, map[string]string{"one.jsonl": "One"}); err != nil {
-		t.Fatalf("putDir: %v", err)
-	}
-	raw, err := os.ReadFile(cachePath)
-	if err != nil {
-		t.Fatalf("read cache: %v", err)
-	}
-	if text := string(raw); !strings.Contains(text, `"name": "one.jsonl"`) {
-		t.Fatalf("signature was not persisted with exported fields: %s", text)
-	}
-
-	reader := &sessionDiskCache{path: cachePath}
-	entry, ok := reader.getDir(dir, signature)
-	if !ok {
-		t.Fatalf("expected disk cache hit after reload")
-	}
-	if len(entry.Sessions) != 1 || entry.Sessions[0].Path != sessionPath || entry.Titles["one.jsonl"] != "One" {
-		t.Fatalf("disk cache entry = %+v", entry)
-	}
-	changed := append([]topicSessionFileSignature(nil), signature...)
-	changed[0].Size++
-	if _, ok := reader.getDir(dir, changed); ok {
-		t.Fatalf("disk cache hit with changed signature")
-	}
-}
-
 func TestRenameSessionInvalidatesProjectTreeCache(t *testing.T) {
 	isolateDesktopUserDirs(t)
 	oldProjectCache := projectSessionCache
-	oldDiskCache := sessionDiskCacher
 	projectSessionCache = &sessionListCache{byDir: map[string]sessionListCacheEntry{}}
-	sessionDiskCacher = &sessionDiskCache{path: filepath.Join(t.TempDir(), "project-session-cache.json")}
 	t.Cleanup(func() {
 		projectSessionCache = oldProjectCache
-		sessionDiskCacher = oldDiskCache
 	})
 
 	dir := t.TempDir()

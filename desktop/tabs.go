@@ -3486,7 +3486,6 @@ func (a *App) setTabActivityStatus(tabID, status string) bool {
 
 func (a *App) emitProjectTreeChanged() {
 	projectSessionCache.invalidate()
-	sessionDiskCacher.invalidate()
 	if a.projectTreeChangedHook != nil {
 		a.projectTreeChangedHook()
 		return
@@ -3765,36 +3764,16 @@ func (a *App) ListProjectTree() []ProjectNode {
 		go func() {
 			defer wg.Done()
 
-			// Compute signature cheaply (ReadDir + Stat, no file content).
-			sig, _, err := topicSessionDirSnapshot(dir)
-			if err != nil {
-				return
-			}
-
-			// Disk cache check: signature match avoids LoadBranchMeta + JSONL decode.
-			if entry, ok := sessionDiskCacher.getDir(dir, sig); ok {
-				infos := fromSessionInfoJSON(entry.Sessions)
-				titles := entry.Titles
-				if titles == nil {
-					titles = map[string]string{}
-				}
-				projectSessionCache.put(dir, infos, titles, cacheToken)
-				mergeMu.Lock()
-				mergeSessionInfos(dir, infos, titles, sessionInfos, sessionTitles, topicSummaries)
-				mergeMu.Unlock()
-				return
-			}
-
-			// Full read from disk (slow path).
+			// Sidecar-backed listing: ListSessions reads turn count + preview from
+			// each session's .meta sidecar, so even large directories list in a few
+			// milliseconds without decoding any .jsonl body. The in-memory
+			// projectSessionCache still elides repeat listings within a session.
 			infos, err := agent.ListSessions(dir)
 			if err != nil {
 				return
 			}
 			titles := loadSessionTitles(dir)
 			projectSessionCache.put(dir, infos, titles, cacheToken)
-
-			// Persist to disk cache for next startup.
-			_ = sessionDiskCacher.putDir(dir, sig, infos, titles)
 
 			mergeMu.Lock()
 			mergeSessionInfos(dir, infos, titles, sessionInfos, sessionTitles, topicSummaries)
@@ -4585,179 +4564,6 @@ func mergeSessionInfos(dir string, infos []agent.SessionInfo, titles map[string]
 		topicSummaries[key] = summary
 	}
 }
-
-// --- session listing disk cache -------------------------------------------------
-
-// sessionDiskCache persists ListSessions results to disk so that the project tree
-// populates immediately on restart instead of re-reading every session file. It
-// uses the same directory-level signature (file name + mtime + size) that
-// topicSessionDirSnapshot computes — if the signature matches, the cache is valid.
-//
-// Cache file: ~/.reasonix/project-session-cache.json
-
-type sessionDiskCache struct {
-	mu    sync.Mutex
-	path  string                // cache file path
-	cache *sessionDiskCacheData // nil = not loaded / stale
-}
-
-type sessionDiskCacheData struct {
-	Version int                                 `json:"version"`
-	Updated time.Time                           `json:"updated_at"`
-	ByDir   map[string]sessionDiskCacheDirEntry `json:"dirs"`
-}
-
-type sessionDiskCacheDirEntry struct {
-	Signature []topicSessionFileSignature `json:"signature"`
-	Sessions  []sessionInfoJSON           `json:"sessions"`
-	Titles    map[string]string           `json:"titles"`
-}
-
-// sessionInfoJSON is the JSON-safe representation of agent.SessionInfo for disk.
-type sessionInfoJSON struct {
-	Path           string    `json:"path"`
-	CreatedAt      time.Time `json:"created_at"`
-	LastActivityAt time.Time `json:"last_activity_at"`
-	Preview        string    `json:"preview"`
-	Turns          int       `json:"turns"`
-	Scope          string    `json:"scope"`
-	WorkspaceRoot  string    `json:"workspace_root"`
-	TopicID        string    `json:"topic_id"`
-	TopicTitle     string    `json:"topic_title"`
-}
-
-const sessionDiskCacheVersion = 1
-
-func (c *sessionDiskCache) load() (*sessionDiskCacheData, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if c.cache != nil {
-		return c.cache, nil
-	}
-	if c.path == "" {
-		c.path = filepath.Join(config.MemoryUserDir(), "project-session-cache.json")
-	}
-	data, err := os.ReadFile(c.path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			c.cache = &sessionDiskCacheData{Version: sessionDiskCacheVersion, ByDir: map[string]sessionDiskCacheDirEntry{}}
-			return c.cache, nil
-		}
-		return nil, err
-	}
-	var d sessionDiskCacheData
-	if err := json.Unmarshal(data, &d); err != nil {
-		return nil, err
-	}
-	if d.Version != sessionDiskCacheVersion {
-		c.cache = &sessionDiskCacheData{Version: sessionDiskCacheVersion, ByDir: map[string]sessionDiskCacheDirEntry{}}
-		return c.cache, nil
-	}
-	if d.ByDir == nil {
-		d.ByDir = map[string]sessionDiskCacheDirEntry{}
-	}
-	c.cache = &d
-	return c.cache, nil
-}
-
-func (c *sessionDiskCache) getDir(dir string, signature []topicSessionFileSignature) (*sessionDiskCacheDirEntry, bool) {
-	key := topicSessionDirKey(dir)
-	if key == "" {
-		return nil, false
-	}
-	data, err := c.load()
-	if err != nil {
-		return nil, false
-	}
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	entry, ok := data.ByDir[key]
-	if !ok || !topicSessionSignaturesEqual(entry.Signature, signature) {
-		return nil, false
-	}
-	return &entry, true
-}
-
-func (c *sessionDiskCache) putDir(dir string, signature []topicSessionFileSignature, sessions []agent.SessionInfo, titles map[string]string) error {
-	key := topicSessionDirKey(dir)
-	if key == "" {
-		return nil
-	}
-	data, err := c.load()
-	if err != nil {
-		return err
-	}
-	entry := sessionDiskCacheDirEntry{
-		Signature: signature,
-		Sessions:  toSessionInfoJSON(sessions),
-		Titles:    titles,
-	}
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	data.ByDir[key] = entry
-	data.Updated = time.Now()
-	raw, err := json.MarshalIndent(data, "", "  ")
-	if err != nil {
-		return err
-	}
-	path := c.path
-	if path == "" {
-		path = filepath.Join(config.MemoryUserDir(), "project-session-cache.json")
-	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return err
-	}
-	return os.WriteFile(path, raw, 0o644)
-}
-
-func (c *sessionDiskCache) invalidate() {
-	c.mu.Lock()
-	c.cache = nil
-	c.mu.Unlock()
-	// Remove the file so a crash mid-write does not leave stale data.
-	if c.path != "" {
-		os.Remove(c.path)
-	}
-}
-
-func toSessionInfoJSON(sessions []agent.SessionInfo) []sessionInfoJSON {
-	out := make([]sessionInfoJSON, len(sessions))
-	for i, s := range sessions {
-		out[i] = sessionInfoJSON{
-			Path:           s.Path,
-			CreatedAt:      s.CreatedAt,
-			LastActivityAt: s.LastActivityAt,
-			Preview:        s.Preview,
-			Turns:          s.Turns,
-			Scope:          s.Scope,
-			WorkspaceRoot:  s.WorkspaceRoot,
-			TopicID:        s.TopicID,
-			TopicTitle:     s.TopicTitle,
-		}
-	}
-	return out
-}
-
-func fromSessionInfoJSON(list []sessionInfoJSON) []agent.SessionInfo {
-	out := make([]agent.SessionInfo, len(list))
-	for i, s := range list {
-		out[i] = agent.SessionInfo{
-			Path:           s.Path,
-			CreatedAt:      s.CreatedAt,
-			LastActivityAt: s.LastActivityAt,
-			ModTime:        s.LastActivityAt,
-			Preview:        s.Preview,
-			Turns:          s.Turns,
-			Scope:          s.Scope,
-			WorkspaceRoot:  s.WorkspaceRoot,
-			TopicID:        s.TopicID,
-			TopicTitle:     s.TopicTitle,
-		}
-	}
-	return out
-}
-
-var sessionDiskCacher = &sessionDiskCache{}
 
 var topicSessionIndexCache = struct {
 	sync.Mutex

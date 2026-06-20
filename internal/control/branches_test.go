@@ -38,6 +38,11 @@ func TestBranchAndSwitch(t *testing.T) {
 	if meta.ParentID != rootID || meta.Name != "try something" {
 		t.Fatalf("child meta = %+v, want parent %q and name", meta, rootID)
 	}
+	// Branch must seed the listing-only sidecar fields at creation, so the
+	// sidebar never has to decode the new .jsonl to show its turn count/preview.
+	if meta.Turns != 1 || meta.Preview != "root prompt" {
+		t.Fatalf("child meta should carry turns/preview from creation: turns=%d preview=%q", meta.Turns, meta.Preview)
+	}
 
 	if _, err := c.SwitchBranch(rootID); err != nil {
 		t.Fatal(err)
