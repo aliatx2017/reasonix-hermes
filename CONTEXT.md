@@ -23,7 +23,7 @@ An isolated child agent spawned by the parent for a focused sub-task. Its tool c
 _Avoid_: Worker, child task, delegate
 
 **Plan Mode**:
-A read-only agent posture that denies writer tools (write_file, edit_file, apply_patch) while permitting reads. Activated by `/plan` or auto-detected from ambiguous input. Prepends a `[PLAN MODE]` marker to user turns so the LLM knows writes will be blocked.
+A read-only agent posture that blocks writer tools. Four tool names are unconditionally denied: `write_file`, `edit_file`, `multi_edit`, `apply_patch`. Every other non-ReadOnly tool is also blocked with a generic message (the agent can request `plan_mode_allowed_tools` exceptions in config). Bash commands with chaining/redirection metacharacters are blocked even if the prefix matches a safe command. Plan mode is activated by `/plan` or auto-detected from ambiguous input. Prepends a `[PLAN MODE]` marker to user turns so the LLM knows writes will be blocked.
 _Avoid_: Dry run, preview mode
 
 **Goal**:
@@ -64,6 +64,10 @@ _Avoid_: Client, interface, UI
 The interface-based plugin system. Providers and tools self-register via Go `init()` functions. Resolution is by name from configuration, not by hardcoded switch statements.
 _Avoid_: Plugin system, module system
 
+**Coordinator**:
+A two-model collaboration runner where a distinct planner model (with its own session) wraps an executor agent. The planner gets a read-only research tool set to inspect rules and code without side effects. Keeps each model's prompt cache stable by isolating sessions. Activated via `planner_model` in config.
+_Avoid_: Planner, orchestrator, two-stage pipeline
+
 ### Multi-agent & bots
 
 **Mesh**:
@@ -95,7 +99,7 @@ _Avoid_: Savepoint, rollback point
 ### Persistence
 
 **Session**:
-A single conversation with the agent, persisted to disk as a transcript directory under `.reasonix/projects/`. Contains message history, tool outputs, and sidecar metadata (`.sessionstats`, `.meta`).
+A single conversation with the agent, persisted to disk as a transcript directory under `.reasonix/projects/`. Contains message history (`.jsonl`), tool outputs, and sidecar metadata (`.sessionstats`, `.meta`, `.learning`, `.ckpt`).
 _Avoid_: Chat, conversation, transcript (the session includes metadata beyond the transcript)
 
 **Memory**:
