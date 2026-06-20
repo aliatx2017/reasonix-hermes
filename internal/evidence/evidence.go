@@ -287,7 +287,7 @@ func (l *Ledger) IncompleteLatestTodos() ([]TodoStepMatch, bool) {
 
 // IncompleteTodos returns the items of a todo list that are not completed.
 func IncompleteTodos(todos []TodoItem) []TodoStepMatch {
-	incomplete := make([]TodoStepMatch, 0)
+	incomplete := make([]TodoStepMatch, 0, len(todos))
 	for j, t := range todos {
 		status := todoStatus(t.Status)
 		if status == "completed" {

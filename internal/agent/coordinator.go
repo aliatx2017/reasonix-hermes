@@ -355,7 +355,7 @@ func executorToolHandoffContext(a *Agent) string {
 		return ""
 	}
 	toolNames := make([]string, 0, len(schemas))
-	mcpNames := make([]string, 0)
+	mcpNames := make([]string, 0, len(schemas))
 	for _, schema := range schemas {
 		name := strings.TrimSpace(schema.Name)
 		if name == "" {
