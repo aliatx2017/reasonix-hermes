@@ -37,7 +37,7 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 ## Notes
 
 - **Upstream synced**: `v1.10.0` (commit 051239b6, 2026-06-21). 30 syncs total — merged: 051239b6 (h53, 18 commits). Previous sync: 9ada1417 (h50, 13 commits).
-- **Commit**: session 2026-06-21 (h53) — upstream merge (051239b6, 18 commits): desktop shortcuts integration, sidebar Cmd+1-10 nav, Cmd+K palette focus fix, ⌘B/⌘⇧B shell/sidebar toggle swap, panel spacing fixes, color/background fixes. 4 conflicts all resolved (accepting upstream: keyboardShortcuts.ts ShortcutAction additions + shell.toggle→sidebar.toggle swap, CommandPalette.tsx active=-1 + useCallback/useLayoutEffect, keyboard-shortcuts.test.ts topicShortcutIndexFromEvent import, app-chrome-tabs.test.ts bg-elev variable). 14 files changed in merge. All 9 binaries rebuilt. Full test suite (76 packages) + desktop tests + tsc clean. h52 guard tests re-verified (24/24 pass). Upstream sync count: 30.
+- **Commit**: session 2026-06-21 (h53) — upstream merge + hotbar restoration + system-wide fingerprint defense + silent-loss restoration + doc-sweep. Upstream: 051239b6 (18 commits — desktop shortcuts, Cmd+1-10 nav, palette fix, shell/sidebar toggle swap, panel/color fixes). 4 conflicts resolved. Hotbar: keyboard handler for digit keys 1-7 restored (lost since v1.6.0 merge Jun 12 — 9 days dead). RightDockMode "none" restored. Fingerprint guards: 92 structural assertions across 17 shared files (69 Go + 23 TS) run as pre-commit gate — any upstream merge that silently drops a Hermes code block fails .reasonix/check. Git-history audit: diffed every Hermes-authored commit against current code, found 4 silent losses. Restored 3: languagePolicy (hard English-only enforcement), workshopSynthesizer + WorkshopThreshold (background synthesis sidecar, agent code existed but boot wiring was gone), sound field in render.go. 1 unrestorable: runWithAutoResume (architecture changed). Constitution: new frontend-guard-tests rule. Doc-sweep: 3 stale claims fixed (package counts 70→56, beep→ToggleSound). CHANGELOG-HERMES enriched. Skill: complete-step-evidence installed. 8 commits pushed, 30 syncs total. All 9 binaries rebuilt. Full test suite (76 packages) + desktop tests + tsc clean.
 
 - **Commit**: session 2026-06-21 (h52) — regression fixes + 32 guard tests. Two regressions from lost upstream-merge wiring fixed: (1) sqz counter missing from CLI (CompressToolOutput config never reached agent.Options — compressor always disabled), (2) desktop hotbar always unconfigured (SettingsView struct missing Hotbar/Profiles/ActiveProfile fields + no Wails bindings). 32 guard tests added across 3 files: 15 config field compile-time guards (every Hermes Config field), 4 boot wiring guards (exchange rate, schedule, mesh, learner → controller), 12 desktop binding guards (hotbar, 8 Wails methods, profiles). 6 files changed. All 9 binaries rebuilt. Full test suite + tsc clean. No upstream check this session.
 
@@ -199,12 +199,12 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 ## Next session — ideas & follow-ups
 
 - **Upstream sync**: ✅ Done — 051239b6 (h53). Check again next session.
-- **CHANGELOG-HERMES**: h53 needs entry added.
-- **NPM tag**: Consider cutting when we have a more substantial batch.
-- **agent-reach e2e**: Verify agent-reach works from within a new Reasonix CLI session (sandbox fix requires binary restart).
+- **CHANGELOG-HERMES**: ✅ Done — h53 entry expanded.
+- **agent-reach e2e**: Pending since h47 — sandbox fix needs live verification. Verify agent-reach works from within a new Reasonix CLI session.
 - **headroom integration**: Wire `headroom mcp` as a squeeze-gated MCP server, or `headroom proxy` as a cost-saving proxy.
 - **markitdown-mcp integration**: Register `.venv-tools/bin/markitdown-mcp` as a stdio MCP server in config.
 - **taste-skill testing**: Test the design-direction skills on desktop frontend changes.
+- **NPM tag**: Consider cutting when we have a more substantial batch.
 
 ### Session 2026-06-13 (expansion plan execution)
 
