@@ -967,7 +967,7 @@ export function WorkspacePanel({
   const revealInFileManager = () => {
     if (!treeMenu) return;
     setTreeMenu(null);
-    void app.RevealWorkspacePath(treeMenu.path).catch(() => {});
+    void app.RevealWorkspacePath(treeMenu.path).catch((e) => { console.warn('WorkspacePanel: reveal path failed', e) });
   };
 
   const renderNormalRow = (row: TreeRow) => {

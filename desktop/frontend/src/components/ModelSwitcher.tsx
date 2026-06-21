@@ -29,7 +29,7 @@ export function ModelSwitcher({ label, tabId, onPick }: { label: string; tabId?:
   }, []);
 
   const loadModels = useCallback(() => {
-    return (tabId ? app.ModelsForTab(tabId) : app.Models()).then((next) => setModels(asArray(next))).catch(() => {});
+    return (tabId ? app.ModelsForTab(tabId) : app.Models()).then((next) => setModels(asArray(next))).catch((e) => { console.warn('ModelSwitcher: load models failed', e) });
   }, [tabId]);
 
   useEffect(() => {

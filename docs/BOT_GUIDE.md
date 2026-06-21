@@ -88,6 +88,17 @@ approval modes.
 WeChat does not provide interactive card buttons here, so approvals and Ask
 questions are handled through text commands.
 
+### QQ
+
+1. In **Settings → Bots → Add IM Bot**, choose **QQ**.
+2. Generate a QR code.
+3. Scan it with QQ to sign in to Bot Assistant.
+4. Wait until the page shows the connection as connected.
+5. Send the QQ bot a message.
+
+QQ uses the same QR-based binding flow as WeChat. Approvals and Ask questions
+are handled through text commands.
+
 ## Run the bot headlessly
 
 The desktop app is the easiest way to create and test bot connections, but the

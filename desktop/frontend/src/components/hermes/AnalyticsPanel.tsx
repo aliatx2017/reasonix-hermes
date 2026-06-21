@@ -15,7 +15,7 @@ export function AnalyticsPanel() {
       app
         .TurnTimeline()
         .then(setTimeline)
-        .catch(() => {});
+        .catch((e) => { console.warn('hermes: turn timeline poll failed', e) });
     }, 5000);
     return () => clearInterval(iv);
   }, []);

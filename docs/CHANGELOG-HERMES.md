@@ -2,6 +2,15 @@
 
 Key milestones in the Hermes fork since June 2026.
 
+## v1.10.x (June 2026)
+
+### Session 2026-06-21 (h50) — upstream sync + coding-standards audit + doc-sweep
+
+- **Upstream**: merged 9ada1417 (13 commits: agent step limits user-global, cancelled batch results preservation, TUI cancel-escape integration, pwsh chaining + install path, todo cleared state fix, auto-plan user-level). 3 conflicts resolved: CHANGELOG.md, settings-refresh-snapshot test, agent.go (kept outcomes return for Hermes learner). 29 syncs total.
+- **Coding-standards audit**: 70 silent `.catch(() => {})` → `console.warn` across 27 desktop frontend files (useController.ts, StatusBar.tsx, Composer.tsx, 9 hermes components, WriteMode.tsx, etc.) — backend failures now visible in console instead of silently swallowed. 10 `any` holes typed (SetDesktopHotbar→HotbarView, SetProfiles→Record<string,ProfileView>, 4 Wails EventsOn payloads, 5 Promise<any>→proper types in bridge.ts). tsc --noEmit 0 errors.
+- **Doc-sweep**: 102 docs inventoried, 12 stale claims fixed across 11 files (CODEMAPS source paths ×4, binary name, year ×2, pricing date, ecosystem version ×4). SPEC.md enriched with `pkg/` tree. QQ bot section added to BOT_GUIDE (EN + ZH-CN). i18n verified balanced via TestCatalogsComplete (335 keys × 3 catalogs).
+- **Build**: All 9 binaries rebuilt. Full test suite (77 packages) + tsc clean.
+
 ## v1.9.x (June 2026)
 
 ### Session 2026-06-20 (h46) — upstream sync + audit bug fixes + desktop CSS fix

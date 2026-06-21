@@ -801,7 +801,7 @@ function TaskEditor({
     app
       .ListWorkspaces()
       .then((list) => setWorkspaces(list ?? []))
-      .catch(() => {});
+      .catch((e) => { console.warn('HeartbeatPanel: list workspaces failed', e) });
   }, []);
 
   useEffect(() => {

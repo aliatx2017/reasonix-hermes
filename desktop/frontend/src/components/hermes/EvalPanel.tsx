@@ -22,7 +22,7 @@ export function EvalPanel() {
       app
         .ListSessions()
         .then(setSessions)
-        .catch(() => {});
+        .catch((e) => { console.warn('hermes: session list poll failed', e) });
     }, 15000);
     return () => clearInterval(iv);
   }, []);

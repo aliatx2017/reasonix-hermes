@@ -21,7 +21,7 @@ export function SubagentTreePanel() {
         app
           .SubagentTree()
           .then(setNodes)
-          .catch(() => {});
+          .catch((e) => { console.warn('hermes: subagent tree fetch (push path) failed', e) });
         return () => {
           try {
             unsub();
@@ -38,13 +38,13 @@ export function SubagentTreePanel() {
     app
       .SubagentTree()
       .then(setNodes)
-      .catch(() => {});
+      .catch((e) => { console.warn('hermes: subagent tree fetch failed', e) });
     const id = setInterval(
       () =>
         app
           .SubagentTree()
           .then(setNodes)
-          .catch(() => {}),
+          .catch((e) => { console.warn('hermes: subagent tree poll failed', e) }),
       10000,
     );
     return () => clearInterval(id);

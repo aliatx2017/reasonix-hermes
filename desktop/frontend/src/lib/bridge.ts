@@ -43,11 +43,17 @@ import type {
   FilePreview,
   GoalProgressView,
   HistoryMessage,
+  HotbarView,
   HookConfigView,
   HooksSettingsView,
   JobView,
   MCPServerInput,
+  LearnedPatternView,
+  LearnedTrajectoryView,
+  LobeHubSyncMeta,
   MarkdownFileEntry,
+  MarketplaceEntryView,
+  MemoryDashboardView,
   MemoryFactView,
   MemorySuggestion,
   MemorySuggestionsView,
@@ -56,6 +62,7 @@ import type {
   ModelInfo,
   NetworkView,
   ProjectNode,
+  ProfileView,
   PromptHistoryEntry,
   PromptHistoryResult,
   ProviderView,
@@ -63,6 +70,7 @@ import type {
   ServerView,
   SessionMeta,
   SessionTokensView,
+  ScheduleDashboardView,
   SettingsView,
   SkillsSettingsView,
   SkillRootView,
@@ -356,17 +364,17 @@ export interface AppBindings {
   FIMComplete(code: string, cursor: number): Promise<FIMResult>;
   GoalProgress(): Promise<GoalProgressView>;
   GoalProgressForTab(tabID: string): Promise<GoalProgressView>;
-  LastLobeHubSync(): Promise<any>;
-  LearnedPatterns(): Promise<any>;
+  LastLobeHubSync(): Promise<LobeHubSyncMeta>;
+  LearnedPatterns(): Promise<[LearnedPatternView[], LearnedTrajectoryView[]]>;
   ListMarkdownFiles(): Promise<MarkdownFileEntry[]>;
-  MarketplaceRegistry(): Promise<any>;
-  MemoryDashboard(): Promise<any>;
+  MarketplaceRegistry(): Promise<MarketplaceEntryView[]>;
+  MemoryDashboard(): Promise<MemoryDashboardView>;
   MemoryFacts(): Promise<MemoryFactView[]>;
   PublishSessionHTML(): Promise<string>;
   PublishSessionJSON(): Promise<string>;
   ReadMarkdownFile(name: string): Promise<{name: string, content: string}>;
   SaveMarkdownFile(name: string, content: string): Promise<void>;
-  ScheduleDashboard(): Promise<any>;
+  ScheduleDashboard(): Promise<ScheduleDashboardView>;
   SessionTokens(): Promise<SessionTokensView>;
   SessionTokensForTab(tabID: string): Promise<SessionTokensView>;
   SubagentTree(tabID?: string): Promise<any>;
@@ -377,8 +385,8 @@ export interface AppBindings {
   AddScheduledTask(name: string, cron: string, prompt: string, model?: string, enabled?: boolean): Promise<void>;
   RemoveScheduledTask(id: string): Promise<void>;
   ExportSession(tabId: string): Promise<string>;
-  SetDesktopHotbar(hotbar: any): Promise<void>;
-  SetProfiles(profiles: any): Promise<void>;
+  SetDesktopHotbar(hotbar: HotbarView): Promise<void>;
+  SetProfiles(profiles: Record<string, ProfileView>): Promise<void>;
   SubagentTreeForTab(tabId: string): Promise<any>;
 }
 
@@ -3078,17 +3086,17 @@ function makeMockApp(): AppBindings {
     async FIMComplete(_code: string, _cursor: number): Promise<FIMResult> { return { text: "" } as any; },
     async GoalProgress(): Promise<GoalProgressView> { return {} as any; },
     async GoalProgressForTab(_tabID: string): Promise<GoalProgressView> { return {} as any; },
-    async LastLobeHubSync() { return null; },
-    async LearnedPatterns() { return []; },
+    async LastLobeHubSync(): Promise<LobeHubSyncMeta> { return {} as LobeHubSyncMeta; },
+    async LearnedPatterns(): Promise<[LearnedPatternView[], LearnedTrajectoryView[]]> { return [[], []]; },
     async ListMarkdownFiles(): Promise<MarkdownFileEntry[]> { return []; },
     async MarketplaceRegistry() { return []; },
-    async MemoryDashboard() { return {}; },
+    async MemoryDashboard(): Promise<MemoryDashboardView> { return { totalFacts: 0, totalDocs: 0, totalScopes: 0 }; },
     async MemoryFacts(): Promise<MemoryFactView[]> { return []; },
     async PublishSessionHTML(): Promise<string> { return ""; },
     async PublishSessionJSON(): Promise<string> { return ""; },
     async ReadMarkdownFile(_name: string): Promise<{name: string, content: string}> { return { name: "", content: "" }; },
     async SaveMarkdownFile(_name: string, _content: string): Promise<void> {},
-    async ScheduleDashboard() { return { tasks: [] }; },
+    async ScheduleDashboard(): Promise<ScheduleDashboardView> { return { active: false, tasks: [], recentRuns: [] } as ScheduleDashboardView; },
     async SessionTokens(): Promise<SessionTokensView> { return {} as any; },
     async SessionTokensForTab(_tabID: string): Promise<SessionTokensView> { return {} as any; },
     async SubagentTree(_tabID?: string) { return {}; },
@@ -3099,8 +3107,8 @@ function makeMockApp(): AppBindings {
     async AddScheduledTask(_name: string, _cron: string, _prompt: string, _model?: string, _enabled?: boolean): Promise<void> {},
     async RemoveScheduledTask(_id: string): Promise<void> {},
     async ExportSession(_tabId: string): Promise<string> { return ""; },
-    async SetDesktopHotbar(_hotbar: any): Promise<void> {},
-    async SetProfiles(_profiles: any): Promise<void> {},
+    async SetDesktopHotbar(_hotbar: HotbarView): Promise<void> {},
+    async SetProfiles(_profiles: Record<string, ProfileView>): Promise<void> {},
     async SubagentTreeForTab(_tabId: string): Promise<any> { return {}; },
   };
 }

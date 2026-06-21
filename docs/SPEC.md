@@ -44,6 +44,9 @@ reasonix/
 │   ├── reasonix-pr-review/       # [Hermes] PR review CLI for GitHub Actions
 │   ├── e2ebench/                 # [Hermes] e2e benchmarking tool
 │   └── learner-live-test/        # [Hermes] learner live e2e test binary
+├── pkg/                          # [Hermes] shared Go libraries
+│   ├── httputil/                 # Shared Bearer auth middleware
+│   └── mcputil/                  # Shared MCP types and server helpers
 ├── bot/                          # [Hermes] multi-platform IM bot gateway (Discord, Telegram, LINE, Slack, QQ, Feishu, WeChat)
 ├── desktop/                      # [Hermes] Wails v2 desktop app — React 19 frontend + Go kernel
 └── internal/

@@ -550,7 +550,7 @@ export function ProjectTree({
     let cancelled = false;
     void app.Platform().then((value) => {
       if (!cancelled) setPlatform(value);
-    }).catch(() => {});
+    }).catch((e) => { console.warn('ProjectTree: platform fetch failed', e) });
     return () => {
       cancelled = true;
     };
@@ -1261,7 +1261,7 @@ export function ProjectTree({
         label: t(revealLabelKey(platform)),
         disabled: !projectPath,
         onSelect: () => {
-          void app.RevealPath(projectPath).catch(() => {});
+          void app.RevealPath(projectPath).catch((e) => { console.warn('ProjectTree: reveal path failed', e) });
           closeMenu();
         },
       },
@@ -1310,7 +1310,7 @@ export function ProjectTree({
         label: t(revealLabelKey(platform)),
         disabled: !projectPath,
         onSelect: () => {
-          void app.RevealPath(projectPath).catch(() => {});
+          void app.RevealPath(projectPath).catch((e) => { console.warn('ProjectTree: reveal path failed', e) });
           closeMenu();
         },
       },

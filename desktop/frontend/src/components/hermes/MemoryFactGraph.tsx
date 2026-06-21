@@ -261,7 +261,7 @@ export function MemoryFactGraph() {
         app
           .MemoryFacts()
           .then(setFacts)
-          .catch(() => {});
+          .catch((e) => { console.warn('hermes: memory facts fetch (push path) failed', e) });
         return () => {
           try {
             unsub();
@@ -277,13 +277,13 @@ export function MemoryFactGraph() {
     app
       .MemoryFacts()
       .then(setFacts)
-      .catch(() => {});
+      .catch((e) => { console.warn('hermes: memory facts fetch failed', e) });
     const id = setInterval(
       () =>
         app
           .MemoryFacts()
           .then(setFacts)
-          .catch(() => {}),
+          .catch((e) => { console.warn('hermes: memory facts poll failed', e) }),
       5000,
     );
     return () => clearInterval(id);

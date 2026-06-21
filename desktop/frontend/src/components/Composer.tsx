@@ -468,7 +468,7 @@ export function Composer({
   // --- slash commands (whole-input "/token") ---
   const [commands, setCommands] = useState<CommandInfo[]>([]);
   useEffect(() => {
-    app.Commands().then((next) => setCommands(asArray(next))).catch(() => {});
+    app.Commands().then((next) => setCommands(asArray(next))).catch((e) => { console.warn('Composer: commands fetch failed', e) });
   }, [ready, cwd, running]);
 
   const slashQuery = useMemo(() => {
@@ -512,7 +512,7 @@ export function Composer({
           setArgRes(useful.length > 0 ? { items: useful, from } : null);
           setActive(0);
         })
-        .catch(() => {});
+        .catch((e) => { console.warn('Composer: slash arg completion failed', e) });
     }, 120);
     return () => {
       live = false;
@@ -579,7 +579,7 @@ export function Composer({
         dirCache.current[atDir] = list;
         if (live) setEntries(list);
       })
-      .catch(() => {});
+      .catch((e) => { console.warn('Composer: @ file listing failed', e) });
     return () => {
       live = false;
     };
@@ -604,7 +604,7 @@ export function Composer({
         searchCache.current[atFrag] = list;
         if (live) setSearchEntries(list);
       })
-      .catch(() => {});
+      .catch((e) => { console.warn('Composer: @ file search failed', e) });
     return () => {
       live = false;
     };

@@ -13,8 +13,8 @@ reasonix/                Go module root
 ├── cmd/reasonix-memoryserver/ Hindsight MCP: 3 tools (SQLite + dense/sparse vector)
 ├── cmd/reasonix-hooks/  Native Go hook runner
 ├── cmd/reasonix-pr-review/  PR review CLI for GitHub Actions
-├── cmd/reasonix-e2ebench/   E2E benchmarking tool
-├── cmd/reasonix-learner-live-test/ Learner live e2e test
+├── cmd/e2ebench/   E2E benchmarking tool
+├── cmd/learner-live-test/ Learner live e2e test
 ├── cmd/reasonix-plugin-example/ Plugin skeleton
 ├── bot/main.go          Standalone multi-platform bot binary
 ├── internal/            56 packages — core engine + Hermes extensions

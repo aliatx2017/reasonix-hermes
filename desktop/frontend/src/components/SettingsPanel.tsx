@@ -5387,7 +5387,7 @@ function UpdatesSection({
   const { status, check, download: downloadUpdate, install: installUpdate } = useUpdater();
   const [version, setVersion] = useState("");
   useEffect(() => {
-    app.Version().then(setVersion).catch(() => {});
+    app.Version().then(setVersion).catch((e) => { console.warn('SettingsPanel: version fetch failed', e) });
   }, []);
 
   const updaterBusy =

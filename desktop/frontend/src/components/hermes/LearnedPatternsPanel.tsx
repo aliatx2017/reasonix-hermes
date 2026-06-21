@@ -24,7 +24,7 @@ export function LearnedPatternsPanel() {
           setPatterns(p ?? []);
           setTrajectories(t ?? []);
         })
-        .catch(() => {});
+        .catch((e) => { console.warn('hermes: learned patterns poll failed', e) });
     }, 15000);
     return () => clearInterval(iv);
   }, []);

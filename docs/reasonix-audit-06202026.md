@@ -570,7 +570,7 @@ func (cb *CircuitBreaker) Call(fn func() error) error {
 
 ### 22. **Add Configuration File Support**
 
-Instead of only env vars, support `reasonix-bridge.toml`:
+Instead of only env vars, support `reasonix-mcpbridge.toml`:
 
 ```toml
 [server]

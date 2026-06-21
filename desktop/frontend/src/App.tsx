@@ -1271,7 +1271,7 @@ export default function App() {
   const syncModeToController = useCallback((m: Mode) => setControllerMode(m), [setControllerMode]);
 
   useEffect(() => {
-    void app.SetTrayLocale(locale).catch(() => {});
+    void app.SetTrayLocale(locale).catch((e) => { console.warn('App: set tray locale failed', e) });
   }, [locale]);
 
   // applyMode is the single source of truth for the input mode: it updates the

@@ -11,8 +11,8 @@
 | `reasonix-memoryserver` | `cmd/reasonix-memoryserver/` | Hindsight MCP server (SQLite, TTL, dense+sparse vector) |
 | `reasonix-hooks` | `cmd/reasonix-hooks/` | Native Go hook runner |
 | `reasonix-pr-review` | `cmd/reasonix-pr-review/` | PR review CLI for GitHub Actions |
-| `reasonix-e2ebench` | `cmd/reasonix-e2ebench/` | E2E benchmarking tool |
-| `reasonix-learner-live-test` | `cmd/reasonix-learner-live-test/` | Learner live e2e test |
+| `reasonix-e2ebench` | `cmd/e2ebench/` | E2E benchmarking tool |
+| `reasonix-learner-live-test` | `cmd/learner-live-test/` | Learner live e2e test |
 | `reasonix-desktop` | `desktop/` | Wails v2 desktop app (Go + React 19) |
 
 ## Core Engine (internal/ — 56 packages)

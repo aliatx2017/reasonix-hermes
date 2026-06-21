@@ -283,7 +283,7 @@ export function WriteMode() {
                   p.map((f, i) => (i === activeFileIdx ? { ...f, dirty: false } : f)),
                 );
               })
-              .catch(() => {});
+              .catch((e) => { console.warn('WriteMode: auto-save failed', e) });
           }
           return prev;
         });
@@ -349,12 +349,11 @@ export function WriteMode() {
         const filtered = scored.filter((s) => s.score >= threshold).slice(0, 10);
         setMemoryFacts(filtered.map((s) => s.fact));
       })
-      .catch(() => {});
+      .catch((e) => { console.warn('WriteMode: memory facts similarity failed', e) });
     return () => {
       cancelled = true;
     };
   }, [selectedFile, content.slice(0, 500)]);
-
   const handleFIM = useCallback(async () => {
     if (!selectedFile || fimBusy) return;
     setFimBusy(true);

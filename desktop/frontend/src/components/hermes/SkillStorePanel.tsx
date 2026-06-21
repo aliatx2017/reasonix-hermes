@@ -85,7 +85,7 @@ function LobeHubTab() {
       .then((s) => {
         if (s.lastSync) setLastSync(s);
       })
-      .catch(() => {});
+      .catch((e) => { console.warn('hermes: lobehub sync status fetch failed', e) });
   }, []);
 
   return (

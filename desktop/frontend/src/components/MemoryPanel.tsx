@@ -853,7 +853,7 @@ export function MemorySettingsPage() {
           if (active) setSelectedTabId(active.id);
         }
       })
-      .catch(() => {});
+      .catch((e) => { console.warn('MemoryPanel: load desktop tabs failed', e) });
   }, []);
 
   useEffect(() => {

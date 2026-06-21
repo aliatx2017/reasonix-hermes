@@ -58,7 +58,8 @@
 
 ## Docker (Dockerfile)
 - Multi-stage: `golang:1.25-bookworm` build → `gcr.io/distroless/static` runtime
-- 9 binaries: reasonix, reasonix-bot, reasonix-mcpbridge, reasonix-memoryserver, reasonix-hooks, reasonix-pr-review, reasonix-e2ebench, reasonix-learner-live-test, reasonix-desktop
+- 7 binaries: reasonix, reasonix-bot, reasonix-mcpbridge, reasonix-memoryserver, reasonix-hooks, reasonix-pr-review, reasonix-e2ebench
+  (reasonix-learner-live-test and reasonix-desktop are not Dockerfile targets)
 
 ## External API Endpoints (reachable at runtime)
 | Endpoint | Used By |

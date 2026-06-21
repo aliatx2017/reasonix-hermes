@@ -1,4 +1,4 @@
-# Reasonix Codebase Audit (Historical — June 2025)
+# Reasonix Codebase Audit (Historical — June 2026)
 
 > **Note:** This is a historical audit from June 2025. All 6 bugs documented
 > below have been fixed in subsequent releases. See `docs/CHANGELOG-HERMES.md`
@@ -6,7 +6,7 @@
 > as of June 2025 (~20 packages). The current codebase has 57 packages (see
 > `docs/SPEC.md` §2 for the full layout).
 
-**Date:** 2025-06-11  
+**Date:** 2026-06-11  
 **Status:** Historical — all bugs resolved  
 **Scope:** All Go source under `cmd/`, `internal/`, `pkg/`, `bot/`  
 **Files:** 272 non-test `.go` + 293 test `.go` = 565 total  

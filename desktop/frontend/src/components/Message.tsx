@@ -219,7 +219,7 @@ export function UserMessage({
           if (cancelled) return;
           setImagePreviews((prev) => (prev[path] ? prev : { ...prev, [path]: url }));
         })
-        .catch(() => {});
+        .catch((e) => { console.warn('Message: image preview fetch failed', e) });
     }
     return () => {
       cancelled = true;

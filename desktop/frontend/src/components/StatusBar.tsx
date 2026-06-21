@@ -32,6 +32,12 @@ import {
   type WireUsage,
 } from '../lib/types';
 
+interface DashboardPayload {
+  bot?: BotLiveStatusView;
+  cache?: CacheEconomyView;
+  compress?: CompressStatsView;
+}
+
 type StatusBarLabelStyle = 'icon' | 'text';
 
 // JobsChip is the status-bar background-jobs indicator: a count that opens an
@@ -505,13 +511,13 @@ function DiscordMonitorCompact() {
     try {
       const w = window as any;
       if (w.runtime?.EventsOn) {
-        const unsub = w.runtime.EventsOn('hermes:dashboard', (payload: any) => {
+        const unsub = w.runtime.EventsOn('hermes:dashboard', (payload: DashboardPayload) => {
           if (payload?.bot) setStatus(payload.bot);
         });
         app
           .BotLiveStatus()
           .then(setStatus)
-          .catch(() => {});
+          .catch((e) => { console.warn('StatusBar: bot live status fetch failed', e) });
         return () => {
           try {
             unsub();
@@ -527,7 +533,7 @@ function DiscordMonitorCompact() {
       app
         .BotLiveStatus()
         .then(setStatus)
-        .catch(() => {});
+        .catch((e) => { console.warn('StatusBar: bot live status poll failed', e) });
     };
     poll();
     const id = setInterval(poll, 10000);
@@ -567,13 +573,13 @@ function CacheGaugeCompact() {
     try {
       const w = window as any;
       if (w.runtime?.EventsOn) {
-        const unsub = w.runtime.EventsOn('hermes:dashboard', (payload: any) => {
+        const unsub = w.runtime.EventsOn('hermes:dashboard', (payload: DashboardPayload) => {
           if (payload?.cache) setCache(payload.cache);
         });
         app
           .CacheEconomy()
           .then(setCache)
-          .catch(() => {});
+          .catch((e) => { console.warn('StatusBar: cache economy fetch failed', e) });
         return () => {
           try {
             unsub();
@@ -589,7 +595,7 @@ function CacheGaugeCompact() {
       app
         .CacheEconomy()
         .then(setCache)
-        .catch(() => {});
+        .catch((e) => { console.warn('StatusBar: cache economy poll failed', e) });
     };
     poll();
     const id = setInterval(poll, 15000);
@@ -620,13 +626,13 @@ function CompressGaugeCompact() {
     try {
       const w = window as any;
       if (w.runtime?.EventsOn) {
-        const unsub = w.runtime.EventsOn('hermes:dashboard', (payload: any) => {
+        const unsub = w.runtime.EventsOn('hermes:dashboard', (payload: DashboardPayload) => {
           if (payload?.compress) setCS(payload.compress);
         });
         app
           .CompressStats()
           .then(setCS)
-          .catch(() => {});
+          .catch((e) => { console.warn('StatusBar: compress stats fetch failed', e) });
         return () => {
           try {
             unsub();
@@ -642,7 +648,7 @@ function CompressGaugeCompact() {
       app
         .CompressStats()
         .then(setCS)
-        .catch(() => {});
+        .catch((e) => { console.warn('StatusBar: compress stats poll failed', e) });
     };
     poll();
     const id = setInterval(poll, 30000);

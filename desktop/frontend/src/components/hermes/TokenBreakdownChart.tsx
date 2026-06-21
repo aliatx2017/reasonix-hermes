@@ -33,7 +33,7 @@ export function TokenBreakdownChart() {
         app
           .TurnUsageHistory()
           .then(setPoints)
-          .catch(() => {});
+          .catch((e) => { console.warn('hermes: turn usage history fetch (push path) failed', e) });
         return () => {
           try {
             unsub();
@@ -49,13 +49,13 @@ export function TokenBreakdownChart() {
     app
       .TurnUsageHistory()
       .then(setPoints)
-      .catch(() => {});
+      .catch((e) => { console.warn('hermes: turn usage history fetch failed', e) });
     const id = setInterval(
       () =>
         app
           .TurnUsageHistory()
           .then(setPoints)
-          .catch(() => {}),
+          .catch((e) => { console.warn('hermes: turn usage history poll failed', e) }),
       5000,
     );
     return () => clearInterval(id);

@@ -25,7 +25,7 @@ export function CompactionTimeline() {
         app
           .CompactionHistory()
           .then(setEvents)
-          .catch(() => {});
+          .catch((e) => { console.warn('hermes: compaction history fetch (push path) failed', e) });
         return () => {
           try {
             unsub();
@@ -41,13 +41,13 @@ export function CompactionTimeline() {
     app
       .CompactionHistory()
       .then(setEvents)
-      .catch(() => {});
+      .catch((e) => { console.warn('hermes: compaction history fetch failed', e) });
     const id = setInterval(
       () =>
         app
           .CompactionHistory()
           .then(setEvents)
-          .catch(() => {}),
+          .catch((e) => { console.warn('hermes: compaction history poll failed', e) }),
       5000,
     );
     return () => clearInterval(id);

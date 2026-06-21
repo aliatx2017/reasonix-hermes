@@ -39,7 +39,7 @@
 | **Language** | Go (1.0, `main-v2` branch — current); TypeScript (0.x, `v1` branch — legacy/maintenance) |
 | **GitHub Stars** | 20,700+ |
 | **Forks** | 1,200+ |
-| **Releases** | 46 (v1.6.0 — Jun 10, 2026) |
+| **Releases** | 50+ (v1.10.0 — Jun 2026) |
 | **Commits** | 777+ |
 | **Default Model** | DeepSeek V4 Flash (via config TOML); also presets for DeepSeek V4 Pro, MiMo-v2.5-pro, MiMo-v2.5 |
 | **Upgrade Model** | DeepSeek V4 Pro or MiMo-v2.5-pro (per-model via `/model` or `/preset max`) |
@@ -254,10 +254,10 @@ No Node.js required for v1.0+ (single Go binary). First launch with `reasonix se
 
 ---
 
-## 4. Desktop Application v1.6.0
+## 4. Desktop Application v1.10.0
 
 **Built into the main repo**: [desktop/](https://github.com/esengine/deepseek-reasonix/tree/main-v2/desktop) directory in `esengine/DeepSeek-Reasonix`.  
-**Stack**: Wails + React 19 + TypeScript 6 | **Latest**: v1.6.0 (Jun 10, 2026)
+**Stack**: Wails + React 19 + TypeScript 6 | **Latest**: v1.10.0 (Jun 2026)
 
 The desktop app is a **visual companion to the CLI**, not a Cursor replacement. It provides a GUI wrapper around the same Go controller — the terminal TUI, desktop webview, and HTTP/SSE server all drive the same `control.Controller`, so every feature surfaces identically across frontends.
 
@@ -1060,5 +1060,5 @@ Reasonix is MIT-licensed and free. Donations stay "a coffee, not a contract" —
 
 ---
 
-> **Document**: Updated Jun 2026 from primary source `esengine/DeepSeek-Reasonix` (main-v2, v1.6.0, Jun 10 2026), community GitHub repos, DeepSeek API docs, npm, aimadetools, reasonix.homes.  
+> **Document**: Updated Jun 2026 from primary source `esengine/DeepSeek-Reasonix` (main-v2, v1.10.0, Jun 2026), community GitHub repos, DeepSeek API docs, npm, aimadetools, reasonix.homes.  
 > **Note**: The "Reasonix" name also refers to [reasonixos.com](https://reasonixos.com/about) — an "Integrated Intelligence Company" (AI-powered enterprise decision systems / AI Growth OS for marketing). This document covers only the DeepSeek-native coding agent ecosystem, not the enterprise platform.

@@ -82,7 +82,7 @@ export function CopyButton({
   const copy = async () => {
     try {
       const value = getText ? await getText() : (text ?? '');
-      void writeClipboardText(value).catch(() => {});
+      void writeClipboardText(value).catch((e) => { console.warn('CopyButton: clipboard write failed', e) });
       setCopied(true);
       if (timerRef.current != null) window.clearTimeout(timerRef.current);
       timerRef.current = window.setTimeout(() => {

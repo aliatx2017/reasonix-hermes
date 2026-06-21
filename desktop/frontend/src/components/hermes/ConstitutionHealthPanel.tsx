@@ -3,6 +3,10 @@ import { Shield, AlertTriangle, CheckCircle2, FileText } from 'lucide-react';
 import { app } from '../../lib/bridge';
 import type { ConstitutionHealthView } from '../../lib/types';
 
+interface DashboardPayload {
+  constitution?: ConstitutionHealthView;
+}
+
 const SEVERITY_ICONS: Record<string, React.ReactNode> = {
   error: <AlertTriangle size={10} color="var(--color-warn)" />,
   warn: <AlertTriangle size={10} color="var(--color-yellow)" />,
@@ -18,13 +22,13 @@ export function ConstitutionHealthPanel() {
     try {
       const w = window as any;
       if (w.runtime?.EventsOn) {
-        const unsub = w.runtime.EventsOn('hermes:dashboard', (payload: any) => {
+        const unsub = w.runtime.EventsOn('hermes:dashboard', (payload: DashboardPayload) => {
           if (payload?.constitution) setData(payload.constitution);
         });
         app
           .ConstitutionHealth()
           .then(setData)
-          .catch(() => {});
+          .catch((e) => { console.warn('hermes: constitution health fetch (push path) failed', e) });
         return () => {
           try {
             unsub();
@@ -39,7 +43,7 @@ export function ConstitutionHealthPanel() {
     app
       .ConstitutionHealth()
       .then(setData)
-      .catch(() => {});
+      .catch((e) => { console.warn('hermes: constitution health fetch failed', e) });
   }, []);
 
   if (!data) return null;

@@ -90,7 +90,7 @@ export const ToolCard = memo(function ToolCard({ item, subcalls, tabId }: { item
     import("../lib/bridge").then(({ app }) =>
       app.ToolResultForTab(tabId, item.id).then((d) => {
         if (!cancelled && d) setFullData(d);
-      }).catch(() => {}),
+      }).catch((e) => { console.warn('ToolCard: tool result fetch failed', e) }),
     );
     return () => { cancelled = true; };
   }, [open, item.id, item.dataArchived, fullData, tabId]);

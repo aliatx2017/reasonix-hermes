@@ -112,7 +112,7 @@ Assuming 520 sessions/year (20 sessions per 2-week period):
 
 1. **Compressor numbers are a lower bound**. The simulation runs on persisted session files (raw tool output). In the live agent context, tool results are re-injected into the LLM on every turn, and the cache prevents re-sending duplicates. The actual live savings may be 2-5× higher than the simulation.
 
-2. **DeepSeek pricing is current as of July 2026**. Prices may change with new model versions.
+2. **DeepSeek pricing is current as of June 2026**. Prices may change with new model versions.
 
 3. **The analysis excludes output token savings**. The compressor may also reduce output tokens indirectly (the model produces shorter responses when tool outputs are compressed), but this is not measurable from session files.
 
