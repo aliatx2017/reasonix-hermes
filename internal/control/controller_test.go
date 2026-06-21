@@ -641,6 +641,24 @@ func TestDisconnectMCPServerRemovesLazyPlaceholder(t *testing.T) {
 	}
 }
 
+func TestUnregisterMCPServerToolsBlocksLateSharedHostSwap(t *testing.T) {
+	reg := tool.NewRegistry()
+	reg.Add(fakeControlTool{name: "mcp__mock__connect"})
+	c := New(Options{Host: plugin.NewHost(), Registry: reg})
+
+	if ok := c.UnregisterMCPServerTools("mock"); !ok {
+		t.Fatal("UnregisterMCPServerTools returned false")
+	}
+	reg.Add(fakeControlTool{name: "mcp__mock__echo"})
+	if _, found := reg.Get("mcp__mock__echo"); found {
+		t.Fatalf("late shared-host tool swap was accepted after unregister; names=%v", reg.Names())
+	}
+	reg.Add(fakeControlTool{name: "mcp__other__echo"})
+	if _, found := reg.Get("mcp__other__echo"); !found {
+		t.Fatalf("unregister blocked unrelated MCP tools; names=%v", reg.Names())
+	}
+}
+
 func TestRemoveMCPServerRemovesUnconnectedLazyPlaceholder(t *testing.T) {
 	isolateControlConfigHome(t)
 	dir := t.TempDir()

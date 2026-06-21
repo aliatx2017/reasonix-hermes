@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"reasonix/internal/agent"
+	"reasonix/internal/boot"
 	"reasonix/internal/config"
 	"reasonix/internal/control"
 	"reasonix/internal/event"
@@ -3071,7 +3072,7 @@ func TestForkCreatesActiveTabWithoutSwitchingSourceController(t *testing.T) {
 	}
 }
 
-func TestCapabilitiesShowsDefaultMCPAsInitializingNotDisabled(t *testing.T) {
+func TestCapabilitiesShowsDefaultMCPAsAutomaticIdleNotDisabled(t *testing.T) {
 	isolateDesktopUserDirs(t)
 	dir := robustTempDir(t)
 	t.Chdir(dir)
@@ -3095,13 +3096,72 @@ args = ["-y", "@playwright/mcp"]
 	view := app.Capabilities()
 	for _, s := range view.Servers {
 		if s.Name == "playwright" {
-			if s.Status != "initializing" {
-				t.Fatalf("default MCP status = %q, want initializing; server = %+v", s.Status, s)
+			if s.Status != "deferred" || s.StartIntent != "automatic" || s.RuntimeState != "idle" {
+				t.Fatalf("default MCP view = %+v, want deferred automatic idle", s)
 			}
 			return
 		}
 	}
 	t.Fatalf("playwright MCP missing from Capabilities: %+v", view.Servers)
+}
+
+func TestDesktopSharedHostBackgroundMCPAutoConnectsOnBoot(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	dir := robustTempDir(t)
+	t.Chdir(dir)
+
+	srv := desktopMCPHTTPServer(t)
+	defer srv.Close()
+	if err := os.WriteFile(filepath.Join(dir, "reasonix.toml"), []byte(fmt.Sprintf(`
+[[plugins]]
+name = "h"
+type = "http"
+url = %q
+`, srv.URL)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	sharedHost := plugin.NewHost()
+	defer sharedHost.Close()
+	ctrl, err := boot.Build(ctx, boot.Options{
+		WorkspaceRoot: dir,
+		SessionDir:    filepath.Join(dir, "sessions"),
+		SharedHost:    sharedHost,
+		Stderr:        io.Discard,
+	})
+	if err != nil {
+		t.Fatalf("boot.Build: %v", err)
+	}
+	defer ctrl.Close()
+
+	deadline := time.Now().Add(3 * time.Second)
+	for !sharedHost.HasClient("h") && time.Now().Before(deadline) {
+		time.Sleep(25 * time.Millisecond)
+	}
+	if !sharedHost.HasClient("h") {
+		t.Fatalf("background MCP did not auto-connect; connecting=%v failures=%+v", sharedHost.ConnectingServers(), sharedHost.Failures())
+	}
+
+	app := NewApp()
+	app.tabs = map[string]*WorkspaceTab{
+		"test": {
+			ID:            "test",
+			Scope:         "global",
+			WorkspaceRoot: dir,
+			Ready:         true,
+			Ctrl:          ctrl,
+			SharedHostKey: dir,
+			disabledMCP:   map[string]ServerView{},
+		},
+	}
+	app.activeTabID = "test"
+
+	view := app.MCPServers()
+	if len(view) != 1 || view[0].Name != "h" || view[0].Status != "connected" || view[0].StartIntent != "automatic" || view[0].RuntimeState != "ready" || view[0].Tools != 1 {
+		t.Fatalf("MCPServers() = %+v, want h connected automatic ready with one tool", view)
+	}
 }
 
 func TestMCPServersMatchesCapabilitiesServerProjection(t *testing.T) {
@@ -3422,7 +3482,7 @@ tier = "lazy"
 	view := app.Capabilities()
 	for _, s := range view.Servers {
 		if s.Name == "dida" {
-			if s.Status != "initializing" || s.AuthStatus != "possible" || s.AuthURL != "https://mcp.dida365.com" {
+			if s.Status != "deferred" || s.StartIntent != "automatic" || s.RuntimeState != "idle" || s.AuthStatus != "possible" || s.AuthURL != "https://mcp.dida365.com" {
 				t.Fatalf("dida auth diagnosis = %+v", s)
 			}
 			return
@@ -3545,7 +3605,7 @@ tier = "lazy"
 	view := app.Capabilities()
 	for _, s := range view.Servers {
 		if s.Name == "figma" {
-			if s.Status != "initializing" || s.AuthStatus != "possible" {
+			if s.Status != "deferred" || s.StartIntent != "automatic" || s.RuntimeState != "idle" || s.AuthStatus != "possible" {
 				t.Fatalf("figma should return to background possible auth: %+v", s)
 			}
 			return
@@ -3732,16 +3792,16 @@ name = "codegraph"
 	defer app.activeCtrl().Close()
 
 	view := app.Capabilities()
-	foundInitializing := false
+	foundIdle := false
 	for _, s := range view.Servers {
 		if s.Name == "codegraph" {
-			foundInitializing = true
-			if s.Status != "initializing" {
-				t.Fatalf("initial codegraph status = %q, want initializing; server = %+v", s.Status, s)
+			foundIdle = true
+			if s.Status != "deferred" || s.StartIntent != "automatic" || s.RuntimeState != "idle" {
+				t.Fatalf("initial codegraph server = %+v, want automatic idle background state", s)
 			}
 		}
 	}
-	if !foundInitializing {
+	if !foundIdle {
 		t.Fatalf("codegraph missing before reconnect: %+v", view.Servers)
 	}
 	if _, ok := reg.Get("mcp__codegraph__connect"); !ok {

@@ -1336,16 +1336,16 @@ type PluginEntry struct {
 	// AutoStart controls whether the server connects during session startup.
 	// Nil preserves historical behavior: configured servers start automatically.
 	AutoStart *bool `toml:"auto_start"`
-	// Tier selects how aggressively the server is connected at boot:
+	// Tier is a legacy compatibility field. New config rendering omits it; enabled
+	// MCP servers connect automatically in the background unless auto_start=false.
+	// Historical values are accepted for old files:
 	//   "eager"      — blocks startup until the handshake completes; required for
 	//                  servers whose tools the system prompt depends on.
-	//   "lazy"       — registers placeholder tools immediately (from on-disk
-	//                  schema cache when available) and only spawns the real
-	//                  subprocess on first model use. Kept for legacy configs.
+	//   "lazy"       — legacy alias for background.
 	//   "background" — placeholder + spawn fired at boot but not waited on;
 	//                  swap happens once the spawn finishes.
 	// Empty defaults to "background" so enabled MCPs connect automatically
-	// without blocking chat. Unknown non-empty values fall back to "lazy".
+	// without blocking chat. Unknown non-empty values fall back to "background".
 	Tier string `toml:"tier"`
 }
 
@@ -1353,9 +1353,9 @@ func (e PluginEntry) ShouldAutoStart() bool {
 	return e.AutoStart == nil || *e.AutoStart
 }
 
-// ResolvedTier returns the normalized tier ("eager"|"lazy"|"background") with
-// the project default applied. Unknown values fall back to "lazy" so a typo
-// never forces a slow boot.
+// ResolvedTier returns the normalized tier ("eager"|"background") with the
+// project default applied. Legacy lazy and unknown values fall back to
+// background so enabled MCPs are available without manual connection.
 func (e PluginEntry) ResolvedTier() string {
 	return resolvedMCPTier(e.Tier)
 }
@@ -1364,12 +1364,12 @@ func resolvedMCPTier(tier string) string {
 	switch strings.ToLower(strings.TrimSpace(tier)) {
 	case "eager":
 		return "eager"
-	case "background":
+	case "background", "lazy":
 		return "background"
 	case "":
 		return "background"
 	default:
-		return "lazy"
+		return "background"
 	}
 }
 

@@ -61,10 +61,6 @@ type Spec struct {
 	// LowPriority runs a stdio subprocess below normal scheduling priority, for
 	// background indexers that must not starve the user's machine.
 	LowPriority bool
-	// SharedHostBackgroundStart lets a known background-tier stdio server connect
-	// at desktop tab startup even when the host is shared by several tabs. Keep
-	// this opt-in: most background MCP servers should stay deferred until used.
-	SharedHostBackgroundStart bool
 }
 
 // transport carries JSON-RPC messages to and from one MCP server. call sends a
@@ -562,6 +558,20 @@ func (h *Host) Failures() []Failure {
 	defer h.mu.RUnlock()
 	out := make([]Failure, len(h.failures))
 	copy(out, h.failures)
+	return out
+}
+
+// ConnectingServers returns server names whose startup handshake is currently in
+// flight. It is intentionally status-only: connected clients and failures remain
+// the source of truth for ready/issue states.
+func (h *Host) ConnectingServers() []string {
+	h.spawningMu.Lock()
+	defer h.spawningMu.Unlock()
+	out := make([]string, 0, len(h.spawning))
+	for name := range h.spawning {
+		out = append(out, name)
+	}
+	sort.Strings(out)
 	return out
 }
 

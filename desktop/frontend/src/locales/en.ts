@@ -265,7 +265,7 @@ export const en = {
   "caps.authPossibleShort": "auth may be required",
   "caps.clearAuth": "Clear auth",
   "caps.confirmClearAuth": "Confirm clear",
-  "caps.deferred": "enabled; connects when this MCP is used",
+  "caps.deferred": "enabled; preparing background connection",
   "caps.initializing": "connecting to MCP; tools will appear when ready",
   "caps.initializingShort": "Connecting",
   "caps.disabled": "disabled (off this session)",

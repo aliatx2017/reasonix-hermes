@@ -163,7 +163,7 @@ func (m chatTUI) applyMCPMode(tier string) (tea.Model, tea.Cmd) {
 	if m.mcpDisabled != nil {
 		delete(m.mcpDisabled, v.Name)
 	}
-	if tier != "lazy" && m.ctrl != nil && !mcpConnected(m.ctrl, v.Name) {
+	if m.ctrl != nil && !mcpConnected(m.ctrl, v.Name) {
 		if _, err := m.ctrl.ConnectConfiguredMCPServer(v.Name); err != nil {
 			recordMCPModePluginFailure(m.ctrl, selected, err)
 			m.notice("saved connection mode, but connect failed: " + err.Error())
@@ -290,12 +290,12 @@ func normalizeMCPTierForCLI(tier string) string {
 	switch strings.ToLower(strings.TrimSpace(tier)) {
 	case "eager":
 		return "eager"
-	case "background":
+	case "background", "lazy":
 		return "background"
 	case "":
 		return "background"
 	default:
-		return "lazy"
+		return "background"
 	}
 }
 

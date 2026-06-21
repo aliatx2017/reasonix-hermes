@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { asArray } from "../lib/array";
 import { app, openExternal } from "../lib/bridge";
 import { useT } from "../lib/i18n";
-import { mcpServerLifecycleActions } from "../lib/mcpServerLifecycle";
+import { mcpServerLifecycleActions, mcpServerRetryableFromAvailableList } from "../lib/mcpServerLifecycle";
 import type { CapabilitiesView, MCPServerInput, ServerView, SkillRootSkillView, SkillRootView, SkillsSettingsView, SkillView, TabMeta } from "../lib/types";
 import { InlineConfirmButton } from "./InlineConfirmButton";
 import { ResizableDrawer } from "./ResizableDrawer";
@@ -108,6 +108,7 @@ export function CapabilitiesPanel({
       active: servers.filter((s) => s.status !== "failed"),
     };
   }, [view]);
+  const retryableActiveServerNames = useMemo(() => retryableAvailableServerNames(serverGroups.active), [serverGroups.active]);
   const toggleSkill = useCallback((name: string) => {
     setExpandedSkills((prev) => {
       const next = new Set(prev);
@@ -213,7 +214,17 @@ export function CapabilitiesPanel({
                 )}
                 {serverGroups.active.length > 0 && (
                   <div className="cap-server-section">
-                    <div className="cap-server-section__title">{t("caps.availableServers")}</div>
+                    <div className="cap-server-section__head">
+                      <div className="cap-server-section__title">{t("caps.availableServers")}</div>
+                      <button
+                        className="btn btn--small"
+                        disabled={busy || retryableActiveServerNames.length === 0}
+                        type="button"
+                        onClick={() => void mutate(() => Promise.allSettled(retryableActiveServerNames.map((name) => app.ReconnectMCPServer(name))))}
+                      >
+                        {t("caps.retryAll")}
+                      </button>
+                    </div>
                     <ServerGroup
                       busy={busy}
                       servers={serverGroups.active}
@@ -1272,6 +1283,10 @@ function canBulkRemoveFailure(server: ServerView): boolean {
   return kind === "missing-command" || kind === "command-unavailable";
 }
 
+function retryableAvailableServerNames(servers: ServerView[]): string[] {
+  return servers.filter(mcpServerRetryableFromAvailableList).map((s) => s.name);
+}
+
 function serverActionLabel(s: ServerView, t: ReturnType<typeof useT>): string {
   const err = (s.error || "").toLowerCase();
   if (shouldOpenAuth(s)) return t("caps.reauthorize");
@@ -1509,6 +1524,7 @@ export function MCPServersSettingsPage() {
 			active: sorted.filter((s) => s.status !== "failed"),
 		};
 	}, [servers]);
+	const retryableActiveServerNames = useMemo(() => retryableAvailableServerNames(serverGroups.active), [serverGroups.active]);
 	const toggleError = useCallback((name: string) => {
 		setExpandedErrors((prev) => { const next = new Set(prev); if (next.has(name)) next.delete(name); else next.add(name); return next; });
 	}, []);
@@ -1561,7 +1577,17 @@ export function MCPServersSettingsPage() {
 			)}
 			{serverGroups.active.length > 0 && (
 				<div className="cap-server-section">
-					<div className="cap-server-section__title">{t("caps.availableServers")}</div>
+					<div className="cap-server-section__head">
+						<div className="cap-server-section__title">{t("caps.availableServers")}</div>
+						<button
+							className="btn btn--small"
+							disabled={actionBusy || retryableActiveServerNames.length === 0}
+							type="button"
+							onClick={() => void mutate(() => Promise.allSettled(retryableActiveServerNames.map((name) => app.ReconnectMCPServer(name))))}
+						>
+							{t("caps.retryAll")}
+						</button>
+					</div>
 						<ServerGroup
 							busy={actionBusy}
 							servers={serverGroups.active}

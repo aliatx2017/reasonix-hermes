@@ -2019,7 +2019,7 @@ function makeMockApp(): AppBindings {
     async UpdateMCPServer(name: string, input: MCPServerInput) {
       capServers = capServers.map((s) => {
         if (s.name !== name) return s;
-        const connected = s.status === "connected" || s.status === "failed" || s.tier !== "lazy";
+        const connected = s.status === "connected" || s.status === "failed" || s.autoStart !== false;
         const nextStatus = s.status === "disabled" ? "disabled" : connected ? "connected" : "deferred";
         const nextTools = nextStatus === "connected" ? s.tools || (input.transport === "stdio" ? 3 : 5) : 0;
         return {
@@ -2056,7 +2056,7 @@ function makeMockApp(): AppBindings {
         s.name === name
           ? {
               ...s,
-              status: s.tier === "background" || s.tier === "eager" ? "initializing" : "deferred",
+              status: s.autoStart === false ? "disabled" : "initializing",
               tools: 0,
               error: undefined,
               authStatus: s.transport !== "stdio" ? "possible" : undefined,
@@ -2117,7 +2117,6 @@ function makeMockApp(): AppBindings {
     async SetMCPServerTier(name: string, tier: string) {
       capServers = capServers.map((s) => {
         if (s.name !== name) return s;
-        if (tier === "lazy") return { ...s, tier, autoStart: true };
         const tools = s.tools || (s.transport === "stdio" ? 3 : 5);
         return { ...s, tier, autoStart: true, status: "connected", tools, error: undefined, authStatus: undefined, authUrl: undefined };
       });

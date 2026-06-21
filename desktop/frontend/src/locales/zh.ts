@@ -266,7 +266,7 @@ export const zh: Record<DictKey, string> = {
   "caps.authPossibleShort": "可能需要授权",
   "caps.clearAuth": "清除授权",
   "caps.confirmClearAuth": "确认清除",
-  "caps.deferred": "已启用，用到该 MCP 时连接",
+  "caps.deferred": "已启用，正在准备后台连接",
   "caps.initializing": "正在连接 MCP，工具可用后会自动出现",
   "caps.initializingShort": "连接中",
   "caps.disabled": "已停用（本次会话）",

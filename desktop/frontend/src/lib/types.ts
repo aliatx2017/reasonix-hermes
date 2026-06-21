@@ -486,10 +486,12 @@ export interface ServerView {
   name: string;
   transport: string;
   status: "connected" | "deferred" | "failed" | "initializing" | "disabled";
+  startIntent?: "off" | "automatic" | string;
+  runtimeState?: "idle" | "connecting" | "ready" | "issue" | string;
   builtIn?: boolean;
   configured?: boolean;
   autoStart: boolean;
-  tier?: "lazy" | "background" | "eager" | string;
+  tier?: "background" | "eager" | string;
   command?: string;
   args?: string[];
   url?: string;

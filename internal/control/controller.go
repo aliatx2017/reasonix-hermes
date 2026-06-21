@@ -2571,6 +2571,7 @@ func (c *Controller) connectMCPSpec(s plugin.Spec) (int, error) {
 		}
 	}
 	if c.reg != nil {
+		c.reg.ResumePrefix(plugin.ToolPrefix(s.Name))
 		c.reg.RemovePrefix(plugin.ToolPrefix(s.Name))
 		for _, t := range tools {
 			c.reg.Add(t)
@@ -2735,7 +2736,8 @@ func (c *Controller) UnregisterMCPServerTools(name string) bool {
 	if c.reg == nil {
 		return false
 	}
-	return c.reg.RemovePrefix(plugin.ToolPrefix(name)) > 0
+	c.reg.SuspendPrefix(plugin.ToolPrefix(name))
+	return true
 }
 
 // Label returns the human-readable model label, e.g. "deepseek-flash".

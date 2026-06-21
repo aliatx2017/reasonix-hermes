@@ -181,7 +181,7 @@ export const zhTW: Record<DictKey, string> = {
   "caps.authPossibleShort": "可能需要授權",
   "caps.clearAuth": "清除授權",
   "caps.confirmClearAuth": "確認清除",
-  "caps.deferred": "已啟用，用到該 MCP 時連線",
+  "caps.deferred": "已啟用，正在準備背景連線",
   "caps.initializing": "正在連線 MCP，工具可用後會自動出現",
   "caps.initializingShort": "連線中",
   "caps.disabled": "已停用（本次會話）",

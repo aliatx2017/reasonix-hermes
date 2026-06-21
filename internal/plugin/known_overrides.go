@@ -36,11 +36,6 @@ func ApplyKnownOverrides(s Spec, workspaceRoot string) Spec {
 		}
 		// codebase-memory-mcp detects the session root from its subprocess cwd
 		// during initialize, then optionally starts its own auto-index thread.
-		// Connect the background-tier server at tab startup so that handshake can
-		// happen without waiting for the first model tool call.
-		if isStdioSpecType(s.Type) {
-			s.SharedHostBackgroundStart = true
-		}
 		// Its initial full-tree indexing can be CPU-heavy; keep it out of the
 		// foreground scheduling lane just like CodeGraph.
 		s.LowPriority = true

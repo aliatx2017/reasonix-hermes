@@ -398,7 +398,7 @@ func TestMCPManagerHidesComposerBox(t *testing.T) {
 	ctrl := control.New(control.Options{})
 	m := newChatTUI(ctrl, "", make(chan event.Event, 1), 80)
 	m.mcp = &mcpManager{stage: mcpStageList, snapshot: mcpSnapshot{servers: []mcpServerView{
-		{Name: "github", Transport: "stdio", Status: "deferred", Configured: true, Tier: "lazy"},
+		{Name: "github", Transport: "stdio", Status: "deferred", Configured: true, Tier: "background"},
 	}}}
 
 	m0, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})

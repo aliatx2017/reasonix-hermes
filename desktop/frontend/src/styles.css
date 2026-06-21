@@ -9522,8 +9522,14 @@ a[href] {
 .cap-server-section {
   margin-top: 12px;
 }
-.cap-server-section__title {
+.cap-server-section__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   margin-bottom: 4px;
+}
+.cap-server-section__title {
   color: var(--fg-faint);
   font-size: 10.5px;
   font-weight: 700;
@@ -9972,6 +9978,7 @@ a[href] {
 }
 @media (max-width: 760px) {
   .cap-mcp-toolbar,
+  .cap-server-section__head,
   .cap-failures__head,
   .cap-failure {
     display: flex;

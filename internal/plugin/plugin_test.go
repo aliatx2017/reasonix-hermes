@@ -148,9 +148,6 @@ func TestApplyKnownOverridesPinsCodebaseMemoryToWorkspace(t *testing.T) {
 	if got.Dir != "/workspace" {
 		t.Fatalf("codebase-memory-mcp stdio Dir = %q, want workspace root", got.Dir)
 	}
-	if !got.SharedHostBackgroundStart {
-		t.Fatalf("codebase-memory-mcp should opt into shared-host background start")
-	}
 	if !got.LowPriority {
 		t.Fatalf("codebase-memory-mcp should run at low priority")
 	}
@@ -164,16 +161,13 @@ func TestApplyKnownOverridesPinsCodebaseMemoryToWorkspace(t *testing.T) {
 	if httpSpec.Dir != "" {
 		t.Fatalf("http codebase-memory-mcp should not receive stdio Dir, got %q", httpSpec.Dir)
 	}
-	if httpSpec.SharedHostBackgroundStart {
-		t.Fatalf("http codebase-memory-mcp should not opt into shared-host background start")
-	}
 
 	npxSpec := ApplyKnownOverrides(Spec{
 		Name:    "custom",
 		Command: "npx",
 		Args:    []string{"-y", "codebase-memory-mcp@latest"},
 	}, "/workspace")
-	if npxSpec.Dir != "/workspace" || !npxSpec.SharedHostBackgroundStart {
+	if npxSpec.Dir != "/workspace" || !npxSpec.LowPriority {
 		t.Fatalf("npx codebase-memory-mcp override missing: %+v", npxSpec)
 	}
 }

@@ -813,10 +813,10 @@ func TestPluginResolvedTierDefaultsToBackground(t *testing.T) {
 		want string
 	}{
 		{name: "empty", tier: "", want: "background"},
-		{name: "explicit lazy", tier: "lazy", want: "lazy"},
+		{name: "legacy lazy", tier: "lazy", want: "background"},
 		{name: "background", tier: "background", want: "background"},
 		{name: "eager", tier: "eager", want: "eager"},
-		{name: "unknown", tier: "startup", want: "lazy"},
+		{name: "unknown", tier: "startup", want: "background"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			got := (PluginEntry{Name: "mcp", Command: "mcp-server", Tier: tc.tier}).ResolvedTier()
