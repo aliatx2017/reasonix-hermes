@@ -33,6 +33,8 @@ interface ProjectTreeProps {
   onTimeFilterChange: (filter: "all" | "10" | "20" | "1h" | "3h" | "5h" | "1d") => void;
   searchExpanded?: boolean;
   searchFocusSignal?: number;
+  showShortcutBadges?: boolean;
+  onVisibleTopicsChange?: (topics: import("../lib/topicShortcuts").TopicShortcutEntry[]) => void;
 }
 
 type ProjectTreeImTopicSource = {
@@ -446,6 +448,8 @@ export function ProjectTree({
   onTimeFilterChange,
   searchExpanded = true,
   searchFocusSignal = 0,
+  showShortcutBadges = false,
+  onVisibleTopicsChange,
 }: ProjectTreeProps) {
   const t = useT();
   const { showToast } = useToast();
@@ -476,6 +480,8 @@ export function ProjectTree({
   const filterRef = useRef<HTMLDivElement>(null);
   const filterTriggerRef = useRef<HTMLButtonElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const topicIndexRef = useRef(0);
+  const visibleTopicsCollectorRef = useRef<import("../lib/topicShortcuts").TopicShortcutEntry[]>([]);
   const [filterMenuOpen, setFilterMenuOpen] = useState(false);
   const creatingRef = useRef(false);
   const manuallyCollapsedRef = useRef(manuallyCollapsed);
@@ -954,7 +960,7 @@ export function ProjectTree({
     });
   }, [activeAncestorKeys, manuallyCollapsed]);
 
-  const renderNode = (node: ProjectNode | null | undefined, depth: number, section: "pinned" | "projects" = "projects") => {
+  const renderNode = (node: ProjectNode | null | undefined, depth: number, section: "pinned" | "projects" = "projects", isVisible = true) => {
     if (!node) return null;
     const key = projectNodeKey(node, depth);
     const children = asArray(node.children);
@@ -1046,9 +1052,20 @@ export function ProjectTree({
           </div>
         );
       }
+      const shortcutIndex = showShortcutBadges && isVisible && topicIndexRef.current < 9 ? topicIndexRef.current + 1 : 0;
+      if (shortcutIndex > 0) topicIndexRef.current++;
+      // Collect visible topics in render order for shortcut navigation
+      if (openRequest && isVisible) {
+        visibleTopicsCollectorRef.current.push({
+          scope: openRequest.scope,
+          workspaceRoot: openRequest.workspaceRoot,
+          topicId: openRequest.topicId,
+          sessionPath: openRequest.sessionPath,
+        });
+      }
       const row = (
         <div
-          className={`project-tree__topic${scopeClass}${isSessionNode ? " project-tree__topic--session" : ""}${active ? " project-tree__topic--active" : ""}${node.running ? " project-tree__topic--running" : ""}${status ? ` project-tree__topic--status-${status}` : ""}${!isSessionNode && pinned ? " project-tree__topic--pinned" : ""}${topicMenuOpen ? " project-tree__topic--menu-open" : ""}${sideTimeVisible && (timeLabel || showStatusInSide) ? " project-tree__topic--with-side" : meta ? " project-tree__topic--has-meta" : ""}${imSource ? " project-tree__topic--im-source" : ""}`}
+          className={`project-tree__topic${scopeClass}${isSessionNode ? " project-tree__topic--session" : ""}${active ? " project-tree__topic--active" : ""}${node.running ? " project-tree__topic--running" : ""}${status ? ` project-tree__topic--status-${status}` : ""}${!isSessionNode && pinned ? " project-tree__topic--pinned" : ""}${topicMenuOpen ? " project-tree__topic--menu-open" : ""}${sideTimeVisible && (timeLabel || showStatusInSide) ? " project-tree__topic--with-side" : meta ? " project-tree__topic--has-meta" : ""}${imSource ? " project-tree__topic--im-source" : ""}${shortcutIndex > 0 ? " project-tree__topic--show-shortcut" : ""}`}
           style={accentStyle}
           onContextMenu={isSessionNode ? undefined : openTopicMenu}
         >
@@ -1147,6 +1164,11 @@ export function ProjectTree({
               onClose={closeMenu}
             />
           )}
+          {shortcutIndex > 0 && (
+            <span className="project-tree__topic-shortcut" aria-hidden="true">
+              ⌘{shortcutIndex}
+            </span>
+          )}
         </div>
       );
       return (
@@ -1155,7 +1177,7 @@ export function ProjectTree({
           {hasChildren && (
             <div className={`project-tree__children${isExpanded ? " project-tree__children--expanded" : ""}`}>
               <div className="project-tree__children-inner">
-                {children.map((child) => renderNode(child, depth + 1, section))}
+                {children.map((child) => renderNode(child, depth + 1, section, isVisible && isExpanded))}
               </div>
             </div>
           )}
@@ -1386,7 +1408,7 @@ export function ProjectTree({
           {hasChildren && (
             <div className={`project-tree__children${isExpanded ? " project-tree__children--expanded" : ""}`}>
               <div className="project-tree__children-inner">
-                {children.map((child) => renderNode(child, depth + 1, section))}
+                {children.map((child) => renderNode(child, depth + 1, section, isVisible && isExpanded))}
               </div>
             </div>
           )}
@@ -1474,7 +1496,7 @@ export function ProjectTree({
         {hasChildren && (
           <div className={`project-tree__children${isExpanded ? " project-tree__children--expanded" : ""}`}>
             <div className="project-tree__children-inner">
-              {children.map((child) => renderNode(child, depth + 1, section))}
+              {children.map((child) => renderNode(child, depth + 1, section, isVisible && isExpanded))}
             </div>
           </div>
         )}
@@ -1825,6 +1847,16 @@ export function ProjectTree({
   };
 
   const hasWorkbenchRows = workbenchTreeSections.pinned.length > 0 || workbenchTreeSections.projects.length > 0;
+
+  // Report visible topics to parent after render so shortcuts match sidebar order.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    onVisibleTopicsChange?.(visibleTopicsCollectorRef.current);
+  });
+
+  // Reset topic index counter and visible topics collector before each render.
+  topicIndexRef.current = 0;
+  visibleTopicsCollectorRef.current = [];
 
   return (
     <div className="project-tree">

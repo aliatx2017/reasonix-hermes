@@ -1957,17 +1957,17 @@ a[href] {
   grid-template-columns: var(--sidebar-expanded-width) minmax(0, 1fr);
 }
 .layout--workspace-open {
-  --chrome-right-toggle-offset: calc(var(--workspace-width) + var(--workspace-resizer-width));
+  --chrome-right-toggle-offset: var(--workspace-width);
   min-width: min(780px, 100vw);
-  grid-template-columns: var(--sidebar-width) minmax(0, 1fr) var(--workspace-resizer-width) minmax(0, var(--workspace-width));
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr) minmax(0, var(--workspace-width));
 }
 .layout--workspace-open:not(.layout--sidebar-collapsed) {
   min-width: min(780px, 100vw);
-  grid-template-columns: var(--sidebar-expanded-width) minmax(0, 1fr) var(--workspace-resizer-width) minmax(0, var(--workspace-width));
+  grid-template-columns: var(--sidebar-expanded-width) minmax(0, 1fr) minmax(0, var(--workspace-width));
 }
 .layout--workspace-open.layout--sidebar-collapsed {
   min-width: min(560px, 100vw);
-  grid-template-columns: 0px minmax(0, 1fr) var(--workspace-resizer-width) minmax(0, var(--workspace-width));
+  grid-template-columns: 0px minmax(0, 1fr) minmax(0, var(--workspace-width));
 }
 .layout--workspace-maximized {
   min-width: 0;
@@ -2457,32 +2457,32 @@ a[href] {
   position: relative;
   grid-row: 2;
   grid-column: 3;
-  align-self: start;
-  justify-self: stretch;
-  z-index: var(--z-layout-resizer-active);
-  width: auto;
-  min-width: var(--workspace-resizer-width);
+  align-self: stretch;
+  justify-self: start;
+  width: 1px;
+  min-width: 1px;
   height: calc(100% - var(--statusbar-height));
   padding: 0;
   border: 0;
-  background: transparent;
+  background: var(--border-soft);
   cursor: col-resize;
   touch-action: none;
+  z-index: var(--z-layout-resizer-active);
 }
-.workspace-panel-resizer::after {
+.workspace-panel-resizer::before {
   content: "";
   position: absolute;
   top: 0;
   bottom: 0;
-  left: 50%;
-  width: 1px;
-  transform: translateX(-50%);
-  background: var(--border-soft);
-  transition: background 0.12s, box-shadow 0.12s;
+  left: -3px;
+  right: -3px;
 }
-.workspace-panel-resizer:hover::after,
-.workspace-panel-resizer:focus-visible::after,
-.layout--workspace-resizing .workspace-panel-resizer::after {
+.workspace-panel-resizer::after {
+  display: none;
+}
+.workspace-panel-resizer:hover,
+.workspace-panel-resizer:focus-visible,
+.layout--workspace-resizing .workspace-panel-resizer {
   background: var(--accent);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 24%, transparent);
 }
@@ -16483,7 +16483,7 @@ a[href] {
   gap: 10px;
   min-height: 48px;
   padding: 6px 18px;
-  background: var(--chat-bg);
+  background: var(--bg-elev);
   border-bottom: 1px solid var(--border-soft);
   --wails-draggable: drag;
   user-select: none;
@@ -18184,14 +18184,14 @@ a[href] {
 .context-inspector,
 .workbench-dock {
   grid-row: 2;
-  grid-column: 4;
+  grid-column: 3;
   min-width: 0;
   height: 100%;
   display: flex;
   flex-direction: column;
   padding-bottom: var(--statusbar-height);
   background: var(--workspace-files-bg);
-  border-left: 0;
+  border-left: 1px solid var(--border-soft);
   overflow: hidden;
 }
 
@@ -19092,7 +19092,7 @@ a[href] {
   min-height: 48px;
   padding: 6px 18px;
   gap: 10px;
-  background: color-mix(in srgb, var(--chat-bg) 96%, var(--bg-elev));
+  background: var(--bg-elev);
 }
 
 .topicbar__identity {
@@ -19283,10 +19283,6 @@ a[href] {
 .statusbar__balance,
 .statusbar__cost {
   color: var(--ok);
-}
-
-.workspace-panel-resizer::after {
-  background: var(--border-soft);
 }
 
 .workbench-dock {
@@ -20276,7 +20272,7 @@ a[href] {
   min-height: 48px;
   padding: 6px 18px;
   gap: 10px;
-  background: color-mix(in srgb, var(--chat-bg) 96%, var(--bg-elev));
+  background: var(--bg-elev);
   border-bottom: 1px solid var(--border-soft);
 }
 
@@ -20385,7 +20381,7 @@ a[href] {
 }
 
 :root[data-theme-style] .layout--workbench-chrome-hidden .topicbar {
-  background: var(--chat-bg);
+  background: var(--bg-elev);
 }
 
 :root[data-theme-style] .layout--workbench-chrome-hidden .topicbar__identity,
@@ -21154,7 +21150,7 @@ a[href] {
   box-shadow: inset 3px 0 0 var(--accent);
 }
 
-:root[data-theme-style] .workspace-panel-resizer::after,
+
 :root[data-theme-style] .sidebar-resizer::after {
   background: var(--border-soft);
 }
@@ -24332,11 +24328,11 @@ a[href] {
   box-shadow: none;
 }
 
-.app--creation .workspace-panel-resizer::after,
-.app--creation .workspace-panel-resizer:hover::after,
-.app--creation .workspace-panel-resizer:focus-visible::after,
-.app--creation .layout--workspace-resizing .workspace-panel-resizer::after,
-:root[data-theme-style] .app--creation .workspace-panel-resizer::after {
+.app--creation .workspace-panel-resizer,
+.app--creation .workspace-panel-resizer:hover,
+.app--creation .workspace-panel-resizer:focus-visible,
+.app--creation .layout--workspace-resizing .workspace-panel-resizer,
+:root[data-theme-style] .app--creation .workspace-panel-resizer {
   background: transparent;
   box-shadow: none;
 }
@@ -24978,4 +24974,65 @@ a[href] {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
+}
+
+/* Topic shortcut badges (Cmd/Ctrl+1-9 overlay) */
+
+.project-tree__topic-shortcut {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  z-index: var(--z-local-raised);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--fg) 8%, var(--sidebar-bg, var(--bg)));
+  color: var(--fg-faint);
+  font-size: 11px;
+  font-weight: 520;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-50%) translateX(4px);
+  transition: opacity 120ms ease, transform 120ms ease;
+}
+
+/* Show badges when the parent topic has the modifier held class */
+.project-tree__topic--show-shortcut .project-tree__topic-shortcut {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
+}
+
+/* In workbench mode, hide the time/side and actions when shortcuts are shown */
+.sidebar--workbench .project-tree__topic--show-shortcut .project-tree__topic-side {
+  opacity: 0;
+  transform: translateX(-3px);
+}
+.sidebar--workbench .project-tree__topic--show-shortcut .project-tree__topic-actions {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-50%) translateX(4px);
+}
+
+/* In creation mode, hide the time/side when shortcuts are shown */
+.app--creation .project-tree__topic--show-shortcut .project-tree__topic-side {
+  opacity: 0;
+  transform: translateX(-3px);
+}
+
+/* In classic mode, hide the meta line when shortcuts are shown */
+.project-tree__topic--show-shortcut .project-tree__topic-meta {
+  opacity: 0;
+}
+
+/* Theme overrides */
+:root[data-theme-style] .project-tree__topic-shortcut {
+  background: color-mix(in srgb, var(--fg) 8%, var(--sidebar-bg, var(--bg)));
+  color: var(--fg-faint);
 }

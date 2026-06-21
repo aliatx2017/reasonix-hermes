@@ -106,10 +106,12 @@ command = "reasonix-plugin-example"
 
 | 按键或控件 | 作用 | 说明 |
 | --- | --- | --- |
-| macOS `Cmd+K`，Windows/Linux `Ctrl+K` | 打开命令面板 | `Esc` 关闭命令面板。 |
+| macOS `Cmd+K`，Windows/Linux `Ctrl+K` | 打开或关闭命令面板 | 打开时会聚焦搜索框；`Esc` 关闭命令面板。 |
 | macOS `Cmd+,`，Windows/Linux `Ctrl+,` | 打开设置 | 在设置里的 **快捷键** 页可自定义桌面端绑定。 |
 | macOS `Cmd+W`，Windows/Linux `Ctrl+W` | 关闭当前顶部标签页 | 最后一个标签页仍由原有关闭保护保留。 |
-| `Cmd+B` / `Ctrl+B` | 展开或收起最近的 shell 输出 | 和点击折叠 shell 输出提示是同一个动作。 |
+| `Cmd+B` / `Ctrl+B` | 显示或隐藏左侧边栏 | 和点击侧边栏开关是同一个动作。 |
+| `Cmd+Shift+B` / `Ctrl+Shift+B` | 展开或收起最近的 shell 输出 | 和点击折叠 shell 输出提示是同一个动作。 |
+| macOS `Cmd+1`-`Cmd+9`，其它平台 `Ctrl+1`-`Ctrl+9` | 跳转到侧边栏中对应编号的可见对话 | 短暂按住 `Cmd`/`Ctrl` 会显示编号标记；已有自定义快捷键占用相同按键时，自定义动作优先生效。 |
 | macOS `Cmd++`、`Cmd+-`、`Cmd+0`；其它平台 `Ctrl++`、`Ctrl+-`、`Ctrl+0` | 放大、缩小或重置文字大小 | 对把加号上报为 `=` 的键盘也兼容。 |
 | `?` | 打开键盘快捷键帮助表 | 帮助表显示当前实际生效的桌面端绑定。 |
 

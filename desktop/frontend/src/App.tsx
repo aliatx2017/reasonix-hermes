@@ -115,6 +115,7 @@ import { applyTextSize, DEFAULT_TEXT_SIZE, getTextSize, nextTextSize } from "./l
 import { useViewportHeightVar, useWindowStatePersistence } from "./lib/windowState";
 import { availableWorkspacePanelWidth, resolveWorkspacePanelWidth, workspacePanelAriaMinWidth } from "./lib/workspaceLayout";
 import { useGlobalShortcut } from "./lib/keyboardShortcuts";
+import { topicShortcutIndexFromEvent, useTopicShortcuts, type TopicShortcutEntry } from "./lib/topicShortcuts";
 import logoWordmark from "./assets/logo-wordmark.svg";
 
 const HistoryPanel = lazy(() => import("./components/HistoryPanel").then((module) => ({ default: module.HistoryPanel })));
@@ -2206,7 +2207,7 @@ export default function App() {
   useGlobalShortcut("commandPalette.open", () => {
     setPaletteOpen((current) => {
       if (!current) void openPalette();
-      return current;
+      return !current; // ← fix: toggle the state so the palette actually opens/closes
     });
   }, [openPalette]);
   useGlobalShortcut("app.newSession", () => void handleNewTab(), [handleNewTab]);
@@ -2218,6 +2219,33 @@ export default function App() {
     if (activeTabId) void handleTabClose(activeTabId);
   }, [activeTabId, handleTabClose], Boolean(activeTabId));
   useGlobalShortcut("shortcuts.show", () => setShortcutsOpen(true));
+  useGlobalShortcut("sidebar.toggle", toggleSidebar, [toggleSidebar]);
+
+  // --- Topic shortcut navigation (Cmd/Ctrl+1-9) ---
+  const visibleTopicsRef = useRef<TopicShortcutEntry[]>([]);
+  const handleVisibleTopicsChange = useCallback((topics: TopicShortcutEntry[]) => {
+    visibleTopicsRef.current = topics;
+  }, []);
+  const handleNavigateTopic = useCallback((entry: TopicShortcutEntry) => {
+    void handleOpenTopic(entry.scope, entry.workspaceRoot, entry.topicId, entry.sessionPath);
+  }, [handleOpenTopic]);
+  const { showBadges: showTopicBadges } = useTopicShortcuts(!sidebarCollapsed);
+
+  // Register Cmd/Ctrl+1-9 shortcuts for topic navigation
+  useEffect(() => {
+    if (sidebarCollapsed) return;
+    const onKeydown = (event: globalThis.KeyboardEvent) => {
+      const idx = topicShortcutIndexFromEvent(event);
+      if (idx === null) return;
+      event.preventDefault();
+      const topics = visibleTopicsRef.current;
+      if (idx < topics.length) {
+        handleNavigateTopic(topics[idx]);
+      }
+    };
+    document.addEventListener("keydown", onKeydown);
+    return () => document.removeEventListener("keydown", onKeydown);
+  }, [sidebarCollapsed, handleNavigateTopic]);
 
   const paletteItems = useMemo<PaletteItem[]>(() => {
     const cmds: PaletteItem[] = [
@@ -2580,6 +2608,8 @@ export default function App() {
               variant={sidebarWorkbench ? "workbench" : sidebarCreation ? "creation" : "classic"}
               searchExpanded={!sidebarCreation || sidebarSearchOpen}
               searchFocusSignal={sidebarSearchFocusSignal}
+              showShortcutBadges={showTopicBadges}
+              onVisibleTopicsChange={handleVisibleTopicsChange}
             />
           </section>
 

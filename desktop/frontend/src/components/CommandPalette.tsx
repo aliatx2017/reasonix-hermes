@@ -1,7 +1,7 @@
-import { Command, Search } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import type { ReactNode } from 'react';
-import { useMountTransition } from '../lib/useMountTransition';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
+import { Command, Search } from "lucide-react";
+import { useMountTransition } from "../lib/useMountTransition";
 
 // CommandPalette is a ⌘K / Ctrl+K modal that surfaces the desktop app's
 // long-tail navigation surface. Tabs through sessions, slash-commands, and
@@ -57,9 +57,11 @@ export function CommandPalette({
   placeholder: string;
   emptyText: string;
 }) {
-  const [query, setQuery] = useState('');
-  const [active, setActive] = useState(0);
+  const [query, setQuery] = useState("");
+  const [active, setActive] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
+  const isOpenRef = useRef(false);
+  isOpenRef.current = open;
   // Keep the palette mounted through its exit animation after `open` flips
   // false; `status` drives the enter/exit keyframes via data-state.
   const { mounted, status } = useMountTransition(open, 200);
@@ -67,13 +69,27 @@ export function CommandPalette({
   // Re-init whenever the palette opens: clear the query, reset the
   // highlight, and steal focus. Doing it on the open edge (not on every
   // render) means a previously-typed query doesn't leak across opens.
-  useEffect(() => {
+  // useLayoutEffect fires synchronously after DOM mutations, before the
+  // browser paints — ensures focus lands before any paint-time transitions
+  // can interfere.
+  useLayoutEffect(() => {
     if (open) {
-      setQuery('');
-      setActive(0);
-      requestAnimationFrame(() => inputRef.current?.focus());
+      setQuery("");
+      setActive(-1);
+      inputRef.current?.focus();
     }
   }, [open]);
+
+  // Callback ref: when the input element mounts while the palette is open,
+  // focus it immediately. This handles the case where the DOM element
+  // becomes available after the useLayoutEffect already ran.
+  const inputCallbackRef = useCallback(
+    (el: HTMLInputElement | null) => {
+      inputRef.current = el;
+      if (el && isOpenRef.current) el.focus();
+    },
+    [],
+  );
 
   // score is the fuzzy match: every space-separated query token must
   // appear (case-insensitively) in the candidate's haystack, in the order
@@ -86,7 +102,7 @@ export function CommandPalette({
     const tokens = q.split(/\s+/);
     const scored: { item: PaletteItem; score: number }[] = [];
     for (const it of items) {
-      const hay = [it.title, it.hint ?? '', ...(it.keywords ?? [])].join('\n').toLowerCase();
+      const hay = [it.title, it.hint ?? "", ...(it.keywords ?? [])].join("\n").toLowerCase();
       let cursor = 0;
       let score = 0;
       let ok = true;
@@ -130,11 +146,11 @@ export function CommandPalette({
   // Clamp the active index whenever the result set shrinks (e.g. user
   // typed something that filtered out the previously-highlighted item).
   useEffect(() => {
-    if (active >= flat.length) setActive(Math.max(0, flat.length - 1));
+    if (active >= 0 && active >= flat.length) setActive(Math.max(0, flat.length - 1));
   }, [flat.length, active]);
 
-  // Reset the highlight to 0 on every query change — the user just refined
-  // their search, the old highlight is rarely still interesting.
+  // Reset the highlight to the first match on every query change — the user
+  // just refined their search, the old highlight is rarely still interesting.
   useEffect(() => {
     setActive(0);
   }, [query]);
@@ -145,22 +161,22 @@ export function CommandPalette({
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      if (e.key === "Escape") {
         e.preventDefault();
         onClose();
         return;
       }
-      if (e.key === 'ArrowDown') {
+      if (e.key === "ArrowDown") {
         e.preventDefault();
-        setActive((i) => (flat.length === 0 ? 0 : (i + 1) % flat.length));
+        setActive((i) => (flat.length === 0 ? -1 : i < 0 ? 0 : (i + 1) % flat.length));
         return;
       }
-      if (e.key === 'ArrowUp') {
+      if (e.key === "ArrowUp") {
         e.preventDefault();
-        setActive((i) => (flat.length === 0 ? 0 : (i - 1 + flat.length) % flat.length));
+        setActive((i) => (flat.length === 0 ? -1 : i <= 0 ? flat.length - 1 : i - 1));
         return;
       }
-      if (e.key === 'Enter') {
+      if (e.key === "Enter") {
         e.preventDefault();
         const it = flat[active];
         if (it) void it.run();
@@ -168,8 +184,8 @@ export function CommandPalette({
         return;
       }
     };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
   }, [open, flat, active, onClose]);
 
   if (!mounted) return null;
@@ -179,19 +195,17 @@ export function CommandPalette({
   let running = 0;
 
   return (
-    <div className="drawer-backdrop" data-state={status} onClick={onClose} role="presentation">
-      <div
-        className="palette"
-        data-state={status}
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        aria-label={placeholder}
-      >
+    <div
+      className="drawer-backdrop"
+      data-state={status}
+      onClick={onClose}
+      role="presentation"
+    >
+      <div className="palette" data-state={status} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={placeholder}>
         <div className="palette__inputrow">
           <Search className="palette__search-icon" size={18} aria-hidden="true" />
           <input
-            ref={inputRef}
+            ref={inputCallbackRef}
             className="palette__input"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -208,72 +222,69 @@ export function CommandPalette({
             grouped.map((g) => {
               const isCompact = g.items[0]?.compact;
               return (
-                <div
-                  className={`palette__group ${isCompact ? 'palette__group--grid' : ''}`}
-                  key={g.group}
-                >
-                  <div className="palette__group-title">{g.group}</div>
-                  {isCompact ? (
-                    <div className="palette__grid">
-                      {g.items.map((it) => {
-                        const idx = running++;
-                        const on = idx === active;
-                        return (
-                          <button
-                            type="button"
-                            role="option"
-                            aria-selected={on}
-                            key={it.id}
-                            className={`palette__chip ${on ? 'palette__chip--on' : ''}`}
-                            onMouseEnter={() => setActive(idx)}
-                            onClick={() => {
-                              void it.run();
-                              onClose();
-                            }}
-                          >
-                            <span className="palette__chip-icon" aria-hidden="true">
-                              {it.icon ?? <Command size={15} />}
+              <div className={`palette__group ${isCompact ? "palette__group--grid" : ""}`} key={g.group}>
+                <div className="palette__group-title">{g.group}</div>
+                {isCompact ? (
+                  <div className="palette__grid">
+                  {g.items.map((it) => {
+                    const idx = running++;
+                    const on = idx === active;
+                    return (
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={on}
+                        key={it.id}
+                        className={`palette__chip ${on ? "palette__chip--on" : ""}`}
+                        onMouseEnter={() => setActive(idx)}
+                        onClick={() => {
+                          void it.run();
+                          onClose();
+                        }}
+                      >
+                        <span className="palette__chip-icon" aria-hidden="true">
+                          {it.icon ?? <Command size={15} />}
+                        </span>
+                        <span className="palette__chip-label">{it.title}</span>
+                      </button>
+                    );
+                  })}
+                  </div>
+                ) : (
+                  g.items.map((it) => {
+                    const idx = running++;
+                    const on = idx === active;
+                    return (
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={on}
+                        key={it.id}
+                        className={`palette__item ${on ? "palette__item--on" : ""}`}
+                        onMouseEnter={() => setActive(idx)}
+                        onClick={() => {
+                          void it.run();
+                          onClose();
+                        }}
+                      >
+                        <span className="palette__item-icon" aria-hidden="true">
+                          {it.icon ?? <Command size={15} />}
+                        </span>
+                        <span className="palette__body">
+                          <span className="palette__title">{it.title}</span>
+                          {(it.hint || it.meta || it.badge) && (
+                            <span className="palette__hint">
+                              {it.hint && <span className="palette__hint-text">{it.hint}</span>}
+                              {it.meta && <span className="palette__meta">{it.meta}</span>}
+                              {it.badge && <span className="palette__badge">{it.badge}</span>}
                             </span>
-                            <span className="palette__chip-label">{it.title}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    g.items.map((it) => {
-                      const idx = running++;
-                      const on = idx === active;
-                      return (
-                        <button
-                          type="button"
-                          role="option"
-                          aria-selected={on}
-                          key={it.id}
-                          className={`palette__item ${on ? 'palette__item--on' : ''}`}
-                          onMouseEnter={() => setActive(idx)}
-                          onClick={() => {
-                            void it.run();
-                            onClose();
-                          }}
-                        >
-                          <span className="palette__item-icon" aria-hidden="true">
-                            {it.icon ?? <Command size={15} />}
-                          </span>
-                          <span className="palette__body">
-                            <span className="palette__title">{it.title}</span>
-                            {(it.hint || it.meta || it.badge) && (
-                              <span className="palette__hint">
-                                {it.hint && <span className="palette__hint-text">{it.hint}</span>}
-                                {it.meta && <span className="palette__meta">{it.meta}</span>}
-                                {it.badge && <span className="palette__badge">{it.badge}</span>}
-                              </span>
-                            )}
-                          </span>
-                        </button>
-                      );
-                    })
-                  )}
-                </div>
+                          )}
+                        </span>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
               );
             })
           )}
