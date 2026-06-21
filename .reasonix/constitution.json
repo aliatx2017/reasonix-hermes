@@ -88,6 +88,12 @@
       "description": "Never copy a verifiable fact (date, version, count, path, URL, status, etc.) from an existing file without running the verification first. If you read a date like '2026-07-15' in a file and need to write a new date, run `date` — don't assume the old one is correct. If you read a memory claiming 'LINE adapter PR' is a todo, verify with the user before carrying it forward. Existing text is input, not truth. This is the #1 recurring failure pattern.",
       "severity": "error",
       "scope": "all communication"
+    },
+    {
+      "id": "frontend-guard-tests",
+      "description": "Structural guard tests on desktop frontend source files (hotbar-guard.test.ts and similar) must pass before committing. These prevent upstream merge silent-destruction of injected TypeScript blocks that git merge may not flag as conflicts.",
+      "severity": "error",
+      "scope": "desktop/frontend/src/__tests__/*guard*.test.ts"
     }
   ]
 }
