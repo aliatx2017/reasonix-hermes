@@ -255,7 +255,7 @@ commands, `@` references, and two-model setup are all in the
 | **[Domain Model](./CONTEXT.md)** | Project glossary — canonical terms, `_Avoid_` alternatives, and domain boundaries |
 | **[Desktop App](./docs/DESKTOP.md)** | Wails desktop app — Hermes dashboard, write mode, bot connections, live data |
 | **[Bot Guide](./docs/BOT_GUIDE.md)** | Connect Discord, Telegram, LINE, Slack, Feishu, WeChat, QQ bots |
-| **[Marketplace](./docs/MARKETPLACE.md)** | Community skill registry + LobeHub sync (360k+ skills) |
+| **[Marketplace](./docs/MARKETPLACE.md)** | Community skill registry + LobeHub sync (800+ agents) |
 | **[Skills Catalog](./docs/SKILLS-CATALOG.md)** | Complete inventory of all 125+ skills — project, community, and global |
 | **[Constitution](./docs/CONSTITUTION.md)** | Project invariants — principles, constraints, and code-level rules |
 | **[Session Eval](./docs/EVAL.md)** | Compare two agent sessions for eval-driven development |

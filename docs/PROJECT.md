@@ -28,14 +28,15 @@ Binaries are available for macOS (amd64 + arm64), Linux (amd64 + arm64), and Win
 
 | Binary | Size | Purpose |
 |--------|------|---------|
-| `reasonix` | ~27 MB | Core CLI — chat, run, serve, setup |
-| `reasonix-desktop` | ~34 MB | Wails desktop app |
+| `reasonix` | ~29 MB | Core CLI — chat, run, serve, setup |
+| `reasonix-desktop` | ~38 MB | Wails desktop app |
 | `reasonix-bot` | ~15 MB | Discord, Telegram, LINE, Slack bot gateway |
 | `reasonix-mcpbridge` | ~9 MB | MCP bridge server (6 tools) |
-| `reasonix-memoryserver` | ~14 MB | Hindsight memory server (SQLite + vector search) |
+| `reasonix-memoryserver` | ~15 MB | Hindsight memory server (SQLite + vector search) |
 | `reasonix-hooks` | ~8 MB | Native Go hook runner |
-| `reasonix-pr-review` | ~9 MB | PR review CLI for GitHub Actions |
-| `reasonix-e2ebench` | ~9 MB | E2E benchmarking tool |
+| `reasonix-pr-review` | ~8 MB | PR review CLI for GitHub Actions |
+| `reasonix-e2ebench` | ~5 MB | E2E benchmarking tool |
+| `reasonix-learner-live-test` | ~14 MB | Learner e2e validation binary |
 
 ### Build from source
 
@@ -53,6 +54,7 @@ go build -o bin/reasonix-bot        ./bot
 go build -o bin/reasonix-hooks      ./cmd/reasonix-hooks
 go build -o bin/reasonix-pr-review     ./cmd/reasonix-pr-review
 go build -o bin/reasonix-e2ebench      ./cmd/e2ebench
+go build -o bin/reasonix-learner-live-test ./cmd/learner-live-test
 
 # Desktop app
 cd desktop && wails build -o ../bin/reasonix-desktop
@@ -130,7 +132,7 @@ See the [Desktop Guide](./DESKTOP.md) for full details.
 | **MCP bridge server** | `cmd/reasonix-mcpbridge/` | 6 tools — connect Claude Code, Codex to Reasonix over stdio/HTTP |
 | **Hindsight memory** | `cmd/reasonix-memoryserver/` | 3 tools — SQLite + TF-IDF vector search + dense embeddings, TTL/importance decay |
 | **Skills hub** | `skills-hub/` | 17 curated community skills with frontmatter playbooks |
-| **Skill marketplace** | `internal/marketplace/` | Community registry + LobeHub sync (360k+ skills) |
+| **Skill marketplace** | `internal/marketplace/` | Community registry + LobeHub sync (856 agents) |
 | **PR review CLI** | `cmd/reasonix-pr-review/` | GitHub Action with 6-dimension review prompt |
 | **Native hooks** | `cmd/reasonix-hooks/` | Zero-dependency Go binary for PreToolUse/Stop hooks |
 | **Helm chart + docker-compose** | `deploy/` | One-command deploy to K8s or $5 VPS |
@@ -157,7 +159,7 @@ See the [Desktop Guide](./DESKTOP.md) for full details.
 
 Hermes tracks [esengine/deepseek-reasonix](https://github.com/esengine/deepseek-reasonix) (branch `main-v2`). Automated sync via `.github/workflows/sync-upstream.yml` runs daily at 20:00 UTC — clean merge → build+test → push. On conflict, opens a PR for manual resolution.
 
-**Current upstream target**: v1.10.0 (commit 49c1476, 2026-06-20).
+**Current upstream target**: v1.10.0 (commit 91fe06d, 2026-06-20).
 
 ```sh
 git fetch upstream

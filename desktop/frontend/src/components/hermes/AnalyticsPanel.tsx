@@ -61,7 +61,7 @@ export function AnalyticsPanel() {
   // Tool usage totals
   const toolTotals = new Map<string, number>();
   for (const p of timeline) {
-    for (const t of p.toolCalls) {
+    for (const t of p.toolCalls || []) {
       toolTotals.set(t, (toolTotals.get(t) || 0) + 1);
     }
   }
@@ -317,10 +317,10 @@ export function AnalyticsPanel() {
               >
                 T{p.turn}
               </div>
-              {p.toolCalls.length === 0 ? (
+              {p.toolCalls?.length === 0 ? (
                 <div style={{ color: 'var(--color-text-muted)', opacity: 0.5 }}>—</div>
               ) : (
-                p.toolCalls.map((t, i) => (
+                p.toolCalls?.map((t, i) => (
                   <div
                     key={i}
                     style={{

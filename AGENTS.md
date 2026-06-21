@@ -117,7 +117,7 @@ skills-hub/            17-skill community registry + static catalog site
 | `internal/compress/` | Tool output token compressor | SHA-256 cache, repeated-line collapsing, JSON minification |
 | `internal/scheduler/` | Cron-driven task scheduler | Automated agent runs at scheduled times |
 | `internal/publish/` | Session transcript export | Self-contained HTML + JSON export |
-| `internal/marketplace/` | Community skill registry | agentskills.io-compatible + LobeHub marketplace sync (360k+ skills) |
+| `internal/marketplace/` | Community skill registry | agentskills.io-compatible + LobeHub marketplace sync (800+ agents) |
 | `internal/provider/ollamacloud/` | Ollama Cloud provider | 42 models via ollama.com/v1 OpenAI-compatible API |
 | `internal/constitution/` | Project invariants | Structured principles/constraints/rules from .reasonix/constitution.json |
 | `internal/e2e/` | Regression testing harness | Replay-based session testing (inputs, turns, assertions) |

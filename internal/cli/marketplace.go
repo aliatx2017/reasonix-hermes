@@ -90,7 +90,7 @@ func marketplaceCommand(args []string) int {
 		}
 		fmt.Printf("Registered client: %s\n", cid)
 		fmt.Printf("Syncing from LobeHub marketplace...\n")
-		fetched, added, err := reg.SyncFromLobeHub(client, "", "installCount", "")
+		fetched, added, err := reg.SyncFromLobeHub(client, "", "", "")
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "lobehub sync: %v\n", err)
 			return 1

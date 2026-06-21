@@ -474,7 +474,7 @@ func (a *App) TurnTimeline() []TurnTimelinePoint {
 			CacheHitTokens:   u.CacheHitTokens,
 			CacheMissTokens:  u.CacheMissTokens,
 			TotalTokens:      u.TotalTokens,
-			ToolCalls:        turnTools[i+1],
+			ToolCalls:        orEmpty(turnTools[i+1]),
 		}
 	}
 	return points
@@ -495,6 +495,14 @@ func turnToolCalls(msgs []provider.Message) map[int][]string {
 		}
 	}
 	return result
+}
+
+// orEmpty returns s if non-nil, otherwise an empty slice.
+func orEmpty(s []string) []string {
+	if s == nil {
+		return []string{}
+	}
+	return s
 }
 
 // TurnUsageHistory returns per-turn token usage for sparkline charts.
@@ -813,11 +821,17 @@ func (a *App) MarketplaceRegistry() []MarketplaceEntryView {
 	return out
 }
 
+// LobeHubSyncResult is the return value of SyncLobeHubMarketplace.
+type LobeHubSyncResult struct {
+	Fetched int `json:"fetched"`
+	Added   int `json:"added"`
+}
+
 // SyncLobeHubMarketplace fetches skills from the LobeHub marketplace API
 // and merges them into the embedded skill registry. If clientID/clientSecret
 // are empty, a new client is auto-registered.
 // Returns the total number of skills fetched and the count of newly added entries.
-func (a *App) SyncLobeHubMarketplace(clientID, clientSecret string) (fetched int, added int, err error) {
+func (a *App) SyncLobeHubMarketplace(clientID, clientSecret string) (LobeHubSyncResult, error) {
 	client := marketplace.NewLobeHubClient(clientID, clientSecret)
 
 	// Auto-register if no credentials provided.
@@ -826,22 +840,25 @@ func (a *App) SyncLobeHubMarketplace(clientID, clientSecret string) (fetched int
 		deviceID := fmt.Sprintf("reasonix-desktop-%s", host)
 		cid, csec, regErr := client.Register("reasonix-hermes", "desktop", deviceID)
 		if regErr != nil {
-			return 0, 0, fmt.Errorf("lobehub register: %w", regErr)
+			return LobeHubSyncResult{}, fmt.Errorf("lobehub register: %w", regErr)
 		}
 		clientID = cid
 		clientSecret = csec
 	}
 
 	reg := marketplace.DefaultRegistry()
-	fetched, added, err = reg.SyncFromLobeHub(client, "", "installCount", "")
-	if err == nil && fetched > 0 {
+	fetched, added, err := reg.SyncFromLobeHub(client, "", "", "")
+	if err != nil {
+		return LobeHubSyncResult{}, err
+	}
+	if fetched > 0 {
 		a.saveLobeHubSyncMeta(LobeHubSyncMeta{
 			LastSync:   time.Now(),
 			Fetched:    fetched,
 			Added:      added,
 		})
 	}
-	return fetched, added, err
+	return LobeHubSyncResult{Fetched: fetched, Added: added}, nil
 }
 
 // LobeHubSyncMeta records the last LobeHub marketplace sync.

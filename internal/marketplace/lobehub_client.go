@@ -250,45 +250,45 @@ func (c *LobeHubClient) doGet(path string, params url.Values) ([]byte, error) {
 	return body, nil
 }
 
-// SkillListResponse is the API response from GET /api/v1/skills.
-type SkillListResponse struct {
-	CurrentPage int               `json:"currentPage"`
-	PageSize    int               `json:"pageSize"`
-	TotalCount  int               `json:"totalCount"`
-	TotalPages  int               `json:"totalPages"`
-	Categories  []string          `json:"categories"`
-	Items       []LobeHubSkillItem `json:"items"`
+// AgentListResponse is the API response from GET /api/v1/agents.
+type AgentListResponse struct {
+	CurrentPage int                `json:"currentPage"`
+	PageSize    int                `json:"pageSize"`
+	TotalCount  int                `json:"totalCount"`
+	TotalPages  int                `json:"totalPages"`
+	Items       []LobeHubAgentItem `json:"items"`
 }
 
-// LobeHubSkillItem is one skill returned by the LobeHub marketplace API.
-type LobeHubSkillItem struct {
+// LobeHubAgentItem is one agent returned by the LobeHub marketplace API.
+type LobeHubAgentItem struct {
 	Identifier   string   `json:"identifier"`
 	Name         string   `json:"name"`
 	Description  string   `json:"description"`
-	Author       string   `json:"author"`
+	Author       AgentAuthor `json:"author"`
 	Category     string   `json:"category"`
 	Tags         []string `json:"tags"`
 	InstallCount int      `json:"installCount"`
-	RatingAvg    float64  `json:"ratingAvg"`
-	RatingCount  int      `json:"ratingCount"`
-	Version      string   `json:"version"`
-	Homepage     string   `json:"homepage"`
+	Version      string   `json:"versionName"`
+	URL          string   `json:"url"`
+	Avatar       string   `json:"avatar"`
 	IsFeatured   bool     `json:"isFeatured"`
 	IsOfficial   bool     `json:"isOfficial"`
 	IsValidated  bool     `json:"isValidated"`
+	Status       string   `json:"status"`
 	CreatedAt    string   `json:"createdAt"`
 	UpdatedAt    string   `json:"updatedAt"`
-	// GitHub metadata (may be absent).
-	GitHub *struct {
-		Stars    int    `json:"stars"`
-		Forks    int    `json:"forks"`
-		Watchers int    `json:"watchers"`
-		URL      string `json:"url"`
-	} `json:"github,omitempty"`
+	ForkCount    int      `json:"forkCount"`
 }
 
-// FetchSkills retrieves a single page of skills from the LobeHub marketplace.
-func (c *LobeHubClient) FetchSkills(page, pageSize int, query, sort, order, category string) (*SkillListResponse, error) {
+// AgentAuthor is the author metadata in an agent item.
+type AgentAuthor struct {
+	Name     string `json:"name"`
+	UserName string `json:"userName"`
+	Avatar   string `json:"avatar"`
+}
+
+// FetchAgents retrieves a single page of agents from the LobeHub marketplace.
+func (c *LobeHubClient) FetchAgents(page, pageSize int, query, sort, order, category string) (*AgentListResponse, error) {
 	if pageSize <= 0 {
 		pageSize = 20
 	}
@@ -312,30 +312,29 @@ func (c *LobeHubClient) FetchSkills(page, pageSize int, query, sort, order, cate
 		params.Set("category", category)
 	}
 
-	body, err := c.doGet("/api/v1/skills", params)
+	body, err := c.doGet("/api/v1/agents", params)
 	if err != nil {
 		return nil, err
 	}
 
-	var resp SkillListResponse
+	var resp AgentListResponse
 	if err := json.Unmarshal(body, &resp); err != nil {
-		return nil, fmt.Errorf("lobehub: decode skills: %w", err)
+		return nil, fmt.Errorf("lobehub: decode agents: %w", err)
 	}
 	return &resp, nil
 }
 
-// FetchAllSkills retrieves all skills from the LobeHub marketplace by
-// paginating through all pages. Set pageSize to 0 to use the default (100).
-// This can return many items (360k+), so use with care.
-func (c *LobeHubClient) FetchAllSkills(pageSize int, query, sort, order, category string) ([]LobeHubSkillItem, error) {
-	if pageSize <= 0 {
-		pageSize = 100
+// FetchAllAgents retrieves all agents from the LobeHub marketplace by
+// paginating through all pages. Max pageSize is 20.
+func (c *LobeHubClient) FetchAllAgents(pageSize int, query, sort, order, category string) ([]LobeHubAgentItem, error) {
+	if pageSize <= 0 || pageSize > 20 {
+		pageSize = 20
 	}
 
-	var all []LobeHubSkillItem
+	var all []LobeHubAgentItem
 	page := 1
 	for {
-		resp, err := c.FetchSkills(page, pageSize, query, sort, order, category)
+		resp, err := c.FetchAgents(page, pageSize, query, sort, order, category)
 		if err != nil {
 			return nil, fmt.Errorf("lobehub: page %d: %w", page, err)
 		}
@@ -350,15 +349,21 @@ func (c *LobeHubClient) FetchAllSkills(pageSize int, query, sort, order, categor
 	return all, nil
 }
 
-// ToEntry converts a LobeHub marketplace skill to a Reasonix registry Entry.
-// The URL is derived from the identifier: https://github.com/<owner>/<repo>/tree/<branch>/<path>
-// which is the conventional source for Agent Skills on GitHub.
-func (s *LobeHubSkillItem) ToEntry() Entry {
-	u := "https://lobehub.com/skills/" + s.Identifier
-	if s.Homepage != "" {
-		u = s.Homepage
-	} else if s.GitHub != nil && s.GitHub.URL != "" {
-		u = s.GitHub.URL
+// FetchSkills calls FetchAgents. Deprecated — kept for backward compat.
+func (c *LobeHubClient) FetchSkills(page, pageSize int, query, sort, order, category string) (*AgentListResponse, error) {
+	return c.FetchAgents(page, pageSize, query, sort, order, category)
+}
+
+// FetchAllSkills calls FetchAllAgents. Deprecated — kept for backward compat.
+func (c *LobeHubClient) FetchAllSkills(pageSize int, query, sort, order, category string) ([]LobeHubAgentItem, error) {
+	return c.FetchAllAgents(pageSize, query, sort, order, category)
+}
+
+// ToEntry converts a LobeHub marketplace agent to a Reasonix registry Entry.
+func (s *LobeHubAgentItem) ToEntry() Entry {
+	u := s.URL
+	if u == "" {
+		u = "https://lobehub.com/agents/" + s.Identifier
 	}
 
 	tags := s.Tags
@@ -366,17 +371,17 @@ func (s *LobeHubSkillItem) ToEntry() Entry {
 		tags = []string{}
 	}
 
-	rating := s.RatingAvg
-	if rating == 0 && s.IsValidated {
-		rating = 4.0 // default baseline for validated skills with no ratings yet
+	author := s.Author.Name
+	if author == "" {
+		author = s.Author.UserName
 	}
 
 	return Entry{
 		Name:        s.Name,
 		Description: s.Description,
 		URL:         u,
-		Author:      s.Author,
+		Author:      author,
 		Tags:        tags,
-		Rating:      rating,
+		Rating:      0,
 	}
 }

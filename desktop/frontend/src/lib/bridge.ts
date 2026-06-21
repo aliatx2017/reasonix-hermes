@@ -370,7 +370,7 @@ export interface AppBindings {
   SessionTokens(): Promise<SessionTokensView>;
   SessionTokensForTab(tabID: string): Promise<SessionTokensView>;
   SubagentTree(tabID?: string): Promise<any>;
-  SyncLobeHubMarketplace(provider?: string, model?: string): Promise<any>;
+  SyncLobeHubMarketplace(clientID?: string, clientSecret?: string): Promise<{fetched: number; added: number}>;
   TurnTimeline(tabID?: string): Promise<any>;
   TurnUsageHistory(tabID?: string): Promise<any>;
   UpdateTrayIcon(): Promise<void>;
@@ -3093,7 +3093,7 @@ function makeMockApp(): AppBindings {
     async SessionTokens(): Promise<SessionTokensView> { return {} as any; },
     async SessionTokensForTab(_tabID: string): Promise<SessionTokensView> { return {} as any; },
     async SubagentTree(_tabID?: string) { return {}; },
-    async SyncLobeHubMarketplace(_provider?: string, _model?: string) { return {}; },
+    async SyncLobeHubMarketplace(_clientID?: string, _clientSecret?: string) { return {fetched: 0, added: 0}; },
     async TurnTimeline(_tabID?: string) { return []; },
     async TurnUsageHistory(_tabID?: string) { return []; },
     async UpdateTrayIcon(): Promise<void> {},

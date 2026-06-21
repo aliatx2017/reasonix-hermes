@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
 )
 
 // Entry is one community skill in the registry.
@@ -30,16 +31,28 @@ var defaultRegistry []byte
 
 // Registry is a searchable skill index.
 type Registry struct {
+	mu      sync.RWMutex
 	entries []Entry
 }
 
+var (
+	defaultReg     *Registry
+	defaultRegOnce sync.Once
+)
+
 // DefaultRegistry loads the embedded default skill registry.
+// The result is cached — all callers share the same instance,
+// so MergeFromLobeHub additions are visible to subsequent callers.
 func DefaultRegistry() *Registry {
-	var entries []Entry
-	if err := json.Unmarshal(defaultRegistry, &entries); err != nil {
-		return &Registry{}
-	}
-	return &Registry{entries: entries}
+	defaultRegOnce.Do(func() {
+		var entries []Entry
+		if err := json.Unmarshal(defaultRegistry, &entries); err != nil {
+			defaultReg = &Registry{}
+			return
+		}
+		defaultReg = &Registry{entries: entries}
+	})
+	return defaultReg
 }
 
 // NewRegistry loads a custom registry from JSON bytes.
@@ -53,6 +66,8 @@ func NewRegistry(data []byte) (*Registry, error) {
 
 // List returns all entries, sorted by rating (highest first).
 func (r *Registry) List() []Entry {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	sorted := make([]Entry, len(r.entries))
 	copy(sorted, r.entries)
 	sort.Slice(sorted, func(i, j int) bool { return sorted[i].Rating > sorted[j].Rating })
@@ -66,6 +81,8 @@ func (r *Registry) Search(query string) []Entry {
 	if query == "" {
 		return r.List()
 	}
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	var results []Entry
 	for _, e := range r.entries {
 		if match := matchEntry(e, query); match {
@@ -78,6 +95,8 @@ func (r *Registry) Search(query string) []Entry {
 
 // ByName returns the entry with the given name, or nil.
 func (r *Registry) ByName(name string) *Entry {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	name = strings.TrimSpace(name)
 	for i := range r.entries {
 		if strings.EqualFold(r.entries[i].Name, name) {
@@ -89,6 +108,8 @@ func (r *Registry) ByName(name string) *Entry {
 
 // Tags returns all unique tags across the registry, sorted alphabetically.
 func (r *Registry) Tags() []string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	seen := map[string]bool{}
 	for _, e := range r.entries {
 		for _, t := range e.Tags {
@@ -105,6 +126,8 @@ func (r *Registry) Tags() []string {
 
 // ByTag returns entries matching a specific tag.
 func (r *Registry) ByTag(tag string) []Entry {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	tag = strings.ToLower(strings.TrimSpace(tag))
 	var results []Entry
 	for _, e := range r.entries {
@@ -120,13 +143,17 @@ func (r *Registry) ByTag(tag string) []Entry {
 
 // Len returns the number of entries in the registry.
 func (r *Registry) Len() int {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	return len(r.entries)
 }
 
 // MergeFromLobeHub merges LobeHub marketplace skills into the registry.
 // Duplicates (matched by name, case-insensitive) are skipped; new entries
 // are appended. Returns the count of newly added skills.
-func (r *Registry) MergeFromLobeHub(skills []LobeHubSkillItem) int {
+func (r *Registry) MergeFromLobeHub(agents []LobeHubAgentItem) int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	// Build a set of existing names for O(1) dedup.
 	seen := make(map[string]bool, len(r.entries))
 	for _, e := range r.entries {
@@ -134,9 +161,13 @@ func (r *Registry) MergeFromLobeHub(skills []LobeHubSkillItem) int {
 	}
 
 	added := 0
-	for _, s := range skills {
+	for _, s := range agents {
 		entry := s.ToEntry()
 		if entry.Name == "" {
+			continue
+		}
+		// Skip entries that are predominantly Chinese (CJK).
+		if isCJKHeavy(entry.Name) || isCJKHeavy(entry.Description) {
 			continue
 		}
 		if seen[strings.ToLower(entry.Name)] {
@@ -149,17 +180,31 @@ func (r *Registry) MergeFromLobeHub(skills []LobeHubSkillItem) int {
 	return added
 }
 
-// SyncFromLobeHub fetches skills from the LobeHub marketplace and merges
+// SyncFromLobeHub fetches agents from the LobeHub marketplace and merges
 // them into the registry. It uses the provided client (which should already
 // be registered). query, sort, and category may be empty to fetch all.
-// Returns the total number of skills fetched and the count of newly added entries.
+// Returns the total number of agents fetched and the count of newly added entries.
 func (r *Registry) SyncFromLobeHub(client *LobeHubClient, query, sort, category string) (fetched int, added int, err error) {
-	skills, err := client.FetchAllSkills(100, query, sort, "desc", category)
+	agents, err := client.FetchAllAgents(20, query, sort, "desc", category)
 	if err != nil {
 		return 0, 0, fmt.Errorf("lobehub sync: %w", err)
 	}
-	added = r.MergeFromLobeHub(skills)
-	return len(skills), added, nil
+	added = r.MergeFromLobeHub(agents)
+	return len(agents), added, nil
+}
+
+// isCJKHeavy returns true if >30% of the runes in s are CJK characters.
+func isCJKHeavy(s string) bool {
+	if len(s) == 0 {
+		return false
+	}
+	cjk := 0
+	for _, r := range s {
+		if (r >= 0x4E00 && r <= 0x9FFF) || (r >= 0x3400 && r <= 0x4DBF) || (r >= 0xF900 && r <= 0xFAFF) {
+			cjk++
+		}
+	}
+	return float64(cjk)/float64(len([]rune(s))) > 0.3
 }
 
 func matchEntry(e Entry, query string) bool {

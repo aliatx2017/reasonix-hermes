@@ -38,7 +38,7 @@ Our fork (`aliatx2017/reasonix-hermes`) adds:
 - `internal/compress/` — tool output token compressor (SHA-256 cache, dedup, JSON minification, 21 tests)
 - `internal/scheduler/` — cron-driven automated agent tasks (15 tests)
 - `internal/publish/` — session transcript export as HTML/JSON (9 tests)
-- `internal/marketplace/` — community skill registry + LobeHub sync (360k+ skills, M2M OAuth2)
+- `internal/marketplace/` — community skill registry + LobeHub sync (M2M OAuth2, /api/v1/agents endpoint)
 - `internal/constitution/` — structured project invariants from .reasonix/constitution.json
 - `internal/e2e/` — replay-based regression testing harness (7 tests)
 - `internal/eval/` — session comparison tool (6 tests): `reasonix eval compare <a> <b>`

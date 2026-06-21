@@ -43,7 +43,7 @@ func TestRegisterClient(t *testing.T) {
 	}
 }
 
-func TestAuthAndFetchSkills(t *testing.T) {
+func TestAuthAndFetchAgents(t *testing.T) {
 	// Cannot use t.Parallel() — mutates package-level lobeHubBaseURL
 	page := 0
 
@@ -65,7 +65,7 @@ func TestAuthAndFetchSkills(t *testing.T) {
 				"token_type":   "Bearer",
 			})
 
-		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/api/v1/skills"):
+		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/api/v1/agents"):
 			// Verify auth header.
 			if got := r.Header.Get("Authorization"); got != "Bearer test-access-token" {
 				t.Errorf("Authorization = %q", got)
@@ -73,21 +73,20 @@ func TestAuthAndFetchSkills(t *testing.T) {
 				return
 			}
 			page++
-			resp := SkillListResponse{
+			resp := AgentListResponse{
 				CurrentPage: page,
 				PageSize:    2,
 				TotalCount:  3,
 				TotalPages:  2,
-				Categories:  []string{"testing"},
 			}
 			if page == 1 {
-				resp.Items = []LobeHubSkillItem{
-					{Name: "skill-a", Identifier: "test.skill-a", Author: "alice", InstallCount: 10, RatingAvg: 4.5, Tags: []string{"go"}},
-					{Name: "skill-b", Identifier: "test.skill-b", Author: "bob", InstallCount: 5, RatingAvg: 4.0, Tags: []string{"python"}},
+				resp.Items = []LobeHubAgentItem{
+					{Name: "agent-a", Identifier: "test.agent-a", Author: AgentAuthor{Name: "alice"}, InstallCount: 10, Tags: []string{"go"}},
+					{Name: "agent-b", Identifier: "test.agent-b", Author: AgentAuthor{Name: "bob"}, InstallCount: 5, Tags: []string{"python"}},
 				}
 			} else {
-				resp.Items = []LobeHubSkillItem{
-					{Name: "skill-c", Identifier: "test.skill-c", Author: "carol", InstallCount: 1, RatingAvg: 0, Tags: []string{}},
+				resp.Items = []LobeHubAgentItem{
+					{Name: "agent-c", Identifier: "test.agent-c", Author: AgentAuthor{Name: "carol"}, InstallCount: 1, Tags: []string{}},
 				}
 			}
 			json.NewEncoder(w).Encode(resp)
@@ -107,56 +106,77 @@ func TestAuthAndFetchSkills(t *testing.T) {
 	client.httpClient = srv.Client() // ensure same transport
 
 	// Full paginated fetch.
-	all, err := client.FetchAllSkills(2, "", "", "", "")
+	all, err := client.FetchAllAgents(2, "", "", "", "")
 	if err != nil {
-		t.Fatalf("FetchAllSkills: %v", err)
+		t.Fatalf("FetchAllAgents: %v", err)
 	}
 	if len(all) != 3 {
 		t.Fatalf("expected 3 total, got %d", len(all))
 	}
-	if all[0].Name != "skill-a" {
+	if all[0].Name != "agent-a" {
 		t.Errorf("first = %q", all[0].Name)
 	}
-	if all[2].Name != "skill-c" {
+	if all[2].Name != "agent-c" {
 		t.Errorf("third = %q", all[2].Name)
+	}
+
+	// Verify FetchSkills (deprecated compat) also works.
+	page = 0 // reset for compat call
+	all2, err := client.FetchAllSkills(2, "", "", "", "")
+	if err != nil {
+		t.Fatalf("FetchAllSkills compat: %v", err)
+	}
+	if len(all2) != 3 {
+		t.Fatalf("compat: expected 3 total, got %d", len(all2))
 	}
 }
 
 func TestToEntry(t *testing.T) {
 	t.Parallel()
-	s := LobeHubSkillItem{
-		Name:        "My Skill",
-		Description: "A test skill",
-		Author:      "test-author",
+	s := LobeHubAgentItem{
+		Name:        "My Agent",
+		Description: "A test agent",
+		Author:      AgentAuthor{Name: "test-author", UserName: "testuser"},
 		Tags:        []string{"go", "testing"},
-		RatingAvg:   4.5,
-		Identifier:  "test.my-skill",
-		Homepage:    "https://example.com/skill",
+		Identifier:  "test.my-agent",
+		URL:         "https://example.com/agent",
 	}
 	e := s.ToEntry()
-	if e.Name != "My Skill" {
+	if e.Name != "My Agent" {
 		t.Errorf("Name = %q", e.Name)
 	}
-	if e.URL != "https://example.com/skill" {
+	if e.URL != "https://example.com/agent" {
 		t.Errorf("URL = %q", e.URL)
 	}
-	if e.Rating != 4.5 {
-		t.Errorf("Rating = %f", e.Rating)
+	if e.Author != "test-author" {
+		t.Errorf("Author = %q", e.Author)
+	}
+	if e.Rating != 0 {
+		t.Errorf("Rating = %f, want 0 (no rating in agents API)", e.Rating)
 	}
 	if len(e.Tags) != 2 {
 		t.Errorf("Tags = %v", e.Tags)
 	}
 
-	// Validated skill with no ratings gets baseline.
-	s2 := LobeHubSkillItem{
-		Name:        "New Skill",
-		Description: "Fresh",
-		IsValidated: true,
-		RatingAvg:   0,
+	// No URL falls back to lobehub.com/agents/<identifier>.
+	s2 := LobeHubAgentItem{
+		Name:       "No URL Agent",
+		Identifier: "test.no-url",
+		Author:     AgentAuthor{Name: "anon"},
 	}
 	e2 := s2.ToEntry()
-	if e2.Rating != 4.0 {
-		t.Errorf("validated skill with no ratings: Rating = %f, want 4.0", e2.Rating)
+	if e2.URL != "https://lobehub.com/agents/test.no-url" {
+		t.Errorf("no-URL fallback = %q", e2.URL)
+	}
+
+	// Author falls back to UserName when Name is empty.
+	s3 := LobeHubAgentItem{
+		Name:   "UserFallback",
+		Author: AgentAuthor{UserName: "handle42"},
+	}
+	e3 := s3.ToEntry()
+	if e3.Author != "handle42" {
+		t.Errorf("author fallback = %q", e3.Author)
 	}
 }
 
@@ -164,18 +184,18 @@ func TestMergeFromLobeHub(t *testing.T) {
 	t.Parallel()
 	reg := &Registry{
 		entries: []Entry{
-			{Name: "existing-skill", Description: "already here", Rating: 4.0},
+			{Name: "existing-agent", Description: "already here", Rating: 4.0},
 		},
 	}
 
-	skills := []LobeHubSkillItem{
-		{Name: "existing-skill", Description: "duplicate", RatingAvg: 5.0},          // should be skipped
-		{Name: "new-skill", Description: "fresh from lobehub", RatingAvg: 4.8},    // should be added
-		{Name: "", Description: "no name"},                                         // should be skipped
-		{Name: "EXISTING-SKILL", Description: "case-insensitive duplicate", RatingAvg: 5.0}, // should be skipped
+	agents := []LobeHubAgentItem{
+		{Name: "existing-agent", Description: "duplicate"},                                // should be skipped
+		{Name: "new-agent", Description: "fresh from lobehub"},                            // should be added
+		{Name: "", Description: "no name"},                                                // should be skipped
+		{Name: "EXISTING-AGENT", Description: "case-insensitive duplicate"},              // should be skipped
 	}
 
-	added := reg.MergeFromLobeHub(skills)
+	added := reg.MergeFromLobeHub(agents)
 	if added != 1 {
 		t.Errorf("added = %d, want 1", added)
 	}
@@ -183,11 +203,11 @@ func TestMergeFromLobeHub(t *testing.T) {
 		t.Errorf("Len = %d, want 2", reg.Len())
 	}
 
-	got := reg.ByName("new-skill")
+	got := reg.ByName("new-agent")
 	if got == nil {
-		t.Fatal("new-skill not found")
+		t.Fatal("new-agent not found")
 	}
-	if got.Rating != 4.8 {
-		t.Errorf("Rating = %f", got.Rating)
+	if got.Rating != 0 {
+		t.Errorf("Rating = %f, want 0", got.Rating)
 	}
 }
