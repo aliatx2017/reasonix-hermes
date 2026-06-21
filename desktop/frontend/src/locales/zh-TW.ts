@@ -629,7 +629,7 @@ export const zhTW: Record<DictKey, string> = {
   "settings.autoPlan.off": "關閉",
   "settings.autoPlan.on": "開啟",
   "settings.agentRuntime": "Agent 執行",
-  "settings.agentRuntimeHint": "作為全域預設；專案裡的 ./reasonix.toml 可覆蓋。0 表示不限。",
+  "settings.agentRuntimeHint": "輪數上限只認全域設定；專案裡的 ./reasonix.toml 不覆蓋。0 表示不限。",
   "settings.executorMaxSteps": "執行輪數上限",
   "settings.executorMaxStepsHint": "限制每次回覆最多呼叫多少輪工具；複雜程式碼任務建議不限。",
   "settings.plannerMaxSteps": "規劃輪數上限",

@@ -869,7 +869,7 @@ export const en = {
   "settings.autoPlan.off": "Off",
   "settings.autoPlan.on": "On",
   "settings.agentRuntime": "Agent runtime",
-  "settings.agentRuntimeHint": "Used as global defaults; ./reasonix.toml can override them per project. 0 means unlimited.",
+  "settings.agentRuntimeHint": "Step limits use global settings only; ./reasonix.toml does not override them. 0 means unlimited.",
   "settings.executorMaxSteps": "Executor step limit",
   "settings.executorMaxStepsHint": "Caps tool-call rounds per reply. Unlimited is best for complex code work.",
   "settings.plannerMaxSteps": "Planner step limit",

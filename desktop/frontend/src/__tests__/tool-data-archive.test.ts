@@ -316,5 +316,25 @@ console.log("\ntool data archiving on tool_result");
   eq(failedTodo?.status, "error", "failed todo_write keeps error status");
 }
 
+// ── Test 10: A successful empty todo_write becomes canonical without unarchiving older args ──
+{
+  const oldArgs = todoArgs("old");
+  const clearArgs = `{"todos":[]}`;
+  let s = initialState;
+  s = reducer(s, { type: "event", e: { kind: "turn_started" } });
+  s = reducer(s, { type: "event", e: { kind: "tool_dispatch", tool: { id: "todo-old", name: "todo_write", args: oldArgs, readOnly: true } } });
+  s = reducer(s, { type: "event", e: { kind: "tool_result", tool: { id: "todo-old", name: "todo_write", readOnly: true, output: "Todos updated" } } });
+  s = reducer(s, { type: "event", e: { kind: "tool_dispatch", tool: { id: "todo-clear", name: "todo_write", args: clearArgs, readOnly: true } } });
+  s = reducer(s, { type: "event", e: { kind: "tool_result", tool: { id: "todo-clear", name: "todo_write", readOnly: true, output: "Todos updated" } } });
+
+  const tools = toolItems(s);
+  const oldTodo = tools.find((tool) => tool.id === "todo-old");
+  const clearTodo = tools.find((tool) => tool.id === "todo-clear");
+  ok((oldTodo?.args.length ?? 0) <= 205, "older todo_write args stay archived when latest todo_write clears the list");
+  ok(oldTodo?.args !== oldArgs, "older todo_write does not keep full JSON after a clear");
+  eq(clearTodo?.args, clearArgs, "empty todo_write clear keeps parseable canonical args");
+  eq(JSON.parse(clearTodo?.args ?? "{}").todos.length, 0, "empty todo_write clear remains parseable as the latest canonical list");
+}
+
 console.log(`\n${passed} passed, ${failed} failed, ${passed + failed} total`);
 if (failed > 0) process.exit(1);

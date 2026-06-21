@@ -871,7 +871,7 @@ export const zh: Record<DictKey, string> = {
   "settings.autoPlan.off": "关闭",
   "settings.autoPlan.on": "开启",
   "settings.agentRuntime": "Agent 运行",
-  "settings.agentRuntimeHint": "作为全局默认；项目里的 ./reasonix.toml 可覆盖。0 表示不限。",
+  "settings.agentRuntimeHint": "轮数上限只认全局设置；项目里的 ./reasonix.toml 不覆盖。0 表示不限。",
   "settings.executorMaxSteps": "执行轮数上限",
   "settings.executorMaxStepsHint": "限制每次回复最多调用多少轮工具；复杂代码任务建议不限。",
   "settings.plannerMaxSteps": "规划轮数上限",

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -15,6 +16,15 @@ import (
 	"reasonix/internal/hook"
 	"reasonix/internal/provider"
 )
+
+type captureTurnRunner struct {
+	inputs []string
+}
+
+func (r *captureTurnRunner) Run(_ context.Context, input string) error {
+	r.inputs = append(r.inputs, input)
+	return nil
+}
 
 func TestWithFreshSystemPromptReplacesExistingSystemMessage(t *testing.T) {
 	msgs := []provider.Message{
@@ -518,6 +528,139 @@ func TestSetReasoningLanguageUpdatesLiveTabControllers(t *testing.T) {
 	projectComposed := projectCtrl.Compose("hi")
 	if !strings.Contains(projectComposed, "use English") {
 		t.Fatalf("project override tab Compose = %q, want en reasoning language", projectComposed)
+	}
+}
+
+func TestSetAutoPlanUpdatesLiveTabControllers(t *testing.T) {
+	isolateDesktopUserDirs(t)
+
+	app := NewApp()
+	userRunner := &captureTurnRunner{}
+	projectRunner := &captureTurnRunner{}
+	userCtrl := control.New(control.Options{AutoPlan: "on", Runner: userRunner})
+	projectCtrl := control.New(control.Options{AutoPlan: "on", Runner: projectRunner})
+	app.tabs = map[string]*WorkspaceTab{
+		"user": {
+			ID:          "user",
+			Scope:       "global",
+			Ctrl:        userCtrl,
+			Ready:       true,
+			disabledMCP: map[string]ServerView{},
+		},
+		"project": {
+			ID:            "project",
+			Scope:         "project",
+			WorkspaceRoot: t.TempDir(),
+			Ctrl:          projectCtrl,
+			Ready:         true,
+			disabledMCP:   map[string]ServerView{},
+		},
+	}
+	app.activeTabID = "user"
+
+	if err := app.SetAutoPlan("off"); err != nil {
+		t.Fatalf("SetAutoPlan: %v", err)
+	}
+
+	input := "实现 GitHub issue #2395：\n- 新增配置项\n- 自动判断复杂任务\n- 补测试和文档"
+	if err := userCtrl.RunTurn(context.Background(), input); err != nil {
+		t.Fatal(err)
+	}
+	if err := projectCtrl.RunTurn(context.Background(), input); err != nil {
+		t.Fatal(err)
+	}
+	if len(userRunner.inputs) != 1 || strings.HasPrefix(userRunner.inputs[0], control.PlanModeMarker) {
+		t.Fatalf("user tab should use updated auto_plan=off, inputs=%q", userRunner.inputs)
+	}
+	if len(projectRunner.inputs) != 1 || strings.HasPrefix(projectRunner.inputs[0], control.PlanModeMarker) {
+		t.Fatalf("project tab without override should use updated auto_plan=off, inputs=%q", projectRunner.inputs)
+	}
+}
+
+func TestSetAutoPlanIgnoresProjectOverrideForLiveTab(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	projectRoot := t.TempDir()
+	if err := os.WriteFile(filepath.Join(projectRoot, "reasonix.toml"), []byte("[agent]\nauto_plan = \"on\"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	app := NewApp()
+	userRunner := &captureTurnRunner{}
+	projectRunner := &captureTurnRunner{}
+	userCtrl := control.New(control.Options{AutoPlan: "on", Runner: userRunner})
+	projectCtrl := control.New(control.Options{AutoPlan: "on", Runner: projectRunner})
+	app.tabs = map[string]*WorkspaceTab{
+		"user": {
+			ID:          "user",
+			Scope:       "global",
+			Ctrl:        userCtrl,
+			Ready:       true,
+			disabledMCP: map[string]ServerView{},
+		},
+		"project": {
+			ID:            "project",
+			Scope:         "project",
+			WorkspaceRoot: projectRoot,
+			Ctrl:          projectCtrl,
+			Ready:         true,
+			disabledMCP:   map[string]ServerView{},
+		},
+	}
+	app.activeTabID = "user"
+
+	if err := app.SetAutoPlan("off"); err != nil {
+		t.Fatalf("SetAutoPlan: %v", err)
+	}
+
+	input := "实现 GitHub issue #2395：\n- 新增配置项\n- 自动判断复杂任务\n- 补测试和文档"
+	if err := userCtrl.RunTurn(context.Background(), input); err != nil {
+		t.Fatal(err)
+	}
+	if err := projectCtrl.RunTurn(context.Background(), input); err != nil {
+		t.Fatal(err)
+	}
+	if len(userRunner.inputs) != 1 || strings.HasPrefix(userRunner.inputs[0], control.PlanModeMarker) {
+		t.Fatalf("user tab should use updated auto_plan=off, inputs=%q", userRunner.inputs)
+	}
+	if len(projectRunner.inputs) != 1 || strings.HasPrefix(projectRunner.inputs[0], control.PlanModeMarker) {
+		t.Fatalf("project auto_plan should be ignored, inputs=%q", projectRunner.inputs)
+	}
+}
+
+func TestSetAutoPlanEnablingClassifierRebuildsActiveController(t *testing.T) {
+	isolateDesktopUserDirs(t)
+
+	cfg := config.LoadForEdit(config.UserConfigPath())
+	cfg.Agent.AutoPlan = "off"
+	cfg.Agent.AutoPlanClassifier = "deepseek-flash"
+	if err := cfg.SaveTo(config.UserConfigPath()); err != nil {
+		t.Fatalf("save config: %v", err)
+	}
+
+	app := NewApp()
+	app.ctx = context.Background()
+	app.readyHook = func() {}
+	old := control.New(control.Options{AutoPlan: "off", Label: "old-controller"})
+	app.setTestCtrl(old, "deepseek-flash/deepseek-v4-flash")
+	defer func() {
+		if c := app.activeCtrl(); c != nil {
+			c.Close()
+		}
+	}()
+
+	if err := app.SetAutoPlan("on"); err != nil {
+		t.Fatalf("SetAutoPlan(on): %v", err)
+	}
+	if c := app.activeCtrl(); c == nil {
+		t.Fatal("SetAutoPlan should leave a rebuilt controller")
+	}
+	if c := app.activeCtrl(); c == old {
+		t.Fatal("SetAutoPlan should rebuild when enabling a configured classifier")
+	}
+
+	got := config.LoadForEdit(config.UserConfigPath())
+	if got.Agent.AutoPlan != "on" {
+		t.Fatalf("saved auto_plan = %q, want on", got.Agent.AutoPlan)
 	}
 }
 

@@ -62,6 +62,7 @@ type TurnControl interface {
 	Steer(text string)
 	SteerConsumed() bool
 	Running() bool
+	CancelRequested() bool
 	RuntimeStatus() RuntimeStatus
 	Turn() int
 	History() []provider.Message

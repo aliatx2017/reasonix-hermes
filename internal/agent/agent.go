@@ -1010,6 +1010,11 @@ func (a *Agent) Run(ctx context.Context, input string) error {
 				Name:       call.Name,
 			})
 		}
+		// If the context was cancelled during tool execution, return after storing
+		// the batch results so the session keeps paired tool-call history.
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 
 		// The prompt only grows from here; compact before the next turn so it
 		// stays within the model's window.
@@ -1250,10 +1255,11 @@ func (a *Agent) rebuildTodoState(msgs []provider.Message) {
 			if tc.Name != "todo_write" || !successful[tc.ID] {
 				continue
 			}
-			if rec := evidence.ReceiptFromToolCall(tc.Name, json.RawMessage(tc.Arguments), true, true); len(rec.Todos) > 0 {
-				todos = append([]evidence.TodoItem(nil), rec.Todos...)
-				baseIdx = i
-			}
+			rec := evidence.ReceiptFromToolCall(tc.Name, json.RawMessage(tc.Arguments), true, true)
+			// A successful empty todo_write is an explicit clear. Preserve it as the
+			// latest base so history reloads do not resurrect an older non-empty list.
+			todos = append([]evidence.TodoItem(nil), rec.Todos...)
+			baseIdx = i
 		}
 	}
 	if baseIdx < 0 {
@@ -1683,14 +1689,55 @@ func (a *Agent) executeBatch(ctx context.Context, calls []provider.ToolCall) ([]
 		durations[i] = time.Since(start).Milliseconds()
 		results[i] = outcomes[i].output
 	}
+	cancelled := false
+	markCancelled := func(start int) {
+		errMsg := context.Canceled.Error()
+		if err := ctx.Err(); err != nil {
+			errMsg = err.Error()
+		}
+		output := "cancelled: context cancelled before execution"
+		for j := start; j < len(calls); j++ {
+			results[j] = output
+			outcomes[j] = toolOutcome{output: output, errMsg: errMsg}
+		}
+		cancelled = true
+	}
 
 	for _, batch := range partitionToolCalls(a.tools, calls) {
+		if ctx.Err() != nil {
+			markCancelled(batch.start)
+			break
+		}
 		if batch.parallel && batch.end-batch.start > 1 {
-			runParallel(batch.start, batch.end, run)
+			ranUntil := runParallel(ctx, batch.start, batch.end, run)
+			// After parallel execution completes, check if context was cancelled.
+			// The individual tool executions should have detected ctx.Done(), but
+			// we verify here to ensure we don't continue to subsequent batches.
+			if ctx.Err() != nil {
+				markCancelled(ranUntil)
+				break
+			}
 			continue
 		}
 		for i := batch.start; i < batch.end; i++ {
+			// Before executing the next tool, check if context was cancelled.
+			// This prevents starting new tools when a previous tool's execution
+			// triggered cancellation.
+			if ctx.Err() != nil {
+				markCancelled(i)
+				break
+			}
 			run(i)
+			// After each tool execution, also check if the context was cancelled.
+			// If so, stop executing remaining tools and return immediately so
+			// the agent loop can detect the cancellation and exit.
+			if ctx.Err() != nil {
+				markCancelled(i + 1)
+				break
+			}
+		}
+		if cancelled {
+			break
 		}
 	}
 
@@ -1724,7 +1771,9 @@ func (a *Agent) executeBatch(ctx context.Context, calls []provider.ToolCall) ([]
 			a.sink.Emit(event.Event{Kind: event.Notice, Level: event.LevelInfo, Text: o.truncMsg})
 		}
 	}
-	a.applyStormBreaker(calls, outcomes, results)
+	if !cancelled {
+		a.applyStormBreaker(calls, outcomes, results)
+	}
 	return results, outcomes
 }
 
@@ -1789,14 +1838,28 @@ func parallelisable(r *tool.Registry, name string) bool {
 	return ok && t.ReadOnly()
 }
 
-func runParallel(start, end int, run func(int)) {
+func runParallel(ctx context.Context, start, end int, run func(int)) int {
 	const maxParallel = 8
 	sem := make(chan struct{}, maxParallel)
 	var wg sync.WaitGroup
+	ranUntil := start
+launch:
 	for i := start; i < end; i++ {
+		if ctx.Err() != nil {
+			break
+		}
+		select {
+		case sem <- struct{}{}:
+		case <-ctx.Done():
+			break launch
+		}
+		if ctx.Err() != nil {
+			<-sem
+			break
+		}
 		i := i
-		sem <- struct{}{}
 		wg.Add(1)
+		ranUntil = i + 1
 		go func() {
 			defer wg.Done()
 			defer func() { <-sem }()
@@ -1804,6 +1867,7 @@ func runParallel(start, end int, run func(int)) {
 		}()
 	}
 	wg.Wait()
+	return ranUntil
 }
 
 // stormBreakThreshold is how many times in a row the same tool may fail the same

@@ -1,5 +1,6 @@
 // Package config loads Reasonix's runtime configuration from TOML. Resolution order:
 // flag > project ./reasonix.toml > user config.toml (in the OS user-config dir) > built-in defaults.
+// User-global runtime controls, such as agent step limits, are documented exceptions.
 // Secrets come from the environment via api_key_env and are never stored in
 // config files.
 package config
@@ -1433,7 +1434,7 @@ func Default() *Config {
 			// compaction, not by a round count. Set a positive agent.max_steps only
 			// if you want a hard guard against runaway.
 			MaxSteps:          0,
-			PlannerMaxSteps:   12,
+			PlannerMaxSteps:   0,
 			AutoPlan:          "off",
 			SoftCompactRatio:  0.5,
 			CompactRatio:      0.8,
@@ -1701,18 +1702,22 @@ func LoadForRoot(root string) (*Config, error) {
 	var tomlSources []string
 	if uc := userConfigLoadPath(); uc != "" {
 		tomlSources = append(tomlSources, uc)
-	}
-	tomlSources = append(tomlSources, projectTOML)
-	for _, path := range tomlSources {
-		if _, err := os.Stat(path); err == nil {
-			if err := migrateLegacyMCPTiersFile(path); err != nil {
-				slog.Warn("config: legacy mcp tier migration failed", "path", path, "err", err)
-			}
-		}
-		if err := mergeFile(cfg, path); err != nil {
+		if err := mergeRuntimeTOMLFile(cfg, uc); err != nil {
 			return nil, err
 		}
 	}
+	globalMaxSteps := cfg.Agent.MaxSteps
+	globalPlannerMaxSteps := cfg.Agent.PlannerMaxSteps
+
+	tomlSources = append(tomlSources, projectTOML)
+	if err := mergeRuntimeTOMLFile(cfg, projectTOML); err != nil {
+		return nil, err
+	}
+	// Runtime step caps are user/global controls, not project policy. Keep the
+	// project config's other fields, but do not let ./reasonix.toml override
+	// the user's execution and planner round limits.
+	cfg.Agent.MaxSteps = globalMaxSteps
+	cfg.Agent.PlannerMaxSteps = globalPlannerMaxSteps
 	// toml.DecodeFile replaces [[plugins]] wholesale, so cfg.Plugins now holds
 	// only the last file's. Re-merge by name across all sources (later wins) so a
 	// project reasonix.toml doesn't drop the global config's MCP servers.
@@ -1762,8 +1767,22 @@ func LoadForRoot(root string) (*Config, error) {
 	backfillDeepSeekOfficialPrices(cfg)
 	normalizeEffortConfig(cfg)
 	backfillDeepSeekPro(cfg)
+	cfg.Agent.AutoPlan = userAutoPlanMode()
 	cfg.CredentialsStore = credentialsStoreMode()
 	return cfg, nil
+}
+
+func userAutoPlanMode() string {
+	cfg := Default()
+	if uc := userConfigLoadPath(); uc != "" {
+		_ = mergeFile(cfg, uc)
+	}
+	switch strings.ToLower(strings.TrimSpace(cfg.Agent.AutoPlan)) {
+	case "on", "ask":
+		return "on"
+	default:
+		return "off"
+	}
 }
 
 // backfillDeepSeekPro restores deepseek-pro for configs the pre-fix setup wizard
@@ -2062,6 +2081,15 @@ func mergeFile(cfg *Config, path string) error {
 		return fmt.Errorf("config %s: %w", path, err)
 	}
 	return nil
+}
+
+func mergeRuntimeTOMLFile(cfg *Config, path string) error {
+	if _, err := os.Stat(path); err == nil {
+		if err := migrateLegacyMCPTiersFile(path); err != nil {
+			slog.Warn("config: legacy mcp tier migration failed", "path", path, "err", err)
+		}
+	}
+	return mergeFile(cfg, path)
 }
 
 // normalizeLegacyMCPTiers keeps loaded legacy config files on the new product

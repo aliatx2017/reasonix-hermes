@@ -822,24 +822,6 @@ func (c *Config) SaveToScope(path string, scope RenderScope) error {
 	return writeConfigFile(path, RenderTOMLForScope(c, scope))
 }
 
-// SaveMinimalProjectAutoPlan writes a new project config that only overrides
-// [agent].auto_plan. It is intentionally minimal so toggling a project-local
-// auto-plan preference in an otherwise unconfigured workspace does not pin
-// default_model or providers from built-in defaults.
-func SaveMinimalProjectAutoPlan(path, mode string) (string, error) {
-	cfg := Default()
-	if err := cfg.SetAutoPlan(mode); err != nil {
-		return "", err
-	}
-	body := fmt.Sprintf(`# Reasonix project configuration.
-# Project-local overrides are merged over the user config.
-
-[agent]
-auto_plan = %q
-`, cfg.Agent.AutoPlan)
-	return cfg.Agent.AutoPlan, writeConfigFile(path, body)
-}
-
 // SaveMinimalProjectReasoningLanguage writes a new project config that only
 // overrides [agent].reasoning_language.
 func SaveMinimalProjectReasoningLanguage(path, lang string) (string, error) {
