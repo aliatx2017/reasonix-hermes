@@ -91,7 +91,7 @@ function fimCompletionSource(
         ],
       };
     })
-    .catch(() => null);
+    .catch((e) => { console.warn('WriteMode: read file text failed', e); return null; });
 }
 
 interface CodeMirrorEditorProps {

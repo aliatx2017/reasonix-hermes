@@ -49,7 +49,7 @@ export function CapabilitiesPanel({
   const [expandedServerTools, setExpandedServerTools] = useState<Set<string>>(() => new Set());
 
   const reload = useCallback(async () => {
-    setView(normalizeCapabilitiesView(await app.Capabilities().catch(() => ({ servers: [], skills: [], skillRoots: [] }))));
+    setView(normalizeCapabilitiesView(await app.Capabilities().catch((e) => { console.warn('CapabilitiesPanel: Capabilities load failed', e); return { servers: [], skills: [], skillRoots: [] }; })));
   }, []);
   useEffect(() => {
     void reload();
@@ -1480,8 +1480,8 @@ export function MCPServersSettingsPage() {
 
 	const reload = useCallback(async () => {
 		const [meta, tabs] = await Promise.all([
-			app.Meta().catch(() => null),
-			app.ListTabs().catch(() => []),
+			app.Meta().catch((e) => { console.warn('CapabilitiesPanel: Meta load failed', e); return null; }),
+			app.ListTabs().catch((e) => { console.warn('CapabilitiesPanel: ListTabs failed', e); return []; }),
 		]);
 		const key = settingsSnapshotKey(meta, tabs);
 		setSnapshotKey(key);
@@ -1491,7 +1491,7 @@ export function MCPServersSettingsPage() {
 		} else {
 			setServers(null);
 		}
-		const next = normalizeServerViews(await app.MCPServers().catch(() => []));
+		const next = normalizeServerViews(await app.MCPServers().catch((e) => { console.warn('CapabilitiesPanel: MCPServers load failed', e); return []; }));
 		mcpSettingsSnapshot = { key, value: next };
 		setServers(next);
 	}, []);
@@ -1631,8 +1631,8 @@ export function SkillsSettingsPage() {
 
 	const reload = useCallback(async () => {
 		const [meta, tabs] = await Promise.all([
-			app.Meta().catch(() => null),
-			app.ListTabs().catch(() => []),
+			app.Meta().catch((e) => { console.warn('CapabilitiesPanel: Meta load failed', e); return null; }),
+			app.ListTabs().catch((e) => { console.warn('CapabilitiesPanel: ListTabs failed', e); return []; }),
 		]);
 		const key = settingsSnapshotKey(meta, tabs);
 		setSnapshotKey(key);
@@ -1642,7 +1642,7 @@ export function SkillsSettingsPage() {
 		} else {
 			setView(null);
 		}
-		const next = normalizeSkillsSettingsView(await app.SkillsSettings().catch(() => ({ skills: [], skillRoots: [] })));
+		const next = normalizeSkillsSettingsView(await app.SkillsSettings().catch((e) => { console.warn('CapabilitiesPanel: SkillsSettings load failed', e); return ({ skills: [], skillRoots: [] }); }));
 		skillsSettingsSnapshot = { key, value: next };
 		setView(next);
 	}, []);

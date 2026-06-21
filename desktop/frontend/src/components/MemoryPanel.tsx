@@ -836,11 +836,10 @@ export function MemorySettingsPage() {
 
   const reload = useCallback(async () => {
     const tabId = selectedTabId;
-    setView(
-      tabId
-        ? await app.MemoryForTab(tabId).catch(() => null)
-        : await app.Memory().catch(() => null),
-    );
+    const memory = tabId
+      ? await app.MemoryForTab(tabId).catch((e) => { console.warn('MemoryPanel: MemoryForTab failed', e); return null; })
+      : await app.Memory().catch((e) => { console.warn('MemoryPanel: Memory failed', e); return null; });
+    setView(memory);
   }, [selectedTabId]);
 
   useEffect(() => {

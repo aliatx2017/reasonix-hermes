@@ -16,7 +16,7 @@ export function LearnedPatternsPanel() {
         setTrajectories(t ?? []);
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch((e) => { console.warn('LearnedPatternsPanel: patterns fetch failed', e); setLoading(false); });
     const iv = setInterval(() => {
       app
         .LearnedPatterns()

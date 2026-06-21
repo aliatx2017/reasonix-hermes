@@ -4,6 +4,12 @@ Key milestones in the Hermes fork since June 2026.
 
 ## v1.10.x (June 2026)
 
+### Session 2026-06-21 (h51) — SettingsPanel split + silent-catch completion
+
+- **SettingsPanel.tsx split**: 5,511-line monolith reduced to 2,152 lines (61% reduction). Extracted 3 new files: `settings-shared.tsx` (192L — layout primitives, SectionProps, ref helpers, proxy mode), `ModelsSection.tsx` (1,768L — Models, Providers, ModelPicker, ProviderEditor, StepLimitControl), `BotsSection.tsx` (1,457L — Bot config, connections, QR install, credentials). Extraction done incrementally (verify tsc after each batch) — previous 2 sessions got stuck attempting it all at once, burning 69 API calls in an unsolvable edit-compile loop.
+- **Silent-catch fix** (completes h50 audit): 25+ `.catch(() => ...)` sites across 13 files now log `console.warn` before returning fallback values (App.tsx, WorkspacePanel, MemoryPanel, WriteMode, SettingsPanel, CapabilitiesPanel, hermes/AnalyticsPanel, LearnedPatternsPanel, EvalPanel, MarketplacePanel, SkillStorePanel, useController.ts, sessionExport.tsx). No shared `useBackend` hook — fallback types and side effects are too diverse for a single abstraction. Zero remaining silent `.catch(() =>` patterns.
+- **Build**: tsc --noEmit 0 errors, go build ./... + go vet ./... clean, all 77 test packages pass.
+
 ### Session 2026-06-21 (h50) — upstream sync + coding-standards audit + doc-sweep
 
 - **Upstream**: merged 9ada1417 (13 commits: agent step limits user-global, cancelled batch results preservation, TUI cancel-escape integration, pwsh chaining + install path, todo cleared state fix, auto-plan user-level). 3 conflicts resolved: CHANGELOG.md, settings-refresh-snapshot test, agent.go (kept outcomes return for Hermes learner). 29 syncs total.

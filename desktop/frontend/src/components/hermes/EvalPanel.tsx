@@ -16,7 +16,7 @@ export function EvalPanel() {
     app
       .ListSessions()
       .then(setSessions)
-      .catch(() => setSessions([]));
+      .catch((e) => { console.warn('EvalPanel: ListSessions fetch failed', e); setSessions([]); });
     // Refresh every 15s in case new sessions are created.
     const iv = setInterval(() => {
       app

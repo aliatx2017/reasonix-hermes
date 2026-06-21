@@ -10,7 +10,7 @@ export function AnalyticsPanel() {
     app
       .TurnTimeline()
       .then(setTimeline)
-      .catch(() => setTimeline([]));
+      .catch((e) => { console.warn('AnalyticsPanel: TurnTimeline fetch failed', e); setTimeline([]); });
     const iv = setInterval(() => {
       app
         .TurnTimeline()

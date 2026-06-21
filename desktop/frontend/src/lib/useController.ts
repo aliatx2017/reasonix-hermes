@@ -800,14 +800,14 @@ export function useController() {
   }, []);
   const refreshCheckpoints = useCallback(async (tabId: string) => {
     const seq = bumpCheckpointRefreshSeq(tabId);
-    const checkpoints = await app.CheckpointsForTab(tabId).catch(() => undefined);
+    const checkpoints = await app.CheckpointsForTab(tabId).catch((e) => { console.warn('useController: CheckpointsForTab failed', e); return undefined; });
     if (checkpointRefreshSeq.current.get(tabId) !== seq || checkpoints === undefined) return;
     dispatchTo(tabId, { type: "checkpoints", checkpoints: asArray(checkpoints) });
   }, [bumpCheckpointRefreshSeq, dispatchTo]);
 
   const loadSessionDataForTab = useCallback(async (tabId: string, reset = false) => {
     const seq = bumpSessionLoadSeq(tabId);
-    const safe = <T,>(p: Promise<T>): Promise<T | undefined> => p.catch(() => undefined);
+    const safe = <T,>(p: Promise<T>): Promise<T | undefined> => p.catch((e) => { console.warn('useController: safe wrapper caught', e); return undefined; });
     const [meta, context, effort, balance, jobs, checkpoints, history] = await Promise.all([
       safe(app.MetaForTab(tabId)),
       safe(app.ContextUsageForTab(tabId)),
@@ -830,13 +830,13 @@ export function useController() {
   }, [bumpSessionLoadSeq, dispatchTo, sessionLoadCurrent]);
 
   const activeTabFromBackend = useCallback(async (): Promise<TabMeta | undefined> => {
-    const tabs = asArray(await app.ListTabs().catch(() => [] as TabMeta[]));
+    const tabs = asArray(await app.ListTabs().catch((e) => { console.warn('useController: ListTabs failed', e); return [] as TabMeta[]; }));
     return tabs.find((tab) => tab.active) ?? tabs[0];
   }, []);
 
   const waitForTabReady = useCallback(async (tabId: string): Promise<void> => {
     for (let attempt = 0; attempt < 60; attempt += 1) {
-      const tabs = asArray(await app.ListTabs().catch(() => [] as TabMeta[]));
+      const tabs = asArray(await app.ListTabs().catch((e) => { console.warn('useController: ListTabs failed', e); return [] as TabMeta[]; }));
       const tab = tabs.find((candidate) => candidate.id === tabId);
       if (!tab || tab.ready || tab.startupErr) return;
       await new Promise((resolve) => window.setTimeout(resolve, 100));
@@ -852,7 +852,7 @@ export function useController() {
   }, [activeTabFromBackend, loadSessionDataForTab]);
 
   const reconcileTabRuntime = useCallback(async (tabId: string): Promise<TabMeta[] | undefined> => {
-    const tabs = asArray(await app.ListTabs().catch(() => [] as TabMeta[]));
+    const tabs = asArray(await app.ListTabs().catch((e) => { console.warn('useController: ListTabs failed', e); return [] as TabMeta[]; }));
     const tab = tabs.find((candidate) => candidate.id === tabId);
     if (!tab) return undefined;
     const local = statesRef.current.get(tabId);
@@ -872,9 +872,9 @@ export function useController() {
       return tabs;
     }
     const [jobs, effort, balance] = await Promise.all([
-      app.JobsForTab(tabId).catch(() => undefined),
-      app.EffortForTab(tabId).catch(() => undefined),
-      app.BalanceForTab(tabId).catch(() => undefined),
+      app.JobsForTab(tabId).catch((e) => { console.warn('useController: fetch failed', e); return undefined; }),
+      app.EffortForTab(tabId).catch((e) => { console.warn('useController: fetch failed', e); return undefined; }),
+      app.BalanceForTab(tabId).catch((e) => { console.warn('useController: fetch failed', e); return undefined; }),
     ]);
     if (jobs) dispatchTo(tabId, { type: "jobs", jobs: asArray(jobs) });
     if (effort) dispatchTo(tabId, { type: "effort", effort });
@@ -1111,14 +1111,14 @@ export function useController() {
     if (tabId) dispatchTo(tabId, { type: "reset" });
   }, [activeTabId, bumpCheckpointRefreshSeq, bumpSessionLoadSeq, dispatchTo, loadSessionDataForTab]);
 
-  const listSessions = useCallback(async (): Promise<SessionMeta[]> => asArray<SessionMeta>(await app.ListSessions().catch(() => [])), []);
-  const listTrashedSessions = useCallback(async (): Promise<SessionMeta[]> => asArray<SessionMeta>(await app.ListTrashedSessions().catch(() => [])), []);
+  const listSessions = useCallback(async (): Promise<SessionMeta[]> => asArray<SessionMeta>(await app.ListSessions().catch((e) => { console.warn('useController: ListSessions failed', e); return []; })), []);
+  const listTrashedSessions = useCallback(async (): Promise<SessionMeta[]> => asArray<SessionMeta>(await app.ListTrashedSessions().catch((e) => { console.warn('useController: ListTrashedSessions failed', e); return []; })), []);
   const resumeSession = useCallback(async (path: string, tabId?: string) => {
     const targetTabId = tabId || activeTabId;
     if (!targetTabId) return;
     if (tabId) await waitForTabReady(tabId);
     const messages = asArray(
-      await (tabId ? app.ResumeSessionForTab(tabId, path) : app.ResumeSession(path)).catch(() => [] as HistoryMessage[]),
+      await (tabId ? app.ResumeSessionForTab(tabId, path) : app.ResumeSession(path)).catch((e) => { console.warn('useController: ResumeSession failed', e); return [] as HistoryMessage[]; }),
     );
     if (messages.length === 0) return;
     dispatchTo(targetTabId, { type: "reset" });
@@ -1131,7 +1131,7 @@ export function useController() {
     if (!tabId) return;
     await waitForTabReady(tabId);
     const messages = asArray(
-      await app.OpenChannelSessionForTab(tabId, path).catch(() => [] as HistoryMessage[]),
+      await app.OpenChannelSessionForTab(tabId, path).catch((e) => { console.warn('useController: ResumeSession failed', e); return [] as HistoryMessage[]; }),
     );
     if (messages.length === 0) return;
     dispatchTo(tabId, { type: "reset" });
@@ -1140,7 +1140,7 @@ export function useController() {
     void refreshCheckpoints(tabId);
   }, [dispatchTo, refreshCheckpoints, waitForTabReady]);
 
-  const previewSession = useCallback(async (path: string): Promise<HistoryMessage[]> => asArray<HistoryMessage>(await app.PreviewSession(path).catch(() => [])), []);
+  const previewSession = useCallback(async (path: string): Promise<HistoryMessage[]> => asArray<HistoryMessage>(await app.PreviewSession(path).catch((e) => { console.warn('useController: PreviewSession failed', e); return []; })), []);
   const deleteSession = useCallback((path: string) => app.DeleteSession(path).catch((e) => { console.warn('useController: delete session failed', e) }).finally(() => invalidateCache()), []);
   const restoreSession = useCallback((path: string) => app.RestoreSession(path).catch((e) => { console.warn('useController: restore session failed', e) }).finally(() => invalidateCache()), []);
   const purgeTrashedSession = useCallback((path: string) => app.PurgeTrashedSession(path).catch((e) => { console.warn('useController: purge trashed session failed', e) }).finally(() => invalidateCache()), []);
@@ -1161,11 +1161,11 @@ export function useController() {
   }, [syncActiveTabFromBackend]);
 
   const pickWorkspace = useCallback(async (): Promise<string> => {
-    const path = await app.PickWorkspace().catch(() => "");
+    const path = await app.PickWorkspace().catch((e) => { console.warn('useController: PickWorkspace failed', e); return ""; });
     return refreshWorkspaceState(path);
   }, [refreshWorkspaceState]);
   const switchWorkspace = useCallback(async (path: string): Promise<string> => {
-    const next = await app.SwitchWorkspace(path).catch(() => "");
+    const next = await app.SwitchWorkspace(path).catch((e) => { console.warn('useController: SwitchWorkspace failed', e); return ""; });
     return refreshWorkspaceState(next);
   }, [refreshWorkspaceState]);
 
@@ -1212,7 +1212,7 @@ export function useController() {
   }, [activeTabId, dispatchTo]);
 
   const fetchMemory = useCallback((): Promise<MemoryView> =>
-    app.Memory().catch(() => ({ docs: [], facts: [], archives: [], scopes: [], storeDir: "", available: false })), []);
+    app.Memory().catch((e) => { console.warn('useController: Memory fetch failed', e); const fallback: MemoryView = { docs: [], facts: [], archives: [], scopes: [], storeDir: "", available: false }; return fallback; }), []);
   const remember = useCallback(async (scope: string, note: string) => { await app.Remember(scope, note).catch((e) => { console.warn('useController: remember failed', e) }); }, []);
   const forget = useCallback(async (name: string) => { await app.Forget(name).catch((e) => { console.warn('useController: forget failed', e) }); }, []);
   const saveDoc = useCallback(async (path: string, body: string) => { await app.SaveDoc(path, body).catch((e) => { console.warn('useController: save doc failed', e) }); }, []);
@@ -1243,7 +1243,7 @@ export function useController() {
       else if (actionScope === "summ-upto") await app.SummarizeUpTo(turn);
       else await app.Rewind(turn, actionScope);
 
-      const messages = asArray(await app.HistoryForTab(sourceTabId).catch(() => [] as HistoryMessage[]));
+      const messages = asArray(await app.HistoryForTab(sourceTabId).catch((e) => { console.warn('useController: ResumeSession failed', e); return [] as HistoryMessage[]; }));
       dispatchTo(sourceTabId, { type: "reset" });
       if (messages.length) dispatchTo(sourceTabId, { type: "history", messages });
       dispatchTo(sourceTabId, { type: "context", context: await app.ContextUsageForTab(sourceTabId) });

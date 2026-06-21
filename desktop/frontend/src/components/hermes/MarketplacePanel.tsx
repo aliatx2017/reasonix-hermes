@@ -20,9 +20,7 @@ export function MarketplacePanel(_props: MarketplacePanelProps) {
     app
       .MarketplaceRegistry()
       .then((entries) => setSkills(entries))
-      .catch(() => {
-        /* bridge not ready */
-      })
+      .catch((e) => { console.warn('MarketplacePanel: bridge not ready', e); })
       .finally(() => setLoading(false));
   }, []);
 

@@ -1181,7 +1181,8 @@ export default function App() {
       .then((tree) => {
         if (!cancelled) setActiveTopicTurns(activeTopicTurnsFromTree(asArray(tree), activeTab));
       })
-      .catch(() => {
+      .catch((e) => {
+        console.warn('App: load active topic turns failed', e);
         if (!cancelled) setActiveTopicTurns(undefined);
       });
     return () => {
@@ -1580,7 +1581,7 @@ export default function App() {
   );
 
   const refreshTabMetas = useCallback(async (): Promise<TabMeta[]> => {
-    const tabs = asArray(await app.ListTabs().catch(() => [] as TabMeta[]));
+    const tabs = asArray(await app.ListTabs().catch((e) => { console.warn('App: ListTabs failed', e); return [] as TabMeta[]; }));
     setTabMetas(tabs);
     return tabs;
   }, []);
@@ -2200,7 +2201,7 @@ export default function App() {
   const openPalette = useCallback(async () => {
     closeTransientOverlays();
     setPaletteOpen(true);
-    setPaletteSessions(await listSessions().catch(() => []));
+    setPaletteSessions(await listSessions().catch((e) => { console.warn('App: listSessions for palette failed', e); return []; }));
   }, [closeTransientOverlays, listSessions]);
   useGlobalShortcut("commandPalette.open", () => {
     setPaletteOpen((current) => {

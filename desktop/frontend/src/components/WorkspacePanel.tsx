@@ -277,7 +277,7 @@ export function WorkspacePanel({
   }, [openDirs]);
 
   const loadDir = useCallback(async (dir: string) => {
-    const entries = await app.ListDir(dir).catch(() => []);
+    const entries = await app.ListDir(dir).catch((e) => { console.warn('WorkspacePanel: ListDir failed', e); return []; });
     setEntriesByDir((prev) => ({ ...prev, [dir]: entries ?? [] }));
   }, []);
 
@@ -338,7 +338,8 @@ export function WorkspacePanel({
             setCommitDetail(detail);
           }
         })
-        .catch(() => {
+        .catch((e) => {
+          console.warn('WorkspacePanel: commit detail load failed', e);
           if (live && commitDetailRequestIdRef.current === requestId && lastWorkspaceTabIdRef.current === requestTabId) {
             setCommitDetail(null);
           }

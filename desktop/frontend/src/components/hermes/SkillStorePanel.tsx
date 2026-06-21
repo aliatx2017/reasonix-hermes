@@ -140,7 +140,8 @@ function MCPTab() {
           setServers(cap.servers ?? []);
           setLoading(false);
         })
-        .catch(() => {
+        .catch((e) => {
+          console.warn('SkillStorePanel: lobehub sync failed', e);
           if (cancelled) return;
           setLoading(false);
         });

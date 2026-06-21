@@ -259,7 +259,7 @@ async function renderExportSurface(markdown: string): Promise<RenderedExport> {
 
   await nextFrame();
   await nextFrame();
-  await document.fonts?.ready.catch(() => undefined);
+  await document.fonts?.ready.catch((e) => { console.warn('sessionExport: font ready failed', e); return undefined; });
   await nextFrame();
 
   const surface = host.querySelector<HTMLElement>('.session-export-page');
