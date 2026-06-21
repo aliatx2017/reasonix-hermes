@@ -1,7 +1,14 @@
+<<<<<<< HEAD
 import { Command, Search } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useMountTransition } from '../lib/useMountTransition';
+=======
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
+import { Command, Search } from "lucide-react";
+import { useMountTransition } from "../lib/useMountTransition";
+>>>>>>> upstream/main-v2
 
 // CommandPalette is a ⌘K / Ctrl+K modal that surfaces the desktop app's
 // long-tail navigation surface. Tabs through sessions, slash-commands, and
@@ -57,9 +64,16 @@ export function CommandPalette({
   placeholder: string;
   emptyText: string;
 }) {
+<<<<<<< HEAD
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
+=======
+  const [query, setQuery] = useState("");
+  const [active, setActive] = useState(-1);
+>>>>>>> upstream/main-v2
   const inputRef = useRef<HTMLInputElement>(null);
+  const isOpenRef = useRef(false);
+  isOpenRef.current = open;
   // Keep the palette mounted through its exit animation after `open` flips
   // false; `status` drives the enter/exit keyframes via data-state.
   const { mounted, status } = useMountTransition(open, 200);
@@ -67,13 +81,33 @@ export function CommandPalette({
   // Re-init whenever the palette opens: clear the query, reset the
   // highlight, and steal focus. Doing it on the open edge (not on every
   // render) means a previously-typed query doesn't leak across opens.
-  useEffect(() => {
+  // useLayoutEffect fires synchronously after DOM mutations, before the
+  // browser paints — ensures focus lands before any paint-time transitions
+  // can interfere.
+  useLayoutEffect(() => {
     if (open) {
+<<<<<<< HEAD
       setQuery('');
       setActive(0);
       requestAnimationFrame(() => inputRef.current?.focus());
+=======
+      setQuery("");
+      setActive(-1);
+      inputRef.current?.focus();
+>>>>>>> upstream/main-v2
     }
   }, [open]);
+
+  // Callback ref: when the input element mounts while the palette is open,
+  // focus it immediately. This handles the case where the DOM element
+  // becomes available after the useLayoutEffect already ran.
+  const inputCallbackRef = useCallback(
+    (el: HTMLInputElement | null) => {
+      inputRef.current = el;
+      if (el && isOpenRef.current) el.focus();
+    },
+    [],
+  );
 
   // score is the fuzzy match: every space-separated query token must
   // appear (case-insensitively) in the candidate's haystack, in the order
@@ -130,11 +164,11 @@ export function CommandPalette({
   // Clamp the active index whenever the result set shrinks (e.g. user
   // typed something that filtered out the previously-highlighted item).
   useEffect(() => {
-    if (active >= flat.length) setActive(Math.max(0, flat.length - 1));
+    if (active >= 0 && active >= flat.length) setActive(Math.max(0, flat.length - 1));
   }, [flat.length, active]);
 
-  // Reset the highlight to 0 on every query change — the user just refined
-  // their search, the old highlight is rarely still interesting.
+  // Reset the highlight to the first match on every query change — the user
+  // just refined their search, the old highlight is rarely still interesting.
   useEffect(() => {
     setActive(0);
   }, [query]);
@@ -152,12 +186,12 @@ export function CommandPalette({
       }
       if (e.key === 'ArrowDown') {
         e.preventDefault();
-        setActive((i) => (flat.length === 0 ? 0 : (i + 1) % flat.length));
+        setActive((i) => (flat.length === 0 ? -1 : i < 0 ? 0 : (i + 1) % flat.length));
         return;
       }
       if (e.key === 'ArrowUp') {
         e.preventDefault();
-        setActive((i) => (flat.length === 0 ? 0 : (i - 1 + flat.length) % flat.length));
+        setActive((i) => (flat.length === 0 ? -1 : i <= 0 ? flat.length - 1 : i - 1));
         return;
       }
       if (e.key === 'Enter') {
@@ -191,7 +225,7 @@ export function CommandPalette({
         <div className="palette__inputrow">
           <Search className="palette__search-icon" size={18} aria-hidden="true" />
           <input
-            ref={inputRef}
+            ref={inputCallbackRef}
             className="palette__input"
             value={query}
             onChange={(e) => setQuery(e.target.value)}

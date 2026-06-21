@@ -222,11 +222,16 @@ for (const selector of [
 }
 
 ok(
+<<<<<<< HEAD
   finalDeclaration(
     ':root[data-theme-style] .layout--workbench-chrome-hidden .topicbar',
     'background',
   ) === 'var(--chat-bg)',
   'workbench topic bar uses a flat chat background',
+=======
+  finalDeclaration(":root[data-theme-style] .layout--workbench-chrome-hidden .topicbar", "background") === "var(--bg-elev)",
+  "workbench topic bar uses elevated background for light-mode white",
+>>>>>>> upstream/main-v2
 );
 
 for (const selector of [
