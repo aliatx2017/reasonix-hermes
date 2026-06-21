@@ -1,12 +1,19 @@
 // hermes_fingerprint_test.go — system-wide guard tests for Hermes code injection
 // points in upstream-shared Go files. Upstream merges can silently drop injected
-// code when git merge doesn't flag a conflict (text around the injection changes
-// but the injected block itself doesn't overlap — merge drops it cleanly).
+// code when git merge doesn't flag a conflict.
 //
-// Documented losses:
+// Documented losses (code that existed and was silently dropped by upstream merges):
+//   - runWithAutoResume() in controller_turn.go (lost in d75a84a8 merge)
+//   - workshopSynthesizer wiring in boot.go (agent code exists, boot wiring gone)
+//   - languagePolicy/finalizeSystemPrompt in boot.go (entirely gone)
 //   - sqz CompressToolOutput wiring in boot.go (lost, fixed h52)
 //   - SettingsView Hotbar/Profiles fields in settings_app.go (lost, fixed h52)
 //   - render.go Hermes TOML sections (lost, fixed h11)
+//   - hotbar keyboard handler in App.tsx (lost 9 days, fixed b6de38ac)
+//
+// Intentional removals (not losses):
+//   - beep() — removed in 08c0404a (h48) as dead code cleanup
+//   - Schedule() → ScheduleNextRuns() — renamed, functionally preserved
 //
 // Every fingerprint was verified against live code before commit.
 // If any check fails, an upstream merge just destroyed Hermes code.
@@ -23,48 +30,57 @@ import (
 func TestHermesFingerprintsGo(t *testing.T) {
 	repoRoot := findHermesRepoRoot(t)
 
-	// Each entry: file path relative to repo root → required substrings.
 	checks := map[string][]string{
 		// ── internal/boot/boot.go — Hermes agent wiring ──
 		"internal/boot/boot.go": {
-			"agentlog.Init",        // operational logging init
-			"applyExchangeRate",    // CNY→USD exchange rate
-			"CompressToolOutput",   // sqz compressor wiring
-			"VisionProv",           // auxiliary vision provider
-			"ctrl.SetMesh",         // mesh council wiring
-			"ctrl.SetLearner",      // learner pattern detection
+			"agentlog.Init",
+			"applyExchangeRate",
+			"CompressToolOutput",
+			"VisionProv",
+			"ctrl.SetMesh",
+			"ctrl.SetLearner",
+			"resolveAuxProviders",
+			"RemoteSandboxURL",
+			"RemoteSandboxToken",
 		},
 
 		// ── internal/control/controller.go — Hermes struct fields ──
-		// Uses raw string literals because controller.go uses tab indentation.
 		"internal/control/controller.go": {
 			`reasonix/internal/mesh"`,
 			`reasonix/internal/scheduler"`,
 			`reasonix/internal/learn"`,
-			"\tschedule ", // tab-indented field (line 92-ish)
-			"\tmesh ",     // tab-indented field (line 93-ish)
-			"\tlearner ",  // tab-indented field (line 94-ish)
+			"\tschedule ",
+			"\tmesh ",
+			"\tlearner ",
+			"learn.Learner",
+			"scheduler.Scheduler",
 			"Schedule *scheduler.Scheduler",
 			"Mesh *mesh.Mesh",
+			"SendCtx",
+		},
+
+		// ── internal/control/controller_approval.go — Hermes completion sound ──
+		"internal/control/controller_approval.go": {
+			"ToggleSound",
 		},
 
 		// ── internal/config/config.go — Hermes config types ──
 		"internal/config/config.go": {
-			"HotbarConfig struct",       // hotbar config type
-			"CompressToolOutputEnabled", // compress enabled getter
-			"ActiveProfile",             // active profile field
-			"BillingConfig",             // billing config type
-			"LearnConfig",               // learn config type
-			"MeshConfig",                // mesh config type
-			"ScheduleConfig",            // schedule config type
-			"CollabConfig",              // collab config type
-			"MarketplaceConfig",         // marketplace config type
-			"EmbeddingConfig",           // embedding config type
-			"AgentLogConfig",            // agent log config type
-			"DiscordBotConfig",          // Discord bot config type
-			"TelegramBotConfig",         // Telegram bot config type
-			"LineBotConfig",             // LINE bot config type
-			"SlackBotConfig",            // Slack bot config type
+			"HotbarConfig struct",
+			"CompressToolOutputEnabled",
+			"ActiveProfile",
+			"BillingConfig",
+			"LearnConfig",
+			"MeshConfig",
+			"ScheduleConfig",
+			"CollabConfig",
+			"MarketplaceConfig",
+			"EmbeddingConfig",
+			"AgentLogConfig",
+			"DiscordBotConfig",
+			"TelegramBotConfig",
+			"LineBotConfig",
+			"SlackBotConfig",
 		},
 
 		// ── internal/config/render.go — Hermes TOML section rendering ──
