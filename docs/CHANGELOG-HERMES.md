@@ -10,6 +10,12 @@ Key milestones in the Hermes fork since June 2026.
 - **Silent-catch fix** (completes h50 audit): 25+ `.catch(() => ...)` sites across 13 files now log `console.warn` before returning fallback values (App.tsx, WorkspacePanel, MemoryPanel, WriteMode, SettingsPanel, CapabilitiesPanel, hermes/AnalyticsPanel, LearnedPatternsPanel, EvalPanel, MarketplacePanel, SkillStorePanel, useController.ts, sessionExport.tsx). No shared `useBackend` hook — fallback types and side effects are too diverse for a single abstraction. Zero remaining silent `.catch(() =>` patterns.
 - **Build**: tsc --noEmit 0 errors, go build ./... + go vet ./... clean, all 77 test packages pass.
 
+### Session 2026-06-21 (h53) — upstream sync (desktop shortcuts + sidebar Cmd+1-10 nav)
+
+- **Upstream**: merged 051239b6 (18 commits: desktop shortcut integration, sidebar Cmd+1-10 topic navigation, Cmd+K palette double-press fix, ⌘B/⌘⇧B shell/sidebar toggle swap, panel spacing + light-mode background fixes, keyboard shortcut settings panel wiring, ⌘↑/↓ native scroll restore, sidebar topic numbering fixes). 30 syncs total.
+- **Conflicts**: 4 — all resolved (accepting upstream). `keyboardShortcuts.ts` (ShortcutAction additions + shell.toggle→sidebar.toggle swap), `CommandPalette.tsx` (active=-1 + useCallback/useLayoutEffect), `keyboard-shortcuts.test.ts` (topicShortcutIndexFromEvent import), `app-chrome-tabs.test.ts` (bg-elev CSS variable).
+- **Build**: All 9 binaries rebuilt (wails 25.6s). Full test suite: 76 packages pass, zero failures. tsc --noEmit 0 errors. Desktop Go tests: 3/3 pass. h52 guard tests re-verified: 24/24 pass.
+
 ### Session 2026-06-21 (h52) — regression fixes + 32 guard tests
 
 - **Two regressions fixed** (both lost during prior upstream merges with zero guard tests):
