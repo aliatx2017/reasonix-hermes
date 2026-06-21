@@ -140,6 +140,18 @@ type BotSettingsView struct {
 	Connections      []BotConnectionView `json:"connections"`
 }
 
+// ProfileView is the JSON representation of a harness profile for the desktop
+// frontend. It maps ProfileConfig fields (plus the profile name from the map key).
+type ProfileView struct {
+	Name            string `json:"name"`
+	Description     string `json:"description"`
+	Model           string `json:"model"`
+	Effort          string `json:"effort"`
+	ToolApproveMode string `json:"toolApproveMode"`
+	AutoPlan        string `json:"autoPlan"`
+	OutputStyle     string `json:"outputStyle"`
+}
+
 // SettingsView is the whole Settings panel payload.
 type SettingsView struct {
 	DefaultModel       string          `json:"defaultModel"`
@@ -177,6 +189,12 @@ type SettingsView struct {
 	AutoApproveTools bool `json:"autoApproveTools"`
 	// Bypass is the legacy JSON key for the same live state.
 	Bypass bool `json:"bypass"`
+	// Hermes — configurable keyboard digit-key shortcuts (1-7 → action).
+	Hotbar config.HotbarConfig `json:"hotbar"`
+	// Hermes — named harness profiles from [profiles.<name>] blocks.
+	Profiles map[string]ProfileView `json:"profiles"`
+	// Hermes — currently active profile name ("" = none).
+	ActiveProfile string `json:"activeProfile"`
 }
 
 // DesktopStartupSettingsView is the lightweight Settings subset needed during
@@ -428,6 +446,9 @@ func (a *App) Settings() SettingsView {
 			Telemetry:          true,
 			Metrics:            true,
 			ExpandThinking:     false,
+			Hotbar:             hotbarView(config.HotbarConfig{}),
+			Profiles:           map[string]ProfileView{},
+			ActiveProfile:      "",
 		}
 	}
 	ctrl := a.activeCtrl()
@@ -488,6 +509,9 @@ func (a *App) Settings() SettingsView {
 		ProviderKinds:      nonNil(provider.Kinds()),
 		AutoApproveTools:   ctrl != nil && ctrl.AutoApproveTools(),
 		Bypass:             ctrl != nil && ctrl.AutoApproveTools(),
+		Hotbar:             hotbarView(cfg.Desktop.Hotbar),
+		Profiles:           profileViewsFromConfig(cfg.Profiles),
+		ActiveProfile:      cfg.ActiveProfile,
 	}
 	added := providerAccessSet(cfg.Desktop.ProviderAccess)
 	root := a.activeWorkspaceRoot()
@@ -498,6 +522,55 @@ func (a *App) Settings() SettingsView {
 		v.Providers = append(v.Providers, providerViewFromEntryForRootWithResolver(*p, isOfficialBuiltInProvider(*p), added[p.Name], root, resolver))
 	}
 	return v
+}
+
+// hotbarView fills empty hotbar key values with their built-in defaults so the
+// frontend always shows meaningful labels (e.g. "palette (default)") instead of
+// "unbound" for a just-installed config.
+func hotbarView(h config.HotbarConfig) config.HotbarConfig {
+	if h.Key1 == "" {
+		h.Key1 = "palette"
+	}
+	if h.Key2 == "" {
+		h.Key2 = "workspace"
+	}
+	if h.Key3 == "" {
+		h.Key3 = "new"
+	}
+	if h.Key4 == "" {
+		h.Key4 = "history"
+	}
+	if h.Key5 == "" {
+		h.Key5 = "dock"
+	}
+	if h.Key6 == "" {
+		h.Key6 = "sidebar"
+	}
+	if h.Key7 == "" {
+		h.Key7 = "settings"
+	}
+	return h
+}
+
+// profileViewsFromConfig converts the config's Profiles map into the view format,
+// adding the profile name as the "name" field on each entry.
+func profileViewsFromConfig(profiles map[string]config.ProfileConfig) map[string]ProfileView {
+	if len(profiles) == 0 {
+		return map[string]ProfileView{}
+	}
+	out := make(map[string]ProfileView, len(profiles))
+	for name, p := range profiles {
+		out[name] = ProfileView{
+			Name:            name,
+			Description:     p.Description,
+			Model:           p.Model,
+			Effort:          p.Effort,
+			ToolApproveMode: p.ToolApproveMode,
+			AutoPlan:        p.AutoPlan,
+			OutputStyle:     p.OutputStyle,
+		}
+	}
+	return out
 }
 
 func botSettingsView(b config.BotConfig) BotSettingsView {
@@ -1733,6 +1806,28 @@ func (a *App) SetDesktopLanguage(lang string) error {
 	}
 	a.updateTrayLocale(lang)
 	return nil
+}
+
+// SetDesktopHotbar validates and persists the desktop hotbar key bindings
+// (1-7 → action mapping). UI-only, no controller rebuild needed.
+func (a *App) SetDesktopHotbar(h config.HotbarConfig) error {
+	return a.applyConfigOnly(func(c *config.Config) error { return c.SetDesktopHotbar(h) })
+}
+
+// SetProfiles replaces all harness profiles. UI-only, no controller rebuild.
+func (a *App) SetProfiles(profiles map[string]ProfileView) error {
+	pc := make(map[string]config.ProfileConfig, len(profiles))
+	for name, p := range profiles {
+		pc[name] = config.ProfileConfig{
+			Description:     p.Description,
+			Model:           p.Model,
+			Effort:          p.Effort,
+			ToolApproveMode: p.ToolApproveMode,
+			AutoPlan:        p.AutoPlan,
+			OutputStyle:     p.OutputStyle,
+		}
+	}
+	return a.applyConfigOnly(func(c *config.Config) error { return c.SetProfiles(pc) })
 }
 
 // SetTrayLocale mirrors the resolved desktop UI language into the native tray

@@ -120,13 +120,13 @@ type DesktopConfig struct {
 // Valid action names: palette, workspace, new, history, dock, sidebar, settings, and "" (unbind).
 // Keys not present or set to "" keep their built-in default.
 type HotbarConfig struct {
-	Key1 string `toml:"1"` // default: palette
-	Key2 string `toml:"2"` // default: workspace
-	Key3 string `toml:"3"` // default: new
-	Key4 string `toml:"4"` // default: history
-	Key5 string `toml:"5"` // default: dock
-	Key6 string `toml:"6"` // default: sidebar
-	Key7 string `toml:"7"` // default: settings
+	Key1 string `toml:"1" json:"key1"` // default: palette
+	Key2 string `toml:"2" json:"key2"` // default: workspace
+	Key3 string `toml:"3" json:"key3"` // default: new
+	Key4 string `toml:"4" json:"key4"` // default: history
+	Key5 string `toml:"5" json:"key5"` // default: dock
+	Key6 string `toml:"6" json:"key6"` // default: sidebar
+	Key7 string `toml:"7" json:"key7"` // default: settings
 }
 
 // NotificationsConfig controls optional system notifications for CLI chat/run.
@@ -395,6 +395,15 @@ func NormalizeReasoningLanguage(lang string) string {
 	default:
 		return "auto"
 	}
+}
+
+// CompressToolOutputEnabled reports whether token-saving tool output compression
+// is active. Default true (SHA-256 caching + line dedup + JSON minification).
+func (c *Config) CompressToolOutputEnabled() bool {
+	if c == nil || c.Agent.CompressToolOutput == nil {
+		return true
+	}
+	return *c.Agent.CompressToolOutput
 }
 
 // DesktopTelemetry reports whether the desktop sends the anonymous launch ping.

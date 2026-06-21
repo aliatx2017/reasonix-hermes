@@ -726,6 +726,203 @@ func TestSetDesktopMetricsDefaultsOnAndPersistsOff(t *testing.T) {
 	}
 }
 
+// TestSettingsViewHasHotbarFields guards that the SettingsView struct carries the
+// Hotbar, Profiles, and ActiveProfile fields the frontend expects. If an upstream
+// merge strips these fields, the hotbar and profiles sections break silently.
+func TestSettingsViewHasHotbarFields(t *testing.T) {
+	isolateDesktopUserDirs(t)
+
+	app := NewApp()
+	v := app.Settings()
+
+	// Hotbar must be present with defaults filled in (not zero-valued).
+	if v.Hotbar.Key1 != "palette" {
+		t.Fatalf("Hotbar.Key1 = %q, want palette", v.Hotbar.Key1)
+	}
+	if v.Hotbar.Key7 != "settings" {
+		t.Fatalf("Hotbar.Key7 = %q, want settings", v.Hotbar.Key7)
+	}
+
+	// Profiles must be non-nil (Wails serializes nil as null, crashing .length in JS).
+	if v.Profiles == nil {
+		t.Fatal("Profiles is nil, want map[string]ProfileView{}")
+	}
+
+	// ActiveProfile must be present (empty string for no active profile).
+	if v.ActiveProfile != "" {
+		t.Fatalf("ActiveProfile = %q, want empty string", v.ActiveProfile)
+	}
+}
+
+// TestSetDesktopHotbarPersists guards that SetDesktopHotbar writes the
+// hotbar to config and it round-trips through Settings(). If the Wails
+// binding disappears, this test fails.
+func TestSetDesktopHotbarPersists(t *testing.T) {
+	isolateDesktopUserDirs(t)
+
+	app := NewApp()
+
+	h := config.HotbarConfig{
+		Key1: "dock",
+		Key2: "sidebar",
+		// Key3-7 left empty — should get defaults from hotbarView() on read.
+	}
+	if err := app.SetDesktopHotbar(h); err != nil {
+		t.Fatalf("SetDesktopHotbar: %v", err)
+	}
+
+	// Read back through Settings() — defaults fill in for empty keys.
+	v := app.Settings()
+	if v.Hotbar.Key1 != "dock" {
+		t.Fatalf("Hotbar.Key1 = %q, want dock", v.Hotbar.Key1)
+	}
+	if v.Hotbar.Key2 != "sidebar" {
+		t.Fatalf("Hotbar.Key2 = %q, want sidebar", v.Hotbar.Key2)
+	}
+	if v.Hotbar.Key3 != "new" {
+		t.Fatalf("Hotbar.Key3 = %q, want new (default)", v.Hotbar.Key3)
+	}
+
+	// Verify persisted on disk.
+	cfg := config.LoadForEdit(config.UserConfigPath())
+	if cfg.Desktop.Hotbar.Key1 != "dock" {
+		t.Fatalf("persisted hotbar Key1 = %q, want dock", cfg.Desktop.Hotbar.Key1)
+	}
+	if cfg.Desktop.Hotbar.Key3 != "" {
+		t.Fatalf("persisted hotbar Key3 = %q, want empty (default not persisted)", cfg.Desktop.Hotbar.Key3)
+	}
+}
+
+// TestSetDesktopLanguagePersists guards the SetDesktopLanguage Wails binding.
+func TestSetDesktopLanguagePersists(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	app := NewApp()
+	if err := app.SetDesktopLanguage("zh"); err != nil {
+		t.Fatalf("SetDesktopLanguage: %v", err)
+	}
+	cfg := config.LoadForEdit(config.UserConfigPath())
+	if cfg.DesktopLanguage() != "zh" {
+		t.Fatalf("DesktopLanguage() = %q, want zh", cfg.DesktopLanguage())
+	}
+}
+
+// TestSetDesktopAppearancePersists guards the SetDesktopAppearance Wails binding.
+func TestSetDesktopAppearancePersists(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	app := NewApp()
+	if err := app.SetDesktopAppearance("dark", "slate"); err != nil {
+		t.Fatalf("SetDesktopAppearance: %v", err)
+	}
+	cfg := config.LoadForEdit(config.UserConfigPath())
+	if cfg.DesktopTheme() != "dark" {
+		t.Fatalf("DesktopTheme() = %q, want dark", cfg.DesktopTheme())
+	}
+}
+
+// TestSetDesktopLayoutStylePersists guards the SetDesktopLayoutStyle Wails binding.
+func TestSetDesktopLayoutStylePersists(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	app := NewApp()
+	if err := app.SetDesktopLayoutStyle("classic"); err != nil {
+		t.Fatalf("SetDesktopLayoutStyle: %v", err)
+	}
+	cfg := config.LoadForEdit(config.UserConfigPath())
+	if cfg.DesktopLayoutStyle() != "classic" {
+		t.Fatalf("DesktopLayoutStyle() = %q, want classic", cfg.DesktopLayoutStyle())
+	}
+}
+
+// TestSetDesktopTelemetryPersists guards the SetDesktopTelemetry Wails binding.
+func TestSetDesktopTelemetryPersists(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	app := NewApp()
+	if err := app.SetDesktopTelemetry(false); err != nil {
+		t.Fatalf("SetDesktopTelemetry: %v", err)
+	}
+	cfg := config.LoadForEdit(config.UserConfigPath())
+	if cfg.DesktopTelemetry() {
+		t.Fatal("DesktopTelemetry() = true, want false")
+	}
+}
+
+// TestSetDesktopCloseBehaviorPersists guards the SetCloseBehavior Wails binding.
+func TestSetDesktopCloseBehaviorPersists(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	app := NewApp()
+	if err := app.SetCloseBehavior("quit"); err != nil {
+		t.Fatalf("SetCloseBehavior: %v", err)
+	}
+	cfg := config.LoadForEdit(config.UserConfigPath())
+	if cfg.DesktopCloseBehavior() != "quit" {
+		t.Fatalf("DesktopCloseBehavior() = %q, want quit", cfg.DesktopCloseBehavior())
+	}
+}
+
+// TestSetDesktopDisplayModePersists guards the SetDisplayMode Wails binding.
+func TestSetDesktopDisplayModePersists(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	app := NewApp()
+	if err := app.SetDisplayMode("compact"); err != nil {
+		t.Fatalf("SetDisplayMode: %v", err)
+	}
+	cfg := config.LoadForEdit(config.UserConfigPath())
+	if cfg.DesktopDisplayMode() != "compact" {
+		t.Fatalf("DesktopDisplayMode() = %q, want compact", cfg.DesktopDisplayMode())
+	}
+}
+
+// TestSetDesktopStatusBarStylePersists guards the SetStatusBarStyle Wails binding.
+func TestSetDesktopStatusBarStylePersists(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	app := NewApp()
+	if err := app.SetStatusBarStyle("icon"); err != nil {
+		t.Fatalf("SetStatusBarStyle: %v", err)
+	}
+	cfg := config.LoadForEdit(config.UserConfigPath())
+	if cfg.DesktopStatusBarStyle() != "icon" {
+		t.Fatalf("DesktopStatusBarStyle() = %q, want icon", cfg.DesktopStatusBarStyle())
+	}
+}
+
+// TestSetDesktopStatusBarItemsPersists guards the SetStatusBarItems Wails binding.
+func TestSetDesktopStatusBarItemsPersists(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	app := NewApp()
+	items := []string{"model", "cost"}
+	if err := app.SetStatusBarItems(items); err != nil {
+		t.Fatalf("SetStatusBarItems: %v", err)
+	}
+	cfg := config.LoadForEdit(config.UserConfigPath())
+	got := cfg.DesktopStatusBarItems()
+	if len(got) != 2 || got[0] != "model" || got[1] != "cost" {
+		t.Fatalf("DesktopStatusBarItems() = %v, want [model cost]", got)
+	}
+}
+
+// TestSetProfilesPersists guards the SetProfiles Wails binding.
+func TestSetProfilesPersists(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	app := NewApp()
+	profiles := map[string]ProfileView{
+		"quick": {
+			Name:        "quick",
+			Description: "Fast mode",
+			Model:       "flash-model",
+			Effort:      "low",
+		},
+	}
+	if err := app.SetProfiles(profiles); err != nil {
+		t.Fatalf("SetProfiles: %v", err)
+	}
+	cfg := config.LoadForEdit(config.UserConfigPath())
+	if len(cfg.Profiles) != 1 {
+		t.Fatalf("Profiles count = %d, want 1", len(cfg.Profiles))
+	}
+	if cfg.Profiles["quick"].Model != "flash-model" {
+		t.Fatalf("Profiles[quick].Model = %q, want flash-model", cfg.Profiles["quick"].Model)
+	}
+}
+
 func TestSaveHooksSettingsPreservesUnknownSettingsKeys(t *testing.T) {
 	isolateDesktopUserDirs(t)
 	path := hook.GlobalSettingsPath("")

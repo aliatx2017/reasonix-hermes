@@ -881,6 +881,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 		VisionProv:           visionProv,
 		WebExtractProv:       webExtractProv,
 		PlanModeAllowedTools: cfg.Agent.PlanModeAllowedTools,
+		CompressToolOutput:   cfg.CompressToolOutputEnabled(),
 	}, sink)
 
 	var runner agent.Runner = executor

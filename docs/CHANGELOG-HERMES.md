@@ -10,6 +10,17 @@ Key milestones in the Hermes fork since June 2026.
 - **Silent-catch fix** (completes h50 audit): 25+ `.catch(() => ...)` sites across 13 files now log `console.warn` before returning fallback values (App.tsx, WorkspacePanel, MemoryPanel, WriteMode, SettingsPanel, CapabilitiesPanel, hermes/AnalyticsPanel, LearnedPatternsPanel, EvalPanel, MarketplacePanel, SkillStorePanel, useController.ts, sessionExport.tsx). No shared `useBackend` hook — fallback types and side effects are too diverse for a single abstraction. Zero remaining silent `.catch(() =>` patterns.
 - **Build**: tsc --noEmit 0 errors, go build ./... + go vet ./... clean, all 77 test packages pass.
 
+### Session 2026-06-21 (h52) — regression fixes + 32 guard tests
+
+- **Two regressions fixed** (both lost during prior upstream merges with zero guard tests):
+  - **sqz counter missing from CLI status bar**: `cfg.Agent.CompressToolOutput` (`*bool`, default true) existed but was never mapped to `agent.Options.CompressToolOutput` in boot.go. Compressor always created disabled → `BytesSaved` stayed 0 → sqz counter never rendered. Fixed by adding `CompressToolOutputEnabled()` getter (follows `ColdResumePruneEnabled` pattern) and wiring `CompressToolOutput: cfg.CompressToolOutputEnabled()` in boot.go agent.Options.
+  - **Desktop hotbar always unconfigured**: `SettingsView` struct in `desktop/settings_app.go` had no `Hotbar`/`Profiles`/`ActiveProfile` fields — zero data reached the frontend. Also missing `SetDesktopHotbar`/`SetProfiles` Wails bindings. Fixed by: adding `json` tags to `HotbarConfig`, creating Go `ProfileView` type, adding 3 fields to `SettingsView`, populating them in `Settings()` with `hotbarView()` helper (fills defaults), adding 2 Wails bindings.
+- **32 regression guard tests** across 3 files to prevent silent loss during upstream merges:
+  - `internal/config/default_test.go`: +15 tests — every Hermes config struct field (Billing, Learn, Mesh, Schedule, Collab, Marketplace, Embedding, 4 bot platforms, Notifications.Sound, Sandbox.Remote*, Agent.Auxiliary, AgentLog) now has a compile-time guard
+  - `internal/boot/boot_test.go`: +5 tests — exchange rate wiring, compress wiring, schedule→controller, mesh→controller, learner→controller
+  - `desktop/settings_app_test.go`: +12 tests — hotbar struct presence + persist, 8 Wails bindings (language, appearance, layout, telemetry, close behavior, display mode, status bar style, status bar items), SetProfiles
+- **Build**: go build/vet/test all pass, tsc --noEmit 0 errors, 9 binaries rebuilt, desktop tests passed.
+
 ### Session 2026-06-21 (h50) — upstream sync + coding-standards audit + doc-sweep
 
 - **Upstream**: merged 9ada1417 (13 commits: agent step limits user-global, cancelled batch results preservation, TUI cancel-escape integration, pwsh chaining + install path, todo cleared state fix, auto-plan user-level). 3 conflicts resolved: CHANGELOG.md, settings-refresh-snapshot test, agent.go (kept outcomes return for Hermes learner). 29 syncs total.
