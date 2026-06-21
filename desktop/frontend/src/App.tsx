@@ -165,7 +165,7 @@ const RIGHT_DOCK_PREVIEW_MIN_WIDTH = 420;
 const RIGHT_DOCK_MIN_RENDER_WIDTH = 280;
 const RIGHT_DOCK_MAX_WIDTH = 860;
 
-type RightDockMode = "context" | "files" | "changed";
+type RightDockMode = "none" | "context" | "files" | "changed";
 const SHOW_CONTEXT_DOCK = true;
 type HistoryScopeFilter = { scope: "global" | "project"; workspaceRoot: string };
 type DesktopPlatform = "darwin" | "windows" | "linux";
@@ -2220,6 +2220,52 @@ export default function App() {
   }, [activeTabId, handleTabClose], Boolean(activeTabId));
   useGlobalShortcut("shortcuts.show", () => setShortcutsOpen(true));
   useGlobalShortcut("sidebar.toggle", toggleSidebar, [toggleSidebar]);
+
+  // --- Hotbar: bare digit keys 1-7 trigger configured actions ---
+  // Only fires when no modifier keys are held and focus is not in an input/textarea.
+  useEffect(() => {
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      switch (e.key) {
+        case "1":
+          e.preventDefault();
+          void openPalette();
+          break;
+        case "2":
+          e.preventDefault();
+          setWorkspacePanelOpen((cur) => !cur);
+          break;
+        case "3":
+          e.preventDefault();
+          void handleNewTab();
+          break;
+        case "4":
+          e.preventDefault();
+          void openAllHistory();
+          break;
+        case "5":
+          e.preventDefault();
+          setRightDockMode((cur) => cur === "context" ? "none" : "context");
+          break;
+        case "6":
+          e.preventDefault();
+          setSidebarCollapsed((cur) => !cur);
+          break;
+        case "7":
+          e.preventDefault();
+          setSettingsTarget("general");
+          break;
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [
+    openPalette, handleNewTab, setWorkspacePanelOpen,
+    setSidebarCollapsed, openAllHistory, setSettingsTarget,
+    setRightDockMode,
+  ]);
 
   // --- Topic shortcut navigation (Cmd/Ctrl+1-9) ---
   const visibleTopicsRef = useRef<TopicShortcutEntry[]>([]);

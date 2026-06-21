@@ -36,7 +36,9 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 ## Notes
 
-- **Upstream synced**: `v1.10.0` (commit 9ada1417, 2026-06-21). 29 syncs total — merged: 9ada1417 (h50, 13 commits). Previous sync: 027e7dc0 (h49, 4 commits).
+- **Upstream synced**: `v1.10.0` (commit 051239b6, 2026-06-21). 30 syncs total — merged: 051239b6 (h53, 18 commits). Previous sync: 9ada1417 (h50, 13 commits).
+- **Commit**: session 2026-06-21 (h53) — upstream merge (051239b6, 18 commits): desktop shortcuts integration, sidebar Cmd+1-10 nav, Cmd+K palette focus fix, ⌘B/⌘⇧B shell/sidebar toggle swap, panel spacing fixes, color/background fixes. 4 conflicts all resolved (accepting upstream: keyboardShortcuts.ts ShortcutAction additions + shell.toggle→sidebar.toggle swap, CommandPalette.tsx active=-1 + useCallback/useLayoutEffect, keyboard-shortcuts.test.ts topicShortcutIndexFromEvent import, app-chrome-tabs.test.ts bg-elev variable). 14 files changed in merge. All 9 binaries rebuilt. Full test suite (76 packages) + desktop tests + tsc clean. h52 guard tests re-verified (24/24 pass). Upstream sync count: 30.
+
 - **Commit**: session 2026-06-21 (h52) — regression fixes + 32 guard tests. Two regressions from lost upstream-merge wiring fixed: (1) sqz counter missing from CLI (CompressToolOutput config never reached agent.Options — compressor always disabled), (2) desktop hotbar always unconfigured (SettingsView struct missing Hotbar/Profiles/ActiveProfile fields + no Wails bindings). 32 guard tests added across 3 files: 15 config field compile-time guards (every Hermes Config field), 4 boot wiring guards (exchange rate, schedule, mesh, learner → controller), 12 desktop binding guards (hotbar, 8 Wails methods, profiles). 6 files changed. All 9 binaries rebuilt. Full test suite + tsc clean. No upstream check this session.
 
 - **Commit**: session 2026-06-21 (h51) — SettingsPanel split + silent-catch completion. SettingsPanel.tsx: 5,511→2,152 lines (61% reduction); extracted settings-shared.tsx (192L), ModelsSection.tsx (1,768L), BotsSection.tsx (1,457L). Split done incrementally (tsc after each batch) — previous 2 sessions failed attempting it all at once (69 API calls in unsolvable edit-compile loop). Silent-catch fix (completes h50 audit): 25+ `.catch(() => ...)` sites now log `console.warn` across 13 files (App, WorkspacePanel, MemoryPanel, WriteMode, SettingsPanel, CapabilitiesPanel, 5 hermes panels, useController.ts, sessionExport.tsx). Zero remaining silent patterns. CHANGELOG-HERMES.md +h51. 16 files changed. All 9 binaries rebuilt. Full test suite + tsc clean.
@@ -196,9 +198,9 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 - **Upstream**: Merged 5 commits (a029618). Desktop-v1.8.1 tag.
 ## Next session — ideas & follow-ups
 
-- **Upstream sync**: ✅ Done — 91fe06d (h46). Check again next session.
-- **CHANGELOG-HERMES**: ✅ Done — 10 missing sessions added (h28, h32, h36, h39-h45). 31 entries total.
-- **NPM tag**: Consider cutting when we have a more substantial batch (only 1 code change: sandbox paths).
+- **Upstream sync**: ✅ Done — 051239b6 (h53). Check again next session.
+- **CHANGELOG-HERMES**: h53 needs entry added.
+- **NPM tag**: Consider cutting when we have a more substantial batch.
 - **agent-reach e2e**: Verify agent-reach works from within a new Reasonix CLI session (sandbox fix requires binary restart).
 - **headroom integration**: Wire `headroom mcp` as a squeeze-gated MCP server, or `headroom proxy` as a cost-saving proxy.
 - **markitdown-mcp integration**: Register `.venv-tools/bin/markitdown-mcp` as a stdio MCP server in config.
