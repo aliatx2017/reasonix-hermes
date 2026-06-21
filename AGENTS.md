@@ -60,7 +60,7 @@ cd desktop && wails dev
 ```
 cmd/reasonix/          CLI entry point (delegates to internal/cli/)
 cmd/reasonix-pr-review/ PR review CLI for GitHub Actions
-internal/              Reasonix engine (70 packages plus testutil)
+internal/              Reasonix engine (56 packages plus testutil)
   agent/               Core agent loop, compaction, subagents
   agentlog/            Structured operational logging (slog → stderr + AGENT_LOG)
   boot/                Controller assembly, tool wiring

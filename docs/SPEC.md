@@ -75,7 +75,7 @@ reasonix/
     ├── constitution/       # [Hermes] structured project invariants from .reasonix/constitution.json
     ├── control/            # transport-agnostic session driver
     │   ├── controller.go # Controller struct, Options, New, lifecycle (1,245 lines)
-    │   ├── controller_approval.go    # gateApprover, approval helpers, requestApproval, notice/beep/profile
+    │   ├── controller_approval.go    # gateApprover, approval helpers, requestApproval, notice/ToggleSound/profile
     │   ├── controller_checkpoints.go # RewindScope, Rewind, Fork, Branch, Summarize, ckptDir
     │   ├── controller_memory.go      # QuickAdd, SaveDoc, SaveMemory, ForgetMemory, QueueMemory, Memory
     │   ├── controller_mesh.go        # SetMesh, Council, MeshStatus
@@ -138,7 +138,7 @@ reasonix/
 ```
 
 [Hermes] = Reasonix-Hermes custom additions (not present in upstream esengine/deepseek-reasonix).
-Total: 70 internal packages.
+Total: 56 internal packages.
 
 Dependency direction (acyclic): `cli → {agent, plugin, config} → {tool, provider}`.
 Built-in subpackages (`provider/openai`, `tool/builtin`) import their parent to

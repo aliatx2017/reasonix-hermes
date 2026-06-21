@@ -15,6 +15,10 @@ Key milestones in the Hermes fork since June 2026.
 - **Upstream**: merged 051239b6 (18 commits: desktop shortcut integration, sidebar Cmd+1-10 topic navigation, Cmd+K palette double-press fix, ⌘B/⌘⇧B shell/sidebar toggle swap, panel spacing + light-mode background fixes, keyboard shortcut settings panel wiring, ⌘↑/↓ native scroll restore, sidebar topic numbering fixes). 30 syncs total.
 - **Conflicts**: 4 — all resolved (accepting upstream). `keyboardShortcuts.ts` (ShortcutAction additions + shell.toggle→sidebar.toggle swap), `CommandPalette.tsx` (active=-1 + useCallback/useLayoutEffect), `keyboard-shortcuts.test.ts` (topicShortcutIndexFromEvent import), `app-chrome-tabs.test.ts` (bg-elev CSS variable).
 - **Build**: All 9 binaries rebuilt (wails 25.6s). Full test suite: 76 packages pass, zero failures. tsc --noEmit 0 errors. Desktop Go tests: 3/3 pass. h52 guard tests re-verified: 24/24 pass.
+- **Hotbar fix**: Keyboard handler for digit keys 1-7 restored (lost since v1.6.0 merge Jun 12 — 9 days). RightDockMode "none" also restored. 11-assertion guard test prevents recurrence.
+- **System-wide fingerprint guard**: 92 fingerprints across 17 shared files (69 Go + 23 TS) now run as pre-commit gate. Upstream merges that silently drop any Hermes code block fail `.reasonix/check`.
+- **Git-history audit**: 4 confirmed silent losses from upstream merges found. 3 restored: `languagePolicy` (hard English-only enforcement), `workshopSynthesizer` + `WorkshopThreshold` wiring (background synthesis sidecar), `sound` field in render.go. 1 unrestorable: `runWithAutoResume` (architecture changed).
+- **Constitution**: new `frontend-guard-tests` rule — structural guard tests must pass before committing desktop changes.
 
 ### Session 2026-06-21 (h52) — regression fixes + 32 guard tests
 
