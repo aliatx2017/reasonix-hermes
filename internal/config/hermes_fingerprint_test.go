@@ -3,13 +3,15 @@
 // code when git merge doesn't flag a conflict.
 //
 // Documented losses (code that existed and was silently dropped by upstream merges):
-//   - runWithAutoResume() in controller_turn.go (lost in d75a84a8 merge)
-//   - workshopSynthesizer wiring in boot.go (agent code exists, boot wiring gone)
-//   - languagePolicy/finalizeSystemPrompt in boot.go (entirely gone)
+//   - runWithAutoResume() in controller_turn.go (lost in d75a84a8; unrestorable —
+//     architecture changed, IsMaxStepsPause intentionally removed as dead code)
+//   - workshopSynthesizer wiring in boot.go (lost; restored h53)
+//   - languagePolicy/finalizeSystemPrompt in boot.go (lost; restored h53)
 //   - sqz CompressToolOutput wiring in boot.go (lost, fixed h52)
 //   - SettingsView Hotbar/Profiles fields in settings_app.go (lost, fixed h52)
 //   - render.go Hermes TOML sections (lost, fixed h11)
 //   - hotbar keyboard handler in App.tsx (lost 9 days, fixed b6de38ac)
+//   - sound field in render.go Notifications (never rendered; added h53)
 //
 // Intentional removals (not losses):
 //   - beep() — removed in 08c0404a (h48) as dead code cleanup
@@ -42,6 +44,12 @@ func TestHermesFingerprintsGo(t *testing.T) {
 			"resolveAuxProviders",
 			"RemoteSandboxURL",
 			"RemoteSandboxToken",
+			"WorkshopThreshold",
+			"workshopSynthesizer",
+			"WorkshopSynthesisText",
+			"workshopThreshold",
+			"truncateHead",
+			"func languagePolicy",
 		},
 
 		// ── internal/control/controller.go — Hermes struct fields ──
@@ -94,6 +102,7 @@ func TestHermesFingerprintsGo(t *testing.T) {
 			"[bot.line]",
 			"[bot.slack]",
 			"active_profile",
+			"Notifications.Sound",
 		},
 
 		// ── internal/config/edit_test.go — Hermes theme test ──

@@ -235,7 +235,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	if st, ok := outputstyle.Resolve(cfg.Agent.OutputStyle, outputstyle.Dirs()); ok {
 		sysPrompt = outputstyle.Apply(sysPrompt, st)
 	}
-	sysPrompt += "\n\n" + config.LanguagePolicy
+	sysPrompt += "\n\n" + languagePolicy(cfg.Language)
 	if tokenEconomy {
 		sysPrompt += "\n\n" + tokenEconomyPrompt
 	}
@@ -882,6 +882,8 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 		WebExtractProv:       webExtractProv,
 		PlanModeAllowedTools: cfg.Agent.PlanModeAllowedTools,
 		CompressToolOutput:   cfg.CompressToolOutputEnabled(),
+		WorkshopThreshold:    workshopThreshold,
+		Workshop:             workshopSynthesizer(jm, execProv, reg, entry, cfg.Agent),
 	}, sink)
 
 	var runner agent.Runner = executor
@@ -1500,4 +1502,68 @@ func resolveAuxProviders(cfg *config.Config, proxy netclient.ProxySpec, sink eve
 	return resolve(aux.Compression, "compression"),
 		resolve(aux.Vision, "vision"),
 		resolve(aux.WebExtract, "web_extract")
+}
+
+// ── Hermes: language enforcement ──────────────────────────────────────────
+
+// languagePolicy returns the language instruction appended to the system prompt.
+// When language is explicitly "en", it enforces English-only — a hard constraint
+// that overrides the adaptive follow-the-user policy. All other values fall
+// through to config.LanguagePolicy (adaptive).
+func languagePolicy(explicitLang string) string {
+	if strings.EqualFold(strings.TrimSpace(explicitLang), "en") {
+		return "You must respond in English only — never use any other language. Always keep code, identifiers, file paths, shell commands, and technical terms in their original form."
+	}
+	return config.LanguagePolicy
+}
+
+// ── Hermes: workshop sidecar ──────────────────────────────────────────────
+
+// workshopThreshold is the byte size above which tool results are routed to the
+// workshop sidecar for background synthesis.
+const workshopThreshold = 12 * 1024
+
+// WorkshopSynthesisText is the system-prompt prefix for workshop synthesis jobs.
+const WorkshopSynthesisText = "Synthesize this large tool output into a concise summary. Focus on key findings, patterns, errors, and actionable items. Omit repetitive content. Return the synthesis only."
+
+// workshopSynthesizer returns a callback that, when a tool result exceeds the
+// threshold, spawns a background sub-agent to synthesize it and returns a note
+// pointing to the synthesis ref, plus a truncated version of the raw output.
+func workshopSynthesizer(jm *jobs.Manager, prov provider.Provider, reg *tool.Registry, entry *config.ProviderEntry, agentCfg config.AgentConfig) func(ctx context.Context, toolName string, rawResult string) string {
+	if jm == nil || prov == nil {
+		return nil
+	}
+	return func(ctx context.Context, toolName string, rawResult string) string {
+		synthInput := rawResult
+		const maxSynthesisInput = 64 * 1024
+		if len(synthInput) > maxSynthesisInput {
+			synthInput = synthInput[:maxSynthesisInput] + "\n\n[...truncated for synthesis]"
+		}
+
+		prompt := fmt.Sprintf("%s\n\nTool: %s\nOutput:\n%s", WorkshopSynthesisText, toolName, synthInput)
+
+		job := jm.Start("workshop", "synthesize "+toolName, func(jobCtx context.Context, _ io.Writer) (string, error) {
+			sess := agent.NewSession("You are a synthesis sidecar. " + WorkshopSynthesisText)
+			return agent.RunSubAgentWithSession(jobCtx, prov, reg, sess, prompt, agent.Options{
+				MaxSteps: 3,
+				Gate:     nil,
+			}, event.Discard)
+		})
+
+		return fmt.Sprintf("[Workshop sidecar: %d-byte %s output routed to background synthesis job %q. Use wait(job_ids=[%q]) to retrieve the condensed summary.]\n\nHead of raw output:\n%s",
+			len(rawResult), toolName, job.ID, job.ID,
+			truncateHead(rawResult, 2048))
+	}
+}
+
+func truncateHead(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	for i := maxLen; i > maxLen-256 && i > 0; i-- {
+		if s[i] == '\n' {
+			return s[:i] + "\n[...truncated]"
+		}
+	}
+	return s[:maxLen] + "\n[...truncated]"
 }
