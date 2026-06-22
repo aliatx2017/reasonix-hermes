@@ -30,6 +30,7 @@ import type {
   CommandInfo,
   CompactionEvent,
   CompressStatsView,
+  HeadroomProxyStatsView,
   ConstitutionHealthView,
   ContextInfo,
   ContextPanelInfo,
@@ -356,6 +357,7 @@ export interface AppBindings {
   CompareSessions(pathA: string, pathB: string): Promise<any>;
   CompressStats(): Promise<CompressStatsView>;
   CompressStatsForTab(tabID: string): Promise<CompressStatsView>;
+  HeadroomStats(): Promise<HeadroomProxyStatsView>;
   ConstitutionHealth(): Promise<ConstitutionHealthView>;
   CostSummary(): Promise<CostSummaryView>;
   CostSummaryForTab(tabID: string): Promise<CostSummaryView>;
@@ -3078,6 +3080,7 @@ function makeMockApp(): AppBindings {
     async CompareSessions(_pathA: string, _pathB: string) { return {}; },
     async CompressStats(): Promise<CompressStatsView> { return { bytesSaved: 0, tokensSaved: 0 } as any; },
     async CompressStatsForTab(_tabID: string): Promise<CompressStatsView> { return { bytesSaved: 0, tokensSaved: 0 } as any; },
+    async HeadroomStats(): Promise<HeadroomProxyStatsView> { return { running: false, requests: 0, tokensBefore: 0, tokensSaved: 0, savingsPct: 0, costSavedUSD: 0 }; },
     async ConstitutionHealth(): Promise<ConstitutionHealthView> { return { rules: [] } as any; },
     async CostSummary(): Promise<CostSummaryView> { return {} as any; },
     async CostSummaryForTab(_tabID: string): Promise<CostSummaryView> { return {} as any; },

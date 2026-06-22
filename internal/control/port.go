@@ -168,6 +168,7 @@ type Status interface {
 	Jobs() []jobs.View
 	AuxTokens() int
 	CompressStats() compress.Stats
+	HeadroomProxyStats() HeadroomProxyStats
 	TurnUsageHistory() []provider.Usage
 	CompactionHistory() []event.Compaction
 	SessionTokensIn() int

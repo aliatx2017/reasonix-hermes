@@ -543,6 +543,7 @@ export const AssistantMessage = memo(function AssistantMessage({
   defaultExpanded = false,
   expandWhileStreaming = true,
   truncateStreamingReasoning = false,
+  creationMode = false,
 }: {
   item: AssistantItem;
   defaultExpanded?: boolean;
@@ -550,6 +551,7 @@ export const AssistantMessage = memo(function AssistantMessage({
   expandWhileStreaming?: boolean;
   /** Opt-in for compact mode to keep live DeepSeek reasoning from growing an unbounded DOM. */
   truncateStreamingReasoning?: boolean;
+  creationMode?: boolean;
 }) {
   const t = useT();
   const reasoningBodyRef = useRef<HTMLDivElement>(null);
@@ -628,7 +630,7 @@ export const AssistantMessage = memo(function AssistantMessage({
       )}
       {hasText && (
         <div className="msg__body">
-          <Markdown text={item.text} />
+          <Markdown text={item.text} plainStatusBlocks={creationMode} />
         </div>
       )}
     </div>

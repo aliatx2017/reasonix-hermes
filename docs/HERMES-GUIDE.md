@@ -103,6 +103,8 @@
     - 16.24 [Domain Model & ADRs](#1624-domain-model--adrs)
     - 16.25 [Multi-Agent Orchestration](#1625-multi-agent-orchestration)
     - 16.26 [E2E Benchmarking](#1626-e2e-benchmarking)
+    - 16.27 [Agent Reach MCP](#1627-agent-reach-mcp)
+    - 16.28 [Headroom Proxy](#1628-headroom-proxy)
 17. [Desktop App](#17-desktop-app)
 18. [Bot Gateway (Multi-Platform)](#18-bot-gateway-multi-platform)
 19. [Troubleshooting & FAQ](#19-troubleshooting--faq)
@@ -1659,6 +1661,68 @@ CI triggers this via `/e2e` or `/e2e diff` comments on PRs (gated to trusted aut
 The Go harness is in `internal/e2e/`.
 
 **Related:** [Session Evaluation](#1618-session-evaluation--comparison) · [PR Review](#pr-review-ci)
+
+### 16.27 Agent Reach MCP
+
+[Agent Reach](https://github.com/NeoReid/agent-reach) (v1.5.0) gives agents
+eyes on the internet — 13 channels: GitHub, YouTube, semantic search, RSS,
+web reading (Jina), V2EX, Bilibili, and more.
+
+A custom MCP stdio server at `.reasonix/scripts/agent-reach-mcp` exposes 3 tools:
+
+| Tool | Channel | What it does |
+|------|---------|--------------|
+| `get_status` | all | Doctor report — active/configured channels |
+| `read_web` | Jina Reader | Any URL → clean markdown |
+| `youtube_subtitles` | yt-dlp | Auto-generated subtitles from YouTube |
+
+Registration in `reasonix.toml`:
+```toml
+[[plugins]]
+name    = "agent-reach"
+command = ".venv-tools/bin/python3"
+args    = [".reasonix/scripts/agent-reach-mcp"]
+```
+
+Install agent-reach into the project venv: `pip install agent-reach` into
+`.venv-tools/`. The sandbox whitelist was extended in h47 to allow writes to
+`~/.agent-reach/` and `~/.local/share/`.
+
+### 16.28 Headroom Proxy
+
+[Headroom](https://github.com/headroom-ai/headroom) (v0.26.0) is an LLM context
+optimization proxy that sits between reasonix and the API provider, transparently
+compressing conversation context. Compression + caching + prefix-freeze reduces
+token usage by **20–92%**.
+
+```bash
+# Start the proxy pointing at DeepSeek
+headroom proxy \
+  --backend anyllm --anyllm-provider openai \
+  --openai-api-url https://api.deepseek.com \
+  --port 8787
+
+# Add providers in reasonix.toml:
+```
+
+```toml
+[[providers]]
+name        = "deepseek-headroom"
+kind        = "openai"
+base_url    = "http://localhost:8787/v1"
+model       = "deepseek-v4-pro"
+api_key_env = "DEEPSEEK_API_KEY"
+```
+
+```bash
+# Use it
+./bin/reasonix run --model deepseek-headroom "your task"
+```
+
+Stats are visible in the CLI status bar (`◈↓N%`) and desktop StatusBar.
+Full reference: **[Headroom Guide](./HEADROOM.md)**.
+
+**Related:** [How-To: Token Saving](#1622-how-to-token-saving) · [Headroom Guide](./HEADROOM.md)
 
 ## 17. Desktop App
 

@@ -26,6 +26,7 @@ import {
   type CacheEconomyView,
   type CollaborationMode,
   type CompressStatsView,
+  type HeadroomProxyStatsView,
   type ContextInfo,
   type JobView,
   type ToolApprovalMode,
@@ -499,6 +500,7 @@ export function StatusBar({
         <DiscordMonitorCompact />
         <CacheGaugeCompact />
         <CompressGaugeCompact />
+        <HeadroomGaugeCompact />
       </div>
     </div>
   );
@@ -676,6 +678,52 @@ function CompressGaugeCompact() {
       <Zap size={11} />
       {cs.bytesSaved > 0 && <span>sqz&nbsp;↓{fmtBytes(cs.bytesSaved)}</span>}
       {cs.auxTokens > 0 && <span>aux&nbsp;↓{cs.auxTokens.toLocaleString()}</span>}
+    </span>
+  );
+}
+
+function HeadroomGaugeCompact() {
+  const [hs, setHS] = useState<HeadroomProxyStatsView | null>(null);
+  useEffect(() => {
+    try {
+      const w = window as any;
+      if (w.runtime?.EventsOn) {
+        const unsub = w.runtime.EventsOn('hermes:dashboard', (payload: DashboardPayload) => {
+          if ((payload as any)?.headroom?.running) setHS((payload as any).headroom);
+        });
+        app
+          .HeadroomStats()
+          .then((s) => { if (s.running) setHS(s); })
+          .catch(() => {});
+        return () => { try { unsub(); } catch { /* ignore */ } };
+      }
+    } catch { /* fall through */ }
+    const poll = () => {
+      app
+        .HeadroomStats()
+        .then((s) => { if (s.running) setHS(s); })
+        .catch(() => {});
+    };
+    poll();
+    const id = setInterval(poll, 30000);
+    return () => clearInterval(id);
+  }, []);
+  if (!hs || !hs.running) return null;
+
+  return (
+    <span
+      title={`Headroom proxy: ${hs.requests} requests · ${hs.tokensSaved.toLocaleString()} tokens saved · $${hs.costSavedUSD.toFixed(4)} saved`}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 4,
+        fontSize: 11,
+        color: 'var(--color-text-muted)',
+      }}
+    >
+      <span style={{ fontSize: 11 }}>◈</span>
+      {hs.savingsPct > 0 && <span>↓{hs.savingsPct.toFixed(0)}%</span>}
+      {hs.costSavedUSD > 0 && <span>${hs.costSavedUSD.toFixed(4)}</span>}
     </span>
   );
 }

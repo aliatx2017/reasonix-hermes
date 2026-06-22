@@ -131,6 +131,9 @@ skills-hub/            17-skill community registry + static catalog site
 | `internal/billing/exchange.go` | Live exchange rate | CNY→USD live fetch from exchangerate-api.com; [billing] config |
 | `.reasonix/skills/research/` (+2 siblings) | Combined research pipeline | `/research <topic>` 5-phase auto-chaining: outline → approve → batch subagents → report → Discord publish (SearXNG + Crawl4AI) |
 | `.reasonix/scripts/discord-publish.sh` | Discord publish script | Webhook-based script posts report.md to Discord channel; auto-loaded from `.reasonix/.discord-webhook` |
+| `.reasonix/scripts/agent-reach-mcp` | Agent Reach MCP server | Python MCP wrapper: get_status, read_web (Jina), youtube_subtitles (yt-dlp) — registered as [[plugins]] |
+| `headroom proxy` (v0.26.0) | LLM context optimization proxy | Transparent proxy: compression, SHA-256 cache, prefix-freeze, 20-92% token savings — see docs/HEADROOM.md |
+| `desktop/frontend/src/styles.css` (hermes) | Hermes theme CSS | Gold-accented theme style (#d4a853), dark + light + auto variants — taste-skill audit fix |
 | `internal/cli/eval.go` | `/eval` slash command | Eval-driven development: define, check, report, list, clean subcommands |
 | `internal/cli/learn.go` | `/learn` slash command | Learner pattern detection UI: patterns + trajectories subcommands, Controller-wired |
 | `reasonix-hermes.json` | Install source manifest | `reasonix install-source install --source ...` |
@@ -146,7 +149,7 @@ skills-hub/            17-skill community registry + static catalog site
 ## Notes
 
 - Upstream remote: `https://github.com/esengine/deepseek-reasonix.git` (branch `main-v2`)
-- **Upstream target**: v1.10.0 (June 2026) — ✅ synced (9ada1417). ~553 commits merged across 29 syncs.
+- **Upstream target**: v1.10.0 (June 2026) — ✅ synced (051239b6). 30 syncs total.
 - Our fork: `https://github.com/aliatx2017/reasonix-hermes.git` (branch `main`)
 - To pull upstream updates: `git fetch upstream && git merge upstream/main-v2`
 - `reasonix.toml` is gitignored (upstream convention) — never commit secrets

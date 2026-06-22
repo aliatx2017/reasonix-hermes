@@ -4,6 +4,15 @@ Key milestones in the Hermes fork since June 2026.
 
 ## v1.10.x (June 2026)
 
+### Session 2026-06-21 (h54) — agent-reach MCP + taste-skill desktop audit + npm v1.11.0
+
+- **agent-reach e2e**: Verified sandbox whitelist fix works — agent-reach v1.5.0 runs inside bash=enforce sandbox from reasonix CLI sessions. `~/.agent-reach` + `~/.local/share` write access confirmed.
+- **agent-reach MCP server**: `.reasonix/scripts/agent-reach-mcp` (148 lines), 3 tools: `get_status` (doctor report, 7/13 channels), `read_web` (Jina Reader → markdown), `youtube_subtitles` (yt-dlp extraction). Registered as `[[plugins]]` in reasonix.toml. E2E verified — both `get_status` and `read_web` called successfully from reasonix session.
+- **headroom + markitdown MCP**: Both verified end-to-end. `headroom_stats` (session stats), `headroom_compress` (router:noop on short input), `markitdown convert_to_markdown` (example.com → clean markdown).
+- **Taste-skill desktop audit**: Found Hermes theme style was a ghost — registered in `theme.ts` but had zero CSS rules. Selecting "Hermes" changed only the tray icon (Go-side), not the UI. Added full `:root[data-theme-style="hermes"]` CSS block (~190 lines): dark mode (warm surfaces #0a0906→#1a1812, gold accent #d4a853, cream text #f2efe5), light mode (parchment surfaces, gold #b88c3c), auto/@media variant. Desktop rebuilt (39.8MB), CSS syntax check + guard tests all pass.
+- **npm v1.11.0**: `v1.11.0` + `hermes-npm-v1.11.0` tags pushed. 6-platform binaries cross-compiled and staged. CI publishes to npm via OIDC trusted publishing.
+- **Build**: 2 files committed (styles.css + AGENTS.md), 2 new files created (script + MCP). All 9 binaries rebuilt. Full test suite (76 packages) + desktop tests + tsc clean. All 10 `.reasonix/check` steps pass.
+
 ### Session 2026-06-21 (h51) — SettingsPanel split + silent-catch completion
 
 - **SettingsPanel.tsx split**: 5,511-line monolith reduced to 2,152 lines (61% reduction). Extracted 3 new files: `settings-shared.tsx` (192L — layout primitives, SectionProps, ref helpers, proxy mode), `ModelsSection.tsx` (1,768L — Models, Providers, ModelPicker, ProviderEditor, StepLimitControl), `BotsSection.tsx` (1,457L — Bot config, connections, QR install, credentials). Extraction done incrementally (verify tsc after each batch) — previous 2 sessions got stuck attempting it all at once, burning 69 API calls in an unsolvable edit-compile loop.

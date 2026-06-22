@@ -4,6 +4,7 @@ import type {
   CacheEconomyView,
   SessionTokensView,
   CompressStatsView,
+  HeadroomProxyStatsView,
   BotLiveStatusView,
   GoalProgressView,
   MemoryDashboardView,
@@ -23,6 +24,7 @@ interface HermesLiveData {
   cost: CostSummaryView | null;
   tokens: SessionTokensView | null;
   compress: CompressStatsView | null;
+  headroom: HeadroomProxyStatsView | null;
   schedule: ScheduleDashboardView | null;
   collab: CollabView | null;
   council: CouncilDashboardView | null;
@@ -38,6 +40,7 @@ interface HermesDashboardPayload {
   cost: CostSummaryView | null;
   tokens: SessionTokensView | null;
   compress: CompressStatsView | null;
+  headroom: HeadroomProxyStatsView | null;
   schedule: ScheduleDashboardView | null;
   collab: CollabView | null;
   council: CouncilDashboardView | null;
@@ -57,6 +60,7 @@ export function useHermesLiveData(tabId: string | undefined, enabled: boolean): 
     cost: null,
     tokens: null,
     compress: null,
+    headroom: null,
     schedule: null,
     collab: null,
     council: null,
@@ -82,6 +86,7 @@ export function useHermesLiveData(tabId: string | undefined, enabled: boolean): 
             cost: (payload as any).cost ?? null,
             tokens: (payload as any).tokens ?? null,
             compress: (payload as any).compress ?? null,
+            headroom: (payload as any).headroom ?? null,
             schedule: (payload as any).schedule ?? null,
             collab: (payload as any).collab ?? null,
             council: (payload as any).council ?? null,
@@ -121,6 +126,7 @@ export function useHermesLiveData(tabId: string | undefined, enabled: boolean): 
         cost,
         tokens,
         compress,
+        headroom,
         schedule,
         collab,
         council,
@@ -134,6 +140,7 @@ export function useHermesLiveData(tabId: string | undefined, enabled: boolean): 
         tid ? app.CostSummaryForTab(tid) : app.CostSummary(),
         tid ? app.SessionTokensForTab(tid) : app.SessionTokens(),
         tid ? app.CompressStatsForTab(tid) : app.CompressStats(),
+        app.HeadroomStats(),
         app.ScheduleDashboard(),
         app.CollabDashboard(),
         app.CouncilDashboard(),
@@ -148,6 +155,7 @@ export function useHermesLiveData(tabId: string | undefined, enabled: boolean): 
         cost,
         tokens,
         compress,
+        headroom,
         schedule,
         collab,
         council,

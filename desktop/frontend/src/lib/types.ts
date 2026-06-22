@@ -993,6 +993,15 @@ export interface CompressStatsView {
   auxTokens: number;
 }
 
+export interface HeadroomProxyStatsView {
+  running: boolean;
+  requests: number;
+  tokensBefore: number;
+  tokensSaved: number;
+  savingsPct: number;
+  costSavedUSD: number;
+}
+
 export interface TurnUsagePoint {
   turn: number;
   promptTokens: number;

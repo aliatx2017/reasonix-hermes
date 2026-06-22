@@ -2352,6 +2352,15 @@ func (m chatTUI) View() tea.View {
 	if aux := m.ctrl.AuxTokens(); aux > 0 {
 		data = append(data, dim("aux")+" "+formatTokenCount(aux))
 	}
+	// Headroom proxy savings — token compression + cost reduction.
+	if hs := m.ctrl.HeadroomProxyStats(); hs.Running && hs.TokensSaved > 0 {
+		if hs.SavingsPct > 0 {
+			data = append(data, dim("◈")+dim(fmt.Sprintf("%.0f%%", hs.SavingsPct)))
+		}
+		if hs.CostSavedUSD > 0 {
+			data = append(data, dim("◈$")+dim(fmt.Sprintf("%.4f", hs.CostSavedUSD)))
+		}
+	}
 	// Goal progress when active.
 	if goal := m.ctrl.Goal(); goal != "" {
 		turns := m.ctrl.GoalTurns()
@@ -3019,6 +3028,14 @@ func (m chatTUI) computeStatusLineCount(width int) int {
 	}
 	if aux := m.ctrl.AuxTokens(); aux > 0 {
 		data = append(data, dim("aux")+" "+formatTokenCount(aux))
+	}
+	if hs := m.ctrl.HeadroomProxyStats(); hs.Running && hs.TokensSaved > 0 {
+		if hs.SavingsPct > 0 {
+			data = append(data, dim("◈")+dim(fmt.Sprintf("%.0f%%", hs.SavingsPct)))
+		}
+		if hs.CostSavedUSD > 0 {
+			data = append(data, dim("◈$")+dim(fmt.Sprintf("%.4f", hs.CostSavedUSD)))
+		}
 	}
 	if goal := m.ctrl.Goal(); goal != "" {
 		turns := m.ctrl.GoalTurns()

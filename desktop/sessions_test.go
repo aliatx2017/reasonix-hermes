@@ -635,6 +635,98 @@ func TestDeleteSessionFileRejectsSymlinkEscape(t *testing.T) {
 	}
 }
 
+func TestMovePathIfExistsCopyFallback(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "src.txt")
+	if err := os.WriteFile(src, []byte("hello"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	dst := filepath.Join(dir, "dst.txt")
+
+	// Test normal move.
+	if err := movePathIfExists(src, dst); err != nil {
+		t.Fatalf("move: %v", err)
+	}
+	if _, err := os.Stat(src); !os.IsNotExist(err) {
+		t.Fatal("src should be removed")
+	}
+	if got, err := os.ReadFile(dst); err != nil || string(got) != "hello" {
+		t.Fatalf("dst content = %q, err = %v", got, err)
+	}
+
+	// Test non-existent source is no-op.
+	if err := movePathIfExists(filepath.Join(dir, "missing.txt"), filepath.Join(dir, "other.txt")); err != nil {
+		t.Fatalf("move missing: %v", err)
+	}
+}
+
+func TestCopyAndRemoveDirectory(t *testing.T) {
+	dir := t.TempDir()
+	srcDir := filepath.Join(dir, "src")
+	if err := os.MkdirAll(filepath.Join(srcDir, "sub"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(srcDir, "a.txt"), []byte("file a"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(srcDir, "sub", "b.txt"), []byte("file b"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	dstDir := filepath.Join(dir, "dst")
+
+	if err := copyAndRemove(srcDir, dstDir); err != nil {
+		t.Fatalf("copyAndRemove: %v", err)
+	}
+	if _, err := os.Stat(srcDir); !os.IsNotExist(err) {
+		t.Fatal("src dir should be removed")
+	}
+	if got, err := os.ReadFile(filepath.Join(dstDir, "a.txt")); err != nil || string(got) != "file a" {
+		t.Fatalf("dst a.txt = %q, err = %v", got, err)
+	}
+	if got, err := os.ReadFile(filepath.Join(dstDir, "sub", "b.txt")); err != nil || string(got) != "file b" {
+		t.Fatalf("dst sub/b.txt = %q, err = %v", got, err)
+	}
+}
+
+func TestCopyAndRemoveDirectoryPreservesSymlinks(t *testing.T) {
+	dir := t.TempDir()
+	outside := filepath.Join(t.TempDir(), "outside.txt")
+	if err := os.WriteFile(outside, []byte("outside"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	srcDir := filepath.Join(dir, "src")
+	if err := os.MkdirAll(srcDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(srcDir, "link.txt")
+	if err := os.Symlink(outside, link); err != nil {
+		t.Skipf("symlink unavailable: %v", err)
+	}
+	dstDir := filepath.Join(dir, "dst")
+
+	if err := copyAndRemove(srcDir, dstDir); err != nil {
+		t.Fatalf("copyAndRemove: %v", err)
+	}
+	if _, err := os.Stat(srcDir); !os.IsNotExist(err) {
+		t.Fatal("src dir should be removed")
+	}
+	dstLink := filepath.Join(dstDir, "link.txt")
+	info, err := os.Lstat(dstLink)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode()&os.ModeSymlink == 0 {
+		t.Fatalf("dst link should remain a symlink, mode=%v", info.Mode())
+	}
+	target, err := os.Readlink(dstLink)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if target != outside {
+		t.Fatalf("dst link target = %q, want %q", target, outside)
+	}
+}
+
 func writeSubagentArtifact(t *testing.T, dir, ref, parentSession string) {
 	t.Helper()
 	subagentDir := filepath.Join(dir, "subagents")

@@ -39,6 +39,8 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 - **Upstream synced**: `v1.10.0` (commit 051239b6, 2026-06-21). 30 syncs total — merged: 051239b6 (h53, 18 commits). Previous sync: 9ada1417 (h50, 13 commits).
 - **Commit**: session 2026-06-21 (h53) — upstream merge + hotbar restoration + system-wide fingerprint defense + silent-loss restoration + doc-sweep. Upstream: 051239b6 (18 commits — desktop shortcuts, Cmd+1-10 nav, palette fix, shell/sidebar toggle swap, panel/color fixes). 4 conflicts resolved. Hotbar: keyboard handler for digit keys 1-7 restored (lost since v1.6.0 merge Jun 12 — 9 days dead). RightDockMode "none" restored. Fingerprint guards: 92 structural assertions across 17 shared files (69 Go + 23 TS) run as pre-commit gate — any upstream merge that silently drops a Hermes code block fails .reasonix/check. Git-history audit: diffed every Hermes-authored commit against current code, found 4 silent losses. Restored 3: languagePolicy (hard English-only enforcement), workshopSynthesizer + WorkshopThreshold (background synthesis sidecar, agent code existed but boot wiring was gone), sound field in render.go. 1 unrestorable: runWithAutoResume (architecture changed). Constitution: new frontend-guard-tests rule. Doc-sweep: 3 stale claims fixed (package counts 70→56, beep→ToggleSound). CHANGELOG-HERMES enriched. Skill: complete-step-evidence installed. 8 commits pushed, 30 syncs total. All 9 binaries rebuilt. Full test suite (76 packages) + desktop tests + tsc clean.
 
+- **Commit**: session 2026-06-21 (h54) — agent-reach MCP + taste-skill desktop audit + npm v1.11.0 release. agent-reach e2e: verified sandbox whitelist works (bash=enforce, v1.5.0 runs inside reasonix). MCP server: .reasonix/scripts/agent-reach-mcp (148 lines, 3 tools: get_status, read_web, youtube_subtitles), registered as [[plugins]]. E2E verified: get_status (7/13 channels) + read_web (example.com) called from reasonix CLI. headroom + markitdown MCP verified e2e. Taste-skill audit: Hermes theme style was a ghost — had zero CSS rules despite being registered in theme.ts. Added full :root[data-theme-style="hermes"] block (~190 lines, dark + light + auto variants) with gold accent #d4a853. Desktop rebuilt (39.8MB), all guard tests pass. v1.11.0 + hermes-npm-v1.11.0 tags pushed, CI publishing to npm via OIDC. 2 files committed, 2 new (script + MCP), 2 tags pushed. All 9 binaries rebuilt. Full test suite + desktop tests + tsc clean.
+
 - **Commit**: session 2026-06-21 (h52) — regression fixes + 32 guard tests. Two regressions from lost upstream-merge wiring fixed: (1) sqz counter missing from CLI (CompressToolOutput config never reached agent.Options — compressor always disabled), (2) desktop hotbar always unconfigured (SettingsView struct missing Hotbar/Profiles/ActiveProfile fields + no Wails bindings). 32 guard tests added across 3 files: 15 config field compile-time guards (every Hermes Config field), 4 boot wiring guards (exchange rate, schedule, mesh, learner → controller), 12 desktop binding guards (hotbar, 8 Wails methods, profiles). 6 files changed. All 9 binaries rebuilt. Full test suite + tsc clean. No upstream check this session.
 
 - **Commit**: session 2026-06-21 (h51) — SettingsPanel split + silent-catch completion. SettingsPanel.tsx: 5,511→2,152 lines (61% reduction); extracted settings-shared.tsx (192L), ModelsSection.tsx (1,768L), BotsSection.tsx (1,457L). Split done incrementally (tsc after each batch) — previous 2 sessions failed attempting it all at once (69 API calls in unsolvable edit-compile loop). Silent-catch fix (completes h50 audit): 25+ `.catch(() => ...)` sites now log `console.warn` across 13 files (App, WorkspacePanel, MemoryPanel, WriteMode, SettingsPanel, CapabilitiesPanel, 5 hermes panels, useController.ts, sessionExport.tsx). Zero remaining silent patterns. CHANGELOG-HERMES.md +h51. 16 files changed. All 9 binaries rebuilt. Full test suite + tsc clean.
@@ -198,13 +200,10 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 - **Upstream**: Merged 5 commits (a029618). Desktop-v1.8.1 tag.
 ## Next session — ideas & follow-ups
 
-- **Upstream sync**: ✅ Done — 051239b6 (h53). Check again next session.
-- **CHANGELOG-HERMES**: ✅ Done — h53 entry expanded.
-- **agent-reach e2e**: Pending since h47 — sandbox fix needs live verification. Verify agent-reach works from within a new Reasonix CLI session.
-- **headroom integration**: Wire `headroom mcp` as a squeeze-gated MCP server, or `headroom proxy` as a cost-saving proxy.
-- **markitdown-mcp integration**: Register `.venv-tools/bin/markitdown-mcp` as a stdio MCP server in config.
-- **taste-skill testing**: Test the design-direction skills on desktop frontend changes.
-- **NPM tag**: Consider cutting when we have a more substantial batch.
+- **Upstream sync**: Check for new commits (last: 051239b6, h53).
+- **headroom proxy daemon**: Set up launchd for auto-start on login.
+- **agent-reach transcribe**: Test with a Groq/OpenAI Whisper API key.
+- **markitdown deeper**: Test with PDF, .docx, .xlsx via file:// URIs.
 
 ### Session 2026-06-13 (expansion plan execution)
 

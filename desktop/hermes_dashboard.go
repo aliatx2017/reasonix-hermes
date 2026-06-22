@@ -106,6 +106,23 @@ func (a *App) CompressStatsForTab(tabID string) CompressStatsView {
 	}
 }
 
+// HeadroomStats returns a snapshot of headroom proxy metrics.
+func (a *App) HeadroomStats() HeadroomProxyStatsView {
+	ctrl := a.activeCtrlLocked()
+	if ctrl == nil {
+		return HeadroomProxyStatsView{}
+	}
+	s := ctrl.HeadroomProxyStats()
+	return HeadroomProxyStatsView{
+		Running:      s.Running,
+		Requests:     s.Requests,
+		TokensBefore: s.TokensBefore,
+		TokensSaved:  s.TokensSaved,
+		SavingsPct:   s.SavingsPct,
+		CostSavedUSD: s.CostSavedUSD,
+	}
+}
+
 // CacheEconomyForTab returns cache stats for a specific tab.
 func (a *App) CacheEconomyForTab(tabID string) CacheEconomyView {
 	ctrl := a.ctrlForTab(tabID)
@@ -265,6 +282,7 @@ type HermesDashboardEvent struct {
 	Collab        CollabView              `json:"collab"`
 	Council       CouncilDashboardView    `json:"council"`
 	Compress          CompressStatsView       `json:"compress"`
+	Headroom          HeadroomProxyStatsView   `json:"headroom"`
 	LearnPatterns     []LearnedPatternView    `json:"learnPatterns"`
 	LearnTrajectories []LearnedTrajectoryView `json:"learnTrajectories"`
 }
@@ -283,6 +301,16 @@ type CompressStatsView struct {
 	LinesCollapsed    int `json:"linesCollapsed"`
 	JSONFieldsStripped int `json:"jsonFieldsStripped"`
 	AuxTokens         int `json:"auxTokens"`
+}
+
+// HeadroomProxyStatsView carries headroom proxy metrics for the dashboard.
+type HeadroomProxyStatsView struct {
+	Running      bool    `json:"running"`
+	Requests     int     `json:"requests"`
+	TokensBefore int     `json:"tokensBefore"`
+	TokensSaved  int     `json:"tokensSaved"`
+	SavingsPct   float64 `json:"savingsPct"`
+	CostSavedUSD float64 `json:"costSavedUSD"`
 }
 
 // MemoryFactView is one fact from the auto-memory store.
@@ -553,6 +581,7 @@ func (a *App) startHermesEventLoop(ctx context.Context) {
 					Collab:        a.CollabDashboard(),
 					Council:       a.CouncilDashboard(),
 					Compress:      a.CompressStats(),
+					Headroom:      a.HeadroomStats(),
 				}
 				ev.LearnPatterns, ev.LearnTrajectories = a.LearnedPatterns()
 				runtime.EventsEmit(ctx, "hermes:dashboard", ev)

@@ -2,6 +2,8 @@
 package control
 
 import (
+	"encoding/json"
+	"net/http"
 	"time"
 
 	"reasonix/internal/compress"
@@ -9,6 +11,17 @@ import (
 	"reasonix/internal/provider"
 	"reasonix/internal/scheduler"
 )
+
+// HeadroomProxyStats holds a snapshot of headroom proxy metrics.
+type HeadroomProxyStats struct {
+	Running       bool    `json:"running"`
+	Requests      int     `json:"requests"`
+	TokensBefore  int     `json:"tokens_before"`
+	TokensSaved   int     `json:"tokens_saved"`
+	SavingsPct    float64 `json:"savings_pct"`
+	CostSavedUSD  float64 `json:"cost_saved_usd"`
+	Version       string  `json:"version"`
+}
 
 
 
@@ -139,6 +152,50 @@ func (c *Controller) CompactionHistory() []event.Compaction {
 		return nil
 	}
 	return c.executor.CompactionHistory()
+}
+
+// HeadroomProxyStats fetches a snapshot of headroom proxy metrics from the
+// local proxy. Returns zero stats (Running=false) if the proxy is unreachable.
+func (c *Controller) HeadroomProxyStats() HeadroomProxyStats {
+	client := &http.Client{Timeout: 1 * time.Second}
+	resp, err := client.Get("http://localhost:8787/stats")
+	if err != nil {
+		return HeadroomProxyStats{}
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return HeadroomProxyStats{}
+	}
+	var raw struct {
+		Summary struct {
+			APIRequests int `json:"api_requests"`
+			Compression struct {
+				TotalTokensBefore float64 `json:"total_tokens_before_with_cli_filtering"`
+				TotalTokensSaved  float64 `json:"total_tokens_saved_with_cli_filtering"`
+			} `json:"compression"`
+			Cost struct {
+				TotalSavedUSD float64 `json:"total_saved_usd"`
+				SavingsPct    float64 `json:"savings_pct"`
+			} `json:"cost"`
+		} `json:"summary"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
+		return HeadroomProxyStats{}
+	}
+	tb := int(raw.Summary.Compression.TotalTokensBefore)
+	ts := int(raw.Summary.Compression.TotalTokensSaved)
+	pct := raw.Summary.Cost.SavingsPct
+	if pct == 0 && tb > 0 {
+		pct = float64(ts) / float64(tb) * 100
+	}
+	return HeadroomProxyStats{
+		Running:      true,
+		Requests:     raw.Summary.APIRequests,
+		TokensBefore: tb,
+		TokensSaved:  ts,
+		SavingsPct:   pct,
+		CostSavedUSD: raw.Summary.Cost.TotalSavedUSD,
+	}
 }
 
 

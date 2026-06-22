@@ -259,6 +259,7 @@ commands, `@` references, and two-model setup are all in the
 | **[Skills Catalog](./docs/SKILLS-CATALOG.md)** | Complete inventory of all 125+ skills — project, community, and global |
 | **[Constitution](./docs/CONSTITUTION.md)** | Project invariants — principles, constraints, and code-level rules |
 | **[Session Eval](./docs/EVAL.md)** | Compare two agent sessions for eval-driven development |
+| **[Headroom Proxy](./docs/HEADROOM.md)** | LLM context optimization proxy — compression, caching, cost savings |
 | **[Force English](./docs/HOWTO-FORCE-ENGLISH.md)** | Hard language enforcement — stop the model from switching to Chinese |
 | **[Token Saving](./docs/HOWTO-TOKEN-SAVING.md)** | Step-by-step guide for grafting the sqz compressor into any Reasonix fork |
 | **[Migrating from 0.x](./docs/MIGRATING.md)** | Moving from legacy TypeScript releases to the 1.0 Go rewrite |
