@@ -92,9 +92,6 @@ func classifyRef(token string, known map[string]bool, exists func(string) bool) 
 		return ref{kind: refFile, path: token, raw: token}, true
 	}
 	if exists(token) {
-		if isImageExtension(token) {
-			return ref{kind: refImage, path: token, raw: token}, true
-		}
 		return ref{kind: refFile, path: token, raw: token}, true
 	}
 	return ref{}, false
@@ -144,14 +141,8 @@ func (c *Controller) detectRefsMode(line string, scopedOnly bool) []ref {
 					kind = refImage
 				}
 				refs = append(refs, ref{kind: kind, path: rel, raw: tok})
-				continue
 			}
-			// Non-workspace paths: only image refs fall through to classifyRef;
-			// everything else is silently dropped (sandbox: don't leak
-			// non-workspace file paths into the agent's context).
-			if !isImageExtension(tok) {
-				continue
-			}
+			continue
 		}
 		if scopedOnly {
 			continue
