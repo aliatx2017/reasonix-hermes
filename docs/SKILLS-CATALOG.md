@@ -1,11 +1,11 @@
 # Reasonix-Hermes Skills Catalog
 
-> Complete inventory of all Reasonix-Hermes skills — 45 project + 17 community + global catalog.
+> Complete inventory of all Reasonix-Hermes skills — 42 project + 17 community + global catalog.
 > Generated 2026-06-18 (h33).
 
 ---
 
-## Project Skills (`.reasonix/skills/`) — 28 active
+## Project Skills (`.reasonix/skills/`) — 42 active
 
 Skills authored for or adopted by the Reasonix-Hermes project. Callable via `/name` in CLI chat or `run_skill({name})`.
 

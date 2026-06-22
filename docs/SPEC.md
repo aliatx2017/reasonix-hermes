@@ -74,17 +74,17 @@ reasonix/
     ├── config/             # TOML loading (flag > project > user > defaults)
     ├── constitution/       # [Hermes] structured project invariants from .reasonix/constitution.json
     ├── control/            # transport-agnostic session driver
-    │   ├── controller.go # Controller struct, Options, New, lifecycle (1,245 lines)
+    │   ├── controller.go # Controller struct, Options, New, lifecycle
     │   ├── controller_approval.go    # gateApprover, approval helpers, requestApproval, notice/ToggleSound/profile
-    │   ├── controller_checkpoints.go # RewindScope, Rewind, Fork, Branch, Summarize, ckptDir
-    │   ├── controller_memory.go      # QuickAdd, SaveDoc, SaveMemory, ForgetMemory, QueueMemory, Memory
+    │   ├── controller_checkpoints.go # CheckpointFileSnaps helper
+    │   ├── controller_memory.go      # memory helper (QuickAdd/SaveDoc/SaveMemory/ForgetMemory/QueueMemory — in controller.go)
     │   ├── controller_mesh.go        # SetMesh, Council, MeshStatus
     │   ├── controller_mcp.go         # MCP server add/remove/connect, skills, codegraph, Host
     │   ├── controller_stats.go       # stats getters, schedule, balance, session metrics
     │   ├── controller_turn.go        # turn lifecycle, goal loop, Submit, RunShell, Cancel
     │   ├── auto_plan.go              # auto-plan selection logic
     │   ├── attachments.go            # image/file attachment handling
-    │   ├── branches.go               # Fork/Branch session operations (moved to controller_checkpoints.go)
+    │   ├── branches.go               # BranchTreeText, FormatBranchTree, ParseBranchTarget, shortBranchID
     │   ├── errmsg.go                 # error classification and message formatting
     │   ├── input.go                  # input preprocessing and slash-command dispatch
     │   ├── refs.go                   # @-reference resolution
@@ -109,7 +109,7 @@ reasonix/
     ├── lsp/                # minimal Language Server Protocol client
     ├── marketplace/        # [Hermes] community skill registry (agentskills.io-compatible) + LobeHub sync
     ├── mcpdiag/            # MCP server connection diagnostics
-    ├── memory/             # persistent memory (SQLite, TTL, importance, dense/sparse vector search)
+    ├── memory/             # persistent memory (file-per-fact storage, TTL, importance, dense/sparse vector search; SQLite in cmd/reasonix-memoryserver)
     ├── mesh/               # [Hermes] agent-to-agent MCP delegation (delegate, broadcast, council, judge)
     ├── migration/          # config path migration and credential store migration
     ├── netclient/          # HTTP client builder sharing Reasonix proxy/TLS config
@@ -133,7 +133,7 @@ reasonix/
     ├── store/              # session-sidecar layout ownership and path helpers
     ├── sysproxy/           # OS-level proxy resolution (Windows system/PAC)
     └── tool/               # Tool interface + Registry
-        ├── builtin/        # read_file/write_file/edit_file/move_file/bash/ls/glob/grep/delete_range
+        ├── builtin/        # 20 built-in tools (read_file/write_file/edit_file/bash/ls/glob/grep/multi_edit/delete_range/delete_symbol/todo_write/web_fetch/code_index/notebook_edit/complete_step/council_judge/bash_output/kill_shell/wait_job/move_file)
         └── sessiontool/    # list_sessions and read_session tools for cross-session AI context sharing
 ```
 
@@ -537,7 +537,7 @@ type Chunk struct {
 ## 5. Configuration (TOML)
 
 Resolution order: **flag > project `./reasonix.toml` > the user config file
-> built-in defaults**. Starting with **Reasonix v1.8.1**, the user config lives
+> built-in defaults**. Starting with **Reasonix v1.11.0**, the user config lives
 at `~/.reasonix/config.toml` on macOS/Linux and
 `%AppData%\reasonix\config.toml` on Windows. See
 [Configuration paths](./CONFIG_PATHS.md) for migration and related data paths.

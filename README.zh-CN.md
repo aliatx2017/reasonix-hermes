@@ -35,8 +35,8 @@ Hermes 保留上游核心 —— agent 循环、provider、工具、权限、插
 | 新增功能 | 说明 |
 |----------|------|
 | **Discord bot** | `/goal <目标>` 自主循环、`/model flash\|pro\|mimo` 按会话切换模型、审批/拒绝/问答斜杠命令、多平台 gateway |
-| **MCP bridge server** | 6 个工具（`reasonix_run`、`doctor`、`plan`、`orchestrate`、`get_skill`、`get_skills`）—— 将 Reasonix 通过 MCP 暴露给 Claude Code、Codex 等 |
-| **Hindsight 记忆** | 3 个工具（`retain`、`recall`、`reflect`）—— 跨 session 持久记忆，SQLite + 文件后端，TTL/重要性衰减，TF-IDF 向量搜索 |
+| **MCP bridge server** | 6 个工具（`reasonix_run`、`reasonix_doctor`、`plan_task`、`orchestrate_task`、`get_skill`、`get_skills`）—— 将 Reasonix 通过 MCP 暴露给 Claude Code、Codex 等 |
+| **Hindsight 记忆** | 3 个工具（`hindsight_retain`、`hindsight_recall`、`hindsight_reflect`）—— 跨 session 持久记忆，SQLite + 文件后端，TTL/重要性衰减，TF-IDF 向量搜索 |
 | **Skills hub** | 17 个社区策划 skill（调试、安全审计、代码审查、重构、前端开发、迁移、对抗性审查……）—— frontmatter playbook，支持 `runAs` 和 `allowedTools` |
 | **Native hook runner** | 零依赖 Go 二进制，用于 PreToolUse/Stop 钩子 —— 替代 shell 脚本，向记忆服务 POST retain/reflect |
 | **Portable mode** | `REASONIX_PORTABLE=1` 将所有数据重定向到 `<exe_dir>/.reasonix/` —— 从 U 盘或离线环境运行 |

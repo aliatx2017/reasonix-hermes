@@ -114,7 +114,7 @@
 ## 1. What is Reasonix Hermes
 
 **Reasonix Hermes** is an extended fork of [esengine/deepseek-reasonix](https://github.com/esengine/deepseek-reasonix)
-(synced to v1.10.x), the DeepSeek-native AI coding agent. Reasonix itself is a
+(synced to v1.11.x), the DeepSeek-native AI coding agent. Reasonix itself is a
 **config- and plugin-driven** harness — a single static Go binary tuned around
 DeepSeek's automatic prefix cache so token costs stay low across long sessions.
 
@@ -167,10 +167,14 @@ go build -o bin/reasonix-mcpbridge ./cmd/reasonix-mcpbridge      # MCP bridge se
 go build -o bin/reasonix-memoryserver  ./cmd/reasonix-memoryserver   # Hindsight memory
 go build -o bin/reasonix-bot     ./bot                         # Discord bot
 go build -o bin/reasonix-hooks   ./cmd/reasonix-hooks          # Native hook runner
+go build -o bin/reasonix-pr-review ./cmd/reasonix-pr-review    # PR review CLI
+go build -o bin/reasonix-e2ebench  ./cmd/e2ebench              # E2E benchmark
+go build -o bin/reasonix-learner-live-test ./cmd/learner-live-test  # Learner E2E
 ```
 
-Requirements: **Go 1.25+**. No CGO needed (`CGO_ENABLED=0`). Cross-compile to
-six targets with `make cross`.
+Requirements: **Go 1.25+**. No CGO needed (`CGO_ENABLED=0`). The `make cross`
+target cross-compiles `cmd/reasonix` to six platforms; build the other binaries
+individually with the commands above.
 
 ### 2.3 Install the skills hub
 
@@ -1468,7 +1472,7 @@ for connection instructions.
 ### 16.13 Ollama Cloud Provider
 
 Use `kind = "ollamacloud"` with 42 models via the ollama.com/v1 API. Ideal for
-cheap auxiliary models. See `docs/OLLAMACLOUD.md`.
+cheap auxiliary models. See [§16.13 Ollama Cloud Provider](#1613-ollama-cloud-provider) below.
 
 ### 16.14 Auxiliary Model Routing
 
@@ -1912,7 +1916,7 @@ export DEEPSEEK_API_KEY=sk-...
 ---
 
 <p align="center">
-  <sub>Reasonix Hermes — built on <a href="https://github.com/esengine/deepseek-reasonix">esengine/deepseek-reasonix</a> v1.10.x</sub>
+  <sub>Reasonix Hermes — built on <a href="https://github.com/esengine/deepseek-reasonix">esengine/deepseek-reasonix</a> v1.11.x</sub>
   <br/>
   <sub>MIT — see <a href="../LICENSE">LICENSE</a></sub>
 </p>

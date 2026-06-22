@@ -6,7 +6,7 @@
 &nbsp;·&nbsp;
 <a href="./GUIDE.zh-CN.md">通用指南</a>
 
-> 面向桌面端用户。本文说明如何连接 Discord、飞书、Lark、微信、Telegram、LINE 和 Slack 机器人，如何在 IM
+> 面向桌面端用户。本文说明如何连接 Discord、QQ、飞书、Lark、微信、Telegram、LINE 和 Slack 机器人，如何在 IM
 > 里使用 Reasonix，以及审批、问答、YOLO 和常用命令的交互方式。
 
 ## 目录
@@ -23,7 +23,7 @@
 
 ## 能做什么
 
-连接机器人后，你可以在 Discord、飞书、Lark、微信、Telegram、LINE 或 Slack 里给 Reasonix 发消息，让桌面端
+连接机器人后，你可以在 Discord、QQ、飞书、Lark、微信、Telegram、LINE 或 Slack 里给 Reasonix 发消息，让桌面端
 Reasonix 在本机执行同一套模型、工具、权限与沙盒逻辑。
 
 典型场景：
@@ -139,7 +139,7 @@ Bot。Hermes 扩展的平台可通过 `discord`、`telegram`、`line`、`slack` 
 ```mermaid
 sequenceDiagram
   participant U as "用户"
-  participant IM as "Discord / 飞书 / Lark / 微信 / Telegram / LINE / Slack"
+  participant IM as "Discord / QQ / 飞书 / Lark / 微信 / Telegram / LINE / Slack"
   participant R as "Reasonix 桌面端"
   participant T as "本机工具与模型"
 

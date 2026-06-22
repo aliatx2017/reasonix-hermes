@@ -14,8 +14,16 @@ Key milestones in the Hermes fork since June 2026.
 - **Doc-sweep**: 6 stale claims fixed across 5 docs (README, HERMES-GUIDE, AGENTS.md, REASONIX.md, index.html). HERMES-GUIDE +§16.27 Agent Reach MCP + §16.28 Headroom Proxy.
 - **npm v1.11.0**: `v1.11.0` + `hermes-npm-v1.11.0` tags pushed. 6-platform binaries cross-compiled and staged. CI publishes to npm via OIDC.
 - **Upstream**: merged 043e6183 (10 commits: Creation tool flow + session trash fix). 1 conflict (MarkdownRenderer.tsx, accepted upstream superset). 31st sync. Fingerprint guards 34/34 pass.
-- **Build**: All 9 binaries rebuilt. Full test suite (76 packages) + desktop tests + tsc clean. All 10 `.reasonix/check` steps pass.
-- **Build**: 2 files committed (styles.css + AGENTS.md), 2 new files created (script + MCP). All 9 binaries rebuilt. Full test suite (76 packages) + desktop tests + tsc clean. All 10 `.reasonix/check` steps pass.
+- **Build**: All 9 binaries rebuilt. Full test suite (76 packages) + desktop tests + tsc clean.
+
+### Session 2026-06-22 (h55) — upstream sync (28 commits, 32nd sync)
+
+- **Upstream**: merged f2a475a2 (28 commits) — scroll reliability (f7a47d4a), image-path containment (1e7a4f10/d68ed3b8), grace round on tool-call budget (c29a39cd), crash stats 30d (05d2d209), /reload-cmd (4da0a184), lazy MCP schema cache (eb9200f5), transcript reveal fix (48f7af9b), model-switcher compact (d692e25e), session sidecars with trash (47166a37), workspace vision images (bb4dbca0).
+- **Conflicts**: 10 files — agent.go (graceRound + learner outcomes), refs.go (path containment), go.mod/go.sum, package.json (d3), useScrollManager.ts, lockfiles, pages.yml, site files.
+- **refs.go changes**: Removed Hermes image-fallthrough from classifyRef/detectRefsMode — upstream's stricter containment handles image security. visionRefImageDataURL + visionFileImageDataURL cover workspace + attachment images.
+- **Build**: 9 binaries rebuilt, go build/vet/test clean, fingerprint guards 34/34 pass.
+- **Doc-sweep**: 22 stale claims fixed across 10 docs (SPEC, README×2, HERMES-GUIDE, SKILLS-CATALOG, BOT_GUIDE×2, CONFIG_PATHS.zh-CN, GUIDE×2, MIGRATING).
+
 
 ### Session 2026-06-21 (h51) — SettingsPanel split + silent-catch completion
 

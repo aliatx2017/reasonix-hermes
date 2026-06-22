@@ -36,15 +36,15 @@ persistent memory:
 | Addition | What it does |
 |----------|-------------|
 | **Discord bot** | `/goal <objective>` autonomous loop, `/model flash\|pro\|mimo` per-session switching, slash commands for approval/deny/ask, multi-platform gateway |
-| **MCP bridge server** | 6 tools (`reasonix_run`, `doctor`, `plan`, `orchestrate`, `get_skill`, `get_skills`) — connect Claude Code, Codex, or any MCP client to Reasonix over stdio or HTTP |
-| **Hindsight memory** | 3 tools (`retain`, `recall`, `reflect`) — cross-session persistent memory with SQLite + file backends, TTL/importance decay, and TF-IDF vector search |
+| **MCP bridge server** | 6 tools (`reasonix_run`, `reasonix_doctor`, `plan_task`, `orchestrate_task`, `get_skill`, `get_skills`) — connect Claude Code, Codex, or any MCP client to Reasonix over stdio or HTTP |
+| **Hindsight memory** | 3 tools (`hindsight_retain`, `hindsight_recall`, `hindsight_reflect`) — cross-session persistent memory with SQLite + file backends, TTL/importance decay, and TF-IDF vector search |
 | **Skills hub** | 17 curated community skills (debugging, security audit, code review, refactoring, frontend builder, migration assistant, adversarial review…) — frontmatter playbooks with `runAs` and `allowedTools` |
 | **Native hook runner** | Zero-dependency Go binary for PreToolUse/Stop hooks — replaces shell scripts, POSTs retain/reflect to the memory server |
 | **Portable mode** | `REASONIX_PORTABLE=1` redirects all data (config, sessions, cache, memory, skills) to `<binary_dir>/.reasonix/` — run from a USB drive or air-gapped machine |
 
 ### Desktop Hermes enrichment
 
-The desktop app (Wails + React 19) has been enriched with 19 Hermes-specific features:
+The desktop app (Wails + React 19) has been enriched with 17 Hermes-specific features:
 
 | Feature | What it does |
 |---------|-------------|
@@ -250,13 +250,13 @@ commands, `@` references, and two-model setup are all in the
 |-----|------|
 | **[Guide](./docs/GUIDE.md)** | Configuration, permissions & sandbox, plugins (MCP), slash commands, two-model collaboration |
 | **[Spec](./docs/SPEC.md)** | Engineering contract — architecture, registries, data types, and design principles |
-| **[Hermes Guide](./docs/HERMES-GUIDE.md)** | Comprehensive Hermes feature guide — 20+ sections covering all extensions |
+| **[Hermes Guide](./docs/HERMES-GUIDE.md)** | Comprehensive Hermes feature guide — 19 sections covering all extensions |
 | **[Project](./docs/PROJECT.md)** | Hermes fork architecture, commands, customizations, and contributor notes |
 | **[Domain Model](./CONTEXT.md)** | Project glossary — canonical terms, `_Avoid_` alternatives, and domain boundaries |
 | **[Desktop App](./docs/DESKTOP.md)** | Wails desktop app — Hermes dashboard, write mode, bot connections, live data |
 | **[Bot Guide](./docs/BOT_GUIDE.md)** | Connect Discord, Telegram, LINE, Slack, Feishu, WeChat, QQ bots |
 | **[Marketplace](./docs/MARKETPLACE.md)** | Community skill registry + LobeHub sync (800+ agents) |
-| **[Skills Catalog](./docs/SKILLS-CATALOG.md)** | Complete inventory of all 125+ skills — project, community, and global |
+| **[Skills Catalog](./docs/SKILLS-CATALOG.md)** | Complete inventory of all 59 skills — project, community, and global |
 | **[Constitution](./docs/CONSTITUTION.md)** | Project invariants — principles, constraints, and code-level rules |
 | **[Session Eval](./docs/EVAL.md)** | Compare two agent sessions for eval-driven development |
 | **[Headroom Proxy](./docs/HEADROOM.md)** | LLM context optimization proxy — compression, caching, cost savings |

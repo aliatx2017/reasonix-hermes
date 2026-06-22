@@ -1,6 +1,6 @@
 # 配置路径
 
-从 **Reasonix v1.8.1** 开始，Reasonix 使用一个用户可见的全局目录存放配置和用户状态。CLI 与桌面端共用这个目录。
+从 **Reasonix v1.11.0** 开始，Reasonix 使用一个用户可见的全局目录存放配置和用户状态。CLI 与桌面端共用这个目录。
 
 ## Reasonix Home
 
@@ -60,7 +60,7 @@ Windows:     %APPDATA%\reasonix\config.toml
 
 ## 旧路径迁移
 
-从 **v1.8.1** 开始，Reasonix 启动时会在第一次加载配置前自动检查旧路径。迁移是同步、一次性、非破坏性的：旧文件会被复制或转换到 Reasonix home，原文件保留。
+从 **v1.11.0** 开始，Reasonix 启动时会在第一次加载配置前自动检查旧路径。迁移是同步、一次性、非破坏性的：旧文件会被复制或转换到 Reasonix home，原文件保留。
 
 旧配置来源包括：
 
@@ -100,7 +100,7 @@ Windows:     %APPDATA%\reasonix\config.toml
 
 版本限制：
 
-- 自动迁移从 **v1.8.1** 开始。
+- 自动迁移从 **v1.11.0** 开始。
 - `/migrate` 只存在于包含该命令的 Go 版 Reasonix 构建中。如果 Reasonix 提示 `unknown command`，请先升级后再运行。
 - legacy `0.x` TypeScript 线没有这个命令。
 - 它只会重新扫描上面列出的旧路径；它不是备份恢复工具、降级导入工具，也不是任意目录导入器。

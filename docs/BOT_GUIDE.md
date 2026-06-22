@@ -6,7 +6,7 @@
 &nbsp;·&nbsp;
 <a href="./GUIDE.md">General guide</a>
 
-> For desktop users. This guide explains how to connect Discord, Feishu, Lark,
+> For desktop users. This guide explains how to connect Discord, QQ, Feishu, Lark,
 > WeChat, Telegram, LINE, and Slack bots, how to use Reasonix from IM, and how
 > approvals, Ask questions, YOLO, and bot commands work.
 
@@ -24,7 +24,7 @@
 
 ## What the bot does
 
-After a bot is connected, you can send Reasonix messages from Discord, Feishu,
+After a bot is connected, you can send Reasonix messages from Discord, QQ, Feishu,
 Lark, WeChat, Telegram, LINE, or Slack. The desktop app handles the model, tools, permissions, sandboxing, and
 local context, then sends progress and results back to the IM channel.
 
@@ -145,7 +145,7 @@ rules as local desktop or CLI turns.
 ```mermaid
 sequenceDiagram
   participant U as "User"
-  participant IM as "Discord / Feishu / Lark / WeChat / Telegram / LINE / Slack"
+  participant IM as "Discord / QQ / Feishu / Lark / WeChat / Telegram / LINE / Slack"
   participant R as "Reasonix desktop"
   participant T as "Local tools and model"
 
