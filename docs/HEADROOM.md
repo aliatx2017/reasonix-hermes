@@ -197,12 +197,24 @@ freezing prior turns.
 ### Start as a daemon (macOS)
 
 ```bash
-# One-liner background
-headroom proxy --backend anyllm --anyllm-provider openai \
-  --openai-api-url https://api.deepseek.com --no-telemetry &
+# One-liner background (without any-llm-sdk)
+headroom proxy --openai-api-url https://api.deepseek.com --no-telemetry &
 
-# Or with launchd (survives logout)
-cat > ~/Library/LaunchAgents/com.headroom.proxy.plist << 'EOF'
+# Or with launchd (survives logout) — plist maintained in the repo
+# at .reasonix/headroom/com.headroom.proxy.plist (827 bytes, plutil-clean).
+# Copy it into place and load it:
+cp .reasonix/headroom/com.headroom.proxy.plist ~/Library/LaunchAgents/ && \
+launchctl load ~/Library/LaunchAgents/com.headroom.proxy.plist
+
+# Verify
+curl -s http://localhost:8787/health | python3 -c \
+  "import sys,json; print(json.load(sys.stdin)['status'])"
+# → healthy
+```
+
+The plist contents for reference:
+
+```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
   "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -211,20 +223,31 @@ cat > ~/Library/LaunchAgents/com.headroom.proxy.plist << 'EOF'
     <key>Label</key><string>com.headroom.proxy</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/path/to/.venv-tools/bin/headroom</string>
+        <string>/Users/alex.maksimchuk/projects/reasonix/.venv-tools/bin/headroom</string>
         <string>proxy</string>
-        <string>--backend</string><string>anyllm</string>
-        <string>--anyllm-provider</string><string>openai</string>
-        <string>--openai-api-url</string><string>https://api.deepseek.com</string>
+        <string>--openai-api-url</string>
+        <string>https://api.deepseek.com</string>
         <string>--no-telemetry</string>
     </array>
     <key>RunAtLoad</key><true/>
     <key>KeepAlive</key><true/>
+    <key>StandardOutPath</key><string>/Users/alex.maksimchuk/Library/Logs/headroom-proxy.log</string>
+    <key>StandardErrorPath</key><string>/Users/alex.maksimchuk/Library/Logs/headroom-proxy.err</string>
 </dict>
 </plist>
-EOF
-launchctl load ~/Library/LaunchAgents/com.headroom.proxy.plist
 ```
+
+Manage the daemon:
+
+```bash
+launchctl unload ~/Library/LaunchAgents/com.headroom.proxy.plist   # stop
+launchctl load ~/Library/LaunchAgents/com.headroom.proxy.plist     # restart
+```
+
+> **Note:** The `--backend anyllm --anyllm-provider openai` flags from the upstream
+> docs require `any-llm-sdk[all]` to be installed (pip). Without it the proxy silently
+> crashes during startup. Omitting `--backend` defaults to anthropic passthrough while
+> `--openai-api-url` still handles OpenAI-compatible routing — works fine for DeepSeek.
 
 ### Multiple agents through one proxy
 

@@ -235,6 +235,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	if st, ok := outputstyle.Resolve(cfg.Agent.OutputStyle, outputstyle.Dirs()); ok {
 		sysPrompt = outputstyle.Apply(sysPrompt, st)
 	}
+	sysPrompt += "\n\n" + config.UserDecisionPolicy
 	sysPrompt += "\n\n" + languagePolicy(cfg.Language)
 	if tokenEconomy {
 		sysPrompt += "\n\n" + tokenEconomyPrompt
