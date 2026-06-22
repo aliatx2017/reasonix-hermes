@@ -887,6 +887,7 @@ export default function App() {
   const [tabMetas, setTabMetas] = useState<TabMeta[]>([]);
   const [tabOrderIds, setTabOrderIds] = useState<string[]>([]);
   const [tabRevealSignal, setTabRevealSignal] = useState(0);
+  const [transcriptRevealSignal, setTranscriptRevealSignal] = useState(0);
   const [startupSplashVisible, setStartupSplashVisible] = useState<boolean>(() => shouldShowStartupSplash());
   // null until the mount probe resolves; true shows the overlay. Probed once —
   // clearing the key mid-session is the Settings panel's job, not the gate's.
@@ -1609,6 +1610,7 @@ export default function App() {
     setProjectRevision((value) => value + 1);
     await refreshTabMetas();
     setTabRevealSignal((signal) => signal + 1);
+    setTranscriptRevealSignal((signal) => signal + 1);
   }, [ensureBlankTab, refreshTabMetas]);
 
   useEffect(() => {
@@ -2111,6 +2113,8 @@ export default function App() {
       await openProjectTab(workspaceRoot, topicId);
     }
     await refreshTabMetas();
+    setTabRevealSignal((signal) => signal + 1);
+    setTranscriptRevealSignal((signal) => signal + 1);
   }, [closeTransientOverlays, openGlobalTab, openProjectTab, openTopicSession, refreshTabMetas]);
 
   const openSidebarImConnectionSession = useCallback(async (connection: SidebarImConnection) => {
@@ -2133,6 +2137,8 @@ export default function App() {
         await openGlobalTab(target.value);
       }
       await refreshTabMetas();
+      setTabRevealSignal((value) => value + 1);
+      setTranscriptRevealSignal((value) => value + 1);
       setProjectRevision((value) => value + 1);
     } catch (err) {
       console.warn("bot sidebar open failed", err);
@@ -2183,6 +2189,8 @@ export default function App() {
           await resumeSession(session.path, targetTab.id);
         }
         await refreshTabMetas();
+        setTabRevealSignal((value) => value + 1);
+        setTranscriptRevealSignal((value) => value + 1);
       } catch (err: any) {
         setHistView(null);
         if (scope === "project" && session.workspaceRoot) {
@@ -3043,6 +3051,7 @@ export default function App() {
                 creationMode={sidebarCreation}
                 actionHoverMenus={sidebarCreation}
                 rewindSignal={rewindSignal}
+                revealSignal={transcriptRevealSignal}
               />
             )}
           </main>

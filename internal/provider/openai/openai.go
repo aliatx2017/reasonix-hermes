@@ -595,8 +595,8 @@ type chatTool struct {
 
 type chatFunction struct {
 	Name        string          `json:"name"`
-	Description string          `json:"description"`
-	Parameters  json.RawMessage `json:"parameters"`
+	Description string          `json:"description,omitempty"`
+	Parameters  json.RawMessage `json:"parameters,omitempty"`
 }
 
 type chatToolCall struct {

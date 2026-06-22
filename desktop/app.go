@@ -39,7 +39,6 @@ import (
 	"reasonix/internal/fileref"
 	fileenc "reasonix/internal/fileutil/encoding"
 	"reasonix/internal/i18n"
-	"reasonix/internal/jobs"
 	"reasonix/internal/mcpdiag"
 	"reasonix/internal/memory"
 	"reasonix/internal/plugin"
@@ -1123,14 +1122,7 @@ func removeDesktopSessionArtifacts(path string) error {
 	if strings.TrimSpace(path) == "" {
 		return nil
 	}
-	if err := jobs.RemoveArtifacts(path); err != nil {
-		return err
-	}
-	paths := []string{path, agent.BranchMetaPath(path)}
-	if strings.HasSuffix(path, ".jsonl") {
-		paths = append(paths, strings.TrimSuffix(path, ".jsonl")+".ckpt")
-	}
-	for _, p := range paths {
+	for _, p := range sessionOwnedArtifactPaths(path) {
 		if strings.TrimSpace(p) == "" {
 			continue
 		}
@@ -3722,6 +3714,7 @@ func (a *App) Commands() []CommandInfo {
 		{Name: "hooks", Description: i18n.M.CmdHooks, Kind: "builtin"},
 		{Name: "theme", Description: i18n.M.CmdTheme, Kind: "builtin"},
 		{Name: "skill", Description: i18n.M.CmdSkill, Kind: "builtin"},
+		{Name: "reload-cmd", Description: i18n.M.CmdReloadCmd, Kind: "builtin"},
 	}
 	a.mu.RLock()
 	ctrl := a.activeCtrlLocked()
@@ -4332,6 +4325,22 @@ func (a *App) RemoveSkillPath(path string) error {
 func (a *App) RefreshSkills() error {
 	a.invalidateSkillRootsCache()
 	return a.rebuild()
+}
+
+// ReloadCommands rescans command directories and hot-swaps without restarting
+// the controller — no MCP disconnect, no hook rerun.
+func (a *App) ReloadCommands() error {
+	if a.ctx == nil {
+		return nil
+	}
+	tab := a.activeTab()
+	if tab == nil || tab.Ctrl == nil {
+		return fmt.Errorf("no active session")
+	}
+	if tab.Ctrl.Running() {
+		return fmt.Errorf("wait for the current turn to finish, then retry")
+	}
+	return tab.Ctrl.ReloadCommands(a.ctx)
 }
 
 // SetSkillEnabled persists a skill toggle and rebuilds the controller so the
