@@ -24,6 +24,15 @@ Key milestones in the Hermes fork since June 2026.
 - **Build**: 9 binaries rebuilt, go build/vet/test clean, fingerprint guards 34/34 pass.
 - **Doc-sweep**: 22 stale claims fixed across 10 docs (SPEC, README×2, HERMES-GUIDE, SKILLS-CATALOG, BOT_GUIDE×2, CONFIG_PATHS.zh-CN, GUIDE×2, MIGRATING).
 
+### Session 2026-06-22 (h56) — upstream sync (28 commits, 33rd sync) + headroom daemon + dead code
+
+- **Upstream**: merged 7aa97d31 (28 commits) — desktop MCP headers (e19fbdcc), remote MCP header support, rewind/plan prompt consolidation (87b40dfe), incremental project config writes (2419ca27 + b61e4a77), session deletion perf (51eea606 + 8bdc4d35), skill root dedupe (a64a6a8a + 05cf7a8b), ACP config switch hardening (6a84a4d3..23280359), ask-user decision integration (658bc7ce), short choice planner context (6ad1df07), creation tool card scrollbar (917e036e), CLI session migration for desktop (b61e4a77 + 01613306), post-merge bot review fixes (71068eab).
+- **Conflicts**: 4 files — package.json (hotbar-guard.test.ts + d3/@codemirror/biome deps), useController.ts (console.warn), boot.go (UserDecisionPolicy + languagePolicy), config.go (DefaultSystemPrompt shortened, UserDecisionPolicy constant).
+- **Headroom daemon**: launchd plist at `.reasonix/headroom/com.headroom.proxy.plist`, loaded and verified healthy. Proxy v0.26.0 auto-starts on login. docs/HEADROOM.md updated with corrected flags (dropped broken `--backend anyllm`), verify/manage commands, plist reference.
+- **Dead code**: Removed `visionImageDataURLFromPath` + `readImageFile` (48 lines, `internal/control/attachments.go`). Zero callers — orphaned by upstream os.OpenRoot path containment in h55.
+- **Markitdown verified**: PDF/DOCX/XLSX all convert correctly via `file://` URIs (MCP server).
+- **Doc-sweep**: 1 stale claim fixed (PROJECT.md upstream commit 051239b6→7aa97d31).
+- **Build**: All 9 binaries rebuilt. Full test suite (76 packages) + go vet + tsc + fingerprint guards 34/34 all pass.
 
 ### Session 2026-06-21 (h51) — SettingsPanel split + silent-catch completion
 
