@@ -416,6 +416,10 @@ export const en = {
 
   // status bar
   "status.connecting": "connecting…",
+  "status.hydrateSwitch": "Syncing session…",
+  "status.hydrateResume": "Restoring history…",
+  "status.hydrateNewSession": "Starting new session…",
+  "status.hydrateSync": "Syncing…",
   "status.ctxLabel": "ctx",
   "status.ctxTitle": "Share of the context window currently used by this session",
   "status.sessionTurnsLabel": "session",
@@ -1059,7 +1063,7 @@ export const en = {
   "settings.botInstallStepPick": "Pick",
   "settings.botInstallStepScan": "Authorize",
   "settings.botInstallStepDone": "Done",
-  "settings.botInstallManualQQ": "Enter the App ID and App secret. The secret is stored only in the local credential store.",
+  "settings.botInstallManualQQ": "Enter the App ID and App secret. The secret is stored only in Reasonix home .env.",
   "settings.botInstallQQHint": "Official Bot API, manual setup.",
   "settings.botInstallFeishuHint": "Scan to create a Feishu PersonalAgent.",
   "settings.botInstallLarkHint": "Scan to create a Lark PersonalAgent.",
@@ -1552,13 +1556,13 @@ export const en = {
 
   // onboarding — first-run API-key overlay
   "onboarding.title": "Connect Reasonix",
-  "onboarding.tagline": "Paste a DeepSeek API key to start. Stored in the local credential store, never sent anywhere else.",
+  "onboarding.tagline": "Paste a DeepSeek API key to start. Stored in Reasonix home .env and used only for provider requests.",
   "onboarding.inputLabel": "API key",
   "onboarding.inputPlaceholder": "sk-…",
   "onboarding.submit": "Connect & start",
   "onboarding.validating": "Validating…",
   "onboarding.getKey": "How do I get a key?",
-  "onboarding.privacy": "Stored only in the local credential store",
+  "onboarding.privacy": "Stored only in Reasonix home .env",
   "onboarding.error.empty": "Please paste a key first.",
   "onboarding.error.invalid": "That key didn't work — double-check it's active and has billing set up.",
   "onboarding.error.network": "Couldn't reach DeepSeek — check your network and try again.",

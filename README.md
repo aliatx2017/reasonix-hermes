@@ -157,7 +157,7 @@ cd desktop && wails build -o ../bin/reasonix-desktop
 
 ```sh
 reasonix setup                      # config wizard → ./reasonix.toml
-export DEEPSEEK_API_KEY=sk-...      # or put it in .env
+export DEEPSEEK_API_KEY=sk-...      # or let setup save it to Reasonix home .env
 reasonix chat                       # start a session
 
 # Run a one-shot task
@@ -172,7 +172,6 @@ reasonix-memoryserver --backend sqlite --http --port 8080
 # Run the Discord/Telegram/LINE/Slack bot
 export DISCORD_BOT_TOKEN="..."
 reasonix-bot
-export DEEPSEEK_API_KEY=sk-...      # or let setup save it to the credential store
 reasonix                            # then run /init to generate AGENTS.md (project memory)
 reasonix run "implement the TODOs in main.go"
 reasonix run --model deepseek-pro "add unit tests for this function"
@@ -237,10 +236,13 @@ Resolution order is **flag > `./reasonix.toml` > the user config file >
 built-in defaults**; starting with **Reasonix v1.8.1**, the user file lives at
 `~/.reasonix/config.toml` on macOS/Linux and
 `%AppData%\reasonix\config.toml` on Windows. See
-**[Configuration paths](./docs/CONFIG_PATHS.md)** for migration details. Secrets come from the environment via `api_key_env`, are
-never written to config files, and new keys default to the OS credential store
-with a Reasonix-owned file fallback. Project `.env` files are read as a
-compatibility override, but Reasonix does not write new keys there. Permissions, the sandbox, plugins (MCP), slash
+**[Configuration paths](./docs/CONFIG_PATHS.md)** for migration details and the
+full `config.toml` / `.env` structure. Provider entries name secrets with
+`api_key_env`; the secret values themselves live in Reasonix's global
+`<Reasonix home>/.env`, shared by CLI and desktop. Project `.env` files are not
+provider-key runtime fallbacks, but still feed workspace-scoped, non-provider
+`${VAR}` expansion for MCP/plugin settings without importing Reasonix control
+variables. Permissions, the sandbox, plugins (MCP), slash
 commands, `@` references, and two-model setup are all in the
 **[Guide](./docs/GUIDE.md)**.
 

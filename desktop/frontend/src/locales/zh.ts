@@ -417,6 +417,10 @@ export const zh: Record<DictKey, string> = {
 
   // 状态栏
   "status.connecting": "连接中…",
+  "status.hydrateSwitch": "正在同步会话…",
+  "status.hydrateResume": "正在恢复历史…",
+  "status.hydrateNewSession": "正在创建新会话…",
+  "status.hydrateSync": "正在同步…",
   "status.ctxLabel": "上下文",
   "status.ctxTitle": "当前会话已占用的上下文窗口比例",
   "status.sessionTurnsLabel": "当前会话",
@@ -1061,7 +1065,7 @@ export const zh: Record<DictKey, string> = {
   "settings.botInstallStepPick": "选择",
   "settings.botInstallStepScan": "授权",
   "settings.botInstallStepDone": "完成",
-  "settings.botInstallManualQQ": "填写 App ID 和 App Secret；密钥只保存到本机凭据存储。",
+  "settings.botInstallManualQQ": "填写 App ID 和 App Secret；密钥只保存到 Reasonix 全局 .env。",
   "settings.botInstallQQHint": "官方 Bot API，先手动配置。",
   "settings.botInstallFeishuHint": "扫码创建飞书 PersonalAgent。",
   "settings.botInstallLarkHint": "扫码创建 Lark PersonalAgent。",
@@ -1554,13 +1558,13 @@ export const zh: Record<DictKey, string> = {
 
   // onboarding — first-run API-key overlay
   "onboarding.title": "连接 Reasonix",
-  "onboarding.tagline": "粘贴一个 DeepSeek API key 即可开始。密钥仅存于本机凭据存储，不会发往任何地方。",
+  "onboarding.tagline": "粘贴一个 DeepSeek API key 即可开始。密钥仅保存到 Reasonix 全局 .env，仅用于 provider 请求。",
   "onboarding.inputLabel": "API 密钥",
   "onboarding.inputPlaceholder": "sk-…",
   "onboarding.submit": "连接并开始",
   "onboarding.validating": "校验中…",
   "onboarding.getKey": "如何获取 API key？",
-  "onboarding.privacy": "仅保存在本机凭据存储",
+  "onboarding.privacy": "仅保存在 Reasonix 全局 .env",
   "onboarding.error.empty": "请先粘贴密钥。",
   "onboarding.error.invalid": "这个 key 无法使用 —— 检查一下是否已激活、是否开通了计费。",
   "onboarding.error.network": "无法连接 DeepSeek —— 检查网络后再试。",

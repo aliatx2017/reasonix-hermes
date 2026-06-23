@@ -57,7 +57,7 @@ func (c *Controller) connectCodegraphMCPServerForRoot(cfg *config.Config, root s
 	if !codegraph.IndexableRoot(root) {
 		return 0, fmt.Errorf("codegraph: refusing to index %q — a filesystem root would index the whole volume", root)
 	}
-	if err := codegraph.EnsureInit(c.pluginCtx, bin, root); err != nil {
+	if err := codegraph.EnsureInit(c.mcp.pluginCtx(), bin, root); err != nil {
 		return 0, fmt.Errorf("codegraph init: %w", err)
 	}
 	return c.connectMCPSpec(codegraph.MCPSpec(bin, root))

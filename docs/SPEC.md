@@ -543,12 +543,13 @@ at `~/.reasonix/config.toml` on macOS/Linux and
 [Configuration paths](./CONFIG_PATHS.md) for migration and related data paths.
 Fields marked user/global only, including agent step limits, are not overridden
 by project `reasonix.toml`.
-Secrets come from the environment via `api_key_env` and are never stored in
-config files. `credentials_store = "auto"` prefers the OS credential store and
-falls back to the file under Reasonix home. A `.env` in the working directory is
-loaded if present for compatibility and explicit per-project overrides, but
-Reasonix-created API keys are written to the configured credential store rather
-than a project `.env`. Step-limit preferences belong in the user config.
+Provider entries name secrets with `api_key_env`; saved key values live in
+Reasonix's global `<Reasonix home>/.env`, shared by CLI and desktop. Project
+`.env`, home `.env`, inherited shell environment variables, legacy credentials,
+and the OS keyring are not provider-key runtime fallbacks. Project `.env` still
+feeds workspace-scoped, non-provider `${VAR}` expansion for MCP/plugin settings
+without importing provider keys or Reasonix control variables. Step-limit
+preferences belong in the user config.
 Project `reasonix.toml` does not override `agent.max_steps` or
 `agent.planner_max_steps`.
 
@@ -601,6 +602,12 @@ ask   = []                                 # force a prompt even if otherwise al
 # workspace_root = ""          # file-writers confined here; empty = cwd
 # allow_write    = ["/tmp"]    # extra dirs write_file/edit_file/multi_edit/move_file may modify
 
+[serve]
+auth_mode = "none"             # none|token|password; use auth before binding beyond localhost
+# token = ""                   # optional fixed token; empty token mode generates one at startup
+# password_hash = ""           # bcrypt hash generated with reasonix serve --hash-password --password '...'
+# behind_proxy = false         # trust X-Forwarded-* only behind a trusted reverse proxy
+
 [[plugins]]
 name    = "example"            # type defaults to "stdio"
 command = "reasonix-plugin-example"
@@ -615,6 +622,13 @@ args    = []
 ```
 
 `reasonix setup` writes this default config so the CLI is usable out of the box.
+`[serve]` controls the HTTP browser frontend used by `reasonix serve`. The
+default `auth_mode = "none"` is intended for the loopback default
+`127.0.0.1:8787`; deployments reachable from another machine must use `token` or
+`password`. Password mode requires either a startup `--password` or a stored
+bcrypt `password_hash`. `behind_proxy` must stay false unless the server is
+behind a trusted proxy that owns the `X-Forwarded-For` and `X-Forwarded-Proto`
+headers.
 
 MCP servers may also be declared in a project-root `.mcp.json` using Claude
 Code's exact `mcpServers` schema (`command`/`args`/`env`, `type`/`url`/`headers`,

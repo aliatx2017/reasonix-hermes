@@ -60,9 +60,10 @@ cd DeepSeek-Reasonix && make build                        # -> bin/reasonix(.exe
 On first launch, v1.11.0+ runs a one-time, **non-destructive** import: it reads
 legacy config from `~/Library/Application Support/reasonix/config.toml`,
 `~/.config/reasonix/config.toml`, `~/.reasonix/reasonix.toml`, or v0.x
-`~/.reasonix/config.json` (API key, base URL, language, MCP servers), and imports
-past sessions from legacy session directories. Old files are left untouched, and
-Reasonix prints a boot notice when it imports data. Each session lands in the
+`~/.reasonix/config.json` (API key, base URL, language, MCP servers), migrates
+legacy credentials into `<Reasonix home>/.env` when a key is missing there, and
+imports past sessions from legacy session directories. Old files are left
+untouched, and Reasonix prints a boot notice when it imports data. Each session lands in the
 workspace it belonged to (read from its v0.x sidecar meta, summary carried over
 as the title), so the desktop sidebar lists it under the right project; sessions
 whose workspace no longer exists land in the global session dir. Imported

@@ -16,6 +16,7 @@
 ## 目录
 
 - [配置](#配置)
+- [Serve Web 前端](#serve-web-前端)
 - [配置路径](./CONFIG_PATHS.zh-CN.md)
 - [思考语言](./REASONING_LANGUAGE.zh-CN.md)
 - [桌面端 Hooks](./DESKTOP_HOOKS.zh-CN.md)
@@ -31,10 +32,10 @@
 优先级：**flag > `./reasonix.toml` > 用户配置文件 > 内置默认值**。从
 **Reasonix v1.11.0** 开始，用户配置位于 macOS/Linux 的
 `~/.reasonix/config.toml`，Windows 为 `%AppData%\reasonix\config.toml`；迁移和相关数据路径见
-[配置路径](./CONFIG_PATHS.zh-CN.md)。密钥经环境变量通过 `api_key_env` 注入，绝不写入配置文件。
-标注为“仅用户/全局”的字段（包括 agent 轮数上限）不会被 `./reasonix.toml` 覆盖。
-credentials 默认使用 `credentials_store = "auto"`：优先系统密钥库，不可用时 fallback 到 Reasonix home 下的文件。
-Reasonix 保存的新密钥不会写入项目 `.env`；项目 `.env` 只用于兼容读取或用户主动的项目级覆盖。
+[配置路径](./CONFIG_PATHS.zh-CN.md)。标注为“仅用户/全局”的字段（包括 agent 轮数上限）不会被 `./reasonix.toml` 覆盖。
+Provider 通过 `api_key_env` 命名密钥，真实密钥值保存在 CLI 与桌面端共用的
+Reasonix 全局 `<Reasonix home>/.env`。项目 `.env`、home `.env`、继承的 shell 环境变量、旧 credentials 和系统 keyring 都不再作为 provider key 的运行时 fallback；旧凭据只作为迁移来源读取。项目 `.env` 仍会作为当前 workspace 范围内的 MCP/plugin 非 provider `${VAR}` 展开来源，但不会导入 provider key 或 Reasonix 控制变量。全局 `config.toml` 和 `.env` 的完整结构见
+[配置路径](./CONFIG_PATHS.zh-CN.md)。
 
 桌面端和 CLI 端的可见思考语言设置，见 [思考语言](./REASONING_LANGUAGE.zh-CN.md)。
 桌面端 Hooks 的 JSON 配置、事件 key 和 payload 字段，见 [桌面端 Hooks](./DESKTOP_HOOKS.zh-CN.md)。
@@ -82,12 +83,56 @@ allow = ["Bash(go test:*)"]                  # 从不询问
 # workspace_root = ""          # 文件写工具被限制在此目录；留空 = 当前目录
 # allow_write    = ["/tmp"]    # write_file/edit_file/multi_edit/move_file 额外可写的目录
 
+[serve]
+auth_mode = "none"             # none|token|password；绑定到非 localhost 前请先开启认证
+# token = ""                   # 可选固定 token；token 模式为空时启动时自动生成
+# password_hash = ""           # 用 reasonix serve --hash-password --password '...' 生成
+# behind_proxy = false         # 只在可信反向代理后方设为 true
+
 [[plugins]]
 name    = "example"
 command = "reasonix-plugin-example"
 ```
 
 完整 schema 与每个字段的契约见 [`SPEC.md` §5](./SPEC.md#5-configuration-toml)。
+
+## Serve Web 前端
+
+`reasonix serve` 会用同一个本地 Reasonix 引擎启动浏览器 UI。适合不安装桌面端但想用可视化界面、
+在远程开发机上通过 tunnel 使用，或把当前会话临时共享给浏览器查看的场景。
+
+```bash
+cd your-project
+reasonix serve
+# 打开 http://127.0.0.1:8787
+```
+
+默认监听 `127.0.0.1:8787`，认证模式是 `auth_mode = "none"`。这个默认值只适合本机使用。
+如果要绑定到非 loopback 地址、通过 tunnel 暴露，或放到反向代理后面，请先开启认证再分享 URL：
+
+```bash
+reasonix serve --auth token
+reasonix serve --addr 0.0.0.0:8787 --auth token
+reasonix serve --auth password --password 'temporary-password'
+```
+
+Token 模式会在终端打印带 `?token=...` 的分享链接；可通过 `--token` 或 `[serve].token`
+复用固定 token。Password 模式必须在启动时传 `--password`，或在配置里保存 bcrypt hash：
+
+```bash
+reasonix serve --hash-password --password 'strong-password'
+
+# ~/.reasonix/config.toml
+[serve]
+auth_mode = "password" # none|token|password
+password_hash = "$2a$12$..."
+behind_proxy = true    # 仅可信反向代理后方使用
+```
+
+Web UI 提供聊天、工具审批、会话历史、rewind/fork/summarize、模型与 reasoning effort 控件、
+Goal、由 `todo_write` 工具驱动的实时 Todo 面板，以及已配置 provider 的余额显示。临时启动可用
+`--model`、`--max-steps` 或 `--resume`；不传 `--model` 时，`serve` 使用用户全局
+`default_model`。
 
 ## 快捷键
 

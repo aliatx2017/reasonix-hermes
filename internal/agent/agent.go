@@ -85,7 +85,7 @@ var planModeGoWriteOrExecArgs = map[string]bool{
 
 const maxFinalReadinessBlocks = 3
 const maxEmptyFinalBlocks = 3
-const maxStreamRecoveries = 1
+const maxStreamRecoveries = 3
 const maxExecutorHandoffNudges = 1
 
 // Renderer redraws the assistant's final-answer text as styled output. It is

@@ -138,6 +138,32 @@ func TestServeResumeRejectsCleanupPending(t *testing.T) {
 	}
 }
 
+func TestServeRejectsUnknownAuthMode(t *testing.T) {
+	isolateCLIConfigHome(t)
+
+	errOut := captureStderr(t, func() {
+		if rc := runServe([]string{"--auth", "tokne", "--addr", "127.0.0.1:0"}); rc != 1 {
+			t.Fatalf("serve --auth tokne rc = %d, want 1", rc)
+		}
+	})
+	if !strings.Contains(errOut, "auth mode must be none, token, or password") {
+		t.Fatalf("serve --auth tokne stderr = %q, want auth mode validation", errOut)
+	}
+}
+
+func TestServePasswordAuthRequiresPasswordMaterial(t *testing.T) {
+	isolateCLIConfigHome(t)
+
+	errOut := captureStderr(t, func() {
+		if rc := runServe([]string{"--auth", "password", "--addr", "127.0.0.1:0"}); rc != 1 {
+			t.Fatalf("serve --auth password without password rc = %d, want 1", rc)
+		}
+	})
+	if !strings.Contains(errOut, "auth mode password requires --password or serve.password_hash") {
+		t.Fatalf("serve --auth password stderr = %q, want password material validation", errOut)
+	}
+}
+
 func TestReserveNativeScrollbackFrameWritesOnlyNewlines(t *testing.T) {
 	var b bytes.Buffer
 	reserveNativeScrollbackFrame(&b, 3)
@@ -794,8 +820,8 @@ func TestConfigureKeysAllSetDefaultsToReusingInput(t *testing.T) {
 
 // TestAppendEnvUpsertReplacesExistingKey covers the bug where re-running the
 // wizard with a corrected key would append a second line for the same env
-// var. loadDotEnv is first-wins, so without dedupe the stale key kept
-// authenticating, and the user saw a 401 with no obvious cause.
+// var. Without dedupe, different dotenv readers can disagree on which
+// assignment wins, leaving stale keys hard to diagnose.
 func TestAppendEnvUpsertReplacesExistingKey(t *testing.T) {
 	t.Setenv("DEEPSEEK_API_KEY", "") // also covers the os.Setenv pin path
 	p := filepath.Join(t.TempDir(), ".env")

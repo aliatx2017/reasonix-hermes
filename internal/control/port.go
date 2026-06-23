@@ -11,6 +11,7 @@ import (
 	"reasonix/internal/compress"
 	"reasonix/internal/config"
 	"reasonix/internal/event"
+	"reasonix/internal/evidence"
 	"reasonix/internal/hook"
 	"reasonix/internal/jobs"
 	"reasonix/internal/learn"
@@ -161,7 +162,7 @@ type Capabilities interface {
 	ImportMCPEntries(entries []config.PluginEntry) (total, added, updated, connected, failed, skipped int, err error)
 }
 
-// Status covers read-only run/usage/billing telemetry.
+// Status covers read-only run/usage/billing telemetry and task list state.
 type Status interface {
 	ContextSnapshot() (int, int)
 	LastUsage() *provider.Usage
@@ -177,6 +178,7 @@ type Status interface {
 	SessionTurns() int
 	SessionCost() float64
 	ActivePricing() *provider.Pricing
+	Todos() []evidence.TodoItem
 }
 
 // SessionPersistence covers snapshotting a session and tearing down its on-disk

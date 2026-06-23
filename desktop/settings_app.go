@@ -20,8 +20,8 @@ import (
 // resolved config and applies edits through internal/config/edit.go (the
 // purpose-built mutation API), then rebuilds the controller so the change takes
 // effect live — the same snapshot→reload→resume pattern as SetModel. Secrets are
-// the exception: they go to the global credential store (upsertDotEnv), since
-// config stores only the env-var name, not the key.
+// the exception: they go to Reasonix's global .env (upsertDotEnv), since config
+// stores only the env-var name, not the key.
 
 // --- read ---
 
@@ -873,28 +873,13 @@ func (a *App) activeWorkspaceRoot() string {
 func (a *App) saveProviderCredential(apiKeyEnv, value string) (string, error) {
 	apiKeyEnv = strings.TrimSpace(apiKeyEnv)
 	value = strings.TrimSpace(value)
-	root := a.activeWorkspaceRoot()
-	before := config.ResolveCredentialForRoot(root, apiKeyEnv)
-	beforeEnvValue, beforeEnvSet := os.LookupEnv(apiKeyEnv)
 	if err := upsertDotEnv(apiKeyEnv, value); err != nil {
 		return "", err
 	}
-	return providerCredentialShadowWarning(apiKeyEnv, value, root, before, beforeEnvSet, beforeEnvValue), nil
+	return providerCredentialSourceNotice(apiKeyEnv, value), nil
 }
 
-func providerCredentialShadowWarning(apiKeyEnv, value, root string, before config.CredentialResolution, beforeEnvSet bool, beforeEnvValue string) string {
-	if beforeEnvSet && beforeEnvValue != value {
-		return fmt.Sprintf("saved %s to Reasonix credentials, but an existing environment variable with the same name can override it after restart; update or remove that environment variable", apiKeyEnv)
-	}
-	if before.Set && before.Source.Kind == config.CredentialSourceEnvironment && before.Value != value {
-		return fmt.Sprintf("saved %s to Reasonix credentials, but an existing environment variable with the same name can override it after restart; update or remove that environment variable", apiKeyEnv)
-	}
-	current := config.ResolveCredentialForRoot(root, apiKeyEnv)
-	for _, source := range current.Shadowed {
-		if source.Kind == config.CredentialSourceProjectEnv {
-			return fmt.Sprintf("saved %s to Reasonix credentials, but this workspace's project .env also defines %s and can override it after restart; update or remove that project .env entry", apiKeyEnv, apiKeyEnv)
-		}
-	}
+func providerCredentialSourceNotice(apiKeyEnv, value string) string {
 	return ""
 }
 
@@ -1326,6 +1311,7 @@ func (a *App) FetchProviderModels(p ProviderView) ([]string, error) {
 		ModelsURL: p.ModelsURL,
 		APIKeyEnv: p.APIKeyEnv,
 	}
+	e.ResolveAPIKeyForRoot(a.activeWorkspaceRoot())
 	ctx, cancel := context.WithTimeout(a.reqCtx(), 15*time.Second)
 	defer cancel()
 	models, err := e.FetchModels(ctx)
@@ -1566,7 +1552,7 @@ func (a *App) deleteProviderAndRetargetTabs(name string) error {
 	return nil
 }
 
-// SetProviderKey writes a secret to the global credential store under the given
+// SetProviderKey writes a secret to Reasonix's global .env under the given
 // env-var name (the one a provider's api_key_env points at) and rebuilds so it
 // resolves immediately.
 func (a *App) SetProviderKey(apiKeyEnv, value string) (string, error) {
@@ -1640,7 +1626,7 @@ func (a *App) ensureProviderAccessForKey(apiKeyEnv string) error {
 	return cfg.SaveTo(path)
 }
 
-// ClearProviderKey removes a provider secret from the global credential store
+// ClearProviderKey removes a provider secret from Reasonix's global .env
 // and rebuilds so the provider immediately becomes unauthenticated.
 func (a *App) ClearProviderKey(apiKeyEnv string) error {
 	if strings.TrimSpace(apiKeyEnv) == "" {
@@ -1849,7 +1835,20 @@ func (a *App) SetDesktopAppearance(theme, style string) error {
 // SetDesktopLayoutStyle updates only the desktop layout style. It does not
 // rebuild the active controller and must stay out of provider-visible requests.
 func (a *App) SetDesktopLayoutStyle(style string) error {
-	return a.applyConfigOnly(func(c *config.Config) error { return c.SetDesktopLayoutStyle(style) })
+	normalized := ""
+	if err := a.applyConfigOnly(func(c *config.Config) error {
+		if err := c.SetDesktopLayoutStyle(style); err != nil {
+			return err
+		}
+		normalized = c.DesktopLayoutStyle()
+		return nil
+	}); err != nil {
+		return err
+	}
+	if singleSurfaceLayoutStyle(normalized) {
+		return a.applySingleSurfaceTabPolicy()
+	}
+	return nil
 }
 
 // SetDesktopCheckUpdates updates only the desktop startup update-check

@@ -107,6 +107,42 @@ func isolateDesktopUserDirs(t *testing.T) string {
 	return home
 }
 
+func setDesktopTestCredential(t *testing.T, key, value string) {
+	t.Helper()
+	if _, err := config.SetCredential(key, value); err != nil {
+		t.Fatalf("SetCredential(%s): %v", key, err)
+	}
+}
+
+func TestNeedsOnboardingIgnoresInheritedEnv(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	t.Setenv(onboardingKeyEnv, "inherited-key")
+
+	app := NewApp()
+	if !app.NeedsOnboarding() {
+		t.Fatal("NeedsOnboarding should require a key saved in Reasonix global .env")
+	}
+	setDesktopTestCredential(t, onboardingKeyEnv, "saved-key")
+	if app.NeedsOnboarding() {
+		t.Fatal("NeedsOnboarding should be false after saving the global credential")
+	}
+}
+
+func TestNeedsOnboardingTreatsBlankSavedKeyAsMissing(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	if err := os.MkdirAll(filepath.Dir(config.UserCredentialsPath()), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(config.UserCredentialsPath(), []byte(onboardingKeyEnv+"=\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	app := NewApp()
+	if !app.NeedsOnboarding() {
+		t.Fatal("NeedsOnboarding should require a non-empty saved credential")
+	}
+}
+
 func providerNamesFromView(providers []ProviderView) []string {
 	out := make([]string, 0, len(providers))
 	for _, p := range providers {
@@ -671,7 +707,7 @@ func BenchmarkDesktopSettingsPayloads(b *testing.B) {
 	})
 }
 
-func TestSettingsLoadsActiveWorkspaceCredentialsWithUserConfig(t *testing.T) {
+func TestSettingsIgnoresActiveWorkspaceDotEnvCredentialsWithUserConfig(t *testing.T) {
 	isolateDesktopUserDirs(t)
 
 	project := robustTempDir(t)
@@ -707,11 +743,11 @@ func TestSettingsLoadsActiveWorkspaceCredentialsWithUserConfig(t *testing.T) {
 	got := app.Settings()
 	for _, p := range got.Providers {
 		if p.Name == "workspace-provider" {
-			if !p.KeySet {
-				t.Fatalf("workspace provider keySet = false, want true from active workspace .env: %+v", p)
+			if p.KeySet {
+				t.Fatalf("workspace provider keySet = true, want false because workspace .env is ignored: %+v", p)
 			}
-			if !p.Configured {
-				t.Fatalf("workspace provider configured = false, want true from active workspace .env: %+v", p)
+			if p.Configured {
+				t.Fatalf("workspace provider configured = true, want false because workspace .env is ignored: %+v", p)
 			}
 			return
 		}
@@ -759,7 +795,7 @@ func TestSettingsShowsGlobalCredentialWithoutMutatingWorkspaceEnv(t *testing.T) 
 		if p.Name != "settings-provider" {
 			continue
 		}
-		if !p.KeySet || p.KeySource != "Reasonix credentials" {
+		if !p.KeySet || !strings.Contains(p.KeySource, "Reasonix credentials") {
 			t.Fatalf("settings-provider key = set:%v source:%q, want Reasonix credentials: %+v", p.KeySet, p.KeySource, p)
 		}
 		if env := os.Getenv("SHARED_SETTINGS_KEY"); env != "from-project" {
@@ -823,7 +859,7 @@ status_bar_items = ["model", "cache", "balance"]
 
 func TestSettingsSubagentDefaultsRoundTrip(t *testing.T) {
 	isolateDesktopUserDirs(t)
-	t.Setenv("DEEPSEEK_API_KEY", "sk-test")
+	setDesktopTestCredential(t, "DEEPSEEK_API_KEY", "sk-test")
 	if err := os.MkdirAll(filepath.Dir(config.UserConfigPath()), 0o755); err != nil {
 		t.Fatalf("mkdir config dir: %v", err)
 	}
@@ -875,7 +911,7 @@ func TestSettingsSurfacesOfficialProviderTemplatesSeparately(t *testing.T) {
 
 func TestSettingsRepairsLegacyOfficialProviderWithoutModel(t *testing.T) {
 	isolateDesktopUserDirs(t)
-	t.Setenv("DEEPSEEK_API_KEY", "sk-test")
+	setDesktopTestCredential(t, "DEEPSEEK_API_KEY", "sk-test")
 	if err := os.MkdirAll(filepath.Dir(config.UserConfigPath()), 0o755); err != nil {
 		t.Fatalf("mkdir config dir: %v", err)
 	}
@@ -912,7 +948,7 @@ api_key_env = "DEEPSEEK_API_KEY"
 
 func TestSettingsTreatsReservedProviderNameWithExternalEndpointAsCustom(t *testing.T) {
 	isolateDesktopUserDirs(t)
-	t.Setenv("DEEPSEEK_API_KEY", "sk-test")
+	setDesktopTestCredential(t, "DEEPSEEK_API_KEY", "sk-test")
 	if err := os.MkdirAll(filepath.Dir(config.UserConfigPath()), 0o755); err != nil {
 		t.Fatalf("mkdir config dir: %v", err)
 	}
@@ -959,8 +995,8 @@ api_key_env = "DEEPSEEK_API_KEY"
 
 func TestSettingsInfersLegacyProviderAccessWhenMissing(t *testing.T) {
 	isolateDesktopUserDirs(t)
-	t.Setenv("DEEPSEEK_API_KEY", "sk-test")
-	t.Setenv("MIMO_API_KEY", "sk-test")
+	setDesktopTestCredential(t, "DEEPSEEK_API_KEY", "sk-test")
+	setDesktopTestCredential(t, "MIMO_API_KEY", "sk-test")
 	if err := os.MkdirAll(filepath.Dir(config.UserConfigPath()), 0o755); err != nil {
 		t.Fatalf("mkdir config dir: %v", err)
 	}
@@ -1003,7 +1039,7 @@ api_key_env = "MIMO_API_KEY"
 
 func TestSettingsDoesNotInferProviderAccessWhenExplicitlyEmpty(t *testing.T) {
 	isolateDesktopUserDirs(t)
-	t.Setenv("DEEPSEEK_API_KEY", "sk-test")
+	setDesktopTestCredential(t, "DEEPSEEK_API_KEY", "sk-test")
 	if err := os.MkdirAll(filepath.Dir(config.UserConfigPath()), 0o755); err != nil {
 		t.Fatalf("mkdir config dir: %v", err)
 	}
@@ -1034,8 +1070,8 @@ api_key_env = "DEEPSEEK_API_KEY"
 
 func TestSettingsInfersConfiguredBuiltInsWithoutConfigFile(t *testing.T) {
 	isolateDesktopUserDirs(t)
-	t.Setenv("DEEPSEEK_API_KEY", "sk-test")
-	t.Setenv("MIMO_API_KEY", "sk-test")
+	setDesktopTestCredential(t, "DEEPSEEK_API_KEY", "sk-test")
+	setDesktopTestCredential(t, "MIMO_API_KEY", "sk-test")
 
 	got := NewApp().Settings()
 	providers := map[string]ProviderView{}
@@ -1269,10 +1305,9 @@ api_key_env = "MIMO_API_KEY"
 }
 
 func TestModelsForTabOnlyListsProviderAccessWhenConfigured(t *testing.T) {
-	home := isolateDesktopUserDirs(t)
-	t.Setenv("DEEPSEEK_API_KEY", "sk-test")
-	t.Setenv("MIMO_API_KEY", "sk-test")
-	t.Chdir(home) // avoid project reasonix.toml
+	isolateDesktopUserDirs(t)
+	setDesktopTestCredential(t, "DEEPSEEK_API_KEY", "sk-test")
+	setDesktopTestCredential(t, "MIMO_API_KEY", "sk-test")
 
 	cfg := config.Default()
 	cfg.DefaultModel = "deepseek-flash/deepseek-v4-flash"
@@ -1312,7 +1347,7 @@ func TestModelsForTabOnlyListsProviderAccessWhenConfigured(t *testing.T) {
 
 func TestModelsForTabListsCustomMultiModelProviderWithoutMetadata(t *testing.T) {
 	isolateDesktopUserDirs(t)
-	t.Setenv("LOCAL_API_KEY", "sk-test")
+	setDesktopTestCredential(t, "LOCAL_API_KEY", "sk-test")
 	if err := os.MkdirAll(filepath.Dir(config.UserConfigPath()), 0o755); err != nil {
 		t.Fatalf("mkdir config dir: %v", err)
 	}
@@ -1407,9 +1442,8 @@ api_key_env = "LOCAL_API_KEY"
 }
 
 func TestModelsForTabListsMimoAPIPaidAccess(t *testing.T) {
-	home := isolateDesktopUserDirs(t)
-	t.Setenv("MIMO_API_KEY", "sk-test")
-	t.Chdir(home) // avoid project reasonix.toml
+	isolateDesktopUserDirs(t)
+	setDesktopTestCredential(t, "MIMO_API_KEY", "sk-test")
 
 	cfg := config.Default()
 	cfg.DefaultModel = "mimo-api/mimo-v2.5-pro"
@@ -1436,8 +1470,8 @@ func TestModelsForTabListsMimoAPIPaidAccess(t *testing.T) {
 
 func TestModelsForTabKeepsUserProvidersWithProjectConfig(t *testing.T) {
 	isolateDesktopUserDirs(t)
-	t.Setenv("DEEPSEEK_API_KEY", "sk-test")
-	t.Setenv("MIMO_API_KEY", "sk-test")
+	setDesktopTestCredential(t, "DEEPSEEK_API_KEY", "sk-test")
+	setDesktopTestCredential(t, "MIMO_API_KEY", "sk-test")
 
 	userCfg := config.Default()
 	userCfg.DefaultModel = "mimo-pro/mimo-v2.5-pro"
@@ -1482,8 +1516,8 @@ api_key_env = "DEEPSEEK_API_KEY"
 
 func TestSetModelForTabRejectsProviderOutsideAccess(t *testing.T) {
 	isolateDesktopUserDirs(t)
-	t.Setenv("DEEPSEEK_API_KEY", "sk-test")
-	t.Setenv("MIMO_API_KEY", "sk-test")
+	setDesktopTestCredential(t, "DEEPSEEK_API_KEY", "sk-test")
+	setDesktopTestCredential(t, "MIMO_API_KEY", "sk-test")
 
 	cfg := config.Default()
 	cfg.DefaultModel = "deepseek-flash/deepseek-v4-flash"
@@ -1572,7 +1606,7 @@ func TestSaveProviderPersistsReasoningProtocol(t *testing.T) {
 
 func TestDeleteProviderMigratesConfigAndOpenTabs(t *testing.T) {
 	isolateDesktopUserDirs(t)
-	t.Setenv("REASONIX_TEST_KEY", "sk-test")
+	setDesktopTestCredential(t, "REASONIX_TEST_KEY", "sk-test")
 
 	cfg := config.Default()
 	cfg.DefaultModel = "prov-a/model-a2"
@@ -1618,7 +1652,7 @@ func TestDeleteProviderMigratesConfigAndOpenTabs(t *testing.T) {
 
 func TestDeleteProviderRejectsRunningAffectedTab(t *testing.T) {
 	isolateDesktopUserDirs(t)
-	t.Setenv("REASONIX_TEST_KEY", "sk-test")
+	setDesktopTestCredential(t, "REASONIX_TEST_KEY", "sk-test")
 
 	cfg := config.Default()
 	cfg.DefaultModel = "prov-a/model-a1"
@@ -1652,7 +1686,7 @@ func TestDeleteProviderRejectsRunningAffectedTab(t *testing.T) {
 
 func TestDeleteProviderRejectsAffectedBackgroundJobs(t *testing.T) {
 	isolateDesktopUserDirs(t)
-	t.Setenv("REASONIX_TEST_KEY", "sk-test")
+	setDesktopTestCredential(t, "REASONIX_TEST_KEY", "sk-test")
 
 	cfg := config.Default()
 	cfg.DefaultModel = "prov-a/model-a1"
@@ -1690,7 +1724,7 @@ func TestDeleteProviderRejectsAffectedBackgroundJobs(t *testing.T) {
 
 func TestDeleteProviderRejectsUnaffectedBackgroundJobsBeforeSavingConfig(t *testing.T) {
 	isolateDesktopUserDirs(t)
-	t.Setenv("REASONIX_TEST_KEY", "sk-test")
+	setDesktopTestCredential(t, "REASONIX_TEST_KEY", "sk-test")
 
 	cfg := config.Default()
 	cfg.DefaultModel = "prov-b/model-b1"
@@ -1844,7 +1878,7 @@ func TestSetEffortRebuildsController(t *testing.T) {
 
 func TestSetEffortMigratesStaleOfficialDeepSeekTabModel(t *testing.T) {
 	isolateDesktopUserDirs(t)
-	t.Setenv("DEEPSEEK_API_KEY", "sk-test")
+	setDesktopTestCredential(t, "DEEPSEEK_API_KEY", "sk-test")
 
 	cfg := config.Default()
 	cfg.DefaultModel = "deepseek/deepseek-v4-flash"
@@ -1934,7 +1968,7 @@ func TestSetTokenModeRebuildsController(t *testing.T) {
 
 func TestSetTokenModeMigratesStaleOfficialDeepSeekTabModel(t *testing.T) {
 	isolateDesktopUserDirs(t)
-	t.Setenv("DEEPSEEK_API_KEY", "sk-test")
+	setDesktopTestCredential(t, "DEEPSEEK_API_KEY", "sk-test")
 
 	cfg := config.Default()
 	cfg.DefaultModel = "deepseek/deepseek-v4-flash"

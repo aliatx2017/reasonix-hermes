@@ -46,12 +46,11 @@ import { UndoRewindBanner } from "./components/UndoRewindBanner";
 import { ClearContextCard } from "./components/ClearContextCard";
 import { StatusBar } from "./components/StatusBar";
 import { CommandPalette, type PaletteItem } from "./components/CommandPalette";
-import type { SettingsInitialFocus } from "./components/SettingsPanel";
 import { UpdateBanner } from "./components/UpdateBanner";
 import { ContextPanel } from "./components/ContextPanel";
 import { WorkspacePanel } from "./components/WorkspacePanel";
 import { Tooltip } from "./components/Tooltip";
-import { StartupSplash, shouldShowStartupSplash } from "./components/StartupSplash";
+import { StartupSplash } from "./components/StartupSplash";
 import { OnboardingOverlay } from "./components/OnboardingOverlay";
 import { AppChrome } from "./components/AppChrome";
 import { ShortcutsCheatsheet } from "./components/ShortcutsCheatsheet";
@@ -71,7 +70,6 @@ import {
   type Mode,
   type ProjectNode,
   type SessionMeta,
-  type SettingsTab,
   type SettingsView,
   type TabMeta,
   type TokenMode,
@@ -96,7 +94,30 @@ import {
   toggleYoloToolApprovalMode,
   type RestorableToolApprovalMode,
 } from "./lib/toolApprovalMode";
-import { loadLayoutSize, saveLayoutSize } from "./lib/layoutPreferences";
+import {
+  CREATION_SIDEBAR_MIN_WIDTH,
+  RIGHT_DOCK_MAX_WIDTH,
+  RIGHT_DOCK_MIN_RENDER_WIDTH,
+  RIGHT_DOCK_PREVIEW_DEFAULT_WIDTH,
+  RIGHT_DOCK_PREVIEW_MIN_WIDTH,
+  RIGHT_DOCK_TREE_MAX_WIDTH,
+  RIGHT_DOCK_TREE_MIN_WIDTH,
+  type RightDockMode,
+  SIDEBAR_MAX_WIDTH,
+  SIDEBAR_MIN_WIDTH,
+  clampCreationSidebarWidth,
+  clampRightDockPreviewWidth,
+  clampRightDockTreeWidth,
+  clampSidebarWidth,
+  defaultRightDockTreeWidth,
+  defaultSidebarWidth,
+  saveRightDockPreviewWidth,
+  saveRightDockTreeWidth,
+  saveSidebarCollapsed,
+  saveSidebarWidth,
+  useLayoutStore,
+} from "./store/layout";
+import { useOverlayStore } from "./store/overlays";
 import { hydrateDisplayMode } from "./lib/displayMode";
 import { DEFAULT_STATUS_BAR_ITEMS, normalizeStatusBarItems, type StatusBarItemId } from "./lib/statusBarItems";
 import { sessionActivityTime } from "./lib/session";
@@ -121,12 +142,6 @@ import logoWordmark from "./assets/logo-wordmark.svg";
 const HistoryPanel = lazy(() => import("./components/HistoryPanel").then((module) => ({ default: module.HistoryPanel })));
 const SettingsPanel = lazy(() => import("./components/SettingsPanel").then((module) => ({ default: module.SettingsPanel })));
 
-const SIDEBAR_COLLAPSED_KEY = "reasonix.sidebar.collapsed";
-const SIDEBAR_DEFAULT_WIDTH = 264;
-const SIDEBAR_MIN_WIDTH = 264;
-const CREATION_SIDEBAR_MIN_WIDTH = 236;
-const SIDEBAR_MAX_WIDTH = 300;
-const SIDEBAR_VIEWPORT_RATIO = 0.18;
 const CHAT_MIN_WIDTH = 400;
 const CHAT_COMFORT_MIN_WIDTH = 560;
 const WORKSPACE_RESIZER_WIDTH = 8;
@@ -157,15 +172,6 @@ function normalizeDesktopLayoutStyle(style: string | undefined): DesktopLayoutSt
   if (style === "creation") return "creation";
   return "classic";
 }
-const RIGHT_DOCK_TREE_DEFAULT_WIDTH = 300;
-const RIGHT_DOCK_TREE_MIN_WIDTH = 300;
-const RIGHT_DOCK_TREE_MAX_WIDTH = 560;
-const RIGHT_DOCK_PREVIEW_DEFAULT_WIDTH = 660;
-const RIGHT_DOCK_PREVIEW_MIN_WIDTH = 420;
-const RIGHT_DOCK_MIN_RENDER_WIDTH = 280;
-const RIGHT_DOCK_MAX_WIDTH = 860;
-
-type RightDockMode = "none" | "context" | "files" | "changed";
 const SHOW_CONTEXT_DOCK = true;
 type HistoryScopeFilter = { scope: "global" | "project"; workspaceRoot: string };
 type DesktopPlatform = "darwin" | "windows" | "linux";
@@ -618,63 +624,6 @@ function activeTopicTurnsFromTree(tree: ProjectNode[], tab?: TabMeta): number | 
   return walk(tree);
 }
 
-function clampSidebarWidth(width: number): number {
-  return Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, Math.round(width)));
-}
-
-function clampCreationSidebarWidth(width: number): number {
-  return Math.min(SIDEBAR_MAX_WIDTH, Math.max(CREATION_SIDEBAR_MIN_WIDTH, Math.round(width)));
-}
-
-function clampStoredSidebarWidth(width: number): number {
-  return Math.min(SIDEBAR_MAX_WIDTH, Math.max(CREATION_SIDEBAR_MIN_WIDTH, Math.round(width)));
-}
-
-function clampRightDockPreviewWidth(width: number): number {
-  return Math.min(RIGHT_DOCK_MAX_WIDTH, Math.max(RIGHT_DOCK_PREVIEW_MIN_WIDTH, Math.round(width)));
-}
-
-function clampRightDockTreeWidth(width: number): number {
-  return Math.min(RIGHT_DOCK_TREE_MAX_WIDTH, Math.max(RIGHT_DOCK_TREE_MIN_WIDTH, Math.round(width)));
-}
-
-function defaultSidebarWidth(): number {
-  if (typeof window !== "undefined") {
-    return clampSidebarWidth(window.innerWidth * SIDEBAR_VIEWPORT_RATIO);
-  }
-  return SIDEBAR_DEFAULT_WIDTH;
-}
-
-function defaultRightDockTreeWidth(): number {
-  return RIGHT_DOCK_TREE_DEFAULT_WIDTH;
-}
-
-function loadSidebarCollapsed(): boolean {
-  if (typeof window === "undefined") return false;
-  try {
-    return window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1";
-  } catch {
-    return false;
-  }
-}
-
-function saveSidebarCollapsed(collapsed: boolean): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? "1" : "0");
-  } catch {
-    /* ignore storage failures */
-  }
-}
-
-function loadSidebarWidth(): number {
-  return loadLayoutSize("sidebarWidthGraphite", defaultSidebarWidth(), clampStoredSidebarWidth);
-}
-
-function saveSidebarWidth(width: number): void {
-  saveLayoutSize("sidebarWidthGraphite", width, clampStoredSidebarWidth);
-}
-
 function normalizeDesktopPlatform(value: string): DesktopPlatform {
   if (value === "darwin" || value === "windows") return value;
   return "linux";
@@ -695,22 +644,6 @@ function detectBrowserPlatform(): DesktopPlatform {
   if (/Win/i.test(marker)) return "windows";
   if (/Mac/i.test(marker)) return "darwin";
   return "linux";
-}
-
-function loadRightDockTreeWidth(): number {
-  return loadLayoutSize("rightDockTreeWidth", defaultRightDockTreeWidth(), clampRightDockTreeWidth);
-}
-
-function saveRightDockTreeWidth(width: number): void {
-  saveLayoutSize("rightDockTreeWidth", width, clampRightDockTreeWidth);
-}
-
-function loadRightDockPreviewWidth(): number {
-  return loadLayoutSize("rightDockPreviewWidth", RIGHT_DOCK_PREVIEW_DEFAULT_WIDTH, clampRightDockPreviewWidth);
-}
-
-function saveRightDockPreviewWidth(width: number): void {
-  saveLayoutSize("rightDockPreviewWidth", width, clampRightDockPreviewWidth);
 }
 
 function tabWorkspaceTitle(tab?: TabMeta): string {
@@ -877,8 +810,10 @@ export default function App() {
     closeTab,
     reorderTabs,
     openTopicSession,
+    activateTopic,
     syncActiveTab,
     ensureBlankTab,
+    ensureBlankSurface,
   } = useController();
   const { locale, setPref: setLocalePref } = useI18n();
   const t = useT();
@@ -888,24 +823,34 @@ export default function App() {
   const [tabOrderIds, setTabOrderIds] = useState<string[]>([]);
   const [tabRevealSignal, setTabRevealSignal] = useState(0);
   const [transcriptRevealSignal, setTranscriptRevealSignal] = useState(0);
-  const [startupSplashVisible, setStartupSplashVisible] = useState<boolean>(() => shouldShowStartupSplash());
+  const startupSplashVisible = useOverlayStore((s) => s.startupSplashVisible);
+  const setStartupSplashVisible = useOverlayStore((s) => s.setStartupSplashVisible);
   // null until the mount probe resolves; true shows the overlay. Probed once —
   // clearing the key mid-session is the Settings panel's job, not the gate's.
-  const [needsOnboarding, setNeedsOnboarding] = useState<boolean | null>(null);
-  const [settingsTarget, setSettingsTarget] = useState<SettingsTab | null>(null);
-  const [settingsFocus, setSettingsFocus] = useState<SettingsInitialFocus | null>(null);
+  const needsOnboarding = useOverlayStore((s) => s.needsOnboarding);
+  const setNeedsOnboarding = useOverlayStore((s) => s.setNeedsOnboarding);
+  const settingsTarget = useOverlayStore((s) => s.settingsTarget);
+  const setSettingsTarget = useOverlayStore((s) => s.setSettingsTarget);
+  const settingsFocus = useOverlayStore((s) => s.settingsFocus);
+  const setSettingsFocus = useOverlayStore((s) => s.setSettingsFocus);
   const [desktopLayoutStyle, setDesktopLayoutStyle] = useState<DesktopLayoutStyle>("workbench");
+  const singleSurfaceLayout = desktopLayoutStyle === "workbench" || desktopLayoutStyle === "creation";
   const [startupUpdateChecksEnabled, setStartupUpdateChecksEnabled] = useState<boolean | null>(null);
   const [histView, setHistView] = useState<HistoryViewState | null>(null);
-  const [paletteOpen, setPaletteOpen] = useState(false);
-  const [shortcutsOpen, setShortcutsOpen] = useState(false);
-  const [paletteSessions, setPaletteSessions] = useState<SessionMeta[]>([]);
+  const paletteOpen = useOverlayStore((s) => s.paletteOpen);
+  const setPaletteOpen = useOverlayStore((s) => s.setPaletteOpen);
+  const shortcutsOpen = useOverlayStore((s) => s.shortcutsOpen);
+  const setShortcutsOpen = useOverlayStore((s) => s.setShortcutsOpen);
+  const paletteSessions = useOverlayStore((s) => s.paletteSessions);
+  const setPaletteSessions = useOverlayStore((s) => s.setPaletteSessions);
   const { showToast } = useToast();
   const [sidebarImConnections, setSidebarImConnections] = useState<SidebarImConnection[]>([]);
   const [imTopicSources, setImTopicSources] = useState<Record<string, SidebarImTopicSource>>({});
   const [sidebarImDetailConnectionId, setSidebarImDetailConnectionId] = useState("");
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(loadSidebarCollapsed);
-  const [heartbeatOpen, setHeartbeatOpen] = useState(false);
+  const sidebarCollapsed = useLayoutStore((s) => s.sidebarCollapsed);
+  const setSidebarCollapsed = useLayoutStore((s) => s.setSidebarCollapsed);
+  const heartbeatOpen = useOverlayStore((s) => s.heartbeatOpen);
+  const setHeartbeatOpen = useOverlayStore((s) => s.setHeartbeatOpen);
   type TimeFilter = "all" | "10" | "20" | "1h" | "3h" | "5h" | "1d";
   const [topicTimeFilter, setTopicTimeFilter] = useState<TimeFilter>(() => {
     try {
@@ -917,13 +862,18 @@ export default function App() {
   useEffect(() => {
     try { localStorage.setItem("projectTree:timeFilter", topicTimeFilter); } catch { /* ignore */ }
   }, [topicTimeFilter]);
-  const [sidebarWidth, setSidebarWidth] = useState(loadSidebarWidth);
+  const sidebarWidth = useLayoutStore((s) => s.sidebarWidth);
+  const setSidebarWidth = useLayoutStore((s) => s.setSidebarWidth);
   const [sidebarResizing, setSidebarResizing] = useState(false);
   const [viewportWidth, setViewportWidth] = useState(() => (typeof window === "undefined" ? 1440 : window.innerWidth));
-  const [workspacePanelOpen, setWorkspacePanelOpen] = useState(true);
-  const [rightDockTreeWidth, setRightDockTreeWidth] = useState(loadRightDockTreeWidth);
-  const [rightDockPreviewWidth, setRightDockPreviewWidth] = useState(loadRightDockPreviewWidth);
-  const [workspacePreviewActive, setWorkspacePreviewActive] = useState(false);
+  const workspacePanelOpen = useLayoutStore((s) => s.workspacePanelOpen);
+  const setWorkspacePanelOpen = useLayoutStore((s) => s.setWorkspacePanelOpen);
+  const rightDockTreeWidth = useLayoutStore((s) => s.rightDockTreeWidth);
+  const setRightDockTreeWidth = useLayoutStore((s) => s.setRightDockTreeWidth);
+  const rightDockPreviewWidth = useLayoutStore((s) => s.rightDockPreviewWidth);
+  const setRightDockPreviewWidth = useLayoutStore((s) => s.setRightDockPreviewWidth);
+  const workspacePreviewActive = useLayoutStore((s) => s.workspacePreviewActive);
+  const setWorkspacePreviewActive = useLayoutStore((s) => s.setWorkspacePreviewActive);
   // Bump dockRefreshKey after each turn so WorkspacePanel/ContextPanel re-fetch
   // workspace changes, git history, and session metadata after AI tool writes.
   useEffect(() => {
@@ -937,21 +887,27 @@ export default function App() {
   }, []);
 
   const [workspacePanelResizing, setWorkspacePanelResizing] = useState(false);
-  const [workspacePanelMaximized, setWorkspacePanelMaximized] = useState(false);
-  const [rightDockMode, setRightDockMode] = useState<RightDockMode>("context");
+  const workspacePanelMaximized = useLayoutStore((s) => s.workspacePanelMaximized);
+  const setWorkspacePanelMaximized = useLayoutStore((s) => s.setWorkspacePanelMaximized);
+  const rightDockMode = useLayoutStore((s) => s.rightDockMode);
+  const setRightDockMode = useLayoutStore((s) => s.setRightDockMode);
   const [dockRefreshKey, setDockRefreshKey] = useState(0);
   const [projectRevision, setProjectRevision] = useState(0);
   const [activeTopicTurns, setActiveTopicTurns] = useState<number | undefined>(undefined);
   const [composerInsertRequest, setComposerInsertRequest] = useState<ComposerInsertRequest | null>(null);
-  const [transientOverlayDismissSignal, setTransientOverlayDismissSignal] = useState(0);
+  const transientOverlayDismissSignal = useOverlayStore((s) => s.transientOverlayDismissSignal);
+  const setTransientOverlayDismissSignal = useOverlayStore((s) => s.setTransientOverlayDismissSignal);
   const [desktopPlatform, setDesktopPlatform] = useState<DesktopPlatform>(detectBrowserPlatform);
   const [statusBarStyle, setStatusBarStyle] = useState<"icon" | "text">("text");
   const [statusBarItems, setStatusBarItems] = useState<StatusBarItemId[]>(() => [...DEFAULT_STATUS_BAR_ITEMS]);
   const [renamingTopicId, setRenamingTopicId] = useState<string | null>(null);
   const [topicTitleDraft, setTopicTitleDraft] = useState("");
-  const [topicExportOpen, setTopicExportOpen] = useState(false);
-  const [sidebarSearchOpen, setSidebarSearchOpen] = useState(false);
-  const [sidebarSearchFocusSignal, setSidebarSearchFocusSignal] = useState(0);
+  const topicExportOpen = useOverlayStore((s) => s.topicExportOpen);
+  const setTopicExportOpen = useOverlayStore((s) => s.setTopicExportOpen);
+  const sidebarSearchOpen = useOverlayStore((s) => s.sidebarSearchOpen);
+  const setSidebarSearchOpen = useOverlayStore((s) => s.setSidebarSearchOpen);
+  const sidebarSearchFocusSignal = useOverlayStore((s) => s.sidebarSearchFocusSignal);
+  const setSidebarSearchFocusSignal = useOverlayStore((s) => s.setSidebarSearchFocusSignal);
   const [sidebarTogglePressed, setSidebarTogglePressed] = useState(false);
   const [workspaceTogglePressed, setWorkspaceTogglePressed] = useState(false);
   const [clearContextPending, setClearContextPending] = useState(false);
@@ -1196,7 +1152,16 @@ export default function App() {
     const currentTabTurns = Math.max(state.checkpoints.length, visibleUserTurns);
     return currentTabTurns > 0 ? currentTabTurns : activeTopicTurns ?? 0;
   }, [activeTopicTurns, state.checkpoints.length, state.items]);
-  const startupSplashHold = state.meta?.ready !== true && !state.meta?.startupErr;
+  const startupSplashHold = !activeTabId && state.meta?.ready !== true && !state.meta?.startupErr;
+  const hydrateStatusLabel = state.hydrating
+    ? state.hydrateReason === "switch-tab"
+      ? t("status.hydrateSwitch")
+      : state.hydrateReason === "resume-session"
+        ? t("status.hydrateResume")
+        : state.hydrateReason === "new-session"
+          ? t("status.hydrateNewSession")
+          : t("status.hydrateSync")
+    : undefined;
   const backendActiveComposerProfile = useMemo(() => {
     if (state.meta) {
       return composerProfileFromMeta(state.meta, activeTab ? composerProfileMode(composerProfileFromTab(activeTab)) : undefined);
@@ -1210,7 +1175,7 @@ export default function App() {
   const collaborationMode = displayedComposerProfileCollaborationMode(composerProfile);
   const toolApprovalMode = composerProfile.toolApprovalMode;
   const tokenMode: TokenMode = composerProfile.tokenMode;
-  const controllerReady = state.meta?.ready === true;
+  const controllerReady = state.meta?.ready === true && !state.backendActivationPending;
   const patchActiveComposerProfile = useCallback(
     (patch: Partial<Omit<ComposerProfile, "pending">>, pendingFields: ComposerProfileField[]) => {
       if (!activeTabId) return;
@@ -1531,10 +1496,12 @@ export default function App() {
         } else if (["clear", "off", "stop", "done"].includes(displayGoal.toLowerCase())) {
           applyGoal("");
         }
+        if (!controllerReady) return;
         commitThenSend(trimmed, submitText.trim());
         return;
       }
       if (collaborationMode === "goal" && !goal.trim()) {
+        if (!controllerReady) return;
         applyGoal(trimmed);
         commitThenSend(trimmed, `/goal ${submitText.trim()}`);
         return;
@@ -1574,12 +1541,13 @@ export default function App() {
         return;
       }
       if (runningRef.current) { steer(submitText.trim()); return; }
+      if (!controllerReady) return;
       await setControllerCollaborationMode(controllerComposerProfileCollaborationMode(composerProfile));
       await setControllerToolApprovalMode(toolApprovalMode);
       if (goal.trim()) await setControllerGoal(goal);
       commitThenSend(trimmed, submitText.trim());
     },
-    [applyGoal, closeTransientOverlays, collaborationMode, composerProfile, goal, send, runShell, notice, setControllerCollaborationMode, setControllerGoal, setControllerToolApprovalMode, steer, switchModel, t, toolApprovalMode, showToast],
+    [applyGoal, closeTransientOverlays, collaborationMode, composerProfile, controllerReady, goal, send, runShell, notice, setControllerCollaborationMode, setControllerGoal, setControllerToolApprovalMode, steer, switchModel, t, toolApprovalMode, showToast],
   );
 
   const refreshTabMetas = useCallback(async (): Promise<TabMeta[]> => {
@@ -1606,12 +1574,16 @@ export default function App() {
   }, [activeTab?.scope, activeTab?.workspaceRoot]);
 
   const openBlankSession = useCallback(async (scope: string, workspaceRoot: string) => {
-    await ensureBlankTab(scope, scope === "project" ? workspaceRoot : "");
+    if (singleSurfaceLayout) {
+      await ensureBlankSurface(scope, scope === "project" ? workspaceRoot : "");
+    } else {
+      await ensureBlankTab(scope, scope === "project" ? workspaceRoot : "");
+    }
     setProjectRevision((value) => value + 1);
     await refreshTabMetas();
     setTabRevealSignal((signal) => signal + 1);
     setTranscriptRevealSignal((signal) => signal + 1);
-  }, [ensureBlankTab, refreshTabMetas]);
+  }, [ensureBlankSurface, ensureBlankTab, refreshTabMetas, singleSurfaceLayout]);
 
   useEffect(() => {
     void refreshTabMetas();
@@ -1920,12 +1892,13 @@ export default function App() {
     setComposerInsertRequest({ id: Date.now(), text });
   }, []);
 
-  const handleTabChange = useCallback(async (id: string) => {
+  const handleTabChange = useCallback((id: string) => {
     closeTransientOverlays();
-    const tabs = await switchTab(id);
-    if (tabs) setTabMetas(tabs);
+    const selected = tabMetas.find((tab) => tab.id === id);
+    setTabMetas((current) => current.map((tab) => ({ ...tab, active: tab.id === id })));
+    void switchTab(id, selected).then(() => refreshTabMetas());
     setTabRevealSignal((signal) => signal + 1);
-  }, [closeTransientOverlays, switchTab]);
+  }, [closeTransientOverlays, refreshTabMetas, switchTab, tabMetas]);
 
   const handleTabClose = useCallback(async (id: string) => {
     closeTransientOverlays();
@@ -1960,7 +1933,9 @@ export default function App() {
       await closeTab(id);
     }
     if (nextActiveTabId && currentIds.includes(nextActiveTabId)) {
-      await switchTab(nextActiveTabId);
+      const selected = tabMetas.find((tab) => tab.id === nextActiveTabId);
+      setTabMetas((current) => current.map((tab) => ({ ...tab, active: tab.id === nextActiveTabId })));
+      void switchTab(nextActiveTabId, selected);
     }
     await refreshTabMetas();
     setTabRevealSignal((signal) => signal + 1);
@@ -2014,6 +1989,7 @@ export default function App() {
   // send wrapper: commits any pending optimistic rewind before sending.
   const commitThenSend = useCallback(async (displayText: string, submitText?: string) => {
     if (activeTab?.readOnly) return;
+    if (!controllerReady) return;
     const rs = rewindStateRef.current;
     if (rs) {
       rewindStateRef.current = null;
@@ -2039,7 +2015,12 @@ export default function App() {
       }
     }
     send(displayText, submitText);
-  }, [activeTab?.readOnly, send, rewind]);
+  }, [activeTab?.readOnly, controllerReady, send, rewind]);
+
+  const handleTranscriptPrompt = useCallback((text: string) => {
+    if (!controllerReady) return;
+    void commitThenSend(text);
+  }, [commitThenSend, controllerReady]);
 
   const handleMessageAction = useCallback((turn: number, scope: string) => {
     if (activeTab?.readOnly) return;
@@ -2110,7 +2091,7 @@ export default function App() {
 
   const handleEditPrompt = useCallback(async (turn: number, displayText: string, submitText?: string): Promise<boolean> => {
     const sourceTabId = activeTabId;
-    if (!sourceTabId || activeTab?.readOnly || rewindStateRef.current || state.running || state.messageAction != null || state.approval != null || state.ask != null || clearContextPending) return false;
+    if (!sourceTabId || activeTab?.readOnly || !controllerReady || rewindStateRef.current || state.running || state.messageAction != null || state.approval != null || state.ask != null || clearContextPending) return false;
     const next = displayText.trim();
     if (!next) return false;
     const submit = (submitText ?? displayText).trim();
@@ -2119,12 +2100,14 @@ export default function App() {
     setRewindSignal((v) => v + 1);
     sendToTab(sourceTabId, next, submit);
     return true;
-  }, [activeTab?.readOnly, activeTabId, clearContextPending, sendToTab, state.approval, state.ask, state.messageAction, state.running, rewind]);
+  }, [activeTab?.readOnly, activeTabId, clearContextPending, controllerReady, sendToTab, state.approval, state.ask, state.messageAction, state.running, rewind]);
 
   const handleOpenTopic = useCallback(async (scope: string, workspaceRoot: string, topicId: string, sessionPath?: string) => {
     closeTransientOverlays();
     setSidebarImDetailConnectionId("");
-    if (sessionPath) {
+    if (singleSurfaceLayout) {
+      await activateTopic(scope, workspaceRoot, topicId, sessionPath || "");
+    } else if (sessionPath) {
       await openTopicSession(scope, workspaceRoot, topicId, sessionPath);
     } else if (scope === "global") {
       await openGlobalTab(topicId);
@@ -2134,7 +2117,7 @@ export default function App() {
     await refreshTabMetas();
     setTabRevealSignal((signal) => signal + 1);
     setTranscriptRevealSignal((signal) => signal + 1);
-  }, [closeTransientOverlays, openGlobalTab, openProjectTab, openTopicSession, refreshTabMetas]);
+  }, [activateTopic, closeTransientOverlays, openGlobalTab, openProjectTab, openTopicSession, refreshTabMetas, singleSurfaceLayout]);
 
   const openSidebarImConnectionSession = useCallback(async (connection: SidebarImConnection) => {
     const target = sidebarImSessionTarget(connection);
@@ -2145,15 +2128,21 @@ export default function App() {
     setSidebarImDetailConnectionId("");
     try {
       if (connection.sessionSource === "auto" && target.kind === "path") {
-        const tab = await ensureBlankTab(connection.scope, connection.scope === "project" ? connection.workspaceRoot : "");
+        const tab = singleSurfaceLayout
+          ? await ensureBlankSurface(connection.scope, connection.scope === "project" ? connection.workspaceRoot : "")
+          : await ensureBlankTab(connection.scope, connection.scope === "project" ? connection.workspaceRoot : "");
         await openChannelSession(target.value, tab.id);
       } else if (target.kind === "path") {
-        const tab = await ensureBlankTab(connection.scope, connection.scope === "project" ? connection.workspaceRoot : "");
+        const tab = singleSurfaceLayout
+          ? await ensureBlankSurface(connection.scope, connection.scope === "project" ? connection.workspaceRoot : "")
+          : await ensureBlankTab(connection.scope, connection.scope === "project" ? connection.workspaceRoot : "");
         await resumeSession(target.value, tab.id);
       } else if (connection.scope === "project") {
-        await openProjectTab(connection.workspaceRoot, target.value);
+        if (singleSurfaceLayout) await activateTopic("project", connection.workspaceRoot, target.value);
+        else await openProjectTab(connection.workspaceRoot, target.value);
       } else {
-        await openGlobalTab(target.value);
+        if (singleSurfaceLayout) await activateTopic("global", "", target.value);
+        else await openGlobalTab(target.value);
       }
       await refreshTabMetas();
       setTabRevealSignal((value) => value + 1);
@@ -2163,7 +2152,7 @@ export default function App() {
       console.warn("bot sidebar open failed", err);
       showToast(t("sidebar.imOpenFailed", { name: connection.title }));
     }
-  }, [ensureBlankTab, openChannelSession, openGlobalTab, openProjectTab, refreshTabMetas, resumeSession, showToast, t]);
+  }, [activateTopic, ensureBlankSurface, ensureBlankTab, openChannelSession, openGlobalTab, openProjectTab, refreshTabMetas, resumeSession, showToast, singleSurfaceLayout, t]);
 
   // History drawer: project menus can open a scoped saved-session list. Idle row
   // clicks resume; running row clicks only preview through PreviewSession.
@@ -2187,24 +2176,30 @@ export default function App() {
 
   const onResumeSession = useCallback(
     async (session: SessionMeta) => {
-      if (state.running) return;
+      if (state.running && !singleSurfaceLayout) return;
       const scope = session.scope || (session.workspaceRoot ? "project" : "global");
       try {
         let targetTab: TabMeta;
         if (isChannelSession(session)) {
-          targetTab = await ensureBlankTab(scope === "project" ? "project" : "global", scope === "project" ? session.workspaceRoot || "" : "");
+          targetTab = singleSurfaceLayout
+            ? await ensureBlankSurface(scope === "project" ? "project" : "global", scope === "project" ? session.workspaceRoot || "" : "")
+            : await ensureBlankTab(scope === "project" ? "project" : "global", scope === "project" ? session.workspaceRoot || "" : "");
           await openChannelSession(session.path, targetTab.id);
         } else if (scope === "project" && session.workspaceRoot && session.topicId) {
-          targetTab = await openProjectTab(session.workspaceRoot, session.topicId);
+          targetTab = singleSurfaceLayout
+            ? await activateTopic("project", session.workspaceRoot, session.topicId, session.path)
+            : await openProjectTab(session.workspaceRoot, session.topicId);
         } else if (scope === "global" && session.topicId) {
-          targetTab = await openGlobalTab(session.topicId);
+          targetTab = singleSurfaceLayout
+            ? await activateTopic("global", "", session.topicId, session.path)
+            : await openGlobalTab(session.topicId);
         } else {
           throw new Error(scope === "global" && !session.topicId
             ? t("history.failedOpenSession")
             : (session.topicId ? "Missing workspaceRoot" : t("history.failedOpenSession")));
         }
         setHistView(null);
-        if (!isChannelSession(session)) {
+        if (!isChannelSession(session) && !singleSurfaceLayout) {
           await resumeSession(session.path, targetTab.id);
         }
         await refreshTabMetas();
@@ -2220,7 +2215,7 @@ export default function App() {
         }
       }
     },
-    [ensureBlankTab, openChannelSession, openGlobalTab, openProjectTab, refreshTabMetas, state.running, resumeSession, t, showToast],
+    [activateTopic, ensureBlankSurface, ensureBlankTab, openChannelSession, openGlobalTab, openProjectTab, refreshTabMetas, state.running, resumeSession, singleSurfaceLayout, t, showToast],
   );
 
   // Command palette: ⌘K / Ctrl+K opens a fuzzy navigator over commands and
@@ -3056,23 +3051,18 @@ export default function App() {
                 onManageAllowlist={() => openBotAllowlistSettings(sidebarImDetailConnection.connectionId)}
                 onOpenSession={() => void openSidebarImConnectionSession(sidebarImDetailConnection)}
               />
-            ) : state.meta?.ready === false && !state.meta?.startupErr ? (
-              <div className="loading-screen">
-                <div className="loading-screen__spinner" />
-                <span className="loading-screen__text">{t("common.loading")}</span>
-              </div>
             ) : (
               <Transcript
                 items={displayItems}
                 live={state.live}
                 tabId={activeTabId}
                 footerHeight={footerHeight}
-                onPrompt={commitThenSend}
+                onPrompt={handleTranscriptPrompt}
                 onEditPrompt={handleEditPrompt}
                 onRewind={handleMessageAction}
                 checkpoints={state.checkpoints}
                 actionPending={state.messageAction != null}
-                rewindDisabled={Boolean(activeTab?.readOnly) || rewindState != null || rewindCommitting || state.running || state.messageAction != null || state.approval != null || state.ask != null || clearContextPending}
+                rewindDisabled={Boolean(activeTab?.readOnly) || !controllerReady || rewindState != null || rewindCommitting || state.running || state.messageAction != null || state.approval != null || state.ask != null || clearContextPending}
                 running={state.running || rewindCommitting}
                 welcomeVariant={sidebarCreation ? "creation" : "default"}
                 creationMode={sidebarCreation}
@@ -3164,9 +3154,10 @@ export default function App() {
               onSetTokenMode={applyTokenMode}
               insertRequest={composerInsertRequest}
               readOnly={Boolean(activeTab?.readOnly)}
-              disabled={state.meta?.ready === false || rewindCommitting || state.messageAction != null || state.approval != null || state.ask != null || clearContextPending}
+              disabled={rewindCommitting || state.messageAction != null || state.approval != null || state.ask != null || clearContextPending}
+              submitDisabled={!controllerReady}
               decisionPending={rewindCommitting || state.messageAction != null || state.approval != null || state.ask != null || clearContextPending}
-              ready={state.meta?.ready === true}
+              ready={controllerReady}
               turnStartAt={state.turnStartAt}
               turnTokens={state.turnTokens}
               retry={state.retry}
@@ -3192,6 +3183,7 @@ export default function App() {
               workspacePath={state.meta?.workspacePath || state.meta?.workspaceRoot || state.meta?.cwd}
               workspaceName={state.meta?.workspaceName}
               gitBranch={state.meta?.gitBranch}
+              hydrationLabel={hydrateStatusLabel}
             />
           </footer>
           )}
@@ -3365,7 +3357,9 @@ export default function App() {
       {needsOnboarding && <OnboardingOverlay onComplete={() => setNeedsOnboarding(false)} />}
 
       <HeartbeatPanel open={heartbeatOpen} onClose={() => setHeartbeatOpen(false)} onOpenTopic={(scope, workspaceRoot, topicId) => {
-        if (scope === "project" && workspaceRoot) {
+        if (singleSurfaceLayout) {
+          activateTopic(scope, workspaceRoot, topicId);
+        } else if (scope === "project" && workspaceRoot) {
           openProjectTab(workspaceRoot, topicId);
         } else {
           openGlobalTab(topicId);
