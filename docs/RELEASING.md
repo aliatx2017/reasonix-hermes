@@ -6,7 +6,7 @@ How Reasonix ships, who can ship what, and the canary-before-stable flow.
 
 - **`main-v2`** is the single development line (the v2 / 1.x trunk). Every PR merges here.
 - **Production is a tag, not a branch.** A release is a tagged snapshot of `main-v2`:
-  `v1.10.x` (CLI), `hermes-npm-v1.10.x` (npm), `desktop-v1.10.x` (desktop).
+  `v1.11.x` (CLI), `hermes-npm-v1.11.x` (npm), `desktop-v1.11.x` (desktop).
 - **`v1`** is the archived 1.0/legacy line — maintenance only.
 - **Hotfix** an already-released version by branching from its tag, fixing, and tagging again.
 
@@ -52,9 +52,9 @@ the `release` environment deployment.
 4. **Fix** on `main-v2` via PRs; re-cut the canary as needed (`canary.N` bumps).
 5. **Ship stable** when the canary is clean — push the three tags:
    ```sh
-   git tag v1.10.0         && git push origin v1.10.0          # CLI binaries + Homebrew
-   git tag hermes-npm-v1.10.0     && git push origin hermes-npm-v1.10.0      # npm -> next
-   git tag desktop-v1.10.0 && git push origin desktop-v1.10.0  # desktop -> R2 latest/
+   git tag v1.11.0         && git push origin v1.11.0          # CLI binaries + Homebrew
+   git tag hermes-npm-v1.11.0     && git push origin hermes-npm-v1.11.0      # npm -> next
+   git tag desktop-v1.11.0 && git push origin desktop-v1.11.0  # desktop -> R2 latest/
    ```
    Each stable run **waits for esengine to approve the `release` environment** before publishing.
 6. **Promote to default install** (optional, when 1.x should become the bare `npm i` target):
@@ -67,7 +67,7 @@ the `release` environment deployment.
 
 - Canary version numbers use the workflow `run_number`, so the desktop and CLI canary
   numbers differ (e.g. `canary.11` vs `canary.2`). Only monotonicity per channel matters.
-- A stable `-rc` tag (e.g. `hermes-npm-v1.10.0-rc.1`) still ships under `next`, not `canary`.
+- A stable `-rc` tag (e.g. `hermes-npm-v1.11.0-rc.1`) still ships under `next`, not `canary`.
 - Desktop in-app updates use R2 first. Stable has a GitHub release fallback; canary is
   R2-only and never appears on the GitHub releases page.
 - Windows and Linux apply downloaded, minisign-verified artifacts in place. macOS

@@ -74,7 +74,6 @@ type Config struct {
 	Billing            BillingConfig             `toml:"billing"`
 	AgentLog           AgentLogConfig            `toml:"agentlog"`
 	CredentialsStore string              `toml:"credentials_store"`
-	CredentialsStore string              `toml:"credentials_store"`
 	Serve            ServeConfig         `toml:"serve"`
 
 	providerSources          map[string]providerSourceScope

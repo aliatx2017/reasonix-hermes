@@ -5,8 +5,5 @@ import "reasonix/internal/checkpoint"
 
 // CheckpointFileSnaps returns file snapshots for a specific turn, or nil.
 func (c *Controller) CheckpointFileSnaps(turn int) []checkpoint.FileSnap {
-	if c.cp == nil {
-		return nil
-	}
-	return c.cp.FileSnaps(turn)
+	return c.checkpoints.fileSnaps(turn)
 }

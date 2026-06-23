@@ -2,7 +2,7 @@
 
 > A DeepSeek-native AI coding agent — forked and extended for the community.
 
-**Reasonix Hermes** is an extended fork of [esengine/deepseek-reasonix](https://github.com/esengine/deepseek-reasonix) (synced to v1.10.x). We build on upstream's config-driven, plugin-driven Go core and add cross-agent connectivity, persistent memory, multi-platform bot adapters, and community tooling.
+**Reasonix Hermes** is an extended fork of [esengine/deepseek-reasonix](https://github.com/esengine/deepseek-reasonix) (synced to v1.11.x). We build on upstream's config-driven, plugin-driven Go core and add cross-agent connectivity, persistent memory, multi-platform bot adapters, and community tooling.
 
 - **Repo**: <https://github.com/aliatx2017/reasonix-hermes>
 - **Upstream**: <https://github.com/esengine/deepseek-reasonix> (branch `main-v2`)
@@ -89,7 +89,7 @@ Command-line frontends          HTTP frontends            Desktop frontend
    └─────────┘  └─────────┘  └─────────┘
 ```
 
-### Go packages (70 internal packages)
+### Go packages (72 internal packages)
 
 | Area | Packages | Purpose |
 |------|----------|---------|
@@ -159,7 +159,7 @@ See the [Desktop Guide](./DESKTOP.md) for full details.
 
 Hermes tracks [esengine/deepseek-reasonix](https://github.com/esengine/deepseek-reasonix) (branch `main-v2`). Automated sync via `.github/workflows/sync-upstream.yml` runs daily at 20:00 UTC — clean merge → build+test → push. On conflict, opens a PR for manual resolution.
 
-**Current upstream target**: v1.10.0 (commit 7aa97d31, 2026-06-22).
+**Current upstream target**: v1.11.1 (commit 9c27591e, 2026-06-23).
 
 ```sh
 git fetch upstream

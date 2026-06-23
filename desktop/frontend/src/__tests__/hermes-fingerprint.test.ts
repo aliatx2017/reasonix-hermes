@@ -50,8 +50,9 @@ console.log('\nhermes fingerprint — desktop frontend');
     'App.tsx: key 1 → openPalette');
   ok(s.includes('setRightDockMode((cur) => cur === "context" ? "none" : "context")'),
     'App.tsx: key 5 dock toggle with "none" fallback');
-  ok(/type RightDockMode\s*=\s*"none"/.test(s),
-    'App.tsx: RightDockMode includes "none"');
+  // RightDockMode type was moved to store/layout.ts by upstream refactoring
+  ok(source('store/layout.ts').includes('"none"') && source('store/layout.ts').includes('type RightDockMode'),
+    'store/layout.ts: RightDockMode includes "none"');
   // Hermes integration: the HermesSettings component is rendered via
   // SettingsPanel, not imported directly in App.tsx. The import lives in
   // SettingsPanel.tsx (verified separately below).

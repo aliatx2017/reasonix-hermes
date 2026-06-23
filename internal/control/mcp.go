@@ -153,8 +153,8 @@ func (m *mcpManager) prompts() []plugin.Prompt {
 	return nil
 }
 
-// pluginCtx returns the session-scoped context for MCP subprocess binding.
-func (m *mcpManager) pluginCtx() context.Context {
+// PluginCtx returns the session-scoped context for MCP subprocess binding.
+func (m *mcpManager) PluginCtx() context.Context {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.pluginCtx

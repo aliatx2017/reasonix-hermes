@@ -113,7 +113,7 @@ export function saveRightDockPreviewWidth(width: number): void {
 // drag flags, button-press animation flags, measured footer height, viewport
 // width — deliberately stay as useState in App.tsx; they have no cross-component
 // readers and don't belong in shared state.)
-export type RightDockMode = "context" | "files" | "changed";
+export type RightDockMode = "none" | "context" | "files" | "changed";
 
 export type LayoutState = {
   sidebarCollapsed: boolean;
@@ -124,7 +124,7 @@ export type LayoutState = {
   workspacePanelMaximized: boolean;
   workspacePreviewActive: boolean;
   rightDockMode: RightDockMode;
-  setSidebarCollapsed: (collapsed: boolean) => void;
+  setSidebarCollapsed: Dispatch<SetStateAction<boolean>>;
   setSidebarWidth: (width: number) => void;
   setRightDockTreeWidth: (width: number) => void;
   setRightDockPreviewWidth: (width: number) => void;
@@ -143,7 +143,7 @@ export const useLayoutStore = create<LayoutState>((set) => ({
   workspacePanelMaximized: false,
   workspacePreviewActive: false,
   rightDockMode: "context",
-  setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
+  setSidebarCollapsed: (update) => set((s) => ({ sidebarCollapsed: applySetState(s.sidebarCollapsed, update) })),
   setSidebarWidth: (width) => set({ sidebarWidth: width }),
   setRightDockTreeWidth: (width) => set({ rightDockTreeWidth: width }),
   setRightDockPreviewWidth: (width) => set({ rightDockPreviewWidth: width }),

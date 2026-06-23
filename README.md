@@ -14,7 +14,7 @@
 
 > **Reasonix Hermes** is an extended fork of
 > [esengine/deepseek-reasonix](https://github.com/esengine/deepseek-reasonix)
-> (synced to v1.10.x), the DeepSeek-native AI coding agent. We build on
+> (synced to v1.11.x), the DeepSeek-native AI coding agent. We build on
 > upstream's config-driven, plugin-driven Go core and add a Discord bot,
 > MCP bridge server, Hindsight memory server, curated skill registry,
 > native hook runner, and portable mode — everything an agent ecosystem
@@ -233,7 +233,7 @@ Full reference: **[Guide](./docs/GUIDE.md)** covers permissions, sandbox, plugin
 
 <br/>
 Resolution order is **flag > `./reasonix.toml` > the user config file >
-built-in defaults**; starting with **Reasonix v1.8.1**, the user file lives at
+built-in defaults**; starting with **Reasonix v1.11.0**, the user file lives at
 `~/.reasonix/config.toml` on macOS/Linux and
 `%AppData%\reasonix\config.toml` on Windows. See
 **[Configuration paths](./docs/CONFIG_PATHS.md)** for migration details and the

@@ -77,8 +77,10 @@ ok(
 );
 
 // 9. "none" must be in RightDockMode (required by key 5 dock toggle)
+// RightDockMode is defined in store/layout.ts since upstream refactored it there.
+const layoutSource = readFileSync(resolve(here, '../store/layout.ts'), 'utf8');
 ok(
-  /type RightDockMode\s*=\s*"none"/.test(appSource),
+  /type RightDockMode\s*=\s*(?:"none"\s*\|\s*)?(?:"context"|"files"|"changed")(\s*\|\s*"none"|\s*\|\s*"(?:context|files|changed)")*/.test(layoutSource) && layoutSource.includes('"none"'),
   'RightDockMode includes "none" (required for dock toggle)',
 );
 

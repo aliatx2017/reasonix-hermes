@@ -94,6 +94,7 @@ reasonix/
     ├── e2e/                # [Hermes] replay-based regression testing harness
     ├── eval/               # [Hermes] session comparison tool — structural diff, Jaccard similarity
     ├── event/              # typed event stream the agent emits during a turn
+    ├── eventwire/           # unified wire format for events (CLI/TUI + desktop + serve)
     ├── evidence/           # step completion evidence tracking
     ├── fileref/            # file reference resolution
     ├── fileutil/           # file utility helpers
@@ -138,7 +139,7 @@ reasonix/
 ```
 
 [Hermes] = Reasonix-Hermes custom additions (not present in upstream esengine/deepseek-reasonix).
-Total: 56 internal packages.
+Total: 72 internal packages.
 
 Dependency direction (acyclic): `cli → {agent, plugin, config} → {tool, provider}`.
 Built-in subpackages (`provider/openai`, `tool/builtin`) import their parent to

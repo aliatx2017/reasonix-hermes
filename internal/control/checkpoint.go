@@ -57,6 +57,16 @@ func (m *checkpointManager) enabled() bool {
 	return m.store != nil
 }
 
+// fileSnaps returns the file snapshots for a specific turn, or nil.
+func (m *checkpointManager) fileSnaps(turn int) []checkpoint.FileSnap {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.store == nil {
+		return nil
+	}
+	return m.store.FileSnaps(turn)
+}
+
 // begin opens a checkpoint for the turn about to run, recording msgIndex as the
 // conversation-rewind boundary. No-op when checkpoints are disabled.
 func (m *checkpointManager) begin(input string, msgIndex int) {

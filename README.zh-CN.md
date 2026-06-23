@@ -15,7 +15,7 @@
 </p>
 
 > **Reasonix Hermes** 是 [esengine/deepseek-reasonix](https://github.com/esengine/deepseek-reasonix)
-> 的扩展 fork（已同步至 v1.10.x）—— 一个 DeepSeek 原生的 AI coding agent。
+> 的扩展 fork（已同步至 v1.11.x）—— 一个 DeepSeek 原生的 AI coding agent。
 > 我们在上游的配置驱动、插件驱动 Go 核心之上，增加了 Discord bot、
 > MCP bridge server、Hindsight 记忆服务、社区 skill 仓库、
 > 原生 hook runner 和 portable mode —— 让 agent 生态具备连接、记忆和协作能力。
@@ -139,7 +139,7 @@ api_key_env = "DEEPSEEK_API_KEY"
 ```
 
 优先级为 **flag > `./reasonix.toml` > 用户配置文件 > 内置默认值**；从
-**Reasonix v1.8.1** 开始，用户配置位于 macOS/Linux 的 `~/.reasonix/config.toml`，
+**Reasonix v1.11.0** 开始，用户配置位于 macOS/Linux 的 `~/.reasonix/config.toml`，
 Windows 为 `%AppData%\reasonix\config.toml`。迁移细节见
 **[配置路径](./docs/CONFIG_PATHS.zh-CN.md)**，其中也说明了全局 `config.toml`
 和 `.env` 的完整结构。Provider 通过 `api_key_env` 命名密钥，真实密钥值保存在
