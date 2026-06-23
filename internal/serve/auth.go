@@ -65,6 +65,7 @@ func NormalizeAuthMode(mode string) (string, error) {
 type rateLimit struct {
 	mu       sync.Mutex
 	attempts map[string]*rateWindow
+	done     chan struct{}
 }
 
 type rateWindow struct {
@@ -78,25 +79,42 @@ const (
 )
 
 func newRateLimit() *rateLimit {
-	rl := &rateLimit{attempts: make(map[string]*rateWindow)}
+	rl := &rateLimit{
+		attempts: make(map[string]*rateWindow),
+		done:     make(chan struct{}),
+	}
 	go rl.cleanupLoop()
 	return rl
 }
 
-// cleanupLoop periodically purges expired rate-limit windows so the map does not
-// grow without bound over the lifetime of a long-running server.
+// Stop terminates the cleanup goroutine. Safe to call multiple times.
+func (rl *rateLimit) Stop() {
+	select {
+	case <-rl.done:
+	default:
+		close(rl.done)
+	}
+}
+
+// cleanupLoop periodically purges expired rate-limit windows so the map does
+// not grow without bound over the lifetime of a long-running server.
 func (rl *rateLimit) cleanupLoop() {
 	ticker := time.NewTicker(2 * rateLimitWin)
 	defer ticker.Stop()
-	for range ticker.C {
-		rl.mu.Lock()
-		now := time.Now()
-		for ip, w := range rl.attempts {
-			if now.Sub(w.start) > rateLimitWin {
-				delete(rl.attempts, ip)
+	for {
+		select {
+		case <-rl.done:
+			return
+		case <-ticker.C:
+			rl.mu.Lock()
+			now := time.Now()
+			for ip, w := range rl.attempts {
+				if now.Sub(w.start) > rateLimitWin {
+					delete(rl.attempts, ip)
+				}
 			}
+			rl.mu.Unlock()
 		}
-		rl.mu.Unlock()
 	}
 }
 

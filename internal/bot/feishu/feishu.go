@@ -10,6 +10,7 @@ package feishu
 import (
 	"context"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -404,7 +405,8 @@ func cardActionToast(toastType, content string) *callback.CardActionTriggerRespo
 }
 
 func (a *adapter) verificationTokenValid(token string) bool {
-	return a.cfg.VerificationToken == "" || token == a.cfg.VerificationToken
+	return a.cfg.VerificationToken == "" ||
+		subtle.ConstantTimeCompare([]byte(token), []byte(a.cfg.VerificationToken)) == 1
 }
 
 func firstNonEmpty(vals ...string) string {
@@ -707,13 +709,19 @@ func (a *adapter) runWebhook(ctx context.Context) {
 	})
 
 	server := &http.Server{
-		Addr:    fmt.Sprintf(":%d", port),
-		Handler: mux,
+		Addr:              fmt.Sprintf("127.0.0.1:%d", port),
+		Handler:           mux,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       120 * time.Second,
 	}
 
 	go func() {
 		<-ctx.Done()
-		if err := server.Shutdown(context.Background()); err != nil && err != http.ErrServerClosed {
+		shutCtx, shutCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer shutCancel()
+		if err := server.Shutdown(shutCtx); err != nil && err != http.ErrServerClosed {
 			a.logger.Error("feishu webhook shutdown error", "err", err)
 		}
 	}()

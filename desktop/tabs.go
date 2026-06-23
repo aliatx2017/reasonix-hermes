@@ -2923,15 +2923,17 @@ func readFileWithTimeout(path string, timeout time.Duration) ([]byte, error) {
 	ch := make(chan result, 1)
 	go func() {
 		data, err := os.ReadFile(path)
-		<-readFileWithTimeoutSlots
 		ch <- result{data: data, err: err}
 	}()
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()
 	select {
 	case r := <-ch:
+		<-readFileWithTimeoutSlots
 		return r.data, r.err
 	case <-timer.C:
+		<-readFileWithTimeoutSlots
+		// Goroutine may still be reading; channel is buffered so send never blocks.
 		return nil, fmt.Errorf("timed out after %v reading %s", timeout, filepath.Base(path))
 	}
 }

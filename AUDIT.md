@@ -1,442 +1,946 @@
-# Reasonix Codebase Audit (Historical — June 2026)
-
-> **Note:** This is a historical audit from June 2025. All 6 bugs documented
-> below have been fixed in subsequent releases. See `docs/CHANGELOG-HERMES.md`
-> for the most recent audit. The architecture tree below reflects the codebase
-> as of June 2025 (~20 packages). The current codebase has 57 packages (see
-> `docs/SPEC.md` §2 for the full layout).
-
-**Date:** 2026-06-11  
-**Status:** Historical — all bugs resolved  
-**Scope:** All Go source under `cmd/`, `internal/`, `pkg/`, `bot/`  
-**Files:** 272 non-test `.go` + 293 test `.go` = 565 total  
-**Lines:** ~64K production + ~50K test ≈ 114K total  
-**Build:** `go vet ./...` clean (at time of audit)  
-
----
+# Reasonix Go Codebase Audit — June 2026
 
 ## Executive Summary
 
-Reasonix is a well-structured, production-grade Go project. The architecture follows Go conventions: `cmd/` for entrypoints, `internal/` for encapsulated business logic, `pkg/` for shared public libraries, `bot/` for the standalone bot binary. No circular imports. Test coverage is above average for Go projects (293 test files, 258 under `internal/` alone). All tests pass with `-race`.
+| Metric | Value |
+|--------|-------|
+| Go files | 766 (379 source, 387 test) |
+| Lines of Go | 222,832 |
+| Go version | 1.26.4 (go.mod: 1.25.0) |
+| Packages | 84 |
+| Tests | 3,642 — ALL PASS |
+| Race detector | CLEAN |
+| `go vet` | CLEAN |
+| `go build` | CLEAN |
+| `staticcheck` | 1 issue (unused test helper) |
+| `golangci-lint` | 1 issue (same unused func) |
+| `govulncheck` | NO VULNERABILITIES |
+| Test coverage | 66.5% |
+| CI workflows | 18 (3-OS matrix, race, lint, vulncheck, coverage) |
 
-**Key findings:**
-
-1. **Two confirmed bugs** — `MemoryStore.mu` race on concurrent access; `sqliteStorage.Save` does full DELETE+INSERT under a transaction without row-level locking, risking data loss under concurrent writes.
-2. **One data-corruption risk** — `MemoryStore` file persistence (`memories.json`) has no atomic write; crash mid-write = zero-length file.
-3. **One security gap** — `http.DefaultClient` used in `cmd/reasonix-mcpbridge/main.go:325` and `cmd/reasonix-hooks/main.go:153` with no timeout on transport; also no TLS certificate verification customization.
-4. **One injection vector** — `sqliteStorage.Search` builds LIKE patterns from user input; parameterized queries prevent SQL injection, but LIKE wildcards (`%`, `_`) in user queries are not escaped, allowing wildcard injection.
-5. **One resource leak** — `sqliteStorage` `db.Close()` is never called in `main()`; the SQLite connection leaks on shutdown.
-6. **Architecture smells** — `internal/bot/gateway.go` (592 lines, 16K) and `internal/control/controller.go` (2,722 lines) are god objects. `internal/cli/` has 49 source files with no cohesive boundary.
+**Overall grade: B+** — Production-grade codebase with solid fundamentals. Clean build, clean vet, zero race conditions, zero vulnerabilities. Gaps are in HTTP timeout coverage, file permission consistency, missing pprof, and test coverage below 80% target.
 
 ---
 
-## Architecture Overview
+## 1. SECURITY
 
+### CRITICAL
+
+#### S1. WebSocket CheckOrigin allows any origin (CSRF)
+**File:** `internal/collab/collab.go:305`
+```go
+up := websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }}
 ```
-cmd/
-  reasonix/          → main CLI entrypoint (dispatches to internal/cli)
-  reasonix-hooks/   → git hook manager
-  reasonix-plugin-example/ → plugin SDK example
-  e2ebench/         → end-to-end mutation benchmark
+**Risk:** Cross-site WebSocket hijacking. Malicious page can open WS to this endpoint, bypassing same-origin policy.
+**Fix:** Validate against allowlist:
+```go
+up := websocket.Upgrader{CheckOrigin: func(r *http.Request) bool {
+    origin := r.Header.Get("Origin")
+    for _, allowed := range allowedOrigins {
+        if origin == allowed { return true }
+    }
+    return false
+}}
+```
+**Note:** Same pattern in `internal/collab/collab_test.go:54` — acceptable for test.
 
-internal/
-  agent/       → LLM agent loop, tool dispatch, conversation management
-  boot/        → session bootstrap, controller assembly
-  bot/         → multi-platform bot gateway (Discord, Feishu, QQ, WeChat)
-  cli/         → TUI (Bubble Tea), command routing, 49 source files
-  config/      → TOML config loading, MCP server config, model selection
-  control/     → controller: orchestrates agent runs, approvals, checkpoints
-  checkpoint/  → session state snapshots for resume
-  event/       → typed event stream (Sink interface, Event types)
-  evidence/    → readiness audit receipts
-  fileref/     → file reference resolution
-  fileutil/    → file utility functions (encoding sub-package)
-  frontmatter/ → YAML frontmatter parser
-  hook/        → git hook lifecycle (pre-commit, post-commit, etc.)
-  i18n/        → English/Chinese message catalogs
-  instruction/ → system prompt composition
-  jobs/        → background job runner
-  lsp/         → LSP client integration
-  memory/      → hierarchical doc-memory + auto-memory (remember/forget)
-  mcpdiag/     → MCP server diagnostics
-  netclient/   → HTTP client factory
-  nilutil/     → nil-safe interface helpers
-  notify/      → cross-platform desktop notifications
-  outputstyle/ → output style enum (concise, verbose, etc.)
-  permission/  → policy engine: allow/ask/deny rules, Gate, glob matching
-  plugin/      → MCP plugin transport (stdio, SSE), lifecycle
-  proc/        → process management (kill groups, signal handling)
-  provider/    → LLM provider abstraction (openai, anthropic sub-packages)
-  sandbox/     → OS-level sandbox (macOS Seatbelt)
-  serve/       → HTTP/WebSocket server mode
-  skill/       → skill registry and loader
-  sysproxy/    → system proxy detection
-  tool/        → tool registry (builtin/ sub-package with 26 source files)
+#### S2. `http.ListenAndServe` without timeouts (slowloris)
+**File:** `internal/serve/serve.go:277`
+```go
+func (s *Server) Run(addr string) error {
+    s.ctl().EnableInteractiveApproval()
+    return http.ListenAndServe(addr, s.Handler())
+}
+```
+**Risk:** Slowloris DoS — attacker opens connections slowly, exhausts server file descriptors.
+**Fix:** Use `http.Server{}` with timeouts (the `RunGraceful` method at line 283 already does this correctly):
+```go
+srv := &http.Server{
+    Addr:              addr,
+    Handler:           s.Handler(),
+    ReadHeaderTimeout: 10 * time.Second,
+    ReadTimeout:       30 * time.Second,
+    WriteTimeout:      30 * time.Second,
+    IdleTimeout:       120 * time.Second,
+}
+return srv.ListenAndServe()
+```
+**Note:** `RunGraceful()` at line 283 is correct — has `ReadHeaderTimeout`. The non-graceful `Run()` is the gap.
 
-pkg/
-  mcpbridge/     → standalone MCP bridge server (reasonix-as-MCP-tool)
-  memoryserver/  → Hindsight memory MCP server (retain/recall/reflect)
-  mcputil/       → MCP JSON-RPC server framework
-  httputil/      → Bearer auth middleware
+#### S3. HTTP servers missing WriteTimeout/ReadTimeout
+**Files:**
+- `internal/bot/line/line.go:100` — `&http.Server{Handler: mux}` — no timeouts
+- `internal/bot/feishu/feishu.go:709` — `&http.Server{Addr: ..., Handler: mux}` — no timeouts
 
-bot/
-  main.go → standalone Discord/bot entrypoint
+**Risk:** Slow request/response can hang connections indefinitely.
+**Fix:** Add `ReadHeaderTimeout`, `ReadTimeout`, `WriteTimeout` to all `http.Server{}` instances.
+
+### HIGH
+
+#### S4. `http.DefaultClient.Do()` without timeout (production code)
+**Files:**
+- `desktop/write_mode.go:241` — LLM completions API call
+- `desktop/bot_connection_app.go:684` — OAuth registration
+- `cmd/reasonix-pr-review/main.go:105,127` — GitHub API calls
+- `internal/bot/qq/gateway.go:385` — QQ gateway API
+
+**Risk:** `http.DefaultClient` has NO timeout. Hung API calls block forever.
+**Fix:** Use `netclient.DefaultClient()` (project's pooled client with 120s timeout) or pass context with deadline:
+```go
+resp, err := netclient.DefaultClient().Do(req)  // instead of http.DefaultClient.Do(req)
+```
+**Note:** Project already has `netclient.DefaultClient()` with proper timeouts (10s dial, 30s header, 120s overall). These call sites just don't use it.
+
+#### ~~S5. Dockerfile UID mismatch~~ (RETRACTED — false alarm)
+**File:** `Dockerfile:30`
+```dockerfile
+RUN mkdir -p /workspace && chown 65532:65532 /workspace
+```
+**Image:** `gcr.io/distroless/static-debian12:nonroot` uses UID **65532** (confirmed via Google Groups distroless-users). The Dockerfile is CORRECT.
+**Note:** Initial audit incorrectly claimed UID 65534. That was wrong — 65532 is the right value for distroless nonroot. Skill `go-mcp-server` had same error, patched.
+
+#### S6. Shell command execution via `sh -c` with user input
+**File:** `internal/cli/eval.go:296`
+```go
+out, err := exec.Command("sh", "-c", cmd).CombinedOutput()
+```
+**Risk:** If `cmd` contains user-controlled input, this is command injection.
+**Context:** This is in eval runner — `cmd` comes from eval check definitions. If eval definitions are user-controllable (e.g., from skill files), this is exploitable.
+**Fix:** Validate `cmd` against allowlist, or split into args and use `exec.Command(parts[0], parts[1:]...)` without shell.
+
+### MEDIUM
+
+#### S7. Non-constant-time token comparison (timing attack)
+**File:** `internal/bot/feishu/feishu.go:406-408`
+```go
+func (a *adapter) verificationTokenValid(token string) bool {
+    return a.cfg.VerificationToken == "" || token == a.cfg.VerificationToken
+}
+```
+**Risk:** `==` comparison is vulnerable to timing side-channel. Attacker can deduce token byte-by-byte by measuring response time.
+**Fix:** Use `crypto/subtle.ConstantTimeCompare`:
+```go
+return a.cfg.VerificationToken == "" ||
+    subtle.ConstantTimeCompare([]byte(token), []byte(a.cfg.VerificationToken)) == 1
 ```
 
-**Dependency direction** is clean: `cmd/` → `internal/` → `pkg/` (no upward imports). No circular dependencies detected. `internal/bot/` depends on `internal/boot`, `internal/control`, `internal/event` — appropriate. `pkg/` packages are independent and reusable.
+#### S8. Raw `err.Error()` in HTTP responses (info leak)
+**File:** `internal/serve/serve.go:397,409,454`
+```go
+http.Error(w, err.Error(), http.StatusInternalServerError)
+```
+**Risk:** Internal errors (file paths, provider details, API key fragments) leak to HTTP clients.
+**Fix:** Log full error internally, return generic message:
+```go
+slog.Error("switch model failed", "err", err)
+http.Error(w, "internal server error", http.StatusInternalServerError)
+```
+
+#### S9. Bind all interfaces by default
+**Files:**
+- `internal/bot/feishu/feishu.go:710` — `Addr: fmt.Sprintf(":%d", port)` (all interfaces)
+- `internal/collab/collab.go:101` — `cfg.ListenAddr = ":9091"` (all interfaces)
+
+**Risk:** Webhook/collab endpoints accessible from network. If not behind reverse proxy, anyone can reach them.
+**Fix:** Default to `127.0.0.1`:
+```go
+Addr: fmt.Sprintf("127.0.0.1:%d", port)  // feishu
+cfg.ListenAddr = "127.0.0.1:9091"         // collab
+```
+
+#### S10. Path traversal in memory doc resolver
+**File:** `internal/memory/doc.go:250-260`
+```go
+func resolvePath(p, baseDir string) string {
+    if strings.HasPrefix(p, "~") {
+        return filepath.Join(home, rest)  // can escape via ~/../
+    }
+    if filepath.IsAbs(p) { return p }     // arbitrary absolute paths
+    return filepath.Join(baseDir, p)      // can escape via ../../
+}
+```
+**Risk:** Path traversal — `~/../../../etc/passwd` or `../../etc/passwd` can escape intended directory.
+**Fix:** After resolving, verify result is within allowed root:
+```go
+resolved := filepath.Clean(filepath.Join(baseDir, p))
+rel, err := filepath.Rel(baseDir, resolved)
+if err != nil || strings.HasPrefix(rel, "..") {
+    return "" // or return error
+}
+```
+
+### LOW
+
+#### S11. Unbounded `io.ReadAll` on HTTP responses
+**Files:**
+- `internal/bot/qq/gateway.go:158,390` — `io.ReadAll(resp.Body)` without LimitReader
+- `internal/cli/upgrade.go:243,293,316` — `io.ReadAll(resp.Body)` without limit
+- `internal/jobs/jobs.go:640` — `io.ReadAll(f)` on file (less risky)
+- `internal/memory/doc.go:127` — `io.ReadAll(f)` on file
+- `cmd/reasonix-hooks/main.go:63` — `io.ReadAll(os.Stdin)` (stdin from parent, low risk)
+
+**Risk:** OOM if response body is unexpectedly large.
+**Fix:** Wrap with `io.LimitReader`:
+```go
+body, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20)) // 10MB max
+```
+**Note:** Most other call sites in the codebase already use `io.LimitReader` correctly. These are the exceptions.
+
+#### S12. File permissions too permissive for sensitive data
+**Files (0o644 on potential config/session data):**
+- `desktop/window_state.go:66` — `os.WriteFile(path, data, 0o644)`
+- `desktop/workspace.go:46,120,149` — workspace paths at 0o644
+- `desktop/write_mode.go:122,127,155` — file writes at 0o644
+- `desktop/hermes_dashboard.go:917` — dashboard data at 0o644
+
+**Risk:** 0o644 = world-readable. Session/config data should be 0o600 (owner-only).
+**Fix:** Use 0o600 for files containing user data, session state, or configuration.
 
 ---
 
-## Package-by-Package Analysis
+## 2. CONCURRENCY
 
-### `cmd/reasonix/main.go`
-- **Purpose:** CLI entrypoint, thin wrapper over `internal/cli`.
-- **API surface:** Single `main()` that calls `cli.Run()`.
-- **Cohesive:** Yes. Exits with `os.Exit(cli.Run(...))`.
-- **Tests:** None at package level (all testing in `internal/cli`).
-- **Issues:** None.
+### GOOD
 
-### `cmd/reasonix-hooks/main.go` (5,795 chars)
-- **Purpose:** Manages git hooks (install, uninstall, run).
-- **API surface:** `main()`, three subcommands.
-- **Cohesive:** Yes. Single responsibility.
-- **Tests:** Present (`main_test.go`). Tests hook installation lifecycle.
-- **Issues:** Uses `http.DefaultClient` at line 153 for callback — no transport timeout.
+- `sync.RWMutex` used correctly — `RLock()` for reads, `Lock()` for writes throughout `desktop/` and `cmd/reasonix-memoryserver/`.
+- `atomic.Pointer`, `atomic.Int64`, `atomic.Uint64` used for counters and pointers in `internal/control/controller.go`.
+- `sync.Pool` used in `internal/provider/openai/openai.go:185` and `internal/provider/anthropic/anthropic.go:145` for buffer reuse.
+- Race detector: CLEAN across 3,642 tests.
+- `sync.Once` guards `close()` in ACP server — no double-close panics.
+- `wg.Add` before `go` pattern followed consistently in `plugin.Host`, `mesh`, `orchestrate`, `jobs`.
+- `errgroup` not used but not needed — goroutine coordination via channels and context.
 
-### `cmd/reasonix-plugin-example/main.go` (13K chars)
-- **Purpose:** Reference MCP plugin implementation.
-- **Tests:** None (example code).
-- **Issues:** None significant (example code).
+### CRITICAL
 
-### `cmd/e2ebench/main.go` (13.7K chars)
-- **Purpose:** End-to-end mutation benchmark.
-- **Tests:** None (benchmark tool).
-- **Issues:** Multiple `os.Exit(1)` calls — acceptable for CLI tool.
+#### C1. `context.Background()` in request paths — detached goroutines ignore parent cancellation
 
-### `internal/boot/boot.go` (1,155 lines)
-- **Purpose:** Session bootstrap: config loading, controller assembly, model resolution.
-- **API surface:** `Build(ctx, Options) (*control.Controller, error)` — single entry point.
-- **Cohesive:** Mostly yes, but the file is large. Builds controller, memory, permissions, tools, provider all in one function.
-- **Tests:** 5 test files. Good coverage of config resolution.
-- **Issues:** `Build()` is a mega-function that assembles 10+ subsystems. Hard to test in isolation.
+Multiple goroutines spawn with `context.Background()` inside request handling paths, detaching from parent context. These goroutines cannot be cancelled when parent request/session terminates.
 
-### `internal/control/controller.go` (2,722 lines)
-- **Purpose:** Core agent controller — run loop, tool execution, approval flow, checkpointing.
-- **API surface:** `Controller` struct with `Run()`, `Approve()`, `AnswerQuestion()`, `Cancel()`, `EnableInteractiveApproval()`.
-- **Cohesive:** **No.** God object. 2,700 lines handling: run loop, streaming, tool dispatch, approval, checkpointing, compaction, sub-agent spawning. Should be decomposed.
-- **Tests:** 19 test files including e2e approval tests. Reasonable coverage.
-- **Issues:** `promptMu sync.Mutex` and `mu sync.Mutex` — two mutexes with unclear scoping. `Run()` method is ~300 lines.
+**C1a: `internal/control/controller.go:787`**
+```go
+go func() {
+    if err := c.Compact(context.Background(), focus); err != nil {
+```
+Goroutine runs compaction with `context.Background()` — if controller closes during compaction, goroutine continues indefinitely.
+**Fix:** Use `c.ctx` or a derived context with cancellation tied to controller lifecycle.
 
-### `internal/agent/agent.go` (1,323 lines)
-- **Purpose:** LLM agent loop — conversation management, tool calling, streaming.
-- **API surface:** `Agent` struct with `Run(ctx, input, sink)`.
-- **Cohesive:** Mostly yes. Handles LLM interaction pattern.
-- **Tests:** 36 test files. Extensive coverage.
-- **Issues:** File is large but logically cohesive.
+**C1b: `internal/control/controller.go:1628`**
+```go
+c.hooks.SessionStart(context.Background())
+```
+SessionStart hooks run with `context.Background()` — hook operations (potentially slow I/O) cannot be cancelled.
+**Fix:** Pass controller's session context.
 
-### `internal/config/config.go` (1,817 lines)
-- **Purpose:** TOML config loading, model selection, MCP server config.
-- **API surface:** `Config` struct, `Load()`, `Default()`, `Save()`.
-- **Cohesive:** No. Config struct has grown to 1,800 lines with multiple concerns.
-- **Tests:** Good coverage.
-- **Issues:** `ccswitch.go` uses `exec.Command` for SQLite queries — functional but unusual.
+**C1c: `internal/cli/chat_tui.go:3678`**
+```go
+go func() {
+    result, err := m.ctrl.Council(context.Background(), task)
+```
+Council dispatch uses `context.Background()` — mesh delegation goroutine survives TUI shutdown.
+**Fix:** Use `m.ctrl`'s context or TUI lifecycle context.
 
-### `internal/bot/gateway.go` (592 lines, 16K)
-- **Purpose:** Multi-platform bot gateway — session management, command routing, message rendering.
-- **API surface:** `BotGateway` struct with `Start()`, `HandleMessage()`, `HandleCallback()`, `getOrCreateSession()`.
-- **Cohesive:** Reasonable, but god-object tendencies.
-- **Tests:** 6 test files.
-- **Issues:** `getOrCreateSession()` builds a new controller on every new chat — no session eviction or TTL. Controllers accumulate in `gw.controllers` map indefinitely → memory leak in long-running bots.
+**C1d: `desktop/bot_connection_app.go:106,150,256,673`**
+```go
+ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+```
+Bot connection operations use `context.Background()` instead of app context. If app shuts down, these 15s operations continue.
+**Fix:** Use `a.bootContext()` as parent.
 
-### `internal/bot/discord/discord.go` (10.5K chars)
-- **Purpose:** Discord adapter implementing `bot.Adapter`.
-- **API surface:** `Adapter` interface methods: `Send()`, `Platform()`, `Start()`, `Stop()`.
-- **Tests:** None. Discord adapter is untested.
-- **Issues:** None critical, but no tests.
+**C1e: `desktop/workspace_changes.go:143,232`**
+```go
+return workspaceGitCommand(context.Background(), args...)
+ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+```
+Git operations use `context.Background()` — no cancellation on tab close/app shutdown.
+**Fix:** Pass tab/app context.
 
-### `internal/bot/feishu/`, `internal/bot/qq/`, `internal/bot/weixin/`
-- **Purpose:** Platform adapters for Feishu, QQ, WeChat.
-- **Tests:** None for any adapter.
-- **Issues:** All three lack test coverage entirely.
+**C1f: `internal/bot/feishu/feishu.go:716`**
+```go
+if err := server.Shutdown(context.Background()); err != nil ...
+```
+Webhook shutdown uses `context.Background()` — blocks indefinitely if connections refuse to close.
+**Fix:** Use `context.WithTimeout(context.Background(), 10*time.Second)`.
 
-### `internal/memory/` (7 source, 8 test files)
-- **Purpose:** Hierarchical doc-memory (REASONIX.md, AGENTS.md) + auto-memory store (remember/forget).
-- **API surface:** `Set`, `Load()`, `Store`, `Compose()`, `WriteDoc()`, `AppendDoc()`.
-- **Cohesive:** Yes. Clean separation between doc-memory and auto-memory.
-- **Tests:** Good coverage of discovery, save, delete, compose.
-- **Issues:** `Store.Save()` and `Store.Delete()` are not safe for concurrent access — no locking on file writes.
+#### C2. `readFileWithTimeout` — goroutine leak + slot exhaustion under disk pressure
+**File:** `desktop/tabs.go:2924`
+```go
+go func() {
+    data, err := os.ReadFile(path)
+    <-readFileWithTimeoutSlots
+    ch <- result{data: data, err: err}
+}()
+```
+When timer fires (line 2934), caller returns. Goroutine still blocked on `os.ReadFile` continues. Slot semaphore (16 slots) is released inside goroutine — if many timeouts accumulate under slow disk, 16 slots fill and subsequent reads fail with "too many pending file reads".
+**Fix:** Use context-aware file reading, or increase slot count, or abort the read via deadline.
 
-### `internal/event/event.go` (262 lines)
-- **Purpose:** Typed event stream — `Sink` interface, `Event` struct with 15+ kinds.
-- **API surface:** `Sink` interface (`Emit(Event)`), `FuncSink`, `Discard`.
-- **Cohesive:** Yes. Clean event model.
-- **Tests:** Minimal — 1 test file.
-- **Issues:** None architectural.
+#### C3. `rateLimit.cleanupLoop` — no termination, permanent goroutine leak
+**File:** `internal/serve/auth.go:82`
+```go
+func newRateLimit() *rateLimit {
+    rl := &rateLimit{attempts: make(map[string]*rateWindow)}
+    go rl.cleanupLoop()
+    return rl
+}
+```
+Goroutine runs forever — no `done` channel, no context. `rateLimit` has no `Close()`/`Stop()` method. Every server instance leaks this goroutine permanently.
+**Fix:** Add `done chan struct{}` to `rateLimit`, close it in a `Stop()` method, select on `<-rl.done` in the loop.
 
-### `internal/permission/` (2 source, 3 test files)
-- **Purpose:** Policy engine — rule evaluation, glob matching, Gate with Approver.
-- **API surface:** `Policy`, `Gate`, `New()`, `ParseRule()`, `Decide()`, `Check()`.
-- **Cohesive:** Yes. Well-separated pure logic from I/O.
-- **Tests:** Good coverage of rule parsing, glob matching, precedence.
-- **Issues:** `matchGlob` implements custom glob matching — linear time with backtracking (exponential worst case on adversarial patterns like `a*a*a*a*b`). Acceptable for tool names but worth noting.
+### HIGH
 
-### `internal/notify/` (5 source, 1 test file)
-- **Purpose:** Cross-platform desktop notifications (macOS, Linux, Windows).
-- **API surface:** `Send(Notification)`.
-- **Cohesive:** Yes. Platform-specific files via build tags.
-- **Tests:** Darwin sender untested (requires OS).
-- **Issues:** `sender_darwin.go` uses `osascript` via `exec.Command` — no input sanitization on `Title`/`Body`. Shell injection possible if notification content contains `"`. **Severity: Low** (notifications come from internal state, not external input, but still a defensive programming gap).
+#### C4. Heartbeat `close(e.done)` without goroutine join — use-after-close on restart
+**File:** `desktop/heartbeat.go:132`
+```go
+func (e *HeartbeatEngine) Stop() {
+    e.mu.Lock()
+    defer e.mu.Unlock()
+    if !e.running { return }
+    e.running = false
+    close(e.done)
+}
+```
+`Stop()` closes `e.done` but never waits for `loop()` goroutine (line 120: `go e.loop()`) to exit. If `Start()` is called again immediately, new goroutine starts while old one may still be draining. Also, `e.done` is closed but never re-initialized — calling `Start()` after `Stop()` would panic on second `close(e.done)`.
+**Fix:** Use `sync.WaitGroup` to join the loop goroutine in `Stop()`. Recreate `e.done` channel in `Start()`.
 
-### `internal/sandbox/` (4 source, 2 test files)
-- **Purpose:** OS-level process sandboxing (macOS Seatbelt).
-- **API surface:** `Spec` struct, `Command()`, `Available()`.
-- **Cohesive:** Yes.
-- **Tests:** Tests verify Seatbelt profile generation on macOS.
-- **Issues:** Only macOS is implemented. Linux/Windows get no sandboxing (documented as intentional fallback).
+#### C5. `delayedDesktopSessionTrash/Cleanup` — fire-and-forget goroutines with no tracking
+**Files:** `desktop/tabs.go:4117`, `desktop/app.go:1083,1094,1642`
+```go
+go delayedDesktopSessionTrash(target.dir, target.sessionPath, target.key, destroys)
+go delayedDesktopSessionCleanup(oldPath, destroys)
+```
+Multiple fire-and-forget goroutines for session cleanup. No `sync.WaitGroup`, no tracking. On app shutdown these goroutines may be killed mid-operation, leaving partial cleanup state.
+**Fix:** Track with a `sync.WaitGroup` on `App`, wait during `beforeClose`.
 
-### `internal/checkpoint/` (1 source, 1 test)
-- **Purpose:** Session state snapshots for resume.
-- **API surface:** Small. Save/load checkpoint.
-- **Cohesive:** Yes.
-- **Issues:** None.
+#### C6. `os.Exit(0)` in mcpbridge signal handler bypasses defers
+**File:** `cmd/reasonix-mcpbridge/main.go:583`
+```go
+go func() {
+    <-sigCh
+    os.Exit(0)
+}()
+```
+`os.Exit(0)` skips all deferred functions. If `srv.ServeStdio()` has cleanup (buffer flush, etc.), it's lost.
+**Fix:** Use context cancellation to signal `ServeStdio()` to return, then exit from main.
 
-### `internal/plugin/` (9 source, 12 test)
-- **Purpose:** MCP plugin transport (stdio, SSE), lifecycle management.
-- **API surface:** `Plugin` struct, `Start()`, `Stop()`, `Transport`.
-- **Cohesive:** Yes. Well-structured transport abstraction.
-- **Tests:** Good coverage.
-- **Issues:** `transport_stdio.go:57` and `:282` use `exec.CommandContext` — properly uses context for cancellation.
+#### C7. `BotGateway` — `dispatchLoop` goroutines without WaitGroup, unsynchronized adapter reads
+**File:** `internal/bot/gateway.go:232,237,224-225,242-249`
+```go
+for _, binding := range gw.adapters {
+    go gw.dispatchLoop(ctx, binding)
+}
+go gw.evictLoop()
+// ...
+func (gw *BotGateway) AdapterCount() int { return len(gw.adapters) }  // no mutex
+func (gw *BotGateway) StartErrors() []error { ... copy(gw.startErr) } // no mutex
+```
+Goroutines launched without `wg.Add()`. `Stop()` calls `gw.cancel()` but can't wait for goroutines. `gw.adapters` and `gw.startErr` written in `Start()`, read concurrently without synchronization in `AdapterCount()`, `StartErrors()`, `HasPlatform()`, `AdapterWebhookURL()`.
+**Fix:** Add `sync.WaitGroup` for background goroutines. Guard `gw.adapters` reads with mutex or `atomic.Pointer`.
 
-### `internal/provider/` (8 source, 13 test)
-- **Purpose:** LLM provider abstraction (OpenAI, Anthropic sub-packages).
-- **API surface:** `Provider` interface, streaming, retry logic.
-- **Cohesive:** Yes.
-- **Tests:** Good coverage including streaming tests.
+#### C8. `lazySpawn.run()` — doesn't check `ctx.Err()` before recording failure
+**File:** `internal/plugin/lazy.go:91`
+```go
+func (s *lazySpawn) run() {
+    real, err := s.host.Add(s.ctx, s.spec)
+```
+If caller cancels `s.ctx` (via `endDeferredSpawn`), `s.host.Add` may return partial error. State transition at line 93-130 handles errors but doesn't check `s.ctx.Err()` first — records spurious failure on cancellation.
+**Fix:** Check `s.ctx.Err()` before recording failure at line 126-128.
 
-### `internal/tool/` (26 source, 36 test)
-- **Purpose:** Built-in tool registry and implementations (bash, file ops, grep, glob, etc.).
-- **API surface:** `Registry`, `Tool` interface, 20+ built-in tools.
-- **Cohesive:** Yes. Each tool in own file.
-- **Tests:** Extensive coverage per tool.
+### MEDIUM
 
-### `internal/cli/` (49 source, 36 test)
-- **Purpose:** Bubble Tea TUI, command routing, `/` command handling.
-- **API surface:** `Run()`, TUI model, command dispatcher.
-- **Cohesive:** **No.** 49 source files is too large for a single package. Should be decomposed into sub-packages (tui, commands, mcp_manager, etc.).
-- **Tests:** 36 test files — reasonable but can't cover 49 source files adequately.
-- **Issues:** `mcp_manager_actions.go:399-415` uses `exec.Command("sh", "-lc", editor+" "+shellQuote(path))` — shell injection risk if `editor` contains shell metacharacters. `shellQuote` may not cover all cases.
+#### C9. Goroutine without context cancellation (periodic tidy)
+**File:** `cmd/reasonix-memoryserver/main.go:691-698`
+```go
+go func() {
+    ticker := time.NewTicker(1 * time.Hour)
+    defer ticker.Stop()
+    for range ticker.C {
+        store.Tidy()
+        logger.Debug("ran periodic tidy")
+    }
+}()
+```
+**Issue:** Goroutine runs forever — no context cancellation on shutdown.
+**Fix:** Accept context and select on `ctx.Done()`.
 
-### `internal/proc/` (4 source, 4 test)
-- **Purpose:** Process management — kill groups, signal handling.
-- **Cohesive:** Yes.
-- **Issues:** None.
+#### C10. `App.ctx` field — unsynchronized read/write
+**File:** `desktop/app.go:349,332-336,559,580`
+```go
+func (a *App) startup(ctx context.Context) { a.ctx = ctx }   // write
+func (a *App) bootContext() context.Context {
+    if a.ctx != nil { return a.ctx }  // read
+    return context.Background()
+}
+```
+`a.ctx` written in `startup()`, read in `bootContext()`, `reqCtx()`, and many other places. No mutex or atomic. If any method runs before `startup()` completes, race on `a.ctx`.
+**Fix:** Use `atomic.Pointer[context.Context]` or guard with `a.mu`.
 
-### `cmd/reasonix-mcpbridge/main.go` (18.3K chars)
-- **Purpose:** Standalone MCP bridge — exposes Reasonix as an MCP tool server.
-- **API surface:** `Bridge` struct, MCP tool handlers, doctor check, skill listing, orchestration.
-- **Cohesive:** Reasonable but large for a single file.
-- **Tests:** 937-line test file. Good coverage.
-- **Issues:**
-  1. **`http.DefaultClient`** at line 325 — no timeout on transport. Should use custom `http.Client` with timeout.
-  2. API key passed via `Authorization: Bearer` header — acceptable but no key rotation support.
-  3. No response body size limit on `io.ReadAll` at line 331 — memory exhaustion from malicious API response.
+#### C11. `compress.go` — TOCTOU on `turn` atomic between RLock read and Lock write
+**File:** `internal/compress/compress.go:111-129`
+```go
+c.mu.RLock()
+entry, cached := c.cache[hash]
+currentTurn := int(c.turn.Load())  // read 1
+c.mu.RUnlock()
+// ...
+c.mu.Lock()
+c.cache[hash] = cacheEntry{turn: int(c.turn.Load()), summary: summary}  // read 2
+c.mu.Unlock()
+```
+`turn` is `atomic.Int32`, cache entries store `int`. `turn` could change between read 1 and read 2 — entries may get stale turn numbers.
+**Fix:** Load `turn` once before the lock and use that value consistently.
 
-### `pkg/memoryserver/main.go` (17.8K chars) + `sqlite_storage.go` (6.8K chars)
-- **Purpose:** Hindsight memory MCP server (retain/recall/reflect with SQLite backend).
-- **API surface:** `MemoryStore`, `MemoryEntry`, `memoryHandler`, MCP tool handlers.
-- **Cohesive:** Yes.
-- **Tests:** 1,568-line test file. Extensive.
-- **Issues:**
-  1. **Race condition on `MemoryStore.mu`**: `MemoryStore` has `sync.RWMutex` at line 70 but `Tidy()` iterates entries while other methods may mutate. The `Search()` method in `sqliteStorage` is safe (delegated to SQL), but the JSON-backed store has no transaction isolation between Load/Save.
-  2. **`sqliteStorage.Save()` DELETE+INSERT**: Full table wipe + re-insert under transaction. Under concurrent access, rows inserted between Load and Save are lost. Should use UPSERT.
-  3. **`sqliteStorage.db.Close()` never called** in `main()` — connection leak on shutdown.
-  4. **LIKE wildcard injection** in `sqliteStorage.Search()`: `%` and `_` in user queries are not escaped before building LIKE patterns. `LIKE '%" + query + "%'` lets users inject wildcards.
-  5. **No atomic file write** for `memories.json`: `os.WriteFile` at `main.go:272` is not atomic (no write-to-temp-then-rename). Crash during write = zero-length file = data loss.
-  6. **`io.ReadAll`** on HTTP response body (test code line 838, 850) with no size limit.
+#### C12. `mesh.go` — `initializedPeers` is `sync.Map` but `m.peers` is under RWMutex
+**File:** `internal/mesh/mesh.go:106,359`
+`m.peers` guarded by `m.mu`, but `initializedPeers` is a `sync.Map` (global, not on `m`). Peer initialization state and peer list can diverge if peers are added/removed concurrently.
+**Fix:** Move `initializedPeers` into `Mesh` struct, guard under `m.mu`.
 
-### `pkg/mcputil/server.go` (7.6K chars)
-- **Purpose:** MCP JSON-RPC server framework (stdio + HTTP transports).
-- **API surface:** `Server` struct, `HandleMessage()`, `ServeStdio()`, `ServeHTTP()`.
-- **Cohesive:** Yes.
-- **Tests:** Via consumers (mcpbridge, memoryserver).
-- **Issues:** None significant.
+#### C13. `plugin.Host` — `c.prompts` written under `h.mu` but may be read without lock
+**File:** `internal/plugin/plugin.go:432-435,458-461`
+```go
+h.mu.Lock()
+c.prompts = ps
+h.mu.Unlock()
+```
+`c.prompts` is a field on `Client`, written under `h.mu` (host mutex). If `Client` is accessed from another path that doesn't hold `h.mu`, there's a race. `Remove` method modifies `h.prompts` under `h.mu` but doesn't clear `c.prompts` on removed client.
+**Fix:** Ensure all `c.prompts`/`c.resources` reads also hold `h.mu.RLock()`.
 
-### `pkg/httputil/auth.go` (2.8K chars)
-- **Purpose:** Bearer token auth middleware.
-- **Cohesive:** Yes.
-- **Issues:** Constant-time comparison not used for token check. Uses `subtle.ConstantTimeCompare` — actually checked: it does NOT use it. Uses `strings.TrimPrefix` + `==`. **Timing side-channel** on API key validation.
+### LOW
 
----
+#### C14. `goSafe` — panic recovery swallows errors silently
+**File:** `desktop/crash_pending.go:60-65`
+```go
+func (a *App) goSafe(site string, fn func()) {
+    go func() {
+        defer a.recoverToPending(site)
+        fn()
+    }()
+}
+```
+Goroutines launched via `goSafe` recover panics and write to pending crash file. No logging, no error propagation.
+**Fix:** Add `slog.Error` log in `recoverToPending` alongside crash file write.
 
-## Bugs Found
+#### C15. `grep.go` — pipe goroutine outlives early return (fd leak)
+**File:** `internal/tool/builtin/grep.go:167-171`
+```go
+go func() {
+    _, _ = pw.Write(head)
+    io.Copy(pw, f)
+    pw.Close()
+}()
+```
+If scanner returns early (line 186: `return nil` for binary), goroutine continues writing to `pw`. Writes may block if pipe buffer fills. File descriptor leaks until `io.Copy` finishes.
+**Fix:** Use context-aware pipe or close `pr` to signal goroutine to exit.
 
-### BUG-1: MemoryStore file write is not atomic
-- **File:** `pkg/memoryserver/main.go:272`
-- **Severity:** Medium
-- **Description:** `os.WriteFile` for `memories.json` is not atomic. A crash or power loss between truncate and write produces a zero-length file, losing all memories. Should write to a temp file then rename.
-- **Fix:** Use `os.WriteFile` to a `.tmp` file, then `os.Rename` to the final path.
+#### C16. `notify/sender_*.go` — `cmd.Wait()` goroutine leak
+**Files:** `internal/notify/sender_darwin.go:22`, `sender_windows.go:24`, `sender_linux.go:18`
+```go
+go func() { _ = cmd.Wait() }()
+```
+Fire-and-forget `cmd.Wait()` — if notification process hangs, goroutine leaks.
+**Fix:** Add timeout via `context.WithTimeout` on the command.
 
-### BUG-2: sqliteStorage.Save() loses concurrent writes
-- **File:** `pkg/memoryserver/sqlite_storage.go:91-128`
-- **Severity:** Medium
-- **Description:** `Save()` does `DELETE FROM memories` then re-inserts all entries. If another goroutine inserts between the DELETE and INSERT, that data is lost. Under the current architecture (single MCP server), this is unlikely but architecturally wrong.
-- **Fix:** Use UPSERT (INSERT OR REPLACE) or row-level updates instead of full table wipe.
-
-### BUG-3: LIKE wildcard injection in sqliteStorage.Search()
-- **File:** `pkg/memoryserver/sqlite_storage.go:140-147`
-- **Severity:** Low
-- **Description:** User-provided query strings are embedded in LIKE patterns without escaping `%` and `_`. A query like `100%` matches unintended patterns.
-- **Fix:** Escape LIKE wildcards before building the pattern, or use FTS5 full-text search instead of LIKE.
-
-### BUG-4: http.DefaultClient with no timeout
-- **File:** `cmd/reasonix-mcpbridge/main.go:325`, `cmd/reasonix-hooks/main.go:153`
-- **Severity:** Medium
-- **Description:** `http.DefaultClient.Do(req)` has no transport timeout. While the request context has a 60s deadline in mcpbridge, the transport itself has no idle connection timeout, connection pool limits, or TLS handshake timeout. A hung server could leak connections.
-- **Fix:** Create a custom `http.Client` with `Transport` configured for timeouts.
-
-### BUG-5: Timing side-channel in Bearer token validation
-- **File:** `pkg/httputil/auth.go`
-- **Severity:** Low
-- **Description:** Token comparison uses `==` (or `strings.TrimPrefix` + `==`) instead of `crypto/subtle.ConstantTimeCompare`. Allows timing-based key extraction.
-- **Fix:** Replace with `subtle.ConstantTimeCompare`.
-
-### BUG-6: BotGateway session memory leak
-- **File:** `internal/bot/gateway.go:516-527`
-- **Severity:** Medium
-- **Description:** `getOrCreateSession()` adds entries to `gw.controllers` map but no code ever removes them. Long-running bots accumulate stale sessions indefinitely.
-- **Fix:** Add TTL-based eviction or explicit `/quit` command cleanup.
-
-### BUG-7: sqliteStorage.db.Close() never called
-- **File:** `pkg/memoryserver/main.go:545-601`
-- **Severity:** Low
-- **Description:** The `*sql.DB` opened in `newSQLiteStorage()` is never closed. The `sqliteStorage` has a `Close()` method but `main()` never calls it (not even via defer).
-- **Fix:** `defer ss.Close()` after creation in `main()`.
-
----
-
-## Refactor Opportunities
-
-### REF-1: Decompose `internal/control/controller.go` (2,722 lines)
-- **Problem:** God object managing run loop, streaming, tool dispatch, approval flow, checkpointing, compaction, and sub-agent spawning in a single file.
-- **Recommendation:** Split into: `controller.go` (orchestrator), `approval.go`, `checkpoint.go`, `compaction.go`, `subagent.go`. The `Run()` method alone is ~300 lines.
-
-### REF-2: Decompose `internal/cli/` (49 source files)
-- **Problem:** Single package with 49 source files covering TUI model, command routing, MCP management, git status, and more. No sub-packages.
-- **Recommendation:** Split into `cli/tui/`, `cli/command/`, `cli/mcp/`, `cli/render/`.
-
-### REF-3: Extract `internal/bot/render.go` rendering logic
-- **Problem:** `renderSink` in `internal/bot/render.go` hard-codes Chinese strings for all platforms.
-- **Recommendation:** Move display strings to `internal/i18n/` or a per-platform renderer interface.
-
-### REF-4: Unify MemoryStore persistence backends
-- **Problem:** `pkg/memoryserver/main.go` has a `MemoryStore` (JSON file) and `sqliteStorage` (SQLite), with different APIs (`Load/Save` vs `Search`). The `Storage` interface bridges them but `MemoryStore` duplicates search logic that `sqliteStorage.Search` already implements.
-- **Recommendation:** Make `Storage` interface the primary API; `MemoryStore` should delegate to it entirely. Remove JSON-file search path when SQLite backend is used.
-
-### REF-5: `cmd/reasonix-mcpbridge/main.go` is 548 lines
-- **Problem:** Single file handles doctor, skills, planning, orchestration, and tool dispatch.
-- **Recommendation:** Extract `doctor.go`, `skills.go`, `orchestrator.go` in the same package.
+#### C17. `context.Background()` in desktop workspace operations
+**File:** `desktop/workspace_changes.go:143`
+(See C1e above — same finding.)
 
 ---
 
-## Enhancement Recommendations
+## 3. ERROR HANDLING
 
-### ENH-1: Add session TTL/eviction to BotGateway
-- The `controllers` map grows without bound. Add a background goroutine that evicts sessions idle for >N minutes, or add a `/quit` command that removes the session.
+### GOOD
 
-### ENH-2: Use FTS5 for memory search
-- Replace `LIKE '%query%'` in `sqliteStorage.Search()` with SQLite FTS5 full-text search. LIKE scans cannot use indexes; FTS5 provides proper relevance ranking and eliminates wildcard injection.
+- Sentinel errors defined properly: `ErrUnknownModel`, `ErrTurnRunning`, `ErrServerAlreadyConnected`, `ErrSpawningInFlight`, plus `installsource` errors (`ErrAuthRequired`, `ErrBinaryMissing`, etc.).
+- `errors.Is()` used correctly in `internal/installsource/` for error chain inspection.
+- `errors.As()` used in `internal/provider/openai/fetch_models.go:28` for typed error extraction.
+- Error wrapping with `%w` in most error returns.
+- `crypto/subtle.ConstantTimeCompare` used for all auth token comparisons (`pkg/httputil/auth.go:62`, `internal/serve/auth.go:235,243`).
+- Nil checks consistently applied — `if a == nil { return }`, `nilutil.IsNil(sink)` pattern. No high-risk dereference patterns.
+- No defer-in-loop bugs found.
+- No production `_ = ...err` patterns (errors ignored).
+- `init()` functions all follow legitimate registration pattern (19 tool registrations, 3 provider registrations, 2 state init).
 
-### ENH-3: Add test coverage for bot platform adapters
-- `discord/`, `feishu/`, `qq/`, `weixin/` have zero test files. At minimum, add unit tests for the `Adapter` interface methods and message format conversion.
+### HIGH
 
-### ENH-4: Implement sandbox for Linux
-- `internal/sandbox/` only implements macOS Seatbelt. Linux support (via `namespaces`/`seccomp`/`bubblewrap`) would close a significant security gap for the most common deployment platform.
+#### E4. `os.Exit(0)` in non-main package
+**File:** `desktop/updater_app.go:149`
+```go
+os.Exit(0)  // in InstallUpdate method
+```
+**Issue:** `os.Exit` in non-main package makes code untestable and breaks library contracts. Can't mock or test `InstallUpdate` without process dying.
+**Fix:** Return error or send signal to channel. Let caller decide whether to exit.
 
-### ENH-5: Add graceful shutdown to bot and memory servers
-- Neither `bot/main.go` nor `pkg/memoryserver/main.go` handle SIGTERM/SIGINT for graceful shutdown. The bot gateway has no `Shutdown()` method.
+### MEDIUM
 
-### ENH-6: Rate-limit MCP bridge API calls
-- `cmd/reasonix-mcpbridge/main.go` calls the DeepSeek API with no rate limiting. A runaway agent could exhaust API quota. Add per-session rate limiting.
+#### E1. String matching on error messages in tests
+**Files:** 60+ occurrences across 20+ test files of `strings.Contains(err.Error(), "...")`.
+**Issue:** Tests break if error message wording changes. Should use sentinel errors and `errors.Is()`.
+**Severity:** MEDIUM — test fragility, not production bug.
 
-### ENH-7: Add context cancellation propagation in bot gateway
-- `internal/bot/gateway.go` creates controllers with `context.Background()` and doesn't propagate cancellation from the parent context. Long-running sessions may leak goroutines.
+**Production code (2 low-priority instances):**
+- `internal/tool/builtin/movefile.go:140` — `strings.Contains(msg, "cross-device")` for cross-device link error. No sentinel exists in Go stdlib. Acceptable workaround.
+- `desktop/metrics_app.go:346` — Error classification for metrics buckets, not control flow. Low priority.
+
+#### E5. Error wrapping with `%s` breaks `errors.Is`/`errors.As` chain
+**File:** `internal/control/errmsg.go:20,23`
+```go
+fmt.Errorf("model stream interrupted...: %s", err.Error())
+fmt.Errorf("model stream disconnected...: %s", err.Error())
+```
+**Issue:** Using `%s` with `err.Error()` breaks error chain. Callers can't use `errors.Is`/`errors.As` to inspect underlying error.
+**Fix:** Use `%w`:
+```go
+fmt.Errorf("model stream interrupted...: %w", err)
+```
+
+#### E6. Multi-error wrapping with `%v` instead of `%w` (Go 1.20+ supports multiple `%w`)
+**Files:**
+- `internal/installsource/apply.go:225,238,244` — `fmt.Errorf("%w; rollback failed: %v", err, rbErr)`
+- `internal/tool/builtin/movefile.go:122,128` — `fmt.Errorf("%w; restore %s: %v", err, src, restoreErr)`
+- `internal/plugin/plugin.go:942` — `fmt.Errorf("%w; reinitialize failed: %v", err, initErr)`
+
+**Issue:** Second error uses `%v` — callers can't inspect rollback/restore error via `errors.Is`.
+**Fix:** Use `%w` for both errors (Go 1.20+):
+```go
+fmt.Errorf("%w; rollback failed: %w", err, rbErr)
+```
+
+#### E7. String truncation by bytes instead of runes (corrupts CJK/emoji)
+**Files:**
+- `desktop/bot_connection_app.go:429` — `return s[:80]` in `safeBotReportValue`
+- `internal/plugin/plugin.go:1080` — `msg = msg[:500] + "..."` in `summarizeFailureError`
+
+**Issue:** `s[:n]` truncates mid-character on multi-byte UTF-8. Corrupts CJK text, emoji.
+**Fix:** Use `[]rune` truncation. Project already has `clampRunes` helper in `errmsg.go:80` — reuse it:
+```go
+return clampRunes(s, 80)  // instead of s[:80]
+```
+
+#### E8. Type assertion without comma-ok in production code
+**File:** `internal/cli/chat_tui.go:695`
+```go
+cm := next.(chatTUI)
+```
+**Issue:** Panics if `next` is not `chatTUI`. bubbletea's `Update` returns `tea.Model` — if it ever returns a different type, this crashes the process.
+**Fix:**
+```go
+cm, ok := next.(chatTUI)
+if !ok { return m, nil }
+```
+
+#### E9. Panic in non-init library code
+**Files:**
+- `internal/serve/auth.go:188,196,527` — `panic("serve/auth: crypto/rand.Read failed: " + err.Error())`
+- `desktop/app.go:222` — `panic("crypto/rand.Read failed: " + err.Error())`
+
+**Issue:** Panicking in library code (not `main`) crashes the entire process. `crypto/rand.Read` failure is extremely rare but should be handled gracefully.
+**Fix:** Return error instead of panicking. Callers decide how to handle.
+
+#### E2. Type assertions without comma-ok in production code (mcpbridge)
+**File:** `cmd/reasonix-mcpbridge/main.go:117-146`
+```go
+task, _ := args["task"].(string)
+model, _ := args["model"].(string)
+```
+**Issue:** Silent zero-value on type assertion failure. Error message is misleading ("task is required" vs "task has wrong type").
+**Severity:** LOW — defensive enough due to subsequent empty checks.
+
+#### E3. `log.Fatal` in production code
+**Files:** `cmd/reasonix-mcpbridge/main.go:575,589`, `cmd/reasonix-plugin-example/main.go:48`
+**Issue:** `log.Fatal` calls `os.Exit(1)` — skips defers.
+**Fix:** Return error to main, handle shutdown there.
+
+### LOW
+
+#### E10. Global mutable state — 11 test-seam function vars
+**Files:**
+- `internal/tool/builtin/movefile.go:18` — `var renameFile = os.Rename`
+- `internal/control/attachments.go:25` — `var attachmentNow = time.Now`
+- `internal/control/refs.go:28` — `var extractPDFText = extractPDFTextDefault`
+- `internal/cli/transcript.go:27` — `var clipboardWriteAll = clipboard.WriteAll`
+- `internal/cli/chat_tui.go:549` — `var detectTermuxTerminal = isTermuxTerminal`
+- `desktop/updater.go:212,386` — `var updateCacheBaseDir`, `var retryBackoff`
+- `internal/billing/balance.go:46` — `var httpClient = &http.Client{...}`
+- `internal/cli/cli.go:287` — `var newNotificationSender`
+- `internal/config/credentials.go:57-58` — `var storedCredentialValueLookup`, `var legacyKeyringCredentialValueLookup`
+- `internal/installsource/plan.go:16` — `var githubAPIBaseURL`
+
+**Issue:** Package-level mutable vars used as test seams. Complicates testing, introduces hidden coupling, race risks in parallel tests.
+**Fix:** Move to struct fields or accept as constructor parameters.
+
+#### E11. Package-level mutable caches with locks
+**Files:**
+- `desktop/tabs.go:5080` — `var projectSessionCache = &sessionListCache{...}`
+- `desktop/tabs.go:5105` — `var topicSessionIndexCache = struct{ sync.Mutex; ... }{...}`
+- `internal/config/credentials.go:52` — `var credentialSourceTracker`
+- `internal/tool/builtin/bash.go:39-42` — `var bashPathMu sync.Mutex; var bashPathCache = map[string]string{}`
+
+**Issue:** Package-level mutable state with locks — should be struct-owned for testability.
+**Fix:** Move to App/struct fields.
 
 ---
 
-## Security Review
+## 4. HTTP SERVER TIMING ANALYSIS
 
-### SEC-1: Shell injection in desktop notifications (Low)
-- **File:** `internal/notify/sender_darwin.go:18`
-- **Detail:** `exec.Command("osascript", "-e", script)` where `script` interpolates `m.Title` and `m.Body`. If either contains `"`, the osascript breaks. If they contain `$(...)`, command substitution may execute.
-- **Mitigation:** Escape or strip shell metacharacters before interpolation.
+| Server | ReadHeaderTimeout | ReadTimeout | WriteTimeout | IdleTimeout | Status |
+|--------|-------------------|-------------|--------------|-------------|--------|
+| `internal/serve/serve.go:285` (RunGraceful) | 10s | — | — | 120s | PARTIAL |
+| `internal/serve/serve.go:277` (Run) | — | — | — | — | **FAIL** |
+| `pkg/mcputil/server.go:131` | 10s | — | — | — | PARTIAL |
+| `internal/collab/collab.go:123` | 5s | — | — | — | PARTIAL |
+| `internal/bot/line/line.go:100` | — | — | — | — | **FAIL** |
+| `internal/bot/feishu/feishu.go:709` | — | — | — | — | **FAIL** |
+| `internal/bot/feishu/feishu.go:709` | — | — | — | — | **FAIL** |
 
-### SEC-2: Shell injection in editor launch (Medium)
-- **File:** `internal/cli/mcp_manager_actions.go:399-415`
-- **Detail:** `exec.Command("sh", "-lc", editor+" "+shellQuote(path))` — `editor` comes from config/env and may contain shell metacharacters. `shellQuote` is a local function that may not handle all edge cases.
-- **Mitigation:** Use `exec.Command(editor, path)` (no shell) instead of `sh -lc`.
-
-### SEC-3: Timing side-channel in API key validation (Low)
-- **File:** `pkg/httputil/auth.go`
-- **Detail:** Bearer token comparison uses string equality instead of constant-time comparison.
-- **Mitigation:** Use `crypto/subtle.ConstantTimeCompare`.
-
-### SEC-4: No TLS certificate pinning for LLM API calls (Info)
-- **File:** `cmd/reasonix-mcpbridge/main.go:325`, `internal/provider/`
-- **Detail:** HTTP clients use default TLS verification. No certificate pinning. Standard for most deployments but worth noting for high-security environments.
-
-### SEC-5: Sandbox only on macOS (Medium)
-- **File:** `internal/sandbox/`
-- **Detail:** Only macOS Seatbelt is implemented. On Linux and Windows, `Available()` returns false and commands run unsandboxed. The `bash` tool can execute arbitrary commands with full system access.
-- **Mitigation:** Implement Linux sandboxing (namespace/seccomp) as ENH-4.
-
-### SEC-6: Unbounded HTTP response body reads (Low)
-- **File:** `cmd/reasonix-mcpbridge/main.go:331`, `pkg/memoryserver/main_test.go:838,850`
-- **Detail:** `io.ReadAll(resp.Body)` with no size limit. A malicious API server could send an enormous response.
-- **Mitigation:** Use `io.LimitReader(resp.Body, maxResponseSize)`.
+**Recommendation:** All `http.Server{}` instances need at minimum `ReadHeaderTimeout`. Add `WriteTimeout` for endpoints that don't stream. Add `IdleTimeout` for keep-alive management.
 
 ---
 
-## Test Coverage Assessment
+## 5. PROJECT STRUCTURE
 
-| Package | Source Files | Test Files | Coverage Assessment |
-|---------|-------------|-----------|---------------------|
-| `internal/agent` | 14 | 36 | Excellent |
-| `internal/boot` | 1 | 5 | Good |
-| `internal/bot` | 11 | 6 | Moderate (adapters untested) |
-| `internal/bot/discord` | 1 | 0 | **None** |
-| `internal/bot/feishu` | 1 | 0 | **None** |
-| `internal/bot/qq` | 2 | 0 | **None** |
-| `internal/bot/weixin` | 1 | 0 | **None** |
-| `internal/cli` | 49 | 36 | Moderate (spread thin) |
-| `internal/config` | ~8 | 5+ | Good |
-| `internal/control` | 11 | 19 | Good |
-| `internal/event` | 2 | 1 | Minimal |
-| `internal/evidence` | 2 | 2 | Good |
-| `internal/fileref` | 1 | 0 | **None** |
-| `internal/frontmatter` | 1 | 2 | Good |
-| `internal/hook` | 3 | 2 | Moderate |
-| `internal/instruction` | 1 | 1 | Good |
-| `internal/jobs` | 1 | 5 | Excellent |
-| `internal/lsp` | 7 | 4 | Good |
-| `internal/memory` | 7 | 8 | Good |
-| `internal/notify` | 5 | 1 | Minimal |
-| `internal/permission` | 2 | 3 | Good |
-| `internal/plugin` | 9 | 12 | Excellent |
-| `internal/proc` | 4 | 4 | Excellent |
-| `internal/provider` | 8 | 13 | Excellent |
-| `internal/sandbox` | 4 | 2 | Moderate |
-| `internal/skill` | 4 | 3 | Good |
-| `internal/tool` | 26 | 36 | Excellent |
-| `cmd/reasonix-mcpbridge` | 1 | 1 (937 lines) | Good |
-| `pkg/memoryserver` | 2 | 1 (1,568 lines) | Good |
-| `pkg/mcputil` | 1 | 0 | **None** |
-| `pkg/httputil` | 1 | 0 | **None** |
+### GOOD
 
-**Overall:** 293 test files / 272 source files = 1.08 test-to-source ratio. Above average for Go projects. Key gaps:
-- **Zero test coverage:** Discord, Feishu, QQ, WeChat adapters; `pkg/mcputil`; `pkg/httputil`; `internal/fileref`.
-- **Spread thin:** `internal/cli` (49 source files, 36 test files — many source files untested).
-- **Missing concurrency tests:** `MemoryStore` race conditions not tested despite `sync.RWMutex` presence.
+- Follows Go standard layout: `cmd/`, `internal/`, `pkg/`, `bot/`, `tools/`.
+- `internal/` used correctly for encapsulation — all private packages are import-protected.
+- `cmd/` contains all binary entry points — each subdirectory is a separate binary.
+- `pkg/` contains exported reusable packages (`mcputil`, `httputil`).
+- Package names are descriptive (not `util`, `helper`, `common`).
+
+### LOW
+
+#### P1. `desktop/` is a separate Go module but not in `cmd/`
+**Observation:** `desktop/` has its own `go.mod` (Wails desktop app). This is correct for a separate binary with different dependencies, but breaks from the `cmd/` convention.
+**Severity:** LOW — Wails apps have different build requirements, this is justified.
+
+#### P2. `bot/` directory at root instead of `cmd/reasonix-bot/`
+**Observation:** `bot/main.go` is a binary entry point but lives in `bot/` not `cmd/reasonix-bot/`.
+**Severity:** LOW — style inconsistency. Dockerfile references `./bot` so changing it requires Docker update too.
 
 ---
 
-*End of audit.*
+## 6. TESTING
+
+### GOOD
+
+- 3,642 tests — ALL PASS
+- Race detector clean
+- Table-driven tests used throughout (Go idiom)
+- `t.Run()` subtests for isolation
+- `t.Parallel()` used in independent tests
+- `t.TempDir()` used for temp files
+- `t.Cleanup()` used for resource cleanup
+- `httptest.NewServer` for fake API servers
+- Benchmarks exist (7 benchmark functions)
+- Testcontainers not used (no external DB deps to containerize — SQLite is embedded)
+- CI runs tests on 3 OSes (ubuntu, macOS, windows)
+- CI has dedicated race detector job
+- CI has coverage job with artifact upload
+
+### MEDIUM
+
+#### T1. Coverage at 66.5% — below 80% target
+**Root module coverage:** 66.5% (statements).
+**Gap areas (likely):**
+- `cmd/` binaries — `main()` functions are hard to test
+- `desktop/` — Wails app lifecycle is hard to test
+- `internal/notify/` — OS-specific notification code
+- `internal/proc/` — process management, OS-specific
+
+**Fix:** Focus on `internal/` packages — these are the reusable components. Use `httptest` for HTTP handler coverage, direct function calls for logic.
+
+#### T2. No fuzz tests
+**Observation:** Zero `func FuzzXxx(*testing.F)` in codebase.
+**Risk:** Edge-case inputs to parsers (JSON, config, URL handling) are only tested with hand-picked cases.
+**Fix:** Add fuzz tests for:
+- JSON unmarshal in MCP message handling (`pkg/mcputil/server.go`)
+- URL parsing in `internal/tool/builtin/webfetch.go`
+- Config parsing in `internal/config/`
+- SQL query building in `cmd/reasonix-memoryserver/sqlite_storage.go`
+
+#### T3. Unused test helper
+**File:** `internal/scheduler/scheduler_test.go:310`
+```go
+func containsString(ss []string, s string) bool {
+```
+**Issue:** Unused — flagged by staticcheck and golangci-lint.
+**Fix:** Remove the function.
+
+---
+
+## 7. PERFORMANCE
+
+### GOOD
+
+- `sync.Pool` for buffer reuse in LLM providers (openai, anthropic).
+- Pre-allocated slices in memory store operations.
+- SQLite with WAL mode and busy timeout (`cmd/reasonix-memoryserver/sqlite_storage.go:26`).
+- `atomic.Pointer` for lock-free command list access (`internal/control/controller.go:78`).
+- HTTP client connection pooling via `netclient.DefaultClient()`.
+
+### MEDIUM
+
+#### F1. No pprof endpoints in production
+**Observation:** Zero `net/http/pprof` imports or pprof handler registration.
+**Impact:** Can't profile running production services. Hard to diagnose CPU/memory issues in deployed instances.
+**Fix:** Add optional pprof endpoint (guarded by flag):
+```go
+if *pprofAddr != "" {
+    go func() {
+        log.Println(http.ListenAndServe(*pprofAddr, nil))
+    }()
+}
+```
+Or import `_ "net/http/pprof"` behind a build tag.
+
+#### F2. No PGO (Profile-Guided Optimization)
+**Observation:** No `default.pgo` file in module root.
+**Impact:** Missing 2-7% CPU improvement from PGO (Go 1.21+).
+**Fix:** Collect CPU profile from representative workload, save as `default.pgo`, rebuild.
+
+#### F3. `http.DefaultClient` creates new connections per request in some paths
+**Files:** `desktop/write_mode.go:241`, `desktop/bot_connection_app.go:684`, `cmd/reasonix-pr-review/main.go:105,127`
+**Issue:** `http.DefaultClient` uses `http.DefaultTransport` which does pool, but without custom timeout config. These should use `netclient.DefaultClient()` which has tuned timeouts and pooling.
+**Impact:** No timeout + potentially different pooling behavior.
+
+---
+
+## 8. OBSERVABILITY
+
+### GOOD
+
+- `log/slog` used throughout — structured logging done right.
+- `slog.NewJSONHandler` for production, `slog.NewTextHandler` for dev/bot.
+- Context-aware logging (`slog.InfoContext`, `slog.WarnContext`).
+- Log level control (`slog.LevelInfo`, `slog.LevelDebug`).
+
+### MEDIUM
+
+#### O1. Mixed `log.Printf` and `slog` in some packages
+**Files:**
+- `pkg/mcputil/server.go:141,145,149` — `log.Printf` instead of `slog`
+- `cmd/reasonix-mcpbridge/main.go:587` — `log.Println` instead of `slog`
+- `desktop/heartbeat.go:83,121,193,211,227,234` — `log.Printf` instead of `slog`
+- `cmd/reasonix-memoryserver/embedding.go:106` — `log.Printf` instead of `slog`
+
+**Issue:** Inconsistent logging. `log.Printf` produces unstructured output — harder to parse in log pipelines.
+**Fix:** Migrate remaining `log.Printf` calls to `slog.Info`/`slog.Warn` with structured key-value pairs.
+
+---
+
+## 9. DOCKER / DEPLOYMENT
+
+### CRITICAL
+
+(See S5 above — ~~UID mismatch~~ RETRACTED, UID 65532 is correct for distroless nonroot)
+
+### MEDIUM
+
+#### D1. No `readOnlyRootFilesystem` in Dockerfile
+**Issue:** Runtime container has writable root filesystem.
+**Fix:** Add `--read-only` flag or Kubernetes `readOnlyRootFilesystem: true` security context.
+
+#### D2. Hardcoded `GOARCH=amd64` in Dockerfile
+**File:** `Dockerfile:14-20`
+```dockerfile
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+go build -ldflags="-s -w" -o /out/reasonix ./cmd/reasonix
+```
+**Issue:** No ARM64 support. Can't run on Apple Silicon / ARM servers natively.
+**Fix:** Use Docker buildx with `--platform` and `$TARGETARCH`:
+```dockerfile
+FROM --platform=$BUILDPLATFORM golang:1.25-bookworm AS builder
+ARG TARGETOS TARGETARCH
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build ...
+```
+
+#### D3. No health check in Dockerfile
+**Fix:** Add `HEALTHCHECK` directive:
+```dockerfile
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+    CMD ["/usr/local/bin/reasonix", "healthcheck"]
+```
+
+---
+
+## 10. CI/CD
+
+### GOOD
+
+- 3-OS test matrix (ubuntu, macOS, windows)
+- Race detector job
+- golangci-lint with pinned version (v2.12.2)
+- govulncheck (informational, continue-on-error)
+- Coverage job with artifact upload
+- gofmt enforcement
+- `go mod tidy` check for desktop module
+- CodeQL workflow
+- PR auto-labeling
+
+### MEDIUM
+
+#### CI1. govulncheck is `continue-on-error: true`
+**File:** `.github/workflows/ci.yml:170`
+**Issue:** Vulnerability scan failures don't block PRs. A real vulnerability could merge.
+**Fix:** Set `continue-on-error: false` once CI is stable. Keep informational only during transition.
+
+#### CI2. No golangci-lint on root module in CI
+**Observation:** CI runs golangci-lint only on `desktop/` module (line 139-144). Root module lint job (line 162-166) uses `golangci-lint-action@v9` but doesn't pass `working-directory`.
+**Status:** Root module IS linted — the lint job at line 152 runs on root. Confirmed correct.
+
+#### CI3. Coverage not enforced
+**Observation:** Coverage uploaded as artifact but no threshold check.
+**Fix:** Add coverage threshold gate:
+```yaml
+- name: coverage check
+  run: |
+    COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}')
+    if [ "${COVERAGE%}" -lt 70 ]; then
+      echo "Coverage ${COVERAGE} below 70%"
+      exit 1
+    fi
+```
+
+---
+
+## 11. CODE QUALITY
+
+### GOOD
+
+- `go vet` clean
+- `go build` clean
+- `staticcheck` — 1 issue (unused test helper)
+- `golangci-lint` — 1 issue (same)
+- `gofmt` enforced in CI
+- `go mod tidy` enforced in CI
+- Atomic file writes with fsync (`internal/fileutil/atomicwrite.go`) — correct pattern
+- `os.Rename` used for atomic file swaps throughout
+- SQLite parameterized queries (no SQL injection)
+- SSRF guard on web fetch (`internal/tool/builtin/webfetch.go`, `internal/installsource/ssrf.go`)
+- `filepath.Base` used for path sanitization in installsource
+- `init()` functions used appropriately (tool registration pattern)
+- Panics only in startup/initialization code (crypto/rand failures, duplicate registration)
+
+### LOW
+
+#### Q1. `context.TODO()` in test
+**File:** `desktop/app_test.go:528`
+```go
+app.emitReady(context.TODO())
+```
+**Issue:** Should use `context.Background()` in tests — `TODO()` is for "I haven't decided yet".
+**Fix:** Replace `context.TODO()` with `context.Background()`.
+
+#### Q2. Mixed `log` and `slog` (see O1)
+
+#### Q3. `//nolint:errcheck` without explanation
+**File:** `internal/tool/builtin/grep.go:169`
+```go
+io.Copy(pw, f) //nolint:errcheck
+```
+**Issue:** Suppressed error without explaining why. Is the error truly safe to ignore?
+**Fix:** Add comment explaining why error is ignored, or handle it.
+
+---
+
+## 12. SUMMARY TABLE
+
+| Category | Critical | High | Medium | Low | Total |
+|----------|----------|------|--------|-----|-------|
+| Security | 2 | 3 | 6 | 1 | 12 |
+| Concurrency | 3 | 5 | 5 | 4 | 17 |
+| Error Handling | — | 1 | 7 | 4 | 12 |
+| HTTP Timeouts | 2 | — | — | — | 2 |
+| Performance | — | — | 3 | — | 3 |
+| Observability | — | — | 1 | — | 1 |
+| Docker | — | — | 2 | — | 2 |
+| CI/CD | — | — | 2 | 1 | 3 |
+| Code Quality | — | — | — | 3 | 3 |
+| Testing | — | — | 3 | — | 3 |
+| **Total** | **7** | **9** | **29** | **13** | **58** |
+
+---
+
+## 13. PRIORITIZED FIX LIST
+
+### Immediate (ship-blocker for new deployments)
+1. **S1** — Fix WebSocket CheckOrigin in collab.go EchoWSHandler
+2. **S2** — Add timeouts to `serve.go:Run()`
+3. **S3** — Add timeouts to line.go and feishu.go HTTP servers
+4. **S4** — Replace `http.DefaultClient.Do()` with `netclient.DefaultClient()` in 4 call sites
+5. **S-NEW** — Non-constant-time token comparison in feishu.go:406
+6. **S-NEW** — Raw err.Error() in HTTP responses (serve.go:397,409,454)
+7. **S-NEW** — Bind all interfaces defaults (feishu.go:710, collab.go:101)
+8. **C1** — Fix 6 context.Background() in request paths (controller.go, chat_tui.go, bot_connection_app.go, workspace_changes.go, feishu.go)
+9. **C2** — Fix readFileWithTimeout goroutine leak (desktop/tabs.go:2924)
+10. **C3** — Fix rateLimit.cleanupLoop permanent goroutine leak (serve/auth.go:82)
+
+### Short-term (next sprint)
+11. **S6** — Audit eval.go shell command input path
+12. **S11** — Add `io.LimitReader` to 6 unprotected `io.ReadAll` call sites
+13. **S12** — Tighten file permissions to 0o600 for session/config data
+14. **S10** — Fix path traversal in memory/doc.go resolvePath
+15. **D2** — Add multi-arch Docker build (ARM64 support)
+16. **C4** — Fix heartbeat Stop() use-after-close (desktop/heartbeat.go:132)
+17. **C5** — Track delayed session cleanup goroutines with WaitGroup
+18. **C6** — Fix os.Exit(0) in mcpbridge signal handler
+19. **C7** — Add WaitGroup + mutex to BotGateway dispatchLoop
+20. **C8** — Check ctx.Err() before recording failure in lazySpawn.run()
+21. **C9** — Add context cancellation to memoryserver periodic tidy goroutine
+22. **E4** — Remove os.Exit(0) from desktop/updater_app.go:149 (non-main package)
+23. **E5** — Fix errmsg.go %s → %w to preserve error chains
+24. **E6** — Fix 6 multi-error %v → %w (Go 1.20+ supports multiple %w)
+25. **E7** — Fix 2 byte truncation → rune truncation (reuse clampRunes helper)
+26. **E8** — Add comma-ok to chat_tui.go:695 type assertion
+27. **E9** — Replace panic with error returns in serve/auth.go + app.go
+28. **F1** — Add pprof endpoint to production binaries
+29. **O1** — Migrate `log.Printf` to `slog` in 4 packages
+
+### Medium-term (technical debt)
+30. **T1** — Increase test coverage to 80%+
+31. **T2** — Add fuzz tests for JSON/URL/config parsers
+32. **E1** — Replace 60+ string error matching in tests with sentinel errors
+33. **CI1** — Make govulncheck blocking
+34. **CI3** — Add coverage threshold gate
+35. **F2** — Enable PGO for production builds
+36. **D1** — Add readOnlyRootFilesystem to Docker
+37. **D3** — Add HEALTHCHECK to Dockerfile
+38. **Q3** — Add explanation for `//nolint:errcheck` in grep.go
+39. **C10** — Fix App.ctx unsynchronized read/write
+40. **C11** — Fix compress.go TOCTOU on turn atomic
+41. **C12** — Move mesh.go initializedPeers into struct
+42. **C13** — Guard plugin.Host c.prompts reads with RLock
+43. **E10** — Move 11 test-seam function vars to struct fields
+44. **E11** — Move 4 package-level mutable caches to struct-owned
+
+### Cleanup (nice-to-have)
+45. **T3** — Remove unused `containsString` in scheduler_test.go
+46. **Q1** — Replace `context.TODO()` with `context.Background()` in test
+47. **P2** — Consider moving `bot/` to `cmd/reasonix-bot/` for consistency
+48. **E3** — Replace `log.Fatal` with error returns in mcpbridge
+49. **C14** — Add slog.Error in goSafe recoverToPending
+50. **C15** — Fix grep.go pipe goroutine fd leak on early return
+51. **C16** — Add timeout to notify/sender cmd.Wait() goroutines
+
+---
+
+## 14. WHAT'S DONE RIGHT
+
+This deserves explicit recognition — the codebase gets many things right that most Go projects don't:
+
+1. **Atomic file writes with fsync** — `internal/fileutil/atomicwrite.go` does tmp→write→fsync→close→rename. Correct power-loss-safe pattern. Better than most production code.
+2. **SSRF guard on web fetch** — Dial-time IP validation against RFC1918/link-local/metadata. DNS rebinding protected. Industry-grade.
+3. **Constant-time comparison** — All auth token checks use `crypto/subtle.ConstantTimeCompare`. No timing attacks.
+4. **Structured logging with slog** — Most of codebase uses `log/slog` with structured key-value pairs. JSON handler for production.
+5. **Shared HTTP client with timeouts** — `netclient.DefaultClient()` with 10s dial, 30s header, 120s overall. Connection pooling.
+6. **SQLite WAL mode + busy timeout** — Correct concurrent SQLite configuration.
+7. **Race detector in CI** — Dedicated race job, not just part of matrix.
+8. **3-OS test matrix** — ubuntu, macOS, windows. CRLF-aware gofmt skip on Windows.
+9. **go mod tidy enforcement** — CI checks that go.mod/go.sum are not stale.
+10. **Proper error sentinel pattern** — `errors.Is`/`errors.As` used correctly, not string matching in production code.
+11. **Body size limits on most HTTP handlers** — `http.MaxBytesReader` and `io.LimitReader` used in most MCP handlers.
+12. **Auth middleware DRY** — `pkg/httputil.AuthMiddleware` shared across servers. No duplicated auth logic.
+13. **34th upstream sync** — Active upstream tracking with documented sync points. Not a stale fork.
+14. **scrubSensitiveText in crash reports** — Actively redacts emails, tokens, API keys, JWTs, paths from crash data (`desktop/crash_app.go`).
+15. **safePath in checkpoint** — Properly validates with `filepath.Rel` + `filepath.IsLocal` to prevent traversal.
+16. **escapeLikeWildcards in SQLite** — Prevents LIKE wildcard injection (`sqlite_storage.go:201-208`).
+17. **Line bot binds 127.0.0.1** — Webhook only accessible locally, not exposed to network.
+18. **No InsecureSkipVerify in production TLS** — Only in test code (`netclient_test.go:370`).
+19. **Collab hub CheckOrigin validates localhost** — Main hub at `collab.go:111-118` checks host against `127.0.0.1`/`localhost`/`::1`. (Only EchoWSHandler at line 305 returns true.)

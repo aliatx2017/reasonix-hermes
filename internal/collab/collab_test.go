@@ -28,8 +28,8 @@ func TestNew_NoListenAddrDefaults(t *testing.T) {
 	if h == nil {
 		t.Fatal("expected non-nil hub")
 	}
-	if h.server.Addr != ":9091" {
-		t.Errorf("listen addr = %q, want :9091", h.server.Addr)
+	if h.server.Addr != "127.0.0.1:9091" {
+		t.Errorf("listen addr = %q, want 127.0.0.1:9091", h.server.Addr)
 	}
 }
 

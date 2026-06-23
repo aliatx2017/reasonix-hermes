@@ -47,6 +47,8 @@ type chatTUI struct {
 	ctrl    control.SessionAPI
 	label   string
 	missing string // missing-key warning surfaced once in the banner, "" when ready
+	ctx     context.Context
+	cancel  context.CancelFunc // nil-safe: no-op when unset (test constructor)
 
 	width  int
 	height int
@@ -478,10 +480,13 @@ func newChatTUI(ctrl control.SessionAPI, missing string, eventCh chan event.Even
 	commitBuf := []string{}
 	nativeScrollback := detectTermuxTerminal()
 	renderW := transcriptContentWidth(termW, nativeScrollback)
+	ctx, cancel := context.WithCancel(context.Background())
 	return chatTUI{
 		ctrl:                 ctrl,
 		label:                ctrl.Label(),
 		missing:              missing,
+		ctx:                  ctx,
+		cancel:               cancel,
 		nativeScrollback:     nativeScrollback,
 		input:                ti,
 		spinner:              sp,
@@ -510,6 +515,14 @@ func newChatTUI(ctrl control.SessionAPI, missing string, eventCh chan event.Even
 		skills:               ctrl.Skills(),
 		viewport:             viewport.New(viewport.WithWidth(termW)),
 		statusLineCount:      2,
+	}
+}
+
+// cancelIfSet cancels the TUI lifecycle context if set. No-op when unset
+// (test constructor path).
+func (m chatTUI) cancelIfSet() {
+	if m.cancel != nil {
+		m.cancel()
 	}
 }
 
@@ -1043,7 +1056,7 @@ func (m chatTUI) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.unsendPending() // server not yet replied — restore text, leave no trace
 				} else if m.cancelRequested() {
 					m.ctrl.Cancel()
-					return m, tea.Quit
+					m.cancelIfSet(); return m, tea.Quit
 				} else {
 					m.ctrl.Cancel()
 				}
@@ -1072,13 +1085,13 @@ func (m chatTUI) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 			if !m.lastCtrlCAt.IsZero() && time.Since(m.lastCtrlCAt) < 1500*time.Millisecond {
-				return m, tea.Quit
+				m.cancelIfSet(); return m, tea.Quit
 			}
 			m.lastCtrlCAt = time.Now()
 			m.notice(i18n.M.CtrlCQuitHint)
 			return m, finalize(m, nil)
 		case "ctrl+d":
-			return m, tea.Quit
+			m.cancelIfSet(); return m, tea.Quit
 		case "ctrl+v", "ctrl+shift+v", "super+v", "meta+v":
 			if m.state == tuiRunning {
 				return m, nil
@@ -1132,7 +1145,7 @@ func (m chatTUI) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 			if line == "exit" || line == "quit" || line == ":q" {
-				return m, tea.Quit
+				m.cancelIfSet(); return m, tea.Quit
 			}
 			m.rememberSubmittedInput(line)
 
@@ -3654,7 +3667,7 @@ func (m *chatTUI) runSlashCommand(input string) tea.Cmd {
 			m.notice("remembered → " + path)
 		}
 	case "/quit", "/exit":
-		return tea.Quit
+		m.cancelIfSet(); return tea.Quit
 	case "/write":
 		m.echoLocalCommand(input)
 		m.openWriteMode(input)
@@ -3675,7 +3688,7 @@ func (m *chatTUI) runSlashCommand(input string) tea.Cmd {
 		} else {
 			m.notice("dispatching to council peers…")
 			go func() {
-				result, err := m.ctrl.Council(context.Background(), task)
+				result, err := m.ctrl.Council(m.ctx, task)
 				if err != nil {
 					m.notice("council: " + err.Error())
 				} else {

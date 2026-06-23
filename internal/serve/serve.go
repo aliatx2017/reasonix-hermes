@@ -274,7 +274,15 @@ func csrfGuard(next http.Handler) http.Handler {
 // "ask" decisions surface as approval_request events answered via POST /approve.
 func (s *Server) Run(addr string) error {
 	s.ctl().EnableInteractiveApproval()
-	return http.ListenAndServe(addr, s.Handler())
+	srv := &http.Server{
+		Addr:              addr,
+		Handler:           s.Handler(),
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
+	return srv.ListenAndServe()
 }
 
 // RunGraceful serves with graceful shutdown. It listens for SIGINT/SIGTERM on
@@ -297,6 +305,9 @@ func (s *Server) RunGraceful(ctx context.Context, addr string) error {
 		return err
 	case <-ctx.Done():
 		slog.Info("serve: shutting down gracefully")
+		if s.auth != nil && s.auth.rateLimit != nil {
+			s.auth.rateLimit.Stop()
+		}
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		if err := srv.Shutdown(shutdownCtx); err != nil {
@@ -394,7 +405,8 @@ func (s *Server) submit(w http.ResponseWriter, r *http.Request) {
 		ref := strings.TrimSpace(strings.TrimPrefix(trimmed, "/model"))
 		if ref != "" {
 			if err := s.switchModel(r.Context(), ref); err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				slog.Error("switch model failed", "err", err)
+				http.Error(w, "internal server error", http.StatusInternalServerError)
 				return
 			}
 			w.WriteHeader(http.StatusNoContent)
@@ -406,7 +418,8 @@ func (s *Server) submit(w http.ResponseWriter, r *http.Request) {
 		level := strings.TrimSpace(strings.TrimPrefix(trimmed, "/effort"))
 		if level != "" {
 			if err := s.switchEffort(r.Context(), level); err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				slog.Error("switch effort failed", "err", err)
+				http.Error(w, "internal server error", http.StatusInternalServerError)
 				return
 			}
 			w.WriteHeader(http.StatusNoContent)
@@ -451,7 +464,8 @@ func (s *Server) plan(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) compact(w http.ResponseWriter, r *http.Request) {
 	if err := s.ctl().Compact(r.Context(), ""); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		slog.Error("compact failed", "err", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
 	// Persist the compacted session to disk — ctrl.Compact() only mutates in-memory.

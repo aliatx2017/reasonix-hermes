@@ -103,7 +103,7 @@ type botInstallSession struct {
 func (a *App) StartBotConnectionInstall(provider, domain string) (BotInstallStartResult, error) {
 	provider, domain = normalizeBotInstallTarget(provider, domain)
 	if provider == "weixin" {
-		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		ctx, cancel := context.WithTimeout(a.bootContext(), 15*time.Second)
 		defer cancel()
 		session, err := weixin.StartLogin(ctx)
 		if err != nil {
@@ -147,7 +147,7 @@ func (a *App) PollBotConnectionInstall(installID string) (BotInstallPollResult, 
 		return BotInstallPollResult{Status: "expired", Error: "install session expired"}, nil
 	}
 	if session.Provider == "weixin" {
-		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		ctx, cancel := context.WithTimeout(a.bootContext(), 15*time.Second)
 		defer cancel()
 		result, status, err := weixin.PollLogin(ctx, session.Weixin)
 		if err != nil {
@@ -253,7 +253,7 @@ func (a *App) TestBotConnection(id, target string) (BotConnectionDiagnostic, err
 	if target == "" {
 		return botConnectionDiagnostic(conn, conn.ID, "warning", "send", "test_target_missing", "请输入测试会话 ID 后再发送测试消息。", false), nil
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(a.bootContext(), 15*time.Second)
 	defer cancel()
 	var result bot.SendResult
 	switch conn.Provider {
@@ -681,7 +681,7 @@ func postFeishuInstallFormResult(base string, body map[string]string) (map[strin
 		return nil, 0, err
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := (&http.Client{Timeout: 15 * time.Second}).Do(req)
 	if err != nil {
 		return nil, 0, err
 	}

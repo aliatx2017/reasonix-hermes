@@ -16,6 +16,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"time"
 
 	"reasonix/internal/bot"
 	"reasonix/internal/config"
@@ -97,7 +98,13 @@ func (a *Adapter) Start(ctx context.Context) error {
 	a.listener = listener
 
 	addr := listener.Addr().String()
-	a.server = &http.Server{Handler: mux}
+	a.server = &http.Server{
+		Handler:           mux,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
 	a.logger.Info("line: webhook server listening", "addr", addr, "path", "/webhook")
 
 	go func() {

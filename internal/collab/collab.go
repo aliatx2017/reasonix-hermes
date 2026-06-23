@@ -98,7 +98,7 @@ func New(cfg Config, onSteer SteerCallback, logger *slog.Logger) *Hub {
 		return nil
 	}
 	if cfg.ListenAddr == "" {
-		cfg.ListenAddr = ":9091"
+		cfg.ListenAddr = "127.0.0.1:9091"
 	}
 	if logger == nil {
 		logger = slog.Default()
@@ -302,7 +302,13 @@ func (h *Hub) removePeer(peer *Peer) {
 // EchoWSHandler returns an http.Handler that upgrades to WebSocket and echoes
 // messages back — useful for testing and health checks.
 func EchoWSHandler() http.Handler {
-	up := websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }}
+	up := websocket.Upgrader{CheckOrigin: func(r *http.Request) bool {
+		host := r.Host
+		if h, _, err := net.SplitHostPort(host); err == nil {
+			host = h
+		}
+		return host == "127.0.0.1" || host == "localhost" || host == "::1"
+	}}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := up.Upgrade(w, r, nil)
 		if err != nil {

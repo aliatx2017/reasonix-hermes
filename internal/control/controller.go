@@ -149,6 +149,7 @@ type Controller struct {
 	// non-blocking.
 	mu          sync.Mutex
 	cancel      context.CancelFunc
+	runCtx      context.Context // set during runGuarded/RunTurn, nil when idle
 	running     bool
 	canceling   bool
 	autosaveWG  sync.WaitGroup
@@ -441,6 +442,7 @@ func (c *Controller) runGuarded(body func(ctx context.Context) error) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	c.cancel = cancel
+	c.runCtx = ctx
 	c.running = true
 	c.canceling = false
 	c.mu.Unlock()
@@ -457,6 +459,7 @@ func (c *Controller) runGuarded(body func(ctx context.Context) error) {
 				c.mu.Lock()
 				c.running = false
 				c.cancel = nil
+				c.runCtx = nil
 				c.canceling = false
 				c.mu.Unlock()
 				c.sink.Emit(event.Event{Kind: event.TurnDone, Err: fmt.Errorf("internal error: %v", r)})
@@ -522,6 +525,7 @@ func (c *Controller) RunTurn(ctx context.Context, input string) error {
 		return ErrTurnRunning
 	}
 	c.cancel = cancel
+	c.runCtx = ctx
 	c.running = true
 	c.canceling = false
 	c.mu.Unlock()
@@ -530,6 +534,7 @@ func (c *Controller) RunTurn(ctx context.Context, input string) error {
 		c.mu.Lock()
 		c.running = false
 		c.cancel = nil
+		c.runCtx = nil
 		c.canceling = false
 		c.mu.Unlock()
 		cancel()
@@ -784,7 +789,11 @@ func (c *Controller) submitCommandOrTurn(trimmed, input, display string, scopedR
 	case trimmed == "/compact" || strings.HasPrefix(trimmed, "/compact "):
 		focus := strings.TrimSpace(strings.TrimPrefix(trimmed, "/compact"))
 		go func() {
-			if err := c.Compact(context.Background(), focus); err != nil {
+			ctx := c.runCtx
+			if ctx == nil {
+				ctx = context.Background()
+			}
+			if err := c.Compact(ctx, focus); err != nil {
 				c.notice("compaction failed: " + err.Error())
 			} else {
 				c.notice("compacted")
@@ -1625,7 +1634,11 @@ func (c *Controller) ClearSession() error {
 	c.mu.Lock()
 	c.startedOnce = true
 	c.mu.Unlock()
-	c.hooks.SessionStart(context.Background())
+	hookCtx := c.runCtx
+	if hookCtx == nil {
+		hookCtx = context.Background()
+	}
+	c.hooks.SessionStart(hookCtx)
 	if destroy.Async {
 		go func() {
 			result := destroy.Wait()

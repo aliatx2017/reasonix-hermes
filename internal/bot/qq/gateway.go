@@ -382,7 +382,7 @@ func (a *adapter) getGatewayURL(ctx context.Context, token string) (string, erro
 		return "", err
 	}
 	req.Header.Set("Authorization", "QQBot "+token)
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := netclient.DefaultClient().Do(req)
 	if err != nil {
 		return "", err
 	}

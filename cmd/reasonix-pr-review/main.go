@@ -32,6 +32,8 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+
+	"reasonix/internal/netclient"
 )
 
 func main() {
@@ -102,7 +104,7 @@ func fetchPR(ctx context.Context, repo string, pr int, token string) (title, bod
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Accept", "application/vnd.github.v3+json")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := netclient.DefaultClient().Do(req)
 	if err != nil {
 		return "", "", err
 	}
@@ -124,7 +126,7 @@ func fetchDiff(ctx context.Context, repo string, pr int, token string) (string, 
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Accept", "application/vnd.github.v3.diff")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := netclient.DefaultClient().Do(req)
 	if err != nil {
 		return "", err
 	}

@@ -140,7 +140,9 @@ func (a *App) workspaceBaseForTab(tabID string) (string, error) {
 // children inherit the invisible console, fsmonitor/auto-maintenance off so a
 // probe never spawns a background daemon that opens a console of its own (#3906).
 func workspaceGit(args ...string) *exec.Cmd {
-	return workspaceGitCommand(context.Background(), args...)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	_ = cancel // context deadline drives cancellation via CommandContext
+	return workspaceGitCommand(ctx, args...)
 }
 
 func workspaceGitCommand(ctx context.Context, args ...string) *exec.Cmd {
