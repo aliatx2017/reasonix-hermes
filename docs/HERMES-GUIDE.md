@@ -1530,7 +1530,7 @@ every tool call. See `docs/CONSTITUTION.md`.
 
 ### 16.20 Skill Marketplace
 
-Community skill registry (agentskills.io-compatible) + LobeHub sync (800+ agents):
+Community skill registry (agentskills.io-compatible) + LobeHub sync (850+ agents):
 
 ```bash
 reasonix marketplace list      # browse registry

@@ -36,8 +36,10 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 ## Notes
 
-- **Upstream synced**: `v1.11.1` (commit 9c27591e, 2026-06-23). 34 syncs total — merged: 9c27591e (h57, 52 commits). Previous sync: 7aa97d31 (h56, 28 commits).
+- **Upstream synced**: `v1.11.1` (commit 9c27591e, 2026-06-23). 34 syncs total — upstream unchanged since h57.
 - **Commit**: session 2026-06-23 (h57) — upstream merge v1.11.1 (52 commits) + doc-sweep (9 stale claims). **Upstream**: merged 9c27591e (52 commits — serve auth/mobile/goal mode, desktop zustand overlay+layout stores, bot connloop primitives, command palette fix, single-surface tab pruning, credential hardening, session switch race guards, skillSet/memoryManager/mcpManager/checkpointManager extractions, frontend hydration state machine). 16 conflicts resolved — zero Hermes features lost. Post-merge fixes: pluginCtx→PluginCtx (field/method conflict), c.cp→c.checkpoints, c.connectMCPSpec→c.mcp.connectSpec, fileSnaps method on checkpointManager, duplicate CredentialsStore removal, currency test ¥→$. RightDockMode "none" restored in store/layout.ts (upstream moved type there without it). Fingerprint guards updated for new file locations (34/34 pass). **Doc-sweep**: 9 stale claims fixed across 6 files (v1.10→v1.11, 56/70→72 packages, v1.8.1→v1.11.0). eventwire/ added to SPEC.md. **Build**: All 9 binaries rebuilt. go build+vet+test all pass (85 packages). Desktop tests + tsc clean.
+
+- **Commit**: session 2026-06-23 (h58) — test coverage + benchmarks + doc-sweep. **Coverage**: 4 packages boosted — scheduler 56.8→97.5% (27 tests, DOW 7 cron bug fixed), billing 66.1→95.2% (8 tests + httptest injection hooks), eval 69.4→98.6% (18 tests), proc 56.2→100% (8 tests). **Refactor**: t.Parallel() added to 19 billing tests, t.Helper() verified on helpers. **Benchmarks**: 30 total — compress (16: CompressDisabled 2ns, cache-hit 4.9µs, error-detect 255ns, SHA256), agent (5: hasImages, successfulToolCallIDs, withReasoningLanguage 11ns), provider (9: message marshal/unmarshal, ParseImageDataURL 8ns). **Doc-sweep**: 7 fixes across 5 files — CONTRIBUTING.md missing e2ebench/learner-live-test binaries + agentlog/billing/e2e table entries + orphaned section; LobeHub agent count 800→850 (verified: live API JWT auth → totalCount 850); updated MARKETPLACE.md, HERMES-GUIDE, README.md, AGENTS.md. **Files**: 11 changed, 6 new test files. **Build**: go build+vet+test all pass. tsc + fingerprint guards clean. Upstream unchanged (9c27591e).
 
 - **Commit**: session 2026-06-21 (h54) — agent-reach MCP + headroom proxy + taste-skill desktop audit + npm v1.11.0 + upstream merge. **agent-reach**: sandbox e2e verified, MCP server at .reasonix/scripts/agent-reach-mcp (3 tools, [[plugins]]), E2E proven. **headroom**: proxy v0.26.0 wired end-to-end (reasonix → localhost:8787 → api.deepseek.com), 2 new providers in reasonix.toml (deepseek-headroom, deepseek-flash-headroom). CLI TUI status bar +chip (◈↓N%), desktop StatusBar +HeadroomGaugeCompact + live data hook. **Taste-skill**: Hermes theme was ghost (zero CSS), added gold-accented :root[data-theme-style="hermes"] block (~190 lines, dark+light+auto). **Docs**: HEADROOM.md (304 lines, 9 sections) cross-linked from README + HERMES-GUIDE; HERMES-GUIDE +§16.27 Agent Reach MCP + §16.28 Headroom Proxy; AGENTS.md +2 rows. Doc-sweep: 6 stale claims fixed across 5 docs. **npm**: v1.11.0 tagged, 6-platform binaries staged. **Upstream**: merged 043e6183 (10 commits, 31st sync, Creation tool flow + session trash fix). 1 conflict (MarkdownRenderer.tsx, accepted upstream superset). Fingerprint guards 34/34 pass. All 9 binaries rebuilt. Full test suite + desktop tests + tsc clean.
 
@@ -204,8 +206,8 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 - **Upstream**: Merged 5 commits (a029618). Desktop-v1.8.1 tag.
 ## Next session — ideas & follow-ups
 
-- **Upstream sync**: Check for new commits (last: 9c27591e, h57).
-- **serve web frontend**: Test the new auth/mobile/goal features from v1.11.1.
+- **Upstream sync**: Check for new commits (last: 9c27591e, h58).
+- **LobeHub agent count monitor**: Re-verify totalCount periodically (was 850 on 2026-06-23); update docs if changed.
 
 ### Session 2026-06-13 (expansion plan execution)
 

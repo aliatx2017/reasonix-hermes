@@ -10,6 +10,7 @@ import (
 // A DeepSeek-shaped response parses, exposes Available, and Display prefers CNY
 // with the right symbol; the request carries the bearer key.
 func TestFetchDeepSeekShape(t *testing.T) {
+	t.Parallel()
 	const body = `{
 		"is_available": true,
 		"balance_infos": [
@@ -47,6 +48,7 @@ func TestFetchDeepSeekShape(t *testing.T) {
 // An empty url is "not configured", not an error: (nil, nil), and Display on a nil
 // balance is "".
 func TestFetchEmptyURL(t *testing.T) {
+	t.Parallel()
 	b, err := FetchWithClient(context.Background(), nil, "", "key")
 	if err != nil || b != nil {
 		t.Fatalf("Fetch(\"\") = (%v, %v), want (nil, nil)", b, err)
@@ -58,6 +60,7 @@ func TestFetchEmptyURL(t *testing.T) {
 
 // A non-200 surfaces an error rather than a bogus zero balance.
 func TestFetchHTTPError(t *testing.T) {
+	t.Parallel()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 		_, _ = w.Write([]byte(`{"error":"invalid key"}`))
@@ -71,6 +74,7 @@ func TestFetchHTTPError(t *testing.T) {
 // Display falls back to the first currency when no CNY entry is present, and maps
 // USD to "$".
 func TestDisplayUSDOnly(t *testing.T) {
+	t.Parallel()
 	b := &Balance{Available: true, Infos: []Info{{Currency: "USD", TotalBalance: "9.99"}}}
 	if got := b.Display(); got != "$9.99" {
 		t.Errorf("Display = %q, want %q", got, "$9.99")

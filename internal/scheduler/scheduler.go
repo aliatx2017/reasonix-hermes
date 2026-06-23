@@ -367,11 +367,18 @@ func NextAfter(expr string, after time.Time) (time.Time, error) {
 }
 
 func (e *cronExpr) matches(t time.Time) bool {
+	dow := int(t.Weekday())
+	// DOW: 0 and 7 both map to Sunday. Go's Weekday() returns 0 for Sunday
+	// and never returns 7, so check both when dow == 0.
+	dowMatch := e.dow.matches(dow)
+	if dow == 0 {
+		dowMatch = dowMatch || e.dow.matches(7)
+	}
 	return e.minute.matches(t.Minute()) &&
 		e.hour.matches(t.Hour()) &&
 		e.dom.matches(t.Day()) &&
 		e.month.matches(int(t.Month())) &&
-		e.dow.matches(int(t.Weekday()))
+		dowMatch
 }
 
 // Tasks returns a copy of the configured task list for display.

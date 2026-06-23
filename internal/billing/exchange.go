@@ -12,6 +12,28 @@ import (
 
 const exchangeRateURL = "https://api.exchangerate-api.com/v4/latest/CNY"
 
+// test-only overrides: set in tests to swap in httptest servers and clients.
+var (
+	exchangeRateTestURL    string
+	exchangeRateTestClient *http.Client
+)
+
+// exchangeRateRequestURL returns the URL to use for exchange rate requests.
+func exchangeRateRequestURL() string {
+	if exchangeRateTestURL != "" {
+		return exchangeRateTestURL
+	}
+	return exchangeRateURL
+}
+
+// exchangeRateHTTPClient returns the HTTP client to use.
+func exchangeRateHTTPClient() *http.Client {
+	if exchangeRateTestClient != nil {
+		return exchangeRateTestClient
+	}
+	return netclient.DefaultClient()
+}
+
 // exchangeRateResponse is the JSON shape returned by exchangerate-api.com.
 type exchangeRateResponse struct {
 	Base  string             `json:"base"`
@@ -28,11 +50,11 @@ func FetchCNYToUSD() float64 {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, exchangeRateURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, exchangeRateRequestURL(), nil)
 	if err != nil {
 		return DefaultCNYToUSD
 	}
-	resp, err := netclient.DefaultClient().Do(req)
+	resp, err := exchangeRateHTTPClient().Do(req)
 	if err != nil {
 		return DefaultCNYToUSD
 	}

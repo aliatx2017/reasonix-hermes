@@ -15,7 +15,7 @@ reasonix marketplace search "git"
 # Install a skill
 reasonix install-source install --source https://github.com/author/skill-repo
 
-# Sync from LobeHub (800+ community agents)
+# Sync from LobeHub (850+ community agents)
 reasonix marketplace sync
 ```
 
@@ -30,7 +30,7 @@ sources:
    refactoring, security audit, test generation).
 
 2. **LobeHub integration** — sync from [LobeHub](https://lobehub.com)'s
-   marketplace with 800+ community-authored agents (via `/api/v1/agents` endpoint). Uses machine-to-machine
+   marketplace with 850+ community-authored agents (via `/api/v1/agents` endpoint). Uses machine-to-machine
    OAuth2 (HS256 JWT, stdlib-only) for automatic registration.
 
 ## Registry Format

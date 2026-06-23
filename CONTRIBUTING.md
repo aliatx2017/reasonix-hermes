@@ -31,6 +31,8 @@ go build -o bin/reasonix-mcpbridge ./cmd/reasonix-mcpbridge
 go build -o bin/reasonix-memoryserver ./cmd/reasonix-memoryserver
 go build -o bin/reasonix-hooks ./cmd/reasonix-hooks
 go build -o bin/reasonix-pr-review ./cmd/reasonix-pr-review
+go build -o bin/reasonix-e2ebench ./cmd/e2ebench
+go build -o bin/reasonix-learner-live-test ./cmd/learner-live-test
 ```
 
 Desktop (Wails + React 19 + TypeScript):
@@ -49,7 +51,11 @@ tsc --noEmit                     # in desktop/frontend — must pass before comm
 | `cmd/reasonix-mcpbridge` | [Hermes] MCP bridge server |
 | `cmd/reasonix-memoryserver` | [Hermes] Hindsight memory server |
 | `cmd/reasonix-pr-review` | [Hermes] PR review CLI |
+| `cmd/reasonix-learner-live-test` | [Hermes] Learner e2e validation binary |
+| `cmd/reasonix-e2ebench` | [Hermes] E2E benchmarking tool |
 | `internal/agent` | Agent loop, session, coordinator |
+| `internal/agentlog` | [Hermes] Structured operational agent logging (slog) |
+| `internal/billing` | [Hermes] Exchange rate + wallet balance fetching |
 | `internal/bot` | [Hermes] Multi-platform bot gateway (Discord/QQ/Feishu/WeChat/Telegram/LINE/Slack) |
 | `internal/cli` | TUI, subcommands, setup wizard |
 | `internal/collab` | [Hermes] Live collaboration WebSocket hub |
@@ -58,6 +64,7 @@ tsc --noEmit                     # in desktop/frontend — must pass before comm
 | `internal/constitution` | [Hermes] Project invariants (.reasonix/constitution.json) |
 | `internal/control` | Transport-agnostic controller |
 | `internal/eval` | [Hermes] Session comparison and evaluation |
+| `internal/e2e` | [Hermes] Regression testing harness |
 | `internal/learn` | [Hermes] Self-improving skill loops |
 | `internal/marketplace` | [Hermes] Community skill registry + LobeHub sync |
 | `internal/mesh` | [Hermes] Agent-to-agent MCP mesh |
@@ -109,6 +116,22 @@ make cross          # cross-compile for all 6 targets
 ```
 
 To build all Hermes binaries including desktop:
+
+```bash
+# All 8 CLI binaries
+go build -o bin/reasonix ./cmd/reasonix
+go build -o bin/reasonix-bot ./bot
+go build -o bin/reasonix-mcpbridge ./cmd/reasonix-mcpbridge
+go build -o bin/reasonix-memoryserver ./cmd/reasonix-memoryserver
+go build -o bin/reasonix-hooks ./cmd/reasonix-hooks
+go build -o bin/reasonix-pr-review ./cmd/reasonix-pr-review
+go build -o bin/reasonix-e2ebench ./cmd/e2ebench
+go build -o bin/reasonix-learner-live-test ./cmd/learner-live-test
+
+# Desktop
+cd desktop && wails build -o ../bin/reasonix-desktop
+```
+
 ### Cache-first review gate
 
 Reasonix treats high prompt-cache hit rate as product behavior. Changes that

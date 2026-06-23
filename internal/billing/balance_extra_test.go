@@ -11,36 +11,42 @@ import (
 // --- symbol ---
 
 func TestSymbolCNY(t *testing.T) {
+	t.Parallel()
 	if got := symbol("CNY"); got != "¥" {
 		t.Errorf("symbol(CNY) = %q", got)
 	}
 }
 
 func TestSymbolRMB(t *testing.T) {
+	t.Parallel()
 	if got := symbol("RMB"); got != "¥" {
 		t.Errorf("symbol(RMB) = %q", got)
 	}
 }
 
 func TestSymbolUSD(t *testing.T) {
+	t.Parallel()
 	if got := symbol("USD"); got != "$" {
 		t.Errorf("symbol(USD) = %q", got)
 	}
 }
 
 func TestSymbolUnknown(t *testing.T) {
+	t.Parallel()
 	if got := symbol("EUR"); got != "EUR " {
 		t.Errorf("symbol(EUR) = %q, want \"EUR \"", got)
 	}
 }
 
 func TestSymbolEmpty(t *testing.T) {
+	t.Parallel()
 	if got := symbol(""); got != "" {
 		t.Errorf("symbol(\"\") = %q, want empty", got)
 	}
 }
 
 func TestSymbolLowercase(t *testing.T) {
+	t.Parallel()
 	// symbol should be case-insensitive.
 	if got := symbol("usd"); got != "$" {
 		t.Errorf("symbol(usd) = %q", got)
@@ -50,6 +56,7 @@ func TestSymbolLowercase(t *testing.T) {
 // --- Display ---
 
 func TestDisplayNil(t *testing.T) {
+	t.Parallel()
 	var b *Balance
 	if got := b.Display(); got != "" {
 		t.Errorf("nil Display = %q", got)
@@ -57,6 +64,7 @@ func TestDisplayNil(t *testing.T) {
 }
 
 func TestDisplayEmptyInfos(t *testing.T) {
+	t.Parallel()
 	b := &Balance{Available: true}
 	if got := b.Display(); got != "" {
 		t.Errorf("empty infos Display = %q", got)
@@ -64,6 +72,7 @@ func TestDisplayEmptyInfos(t *testing.T) {
 }
 
 func TestDisplayPrefersCNY(t *testing.T) {
+	t.Parallel()
 	b := &Balance{Infos: []Info{
 		{Currency: "USD", TotalBalance: "10.00"},
 		{Currency: "CNY", TotalBalance: "50.00"},
@@ -74,6 +83,7 @@ func TestDisplayPrefersCNY(t *testing.T) {
 }
 
 func TestDisplayFallsBackToFirst(t *testing.T) {
+	t.Parallel()
 	b := &Balance{Infos: []Info{
 		{Currency: "EUR", TotalBalance: "25.00"},
 	}}
@@ -85,6 +95,7 @@ func TestDisplayFallsBackToFirst(t *testing.T) {
 // --- Fetch edge cases ---
 
 func TestFetchContextCancelled(t *testing.T) {
+	t.Parallel()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -98,6 +109,7 @@ func TestFetchContextCancelled(t *testing.T) {
 }
 
 func TestFetchMalformedJSON(t *testing.T) {
+	t.Parallel()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{not valid json`))
@@ -113,6 +125,7 @@ func TestFetchMalformedJSON(t *testing.T) {
 }
 
 func TestFetchNoAPIKey(t *testing.T) {
+	t.Parallel()
 	var gotAuth string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotAuth = r.Header.Get("Authorization")
@@ -130,6 +143,7 @@ func TestFetchNoAPIKey(t *testing.T) {
 }
 
 func TestFetchWhitespaceURL(t *testing.T) {
+	t.Parallel()
 	b, err := FetchWithClient(context.Background(), nil, "   ", "key")
 	if err != nil || b != nil {
 		t.Fatalf("whitespace URL should return (nil,nil), got (%v, %v)", b, err)
@@ -137,6 +151,7 @@ func TestFetchWhitespaceURL(t *testing.T) {
 }
 
 func TestFetchServerUnavailable(t *testing.T) {
+	t.Parallel()
 	// Use a URL that won't connect.
 	_, err := FetchWithClient(context.Background(), nil, "http://127.0.0.1:1", "key")
 	if err == nil {
