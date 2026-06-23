@@ -149,7 +149,7 @@ skills-hub/            17-skill community registry + static catalog site
 ## Notes
 
 - Upstream remote: `https://github.com/esengine/deepseek-reasonix.git` (branch `main-v2`)
-- **Upstream target**: v1.10.0 (June 2026) — ✅ synced (7aa97d31). 33 syncs total.
+- **Upstream target**: v1.11.1 (June 2026) — ✅ synced (9c27591e). 34 syncs total.
 - Our fork: `https://github.com/aliatx2017/reasonix-hermes.git` (branch `main`)
 - To pull upstream updates: `git fetch upstream && git merge upstream/main-v2`
 - `reasonix.toml` is gitignored (upstream convention) — never commit secrets
