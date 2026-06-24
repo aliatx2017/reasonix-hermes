@@ -17,10 +17,10 @@ func explainError(err error) error {
 		return nil
 	}
 	if provider.IsStreamInterrupted(err) {
-		return fmt.Errorf("model stream interrupted after recovery attempts: %s. The partial response was kept; retry or ask Reasonix to continue", err.Error())
+		return fmt.Errorf("model stream interrupted after recovery attempts: %w. The partial response was kept; retry or ask Reasonix to continue", err)
 	}
 	if provider.IsConnReset(err) {
-		return fmt.Errorf("model stream disconnected before completion after retry attempts: %s. Check the provider/proxy connection, then retry or ask Reasonix to continue", err.Error())
+		return fmt.Errorf("model stream disconnected before completion after retry attempts: %w. Check the provider/proxy connection, then retry or ask Reasonix to continue", err)
 	}
 	var apiErr *provider.APIError
 	if errors.As(err, &apiErr) {

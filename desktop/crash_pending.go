@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"runtime/debug"
@@ -30,6 +31,7 @@ func (a *App) recoverToPending(site string) {
 	if r == nil {
 		return
 	}
+	slog.Error("goroutine panic recovered", "site", site, "panic", fmt.Sprint(r))
 	writePendingCrash(site, r, debug.Stack())
 	panic(r)
 }

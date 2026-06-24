@@ -2,7 +2,10 @@
 
 package notify
 
-import "os/exec"
+import (
+	"os/exec"
+	"time"
+)
 
 // PlatformSender delivers notifications through the host OS.
 type PlatformSender struct{}
@@ -15,6 +18,15 @@ func (PlatformSender) Send(m Message) error {
 	if err := cmd.Start(); err != nil {
 		return err
 	}
-	go func() { _ = cmd.Wait() }()
+	go func() {
+		done := make(chan error, 1)
+		go func() { done <- cmd.Wait() }()
+		select {
+		case <-done:
+		case <-time.After(10 * time.Second):
+			_ = cmd.Process.Kill()
+			<-done
+		}
+	}()
 	return nil
 }

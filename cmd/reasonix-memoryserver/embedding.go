@@ -10,7 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 
@@ -103,7 +103,7 @@ func (ec *embeddingClient) Embed(texts []string) ([][]float64, error) {
 func (ec *embeddingClient) embedOne(text string) []float64 {
 	vecs, err := ec.Embed([]string{text})
 	if err != nil {
-		log.Printf("[hindsight] embed failed: %v", err)
+		slog.Warn("hindsight: embed failed", "err", err)
 		return nil
 	}
 	if len(vecs) > 0 {

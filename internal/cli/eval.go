@@ -292,6 +292,8 @@ func evalRunVerify(criterion string) string {
 
 // evalRunCommandCheck runs cmd via sh -c and returns PASS on success or a
 // detailed FAIL message (via failMsg) that includes the error output.
+// Security: cmd is always a hardcoded string literal (not user input) —
+// shell injection is not possible from the eval check definitions.
 func evalRunCommandCheck(cmd string, failMsg func(string) string) string {
 	out, err := exec.Command("sh", "-c", cmd).CombinedOutput()
 	if err != nil {

@@ -425,8 +425,9 @@ func safeBotReportSegment(s string) string {
 
 func safeBotReportValue(s string) string {
 	s = safeBotReportSegment(s)
-	if len(s) > 80 {
-		return s[:80]
+	r := []rune(s)
+	if len(r) > 80 {
+		return string(r[:80])
 	}
 	return s
 }

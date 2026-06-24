@@ -12,7 +12,7 @@ package main
 
 import (
 	"encoding/json"
-	"log"
+	"log/slog"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -52,6 +52,7 @@ type HeartbeatEngine struct {
 	mu      sync.Mutex
 	tasks   []HeartbeatTask
 	done    chan struct{}
+	wg      sync.WaitGroup
 	running bool
 	app     *App // back-reference for topic creation, tab routing, and prompt submission
 }
@@ -80,7 +81,7 @@ func (e *HeartbeatEngine) loadTasks() []HeartbeatTask {
 	}
 	var cfg heartbeatConfig
 	if err := json.Unmarshal(b, &cfg); err != nil {
-		log.Printf("[heartbeat] invalid config: %v", err)
+		slog.Warn("heartbeat: invalid config", "err", err)
 		return nil
 	}
 	return cfg.Tasks
@@ -117,19 +118,26 @@ func (e *HeartbeatEngine) Start() {
 	}
 	e.tasks = e.loadTasks()
 	e.running = true
-	go e.loop()
-	log.Printf("[heartbeat] engine started (%d tasks)", len(e.tasks))
+	e.done = make(chan struct{})
+	e.wg.Add(1)
+	go func() {
+		defer e.wg.Done()
+		e.loop()
+	}()
+	slog.Info("heartbeat engine started", "tasks", len(e.tasks))
 }
 
-// Stop signals the scheduler goroutine to exit.
+// Stop signals the scheduler goroutine to exit and waits for it.
 func (e *HeartbeatEngine) Stop() {
 	e.mu.Lock()
-	defer e.mu.Unlock()
 	if !e.running {
+		e.mu.Unlock()
 		return
 	}
 	e.running = false
 	close(e.done)
+	e.mu.Unlock()
+	e.wg.Wait()
 }
 
 // loop is the main scheduler loop — tick every 30s and check each enabled task.
@@ -190,7 +198,7 @@ func (e *HeartbeatEngine) executeTask(t HeartbeatTask) HeartbeatTask {
 	if topicID == "" {
 		meta, err := e.app.CreateTopic(scope, workspaceRoot, title)
 		if err != nil {
-			log.Printf("[heartbeat] CreateTopic(%q): %v", t.Title, err)
+			slog.Warn("heartbeat: CreateTopic failed", "title", t.Title, "err", err)
 			t.LastRunAt = time.Now().UnixMilli()
 			return t
 		}
@@ -208,7 +216,7 @@ func (e *HeartbeatEngine) executeTask(t HeartbeatTask) HeartbeatTask {
 		tabMeta, err = e.app.openGlobalTabInactive(topicID)
 	}
 	if err != nil {
-		log.Printf("[heartbeat] OpenTab(%q): %v", t.Title, err)
+		slog.Warn("heartbeat: OpenTab failed", "title", t.Title, "err", err)
 		t.LastRunAt = time.Now().UnixMilli()
 		return t
 	}
@@ -224,14 +232,14 @@ func (e *HeartbeatEngine) executeTask(t HeartbeatTask) HeartbeatTask {
 		time.Sleep(250 * time.Millisecond)
 	}
 	if !controllerReady {
-		log.Printf("[heartbeat] controller not ready for %q, skipping", t.Title)
+		slog.Warn("heartbeat: controller not ready, skipping", "title", t.Title)
 		return t // don't update LastRunAt — retry next tick
 	}
 
 	// Submit as a plain user turn so scheduled prompts cannot invoke desktop
 	// shell or slash-command handlers such as "!cmd", "/clear", or "/compact".
 	if !e.app.submitUserTurnToTab(tabMeta.ID, t.Prompt) {
-		log.Printf("[heartbeat] submit skipped for %q", t.Title)
+		slog.Warn("heartbeat: submit skipped", "title", t.Title)
 		return t
 	}
 

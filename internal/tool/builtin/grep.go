@@ -166,6 +166,9 @@ func (g grepTool) Execute(ctx context.Context, args json.RawMessage) (string, er
 				pr, pw := io.Pipe()
 				go func() {
 					_, _ = pw.Write(head)
+					// io.Copy errors here are safe to ignore: pw.Close() signals
+					// the reader; any write error (broken pipe from early scanner
+					// return) is expected and non-actionable.
 					io.Copy(pw, f) //nolint:errcheck
 					pw.Close()
 				}()

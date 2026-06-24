@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -138,15 +139,15 @@ func (s *Server) ServeHTTP(addr, authKeyEnv string) error {
 		sc := make(chan os.Signal, 1)
 		signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM)
 		<-sc
-		log.Printf("[%s] shutting down...", s.Name)
+		slog.Info("shutting down", "server", s.Name)
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		if err := srv.Shutdown(ctx); err != nil {
-			log.Printf("[%s] shutdown error: %v", s.Name, err)
+			slog.Warn("shutdown error", "server", s.Name, "err", err)
 		}
 	}()
 
-	log.Printf("[%s] HTTP server listening on %s", s.Name, addr)
+	slog.Info("HTTP server listening", "server", s.Name, "addr", addr)
 	return srv.ListenAndServe()
 }
 

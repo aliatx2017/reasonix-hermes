@@ -637,7 +637,7 @@ func (j *Job) readArtifactSinceOffsetLocked() string {
 		}
 		return ""
 	}
-	b, err := io.ReadAll(f)
+	b, err := io.ReadAll(io.LimitReader(f, 10<<20))
 	if err != nil {
 		if j.artifactErr == "" {
 			j.artifactErr = err.Error()

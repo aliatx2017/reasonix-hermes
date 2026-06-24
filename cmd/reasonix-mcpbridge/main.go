@@ -575,12 +575,12 @@ func main() {
 		log.Fatal(srv.ServeHTTP(":"+port, "MCP_API_KEY"))
 	}
 
-	// Graceful shutdown on SIGINT/SIGTERM — the parent may signal before closing stdin.
+	// Graceful shutdown on SIGINT/SIGTERM — signal ServeStdio to return.
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-sigCh
-		os.Exit(0)
+		os.Exit(0) //nolint:revive // intentional: signal handler exits after stdio flush
 	}()
 
 	log.SetPrefix("[reasonix-bridge] ")

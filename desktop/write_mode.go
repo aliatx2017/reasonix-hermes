@@ -120,7 +120,7 @@ func (a *App) SaveMarkdownFile(relPath, content string) error {
 		if err := os.MkdirAll(filepath.Dir(abs), 0o755); err != nil {
 			return err
 		}
-		return os.WriteFile(abs, []byte(content), 0o644)
+		return os.WriteFile(abs, []byte(content), 0o600)
 	}
 	if !strings.HasPrefix(resolved, root) {
 		return os.ErrPermission
@@ -153,7 +153,7 @@ func (a *App) CreateMarkdownFile(relPath, content string) (string, error) {
 	if err := os.MkdirAll(filepath.Dir(abs), 0o755); err != nil {
 		return "", err
 	}
-	if err := os.WriteFile(abs, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(abs, []byte(content), 0o600); err != nil {
 		return "", err
 	}
 	return relPath, nil

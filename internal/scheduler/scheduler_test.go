@@ -307,13 +307,6 @@ func TestSortTasksByName(t *testing.T) {
 	}
 }
 
-func containsString(ss []string, s string) bool {
-	for _, x := range ss {
-		if x == s { return true }
-	}
-	return false
-}
-
 func taskNames(t *testing.T, tasks []Task) []string {
 	t.Helper()
 	names := make([]string, len(tasks))

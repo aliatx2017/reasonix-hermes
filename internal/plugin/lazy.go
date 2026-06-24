@@ -92,6 +92,13 @@ func (s *lazySpawn) run() {
 	var cacheTools []tool.Tool
 	s.mu.Lock()
 	if err != nil {
+		// Check if error is due to cancellation — don't record spurious failure.
+		if s.ctx.Err() != nil {
+			s.state = spawnIdle
+			s.spawnErr = nil
+			s.mu.Unlock()
+			return
+		}
 		if errors.Is(err, ErrSpawningInFlight) {
 			// Another tab is already spawning this server; reset to idle so
 			// the next call retries instead of recording a spurious failure.

@@ -914,7 +914,7 @@ func (a *App) saveLobeHubSyncMeta(meta LobeHubSyncMeta) {
 		return
 	}
 	os.MkdirAll(filepath.Dir(path), 0o755)
-	os.WriteFile(path, data, 0o644)
+	os.WriteFile(path, data, 0o600)
 }
 
 func (a *App) loadLobeHubSyncMeta() LobeHubSyncMeta {

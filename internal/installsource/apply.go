@@ -235,13 +235,13 @@ func (t *installSourceTool) applyInstallMCP(ctx context.Context, req request, ac
 	}
 	if err := cfg.UpsertPlugin(act.entry); err != nil {
 		if rbErr := t.rollbackMCPReplace(act, previous, oldDisconnected, connected); rbErr != nil {
-			return fmt.Errorf("%w; rollback failed: %v", err, rbErr)
+			return fmt.Errorf("%w; rollback failed: %w", err, rbErr)
 		}
 		return err
 	}
 	if err := cfg.SaveTo(act.ConfigPath); err != nil {
 		if rbErr := t.rollbackMCPReplace(act, previous, oldDisconnected, connected); rbErr != nil {
-			return fmt.Errorf("%w; rollback failed: %v", err, rbErr)
+			return fmt.Errorf("%w; rollback failed: %w", err, rbErr)
 		}
 		return err
 	}

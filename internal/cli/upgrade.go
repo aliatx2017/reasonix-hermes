@@ -290,7 +290,7 @@ func extractFromTarGz(data []byte, name string) ([]byte, error) {
 			return nil, err
 		}
 		if h.Typeflag == tar.TypeReg && (h.Name == name || strings.HasSuffix(h.Name, "/"+name)) {
-			return io.ReadAll(tr)
+			return io.ReadAll(io.LimitReader(tr, 64<<20))
 		}
 	}
 	return nil, fmt.Errorf("%q not found in archive", name)
@@ -313,7 +313,7 @@ func extractFromZip(data []byte, name string) ([]byte, error) {
 				return nil, err
 			}
 			defer rc.Close()
-			return io.ReadAll(rc)
+			return io.ReadAll(io.LimitReader(rc, 64<<20))
 		}
 	}
 	return nil, fmt.Errorf("%q not found in zip archive", name)

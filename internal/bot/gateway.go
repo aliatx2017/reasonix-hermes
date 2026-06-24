@@ -85,6 +85,7 @@ type BotGateway struct {
 	idleTimeout time.Duration // evict sessions idle longer than this (default 30m)
 	ctx         context.Context
 	cancel      context.CancelFunc
+	wg          sync.WaitGroup // tracks dispatchLoop + evictLoop goroutines
 
 	logger *slog.Logger
 }
@@ -229,21 +230,33 @@ func (gw *BotGateway) Start(ctx context.Context) error {
 
 	// 合并所有适配器的消息通道
 	for _, binding := range gw.adapters {
-		go gw.dispatchLoop(ctx, binding)
+		gw.wg.Add(1)
+		go func(b AdapterBinding) {
+			defer gw.wg.Done()
+			gw.dispatchLoop(ctx, b)
+		}(binding)
 	}
 
 	// Start idle session eviction: every 5 minutes, remove sessions idle > 30 minutes.
 	gw.ctx, gw.cancel = context.WithCancel(ctx)
-	go gw.evictLoop()
+	gw.wg.Add(1)
+	go func() {
+		defer gw.wg.Done()
+		gw.evictLoop()
+	}()
 
 	return nil
 }
 
 func (gw *BotGateway) AdapterCount() int {
+	gw.mu.Lock()
+	defer gw.mu.Unlock()
 	return len(gw.adapters)
 }
 
 func (gw *BotGateway) StartErrors() []error {
+	gw.mu.Lock()
+	defer gw.mu.Unlock()
 	out := make([]error, len(gw.startErr))
 	copy(out, gw.startErr)
 	return out
@@ -252,6 +265,8 @@ func (gw *BotGateway) StartErrors() []error {
 // AdapterWebhookURL returns the webhook URL for the given platform's adapter,
 // if the adapter exposes one (e.g. LINE). Returns "" for adapters that don't.
 func (gw *BotGateway) AdapterWebhookURL(platform Platform) string {
+	gw.mu.Lock()
+	defer gw.mu.Unlock()
 	for _, binding := range gw.adapters {
 		if binding.Platform == platform {
 			if wh, ok := binding.Adapter.(interface{ WebhookURL() string }); ok {
@@ -278,6 +293,8 @@ func (gw *BotGateway) PlatformSessionCount(platform Platform) int {
 
 // HasPlatform returns true if the gateway has at least one adapter for the platform.
 func (gw *BotGateway) HasPlatform(platform Platform) bool {
+	gw.mu.Lock()
+	defer gw.mu.Unlock()
 	for _, binding := range gw.adapters {
 		if binding.Platform == platform {
 			return true
@@ -291,6 +308,7 @@ func (gw *BotGateway) Stop() {
 	if gw.cancel != nil {
 		gw.cancel()
 	}
+	gw.wg.Wait()
 	gw.mu.Lock()
 	for key, state := range gw.controllers {
 		if state.cancel != nil {

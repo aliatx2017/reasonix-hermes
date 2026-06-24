@@ -155,7 +155,7 @@ func (a *adapter) getAccessToken(ctx context.Context) (string, error) {
 		return "", err
 	}
 	defer resp.Body.Close()
-	respBody, err := io.ReadAll(resp.Body)
+	respBody, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
 	if err != nil {
 		return "", err
 	}
@@ -387,7 +387,7 @@ func (a *adapter) getGatewayURL(ctx context.Context, token string) (string, erro
 		return "", err
 	}
 	defer resp.Body.Close()
-	respBody, err := io.ReadAll(resp.Body)
+	respBody, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
 	if err != nil {
 		return "", err
 	}

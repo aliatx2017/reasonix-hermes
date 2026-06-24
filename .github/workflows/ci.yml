@@ -167,7 +167,7 @@ jobs:
 
   govulncheck:
     runs-on: ubuntu-latest
-    continue-on-error: true # informational — stdlib vulns need a Go patch release
+    continue-on-error: false # blocking — vulnerabilities must not merge
     steps:
       - uses: actions/checkout@v7
 
@@ -201,3 +201,12 @@ jobs:
           name: coverage-report
           path: coverage.out
           retention-days: 7
+
+      - name: coverage threshold
+        run: |
+          COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}')
+          echo "Coverage: ${COVERAGE}"
+          if [ "${COVERAGE%\%" -lt 60 ]; then
+            echo "Coverage ${COVERAGE} below 60%"
+            exit 1
+          fi

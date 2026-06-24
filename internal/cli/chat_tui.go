@@ -705,7 +705,10 @@ func (m chatTUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	prevYOff := m.viewport.YOffset()
 
 	next, cmd := m.update(msg)
-	cm := next.(chatTUI)
+	cm, ok := next.(chatTUI)
+	if !ok {
+		return m, cmd
+	}
 
 	contentW := transcriptContentWidth(cm.width, cm.nativeScrollback)
 	cm.viewport.SetWidth(contentW)

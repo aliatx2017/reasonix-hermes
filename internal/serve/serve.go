@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	_ "net/http/pprof" // registers pprof handlers on DefaultServeMux; enabled via PPROF_ADDR
 	"os"
 	"path/filepath"
 	"strings"
@@ -290,9 +291,29 @@ func (s *Server) Run(addr string) error {
 // before returning.
 func (s *Server) RunGraceful(ctx context.Context, addr string) error {
 	s.ctl().EnableInteractiveApproval()
+	handler := s.Handler()
+	// Optional pprof endpoint — set PPROF_ADDR=127.0.0.1:6060 to enable.
+	if pprofAddr := os.Getenv("PPROF_ADDR"); pprofAddr != "" {
+		pprofSrv := &http.Server{
+			Addr:              pprofAddr,
+			Handler:           nil, // nil → DefaultServeMux (pprof registers on it)
+			ReadHeaderTimeout: 10 * time.Second,
+		}
+		go func() {
+			slog.Info("pprof endpoint enabled", "addr", pprofAddr)
+			if err := pprofSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				slog.Warn("pprof server error", "err", err)
+			}
+		}()
+		defer func() {
+			shutCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			_ = pprofSrv.Shutdown(shutCtx)
+			cancel()
+		}()
+	}
 	srv := &http.Server{
 		Addr:              addr,
-		Handler:           s.Handler(),
+		Handler:           handler,
 		ReadHeaderTimeout: 10 * time.Second,
 		IdleTimeout:       120 * time.Second,
 	}

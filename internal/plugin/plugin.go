@@ -939,7 +939,7 @@ func (c *Client) call(ctx context.Context, method string, params any) (json.RawM
 		return res, err
 	}
 	if initErr := c.initializeSession(ctx, false); initErr != nil {
-		return nil, fmt.Errorf("%w; reinitialize failed: %v", err, initErr)
+		return nil, fmt.Errorf("%w; reinitialize failed: %w", err, initErr)
 	}
 	return c.t.call(ctx, method, params)
 }
@@ -1076,8 +1076,9 @@ func shortNameHash(s string) string {
 func summarizeFailureError(err error) string {
 	msg := strings.Join(strings.Fields(err.Error()), " ")
 	const max = 500
-	if len(msg) > max {
-		msg = msg[:max] + "..."
+	r := []rune(msg)
+	if len(r) > max {
+		msg = string(r[:max]) + "..."
 	}
 	return msg
 }

@@ -124,7 +124,7 @@ func readDoc(path string) (string, os.FileInfo, bool) {
 	if err != nil {
 		return "", nil, false
 	}
-	b, err := io.ReadAll(f)
+	b, err := io.ReadAll(io.LimitReader(f, 10<<20))
 	if err != nil {
 		return "", nil, false
 	}
@@ -247,6 +247,7 @@ func importTarget(line string) (string, bool) {
 
 // resolvePath turns an import token into a filesystem path: ~ expands to home,
 // absolute paths pass through, everything else is relative to baseDir.
+// After resolving, verifies result stays within baseDir to prevent traversal.
 func resolvePath(p, baseDir string) string {
 	if strings.HasPrefix(p, "~") {
 		if home, err := os.UserHomeDir(); err == nil {
@@ -257,7 +258,12 @@ func resolvePath(p, baseDir string) string {
 	if filepath.IsAbs(p) {
 		return p
 	}
-	return filepath.Join(baseDir, p)
+	resolved := filepath.Clean(filepath.Join(baseDir, p))
+	rel, err := filepath.Rel(baseDir, resolved)
+	if err != nil || strings.HasPrefix(rel, "..") {
+		return baseDir // clamp to base on traversal attempt
+	}
+	return resolved
 }
 
 // absOf returns the absolute form of p, falling back to a cleaned p on error so

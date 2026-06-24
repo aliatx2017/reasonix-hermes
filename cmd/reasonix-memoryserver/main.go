@@ -9,6 +9,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -685,15 +686,23 @@ func main() {
 	}
 	store.Tidy() // clean up expired entries on startup
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	// Periodically purge expired entries and decay importance so long-running
 	// servers do not accumulate stale data in memory.  Hourly is frequent enough
 	// without meaningful CPU cost.
 	go func() {
 		ticker := time.NewTicker(1 * time.Hour)
 		defer ticker.Stop()
-		for range ticker.C {
-			store.Tidy()
-			logger.Debug("ran periodic tidy")
+		for {
+			select {
+			case <-ticker.C:
+				store.Tidy()
+				logger.Debug("ran periodic tidy")
+			case <-ctx.Done():
+				return
+			}
 		}
 	}()
 

@@ -63,7 +63,7 @@ func (a *App) SaveWindowState(state DesktopWindowState) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, 0o644)
+	return os.WriteFile(path, data, 0o600)
 }
 
 // saveWindowStateSync saves the current window geometry from the Go side (called
