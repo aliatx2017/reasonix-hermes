@@ -7,7 +7,6 @@ package config
 
 import (
 	"fmt"
-	"log/slog"
 	"net/netip"
 	"net/url"
 	"os"
@@ -16,8 +15,6 @@ import (
 	"runtime"
 	"strings"
 	"time"
-
-	"github.com/BurntSushi/toml"
 
 	"reasonix/internal/fileutil"
 	"reasonix/internal/netclient"
@@ -1040,6 +1037,7 @@ type AgentConfig struct {
 	// ColdResumePrune elides stale tool results when a session reopens past the
 	// provider cache window. nil = default enabled.
 	ColdResumePrune *bool `toml:"cold_resume_prune"`
+<<<<<<< HEAD
 	// CompressToolOutput enables token-saving compression on tool results via
 	// SHA-256 content caching, line dedup, and JSON minification (default true).
 	CompressToolOutput *bool `toml:"compress_tool_output"`
@@ -1051,7 +1049,29 @@ type AgentConfig struct {
 	// gate. When a tool named here is called while in plan mode, it executes without
 	// the "plan mode is read-only" block. Use sparingly — prefer the built-in safe
 	// bash commands for read-only exploration.
+=======
+	// PlanModeAllowedTools names extra custom tools the plan-mode policy may treat
+	// as read-only. It cannot unlock known blocked tools or unsafe bash commands.
+>>>>>>> upstream/main-v2
 	PlanModeAllowedTools []string `toml:"plan_mode_allowed_tools"`
+	// MemoryCompiler controls the v5 execution-memory compiler. Missing configs
+	// default to enabled so users get the self-improving planner unless they opt
+	// out explicitly.
+	MemoryCompiler MemoryCompilerConfig `toml:"memory_compiler"`
+}
+
+// MemoryCompilerConfig controls the v5 execution-memory compiler.
+type MemoryCompilerConfig struct {
+	Enabled *bool `toml:"enabled"`
+}
+
+// MemoryCompilerEnabled reports whether the v5 execution-memory compiler should
+// participate in future turns. Missing config defaults to true.
+func (c *Config) MemoryCompilerEnabled() bool {
+	if c == nil || c.Agent.MemoryCompiler.Enabled == nil {
+		return true
+	}
+	return *c.Agent.MemoryCompiler.Enabled
 }
 
 // AuxiliaryConfig selects alternate models for background jobs that don't need
@@ -1509,6 +1529,7 @@ func Default() *Config {
 	}
 }
 
+<<<<<<< HEAD
 func deepSeekV4FlashPrice() *provider.Pricing {
 	return &provider.Pricing{CacheHit: 0.02, Input: 1, Output: 2, Currency: "¥"}
 }
@@ -3203,6 +3224,8 @@ func SourcePathForRoot(root string) string {
 	return ""
 }
 
+=======
+>>>>>>> upstream/main-v2
 // WriteFile writes the configuration to path as annotated TOML. The write is
 // atomic + fsynced so an interrupted write or power loss can never truncate the
 // main config into an unparseable state that leaves the app with no usable

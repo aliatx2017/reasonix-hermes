@@ -29,6 +29,7 @@ export interface ComposerProfile {
 }
 
 export type ComposerProfilesByTab = Record<string, ComposerProfile>;
+export type UserPlanModeIntents = Record<string, true>;
 
 const profileFields: ComposerProfileField[] = [
   'collaborationMode',
@@ -236,4 +237,49 @@ export function composerProfileWithMode(mode: Mode): Partial<Omit<ComposerProfil
     toolApprovalMode: modeHasAutoApproveTools(mode) ? 'yolo' : 'ask',
     goal: '',
   };
+}
+
+export function updateUserPlanModeIntent(
+  current: UserPlanModeIntents,
+  tabId: string | null | undefined,
+  enabled: boolean,
+): UserPlanModeIntents {
+  if (!tabId) return current;
+  if (enabled) {
+    return current[tabId] ? current : { ...current, [tabId]: true };
+  }
+  if (!current[tabId]) return current;
+  const next = { ...current };
+  delete next[tabId];
+  return next;
+}
+
+export function pruneUserPlanModeIntents(current: UserPlanModeIntents, tabIds: Iterable<string>): UserPlanModeIntents {
+  const live = new Set(tabIds);
+  let changed = false;
+  const next: UserPlanModeIntents = {};
+  for (const tabId of Object.keys(current)) {
+    if (live.has(tabId)) {
+      next[tabId] = true;
+    } else {
+      changed = true;
+    }
+  }
+  return changed ? next : current;
+}
+
+export function shouldRestoreUserPlanMode(current: UserPlanModeIntents, tabId: string | null | undefined): boolean {
+  return Boolean(tabId && current[tabId]);
+}
+
+export function resolvePlanRestoreTabId(eventTabId: string | null | undefined, activeTabId: string | null | undefined): string | null {
+  return eventTabId || activeTabId || null;
+}
+
+export function shouldRestoreUserPlanModeForProfile(
+  current: UserPlanModeIntents,
+  tabId: string | null | undefined,
+  profile?: Pick<ComposerProfile, "goal"> | null,
+): boolean {
+  return shouldRestoreUserPlanMode(current, tabId) && !profile?.goal.trim();
 }

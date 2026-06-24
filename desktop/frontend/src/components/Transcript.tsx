@@ -602,10 +602,6 @@ export function Transcript({
       >
         {empty && <Welcome onPrompt={onPrompt} variant={welcomeVariant} />}
 
-        {!empty && showQuestionNav && (
-          <QuestionJumpBar questions={questions} onJump={handleJumpToQuestion} />
-        )}
-
         <LiveStreamContext.Provider value={live}>
           {turnGroups.length > HOT_TURNS && (
             <WarmZone
@@ -642,6 +638,10 @@ export function Transcript({
           </div>
         </LiveStreamContext.Provider>
       </div>
+
+      {!empty && showQuestionNav && (
+        <QuestionJumpBar questions={questions} onJump={handleJumpToQuestion} />
+      )}
 
       {!empty && !isAtBottom && (
         <button

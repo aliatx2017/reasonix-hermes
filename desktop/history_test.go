@@ -17,6 +17,8 @@ func TestHistoryMessagesIncludeAssistantReasoning(t *testing.T) {
 		{Role: provider.RoleUser, Content: "expanded prompt"},
 		{Role: provider.RoleAssistant, Content: "answer", ReasoningContent: "thinking trace", ToolCalls: []provider.ToolCall{{
 			ID: "call_1", Name: "bash", Arguments: `{"command":"pwd"}`,
+		}}, MemoryCitations: []provider.MemoryCitation{{
+			ID: "mem-1", Source: "Memory v5", Note: "use previous bash failure", Kind: "constraint",
 		}}},
 		{Role: provider.RoleTool, Name: "bash", ToolCallID: "call_1", Content: "tool output", ReasoningContent: "ignored by frontend filter"},
 		{Role: provider.RoleAssistant, ReasoningContent: "tool-call-only thinking"},
@@ -41,7 +43,14 @@ func TestHistoryMessagesIncludeAssistantReasoning(t *testing.T) {
 	if got[1].Reasoning != "thinking trace" {
 		t.Fatalf("assistant reasoning = %q, want thinking trace", got[1].Reasoning)
 	}
+<<<<<<< HEAD
 	if len(got[1].ToolCalls) != 1 || got[1].ToolCalls[0].ID != "call_1" || got[1].ToolCalls[0].Name != "bash" || got[1].ToolCalls[0].Arguments != `{"command":"pwd"}` {
+=======
+	if len(got[1].MemoryCitations) != 1 || got[1].MemoryCitations[0].Note != "use previous bash failure" {
+		t.Fatalf("assistant memory citations not preserved: %+v", got[1].MemoryCitations)
+	}
+	if len(got[1].ToolCalls) != 1 || got[1].ToolCalls[0].ID != "call_1" || got[1].ToolCalls[0].Name != "bash" {
+>>>>>>> upstream/main-v2
 		t.Fatalf("assistant tool calls not preserved: %+v", got[1].ToolCalls)
 	}
 	if got[2].ToolCallID != "call_1" || got[2].ToolName != "bash" || got[2].Content != "tool output" {

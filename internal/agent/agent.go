@@ -10,7 +10,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-	"unicode"
 	"unicode/utf8"
 
 	"reasonix/internal/compress"
@@ -22,7 +21,9 @@ import (
 	"reasonix/internal/jobs"
 	"reasonix/internal/learn"
 	"reasonix/internal/memory"
+	"reasonix/internal/memorycompiler"
 	"reasonix/internal/nilutil"
+	"reasonix/internal/planmode"
 	"reasonix/internal/provider"
 	"reasonix/internal/tool"
 )
@@ -32,56 +33,6 @@ import (
 // grep, while preventing one accidental "read this 5 MB log" from blowing the
 // window before the next compaction runs.
 const maxToolOutputBytes = 32 * 1024
-
-// planModeDeniedTools lists tools that are unconditionally denied in plan mode.
-// These are never shown to the LLM and cannot be called even if the agent
-// somehow references them. The write_file, edit_file, and multi_edit tools are
-// the canonical file-writing tools; apply_patch is a structured write variant.
-var planModeDeniedTools = map[string]bool{
-	"write_file":  true,
-	"edit_file":   true,
-	"multi_edit":  true,
-	"apply_patch": true,
-}
-
-// planModeBashMetachars defines shell metacharacters that indicate command
-// chaining, redirection, or substitution. When any of these appear in a bash
-// command during plan mode, the command is blocked — even if the command prefix
-// matches a safe read-only entry — because chaining can introduce side effects
-// after an otherwise safe prefix.
-var planModeBashMetachars = []string{"&&", "||", ">>", "<<", "$(", "\x60", ";", "|", ">", "<", "&", "\n", "\r"}
-
-// planModeSafeBashCommands are bash command prefixes that are safe to run in
-// plan mode. Each entry is matched as a prefix against the trimmed, lowercased
-// command string. The match requires a shell-argument boundary after the prefix:
-// whitespace or end-of-string — so "echop" never matches "echo".
-var planModeSafeBashCommands = []string{
-	"git status", "git diff", "git log", "git show",
-	"git ls-files", "git grep", "git blame",
-	"ls", "cat", "grep", "find", "head", "tail", "pwd",
-	"echo", "wc", "which", "type", "uname", "hostname",
-	"go version", "go list", "go doc", "go vet",
-	"node -v", "npm list", "python --version",
-}
-
-var planModeFindWriteArgs = map[string]bool{
-	"-delete":  true,
-	"-exec":    true,
-	"-execdir": true,
-	"-ok":      true,
-	"-okdir":   true,
-	"-fprint":  true,
-	"-fprintf": true,
-	"-fls":     true,
-}
-
-var planModeGoWriteOrExecArgs = map[string]bool{
-	"-fix":      true,
-	"-mod":      true,
-	"-modfile":  true,
-	"-toolexec": true,
-	"-vettool":  true,
-}
 
 const maxFinalReadinessBlocks = 3
 const maxEmptyFinalBlocks = 3
@@ -363,10 +314,17 @@ type Agent struct {
 	// session without touching the cache-stable prefix. Set via SetMemoryQueue.
 	memQueue memory.Queue
 
-	// planModeAllowedTools is the set of tool names that are exempt from the
-	// plan-mode gate. When non-empty, these tools bypass the read-only check.
+	// memoryCompiler, when non-nil, records execution traces and may compile the
+	// user turn into a compact execution contract. It never mutates the stable
+	// system prompt or tool schema.
+	memoryCompilerMu sync.RWMutex
+	memoryCompiler   *memorycompiler.Runtime
+	compilerTurn     *memorycompiler.Turn
+
+	// planModeAllowedTools declares extra custom tools that the centralized
+	// plan-mode policy may treat as read-only. Known blocked tools still lose.
 	// Populated from Options.PlanModeAllowedTools during construction.
-	planModeAllowedTools map[string]bool
+	planModeAllowedTools []string
 
 	// Context management: when a turn's prompt nears contextWindow, the older
 	// middle of the session is summarized away, keeping a token-bounded recent
@@ -437,6 +395,28 @@ func (a *Agent) SetReasoningLanguage(lang string) {
 		return
 	}
 	a.reasoningLanguage.Store(NormalizeReasoningLanguage(lang))
+}
+
+// SetMemoryCompiler updates the Memory v5 runtime used for subsequent turns.
+// It is safe for desktop settings to call while other tabs are idle or running;
+// an already-started turn keeps its own Turn handle and future turns observe the
+// new runtime.
+func (a *Agent) SetMemoryCompiler(rt *memorycompiler.Runtime) {
+	if a == nil {
+		return
+	}
+	a.memoryCompilerMu.Lock()
+	a.memoryCompiler = rt
+	a.memoryCompilerMu.Unlock()
+}
+
+func (a *Agent) memoryCompilerRuntime() *memorycompiler.Runtime {
+	if a == nil {
+		return nil
+	}
+	a.memoryCompilerMu.RLock()
+	defer a.memoryCompilerMu.RUnlock()
+	return a.memoryCompiler
 }
 
 // SetGate installs the per-call permission gate. Used by interactive CLI sessions to swap the
@@ -747,26 +727,20 @@ type Options struct {
 	// user-turn context. Empty/auto injects nothing.
 	ReasoningLanguage string
 
-	// PlanModeAllowedTools names tools that bypass the plan-mode read-only gate.
-	// When a tool named here is called while planMode is true, it executes
-	// without the "plan mode is read-only" block — even if its ReadOnly contract
-	// returns false. Use sparingly; the caller is responsible for ensuring the
-	// tool invocation is safe in a read-only context (e.g. bash for git status).
+	// PlanModeAllowedTools names extra custom tools the plan-mode policy may treat
+	// as read-only. It cannot unlock known blocked tools or unsafe bash commands.
 	PlanModeAllowedTools []string
+<<<<<<< HEAD
 
 	// Learner receives turn observations after each Run completes. nil disables.
 	Learner *learn.Learner
 }
+=======
+>>>>>>> upstream/main-v2
 
-func stringSet(ss []string) map[string]bool {
-	if len(ss) == 0 {
-		return nil
-	}
-	m := make(map[string]bool, len(ss))
-	for _, s := range ss {
-		m[s] = true
-	}
-	return m
+	// MemoryCompiler enables Memory v5 execution trace writeback and cache-safe
+	// execution-contract compilation.
+	MemoryCompiler *memorycompiler.Runtime
 }
 
 // New constructs an Agent. MaxSteps <= 0 means no cap — the run loop continues
@@ -829,8 +803,13 @@ func New(prov provider.Provider, tools *tool.Registry, session *Session, opts Op
 		visionProv:           opts.VisionProv,
 		webExtractProv:       opts.WebExtractProv,
 		keepPolicy:           opts.KeepPolicy,
+<<<<<<< HEAD
 		planModeAllowedTools: stringSet(opts.PlanModeAllowedTools),
 		learner:              opts.Learner,
+=======
+		planModeAllowedTools: append([]string(nil), opts.PlanModeAllowedTools...),
+		memoryCompiler:       opts.MemoryCompiler,
+>>>>>>> upstream/main-v2
 	}
 	a.SetReasoningLanguage(opts.ReasoningLanguage)
 	return a
@@ -850,7 +829,7 @@ func usageSourceOrDefault(source, fallback string) string {
 // finishing, and the real safety bounds are user cancellation and compaction, not
 // a round count. A positive maxSteps imposes an optional hard guard, surfaced as
 // a resumable notice when hit.
-func (a *Agent) Run(ctx context.Context, input string) error {
+func (a *Agent) Run(ctx context.Context, input string) (runErr error) {
 	defer a.clearSteerQueue()
 	var observedCalls []learn.ToolCallInfo
 	defer func() {
@@ -866,12 +845,36 @@ func (a *Agent) Run(ctx context.Context, input string) error {
 	}
 	a.repeatSuccessCounts = nil
 	a.sink.Emit(event.Event{Kind: event.TurnStarted})
+<<<<<<< HEAD
 	a.sessTurns.Add(1)
 	stepsTaken := 0
 	defer func() {
 		slog.Info("agent.turn", "turn", a.sessTurns.Load(), "steps", stepsTaken)
 	}()
 	input = a.withReasoningLanguage(input)
+=======
+	rawInput := input
+	memoryCompilerInput := rawInput
+	if sourceInput, ok := MemoryCompilerSourceInputFromContext(ctx); ok {
+		memoryCompilerInput = sourceInput
+	}
+	input = a.withReasoningLanguage(rawInput)
+	if memCompiler := a.memoryCompilerRuntime(); memCompiler != nil {
+		if compiledInput, turn := memCompiler.StartTurn(ctx, memoryCompilerInput, a.session.Snapshot()); turn != nil {
+			a.compilerTurn = turn
+			a.emitMemoryCompilerStats(turn)
+			defer func() {
+				turn.Finish(runErr)
+				if a.compilerTurn == turn {
+					a.compilerTurn = nil
+				}
+			}()
+			if strings.TrimSpace(compiledInput) != "" {
+				input = a.withReasoningLanguage(compiledInput)
+			}
+		}
+	}
+>>>>>>> upstream/main-v2
 	a.session.Add(provider.Message{Role: provider.RoleUser, Content: input, Images: userImages(ctx)})
 
 	finalReadinessBlocks := 0
@@ -909,6 +912,7 @@ func (a *Agent) Run(ctx context.Context, input string) error {
 						Content:            text,
 						ReasoningContent:   reasoning,
 						ReasoningSignature: signature,
+						MemoryCitations:    a.memoryCitations(),
 					})
 				}
 				a.session.Add(provider.Message{
@@ -946,6 +950,7 @@ func (a *Agent) Run(ctx context.Context, input string) error {
 			ReasoningContent:   reasoning,
 			ReasoningSignature: signature,
 			ToolCalls:          calls,
+			MemoryCitations:    a.memoryCitations(),
 		})
 
 		if len(calls) == 0 {
@@ -1042,6 +1047,7 @@ func (a *Agent) Run(ctx context.Context, input string) error {
 	return &MaxStepsPause{Steps: a.maxSteps, Key: a.maxStepsKey}
 }
 
+<<<<<<< HEAD
 // MaxStepsPause is a resumable pause — the session is intact and the caller may
 // safely resume with another Run call. It is not a hard failure.
 type MaxStepsPause struct {
@@ -1054,6 +1060,31 @@ func (e *MaxStepsPause) Error() string {
 }
 
 
+=======
+func (a *Agent) emitMemoryCompilerStats(turn *memorycompiler.Turn) {
+	if a == nil || turn == nil {
+		return
+	}
+	m := turn.Metrics()
+	a.sink.Emit(event.Event{Kind: event.MemoryCompilerStatsEvent, MemoryCompiler: &event.MemoryCompilerStats{
+		Injected:         m.Injected,
+		UsefulIR:         m.UsefulIR,
+		CompiledTokens:   m.CompiledTokens,
+		IROverheadTokens: m.IROverheadTokens,
+		MemoryReferences: m.MemoryReferences,
+		Constraints:      m.Constraints,
+		RiskNotes:        m.RiskNotes,
+		ExecutionSteps:   m.ExecutionSteps,
+		TotalNodes:       m.TotalNodes,
+		HighSignalNodes:  m.HighSignalNodes,
+		ToolResultNodes:  m.ToolResultNodes,
+		DecisionNodes:    m.DecisionNodes,
+		StrategyCount:    m.StrategyCount,
+		LearningCount:    m.LearningCount,
+	}})
+}
+
+>>>>>>> upstream/main-v2
 func (a *Agent) finalReadinessFailure() string {
 	return a.finalReadinessCheck().reason
 }
@@ -1629,7 +1660,12 @@ func (a *Agent) stream(ctx context.Context, turn int) (string, string, string, [
 	// styled markdown now that it is complete. Reasoning rides along so the sink
 	// has the full chain if it wants it.
 	if text.Len() > 0 || display != "" {
-		a.sink.Emit(event.Event{Kind: event.Message, Text: StripGoalMarkers(text.String()), Reasoning: display})
+		a.sink.Emit(event.Event{
+			Kind:            event.Message,
+			Text:            StripGoalMarkers(text.String()),
+			Reasoning:       display,
+			MemoryCitations: a.memoryCitations(),
+		})
 	}
 	// Log API call telemetry.
 	if usage != nil && usage.TotalTokens > 0 {
@@ -1649,6 +1685,13 @@ func (a *Agent) stream(ctx context.Context, turn int) (string, string, string, [
 		slog.Info("api_call", args...)
 	}
 	return text.String(), stored, signature, calls, usage, false, false, nil
+}
+
+func (a *Agent) memoryCitations() []provider.MemoryCitation {
+	if a.compilerTurn == nil {
+		return nil
+	}
+	return a.compilerTurn.MemoryCitations()
 }
 
 func (a *Agent) capturePrefixShape(schemas []provider.ToolSchema) PrefixShape {
@@ -1786,6 +1829,24 @@ func (a *Agent) executeBatch(ctx context.Context, calls []provider.ToolCall) ([]
 		if o.truncated && o.truncMsg != "" {
 			a.sink.Emit(event.Event{Kind: event.Notice, Level: event.LevelInfo, Text: o.truncMsg})
 		}
+	}
+	if a.compilerTurn != nil {
+		records := make([]memorycompiler.ToolRecord, 0, len(calls))
+		for i, c := range calls {
+			o := outcomes[i]
+			t, ok := a.tools.Get(c.Name)
+			records = append(records, memorycompiler.ToolRecord{
+				ID:         c.ID,
+				Name:       c.Name,
+				Args:       c.Arguments,
+				Output:     o.output,
+				Error:      o.errMsg,
+				ReadOnly:   ok && t.ReadOnly(),
+				DurationMs: durations[i],
+				Truncated:  o.truncated,
+			})
+		}
+		a.compilerTurn.RecordToolResults(records)
 	}
 	if !cancelled {
 		a.applyStormBreaker(calls, outcomes, results)
@@ -1995,7 +2056,23 @@ func (a *Agent) executeOne(ctx context.Context, call provider.ToolCall) toolOutc
 		}
 	}
 	if a.planMode.Load() {
-		if blocked, msg := a.planModeBlocked(call.Name, t.ReadOnly(), json.RawMessage(call.Arguments)); blocked {
+		// Translate the tool's optional plan-mode self-report into the policy's
+		// tri-state. Mirrors the t.(tool.Previewer) assertion precedent below.
+		safety := planmode.PlanSafetyUnknown
+		if c, ok := t.(tool.PlanModeClassifier); ok {
+			if c.PlanModeSafe() {
+				safety = planmode.PlanSafetySafe
+			} else {
+				safety = planmode.PlanSafetyUnsafe
+			}
+		}
+		// External tools (MCP) whose ReadOnly() is only a server-reported
+		// readOnlyHint are not trusted by plan mode's read-only fast path.
+		untrusted := false
+		if u, ok := t.(tool.PlanModeUntrustedReadOnly); ok {
+			untrusted = u.PlanModeUntrustedReadOnly()
+		}
+		if blocked, msg := a.planModeBlocked(call.Name, t.ReadOnly(), untrusted, safety, json.RawMessage(call.Arguments)); blocked {
 			return toolOutcome{
 				output:  msg,
 				blocked: true,
@@ -2134,110 +2211,20 @@ func (a *Agent) executeOne(ctx context.Context, call provider.ToolCall) toolOutc
 	return toolOutcome{output: body, truncated: truncMsg != "", truncMsg: truncMsg}
 }
 
-func (a *Agent) planModeBlocked(toolName string, readOnly bool, args json.RawMessage) (blocked bool, message string) {
-	if readOnly {
-		return false, ""
-	}
-	if planModeDeniedTools[toolName] {
-		return true, fmt.Sprintf("blocked: %q is not available in plan mode. Keep exploring with read-only tools — the user will be asked to approve the plan before any changes are made.", toolName)
-	}
-	if a.planModeAllowedTools != nil && a.planModeAllowedTools[toolName] {
-		return false, ""
-	}
-	if toolName == "bash" {
-		if blocked, msg := planModeBashBlocked(args); blocked {
-			return true, msg
-		}
-		return false, ""
-	}
-	return true, fmt.Sprintf("blocked: %q is a writer tool and plan mode is read-only. Keep exploring with read-only tools, then write your plan as your reply — the user will be asked to approve it before any changes are made.", toolName)
+func (a *Agent) planModeBlocked(toolName string, readOnly, untrusted bool, safety planmode.PlanSafety, args json.RawMessage) (blocked bool, message string) {
+	decision := planmode.Policy{AllowedTools: a.planModeAllowedTools}.Decide(planmode.Call{
+		Name:      toolName,
+		ReadOnly:  readOnly,
+		Untrusted: untrusted,
+		Safety:    safety,
+		Args:      args,
+	})
+	return decision.Blocked, decision.Message
 }
 
 func planModeBashBlocked(args json.RawMessage) (bool, string) {
-	var p struct {
-		Command string `json:"command"`
-	}
-	if err := json.Unmarshal(args, &p); err != nil || p.Command == "" {
-		return false, ""
-	}
-	cmd := strings.TrimSpace(p.Command)
-	lower := strings.ToLower(cmd)
-
-	// Reject commands containing shell metacharacters — chaining, piping,
-	// redirection, or command substitution can introduce side effects after
-	// an otherwise safe prefix.
-	for _, mc := range planModeBashMetachars {
-		if strings.Contains(lower, mc) {
-			return true, fmt.Sprintf("blocked: bash command in plan mode must not contain shell operators (%q). Use separate calls for chained commands.", mc)
-		}
-	}
-
-	// Check the command prefix against the safe read-only whitelist. Require a
-	// shell-argument boundary after the match to avoid prefix collisions.
-	for _, safe := range planModeSafeBashCommands {
-		if !planModeBashMatchesSafePrefix(lower, safe) {
-			continue
-		}
-		if arg := planModeUnsafeSafeCommandArg(cmd, safe); arg != "" {
-			return true, fmt.Sprintf("blocked: bash command in plan mode uses a write-capable argument (%q). Use a read-only command while planning.", arg)
-		}
-		return false, ""
-	}
-
-	return true, fmt.Sprintf("blocked: bash commands in plan mode must be read-only. %q is not in the safe command list. Use read-only tools for exploration, then exit plan mode to run this command.", cmd)
-}
-
-func planModeBashMatchesSafePrefix(lower, safe string) bool {
-	if !strings.HasPrefix(lower, safe) {
-		return false
-	}
-	if len(lower) == len(safe) {
-		return true
-	}
-	r, _ := utf8.DecodeRuneInString(lower[len(safe):])
-	return unicode.IsSpace(r)
-}
-
-func planModeUnsafeSafeCommandArg(cmd, safe string) string {
-	fields := strings.Fields(cmd)
-	base := strings.Fields(safe)
-	if len(fields) <= len(base) {
-		return ""
-	}
-	args := fields[len(base):]
-	lowerArgs := make([]string, len(args))
-	for i, arg := range args {
-		lowerArgs[i] = strings.ToLower(arg)
-	}
-	if strings.HasPrefix(safe, "git ") {
-		for _, arg := range lowerArgs {
-			if arg == "--output" || strings.HasPrefix(arg, "--output=") || arg == "--ext-diff" {
-				return arg
-			}
-		}
-	}
-	switch safe {
-	case "git grep":
-		for i, arg := range args {
-			lowerArg := lowerArgs[i]
-			if arg == "-O" || strings.HasPrefix(arg, "-O") || strings.HasPrefix(lowerArg, "--open-files-in-pager") {
-				return arg
-			}
-		}
-	case "find":
-		for _, arg := range lowerArgs {
-			if planModeFindWriteArgs[arg] {
-				return arg
-			}
-		}
-	case "go list", "go vet":
-		for _, arg := range lowerArgs {
-			if planModeGoWriteOrExecArgs[arg] || strings.HasPrefix(arg, "-mod=mod") || strings.HasPrefix(arg, "-modfile=") || strings.HasPrefix(arg, "-toolexec=") || strings.HasPrefix(arg, "-vettool=") {
-				return arg
-			}
-		}
-	}
-	return ""
+	decision := planmode.Policy{}.Decide(planmode.Call{Name: "bash", Args: args})
+	return decision.Blocked, decision.Message
 }
 
 func (a *Agent) repeatedSuccessBlock(call provider.ToolCall, t tool.Tool) (string, bool) {

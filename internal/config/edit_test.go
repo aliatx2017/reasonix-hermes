@@ -324,6 +324,22 @@ func TestSetAutoPlan(t *testing.T) {
 	}
 }
 
+func TestSetMemoryCompilerEnabled(t *testing.T) {
+	c := Default()
+	if err := c.SetMemoryCompilerEnabled(false); err != nil {
+		t.Fatalf("SetMemoryCompilerEnabled(false): %v", err)
+	}
+	if c.MemoryCompilerEnabled() {
+		t.Fatal("memory compiler explicit false = true, want false")
+	}
+	if err := c.SetMemoryCompilerEnabled(true); err != nil {
+		t.Fatalf("SetMemoryCompilerEnabled(true): %v", err)
+	}
+	if !c.MemoryCompilerEnabled() {
+		t.Fatal("memory compiler explicit true = false, want true")
+	}
+}
+
 func TestSetUIShortcutLayout(t *testing.T) {
 	c := Default()
 	if got := c.UIShortcutLayout(); got != "classic" {

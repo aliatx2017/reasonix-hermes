@@ -217,6 +217,7 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 			autoPlan = "off"
 		}
 		fmt.Fprintf(&b, "auto_plan   = %q   # user-level only: off|on; off keeps plan mode manual\n", autoPlan)
+		fmt.Fprintf(&b, "memory_compiler = { enabled = %v }   # user-level only: Memory v5 execution compiler\n", c.MemoryCompilerEnabled())
 	}
 	if lang := c.ReasoningLanguage(); lang != "auto" {
 		fmt.Fprintf(&b, "reasoning_language = %q   # visible reasoning language: auto|zh|en\n", lang)
@@ -242,6 +243,11 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 		b.WriteString("# recent_keep         = 2   # minimum recent messages kept verbatim\n")
 	}
 	fmt.Fprintf(&b, "cold_resume_prune   = %v   # elide stale tool results when reopening a session past the provider cache window\n", c.ColdResumePruneEnabled())
+	if len(c.Agent.PlanModeAllowedTools) > 0 {
+		fmt.Fprintf(&b, "plan_mode_allowed_tools = %s   # extra read-only declarations for custom tools; cannot unlock known blocked tools or unsafe bash\n", renderStringArray(c.Agent.PlanModeAllowedTools))
+	} else {
+		b.WriteString("# plan_mode_allowed_tools = [\"custom_reader\"]   # extra read-only declarations; cannot unlock known blocked tools or unsafe bash\n")
+	}
 	if c.Agent.PlannerModel != "" {
 		fmt.Fprintf(&b, "planner_model = %q   # low-frequency planner (two-model collaboration)\n", c.Agent.PlannerModel)
 	} else {
@@ -375,6 +381,18 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 
 	b.WriteString("[tools.background_jobs]\n")
 	fmt.Fprintf(&b, "stalled_warning_seconds = %d   # warn once per background job after this many quiet seconds; 0 disables\n\n", c.BackgroundJobStalledWarningSeconds())
+
+	b.WriteString("[tools.shell]\n")
+	if c.Tools.Shell.Prefer != "" {
+		fmt.Fprintf(&b, "prefer = %q   # auto|bash|powershell|pwsh; empty/default = auto-detect\n", c.Tools.Shell.Prefer)
+	} else {
+		b.WriteString("# prefer = \"auto\"   # auto|bash|powershell|pwsh; empty/default = auto-detect\n")
+	}
+	if c.Tools.Shell.Path != "" {
+		fmt.Fprintf(&b, "path   = %q   # absolute path to the shell executable; empty = PATH lookup\n\n", c.Tools.Shell.Path)
+	} else {
+		b.WriteString("# path   = \"/opt/homebrew/bin/bash\"   # absolute path to the shell executable; empty = PATH lookup\n\n")
+	}
 
 	renderLSPConfig(&b, c.LSP)
 
@@ -881,6 +899,10 @@ func RenderTOMLProjectDelta(c *Config) string {
 		fmt.Fprintf(&agentBuf, "cold_resume_prune = %v\n", c.ColdResumePruneEnabled())
 		anyAgent = true
 	}
+	if len(c.Agent.PlanModeAllowedTools) > 0 && !reflect.DeepEqual(c.Agent.PlanModeAllowedTools, d.Agent.PlanModeAllowedTools) {
+		fmt.Fprintf(&agentBuf, "plan_mode_allowed_tools = %s\n", renderStringArray(c.Agent.PlanModeAllowedTools))
+		anyAgent = true
+	}
 	if c.Agent.PlannerModel != "" && c.Agent.PlannerModel != d.Agent.PlannerModel {
 		fmt.Fprintf(&agentBuf, "planner_model = %q\n", c.Agent.PlannerModel)
 		anyAgent = true
@@ -976,7 +998,7 @@ func RenderTOMLProjectDelta(c *Config) string {
 	}
 
 	// [tools]
-	if !reflect.DeepEqual(c.Tools, d.Tools) {
+	if len(c.Tools.Enabled) > 0 || (c.Tools.BashTimeoutSeconds != nil && *c.Tools.BashTimeoutSeconds != 0) {
 		b.WriteString("[tools]\n")
 		if len(c.Tools.Enabled) > 0 {
 			fmt.Fprintf(&b, "enabled = %s\n", renderStringArray(c.Tools.Enabled))
@@ -994,6 +1016,18 @@ func RenderTOMLProjectDelta(c *Config) string {
 			fmt.Fprintf(&b, "stalled_warning_seconds = %d\n", *c.Tools.BackgroundJobs.StalledWarningSeconds)
 			b.WriteString("\n")
 		}
+	}
+
+	// [tools.shell]
+	if !reflect.DeepEqual(c.Tools.Shell, d.Tools.Shell) {
+		b.WriteString("[tools.shell]\n")
+		if c.Tools.Shell.Prefer != d.Tools.Shell.Prefer {
+			fmt.Fprintf(&b, "prefer = %q\n", c.Tools.Shell.Prefer)
+		}
+		if c.Tools.Shell.Path != d.Tools.Shell.Path {
+			fmt.Fprintf(&b, "path = %q\n", c.Tools.Shell.Path)
+		}
+		b.WriteString("\n")
 	}
 
 	// [lsp]

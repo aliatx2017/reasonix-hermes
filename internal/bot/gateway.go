@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"reasonix/internal/agent"
 	"reasonix/internal/boot"
 	"reasonix/internal/config"
 	"reasonix/internal/control"
@@ -974,7 +973,7 @@ func (gw *BotGateway) getOrCreateSession(ctx context.Context, key string, msg In
 	}
 	ctrl.EnableInteractiveApproval()
 	ctrl.SetToolApprovalMode(toolApprovalMode)
-	ensureControllerSessionPath(ctrl)
+	ctrl.EnsureSessionPath()
 
 	gw.mu.Lock()
 	// Re-check under the lock: while we were off-lock in boot.Build, a second
@@ -1002,13 +1001,6 @@ func (gw *BotGateway) getOrCreateSession(ctx context.Context, key string, msg In
 
 	gw.logger.Info("bot session created", "platform", msg.Platform, "chat_type", msg.ChatType, "chat", hashID(msg.ChatID), "session", key[:8])
 	return state
-}
-
-func ensureControllerSessionPath(ctrl botController) {
-	if ctrl == nil || ctrl.SessionPath() != "" || ctrl.SessionDir() == "" {
-		return
-	}
-	ctrl.SetSessionPath(agent.NewSessionPath(ctrl.SessionDir(), ctrl.Label()))
 }
 
 // defaultBotApprovalTimeout caps how long a bot session waits for a remote

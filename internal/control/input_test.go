@@ -31,11 +31,15 @@ func (f *fakeAutoPlanClassifier) NeedsPlan(ctx context.Context, input string, sc
 }
 
 type fakeTurnRunner struct {
-	inputs []string
+	inputs               []string
+	memoryCompilerInputs []string
 }
 
 func (f *fakeTurnRunner) Run(ctx context.Context, input string) error {
 	f.inputs = append(f.inputs, input)
+	if source, ok := agent.MemoryCompilerSourceInputFromContext(ctx); ok {
+		f.memoryCompilerInputs = append(f.memoryCompilerInputs, source)
+	}
 	return nil
 }
 
@@ -107,6 +111,24 @@ func TestComposePlanModeMarker(t *testing.T) {
 	got := c.Compose("hi")
 	if !strings.HasPrefix(got, PlanModeMarker) || !strings.HasSuffix(got, "hi") {
 		t.Errorf("plan on: Compose = %q, want marker-prefixed", got)
+	}
+}
+
+func TestPlanModeMarkerMatchesPolicy(t *testing.T) {
+	for _, want := range []string{"research", "ask", "todo_write", "read_only_task", "read_only_skill"} {
+		if !strings.Contains(PlanModeMarker, want) {
+			t.Fatalf("PlanModeMarker should describe %q as available:\n%s", want, PlanModeMarker)
+		}
+	}
+	for _, forbidden := range []string{"task", "complete_step"} {
+		if strings.Contains(PlanModeMarker, forbidden+" are available") || strings.Contains(PlanModeMarker, forbidden+",") {
+			t.Fatalf("PlanModeMarker must not list blocked tool %q as available:\n%s", forbidden, PlanModeMarker)
+		}
+	}
+	for _, blocked := range []string{"write files", "unsafe shell commands", "install capabilities", "mutate memory", "delegate", "mark execution steps complete"} {
+		if !strings.Contains(PlanModeMarker, blocked) {
+			t.Fatalf("PlanModeMarker should mention blocked capability %q:\n%s", blocked, PlanModeMarker)
+		}
 	}
 }
 
@@ -763,6 +785,11 @@ func TestStripComposePrefixes(t *testing.T) {
 		{
 			name:  "plan mode marker stripped",
 			input: PlanModeMarker + "\n\nexplain this function",
+			want:  "explain this function",
+		},
+		{
+			name:  "legacy plan mode marker stripped",
+			input: legacyPlanModeMarker + "\n\nexplain this function",
 			want:  "explain this function",
 		},
 		{

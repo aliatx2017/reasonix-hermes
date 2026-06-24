@@ -68,6 +68,7 @@ import {
   type ComposerInsertRequest,
   type DesktopStartupSettingsView,
   type Mode,
+  modeHasPlan,
   type ProjectNode,
   type SessionMeta,
   type SettingsView,
@@ -86,8 +87,13 @@ import {
   hydrateComposerProfileFromMeta,
   hydrateComposerProfilesFromTabs,
   patchComposerProfile,
+  pruneUserPlanModeIntents,
+  resolvePlanRestoreTabId,
+  shouldRestoreUserPlanModeForProfile,
+  updateUserPlanModeIntent,
   type ComposerProfile,
   type ComposerProfileField,
+  type UserPlanModeIntents,
 } from "./lib/composerProfile";
 import {
   restorableToolApprovalMode,
@@ -134,9 +140,11 @@ import {
 } from "./lib/theme";
 import { applyTextSize, DEFAULT_TEXT_SIZE, getTextSize, nextTextSize } from "./lib/textSize";
 import { useViewportHeightVar, useWindowStatePersistence } from "./lib/windowState";
-import { availableWorkspacePanelWidth, resolveWorkspacePanelWidth, workspacePanelAriaMinWidth } from "./lib/workspaceLayout";
+import { availableWorkspacePanelWidth, resolveLiveWorkspacePanelWidth, resolveWorkspacePanelWidth, workspacePanelAriaMinWidth } from "./lib/workspaceLayout";
+import { createRafResizeUpdater } from "./lib/resizeDrag";
 import { useGlobalShortcut } from "./lib/keyboardShortcuts";
 import { topicShortcutIndexFromEvent, useTopicShortcuts, type TopicShortcutEntry } from "./lib/topicShortcuts";
+import { composerDraftKeyForTab } from "./lib/composerDraftKey";
 import logoWordmark from "./assets/logo-wordmark.svg";
 
 const HistoryPanel = lazy(() => import("./components/HistoryPanel").then((module) => ({ default: module.HistoryPanel })));
@@ -672,6 +680,11 @@ function sessionsForScope(sessions: SessionMeta[], filter: HistoryScopeFilter): 
   return sessions.filter((session) => (session.scope || "global") === "global");
 }
 
+function isMissingSessionError(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : String(err ?? "");
+  return /no such file|cannot find the file|file does not exist|session is pending cleanup|session .*not found/i.test(message);
+}
+
 function workspaceDisplayName(path?: string): string {
   if (!path) return "";
   const parts = path.split(/[/\\]/).filter(Boolean);
@@ -819,6 +832,7 @@ export default function App() {
   const t = useT();
   const [composerProfilesByTab, setComposerProfilesByTab] = useState<Record<string, ComposerProfile>>({});
   const yoloRestoreToolApprovalModesRef = useRef<Record<string, RestorableToolApprovalMode>>({});
+  const userPlanModeByTabRef = useRef<UserPlanModeIntents>({});
   const [tabMetas, setTabMetas] = useState<TabMeta[]>([]);
   const [tabOrderIds, setTabOrderIds] = useState<string[]>([]);
   const [tabRevealSignal, setTabRevealSignal] = useState(0);
@@ -865,6 +879,7 @@ export default function App() {
   const sidebarWidth = useLayoutStore((s) => s.sidebarWidth);
   const setSidebarWidth = useLayoutStore((s) => s.setSidebarWidth);
   const [sidebarResizing, setSidebarResizing] = useState(false);
+  const [liveSidebarWidth, setLiveSidebarWidth] = useState<number | null>(null);
   const [viewportWidth, setViewportWidth] = useState(() => (typeof window === "undefined" ? 1440 : window.innerWidth));
   const workspacePanelOpen = useLayoutStore((s) => s.workspacePanelOpen);
   const setWorkspacePanelOpen = useLayoutStore((s) => s.setWorkspacePanelOpen);
@@ -887,6 +902,7 @@ export default function App() {
   }, []);
 
   const [workspacePanelResizing, setWorkspacePanelResizing] = useState(false);
+  const [liveWorkspacePanelRenderWidth, setLiveWorkspacePanelRenderWidth] = useState<number | null>(null);
   const workspacePanelMaximized = useLayoutStore((s) => s.workspacePanelMaximized);
   const setWorkspacePanelMaximized = useLayoutStore((s) => s.setWorkspacePanelMaximized);
   const rightDockMode = useLayoutStore((s) => s.rightDockMode);
@@ -914,6 +930,7 @@ export default function App() {
   const topicRenameSkipCommitRef = useRef(false);
   const topicRenameCommitHandledRef = useRef(false);
   const appRef = useRef<HTMLDivElement>(null);
+  const layoutRef = useRef<HTMLDivElement>(null);
   const sidebarTogglePressTimerRef = useRef<number | null>(null);
   const workspaceTogglePressTimerRef = useRef<number | null>(null);
 
@@ -1095,6 +1112,7 @@ export default function App() {
   const footerHeightRef = useRef(0);
   const footerRef = useRef<HTMLElement>(null);
   const runningRef = useRef(state.running);
+  const activeTabIdRef = useRef(activeTabId);
   const rightDockDetailActive = rightDockMode !== "context" && workspacePreviewActive;
   const preferredWorkspacePanelWidth = rightDockDetailActive ? rightDockPreviewWidth : rightDockTreeWidth;
   const workspacePanelMinWidth = rightDockDetailActive ? RIGHT_DOCK_PREVIEW_MIN_WIDTH : RIGHT_DOCK_TREE_MIN_WIDTH;
@@ -1115,14 +1133,33 @@ export default function App() {
     availableWidth: workspacePanelAvailableWidth,
   });
 
+  const storedWorkspacePanelRenderWidth = workspacePanelMaximized ? preferredWorkspacePanelWidth : resolvedWorkspacePanelWidth;
+  const workspacePanelRenderWidth = liveWorkspacePanelRenderWidth ?? storedWorkspacePanelRenderWidth;
   const workspacePanelRenderable =
-    workspacePanelOpen && (workspacePanelMaximized || resolvedWorkspacePanelWidth >= RIGHT_DOCK_MIN_RENDER_WIDTH);
+    workspacePanelOpen && (workspacePanelMaximized || workspacePanelRenderWidth >= RIGHT_DOCK_MIN_RENDER_WIDTH);
   const workspacePanelGridOpen = workspacePanelRenderable && !workspacePanelMaximized;
-  const workspacePanelRenderWidth = workspacePanelMaximized ? preferredWorkspacePanelWidth : resolvedWorkspacePanelWidth;
+  const resolveLiveWorkspacePanelRenderWidth = useCallback(
+    (preferredWidth: number, nextSidebarWidth = sidebarWidth) =>
+      resolveLiveWorkspacePanelWidth({
+        viewportWidth,
+        sidebarCollapsed,
+        sidebarWidth: nextSidebarWidth,
+        chatMinWidth: chatReservedWidth,
+        resizerWidth: WORKSPACE_RESIZER_WIDTH,
+        open: workspacePanelOpen,
+        maximized: workspacePanelMaximized,
+        preferredWidth,
+        minWidth: workspacePanelMinWidth,
+      }),
+    [chatReservedWidth, sidebarCollapsed, sidebarWidth, viewportWidth, workspacePanelMaximized, workspacePanelMinWidth, workspacePanelOpen],
+  );
   const activeTab = useMemo(
     () => tabMetas.find((tab) => tab.id === activeTabId) ?? tabMetas.find((tab) => tab.active),
     [activeTabId, tabMetas],
   );
+  const composerSessionKey = useMemo(() => {
+    return composerDraftKeyForTab(activeTab, activeTabId);
+  }, [activeTab, activeTabId]);
   const sidebarImDetailConnection = useMemo(
     () => sidebarImConnections.find((connection) => connection.id === sidebarImDetailConnectionId) ?? null,
     [sidebarImConnections, sidebarImDetailConnectionId],
@@ -1220,6 +1257,7 @@ export default function App() {
     for (const id of Object.keys(yoloRestoreToolApprovalModesRef.current)) {
       if (!ids.has(id)) delete yoloRestoreToolApprovalModesRef.current[id];
     }
+    userPlanModeByTabRef.current = pruneUserPlanModeIntents(userPlanModeByTabRef.current, ids);
     setComposerProfilesByTab((current) => hydrateComposerProfilesFromTabs(current, tabMetas));
   }, [tabMetas]);
 
@@ -1248,13 +1286,17 @@ export default function App() {
   // normal clears both.
   const applyMode = useCallback(
     (m: Mode) => {
+      userPlanModeByTabRef.current = updateUserPlanModeIntent(userPlanModeByTabRef.current, activeTabId, modeHasPlan(m));
       patchActiveComposerProfile(composerProfileWithMode(m), ["collaborationMode", "toolApprovalMode", "goal"]);
       void syncModeToController(m);
     },
-    [patchActiveComposerProfile, syncModeToController],
+    [activeTabId, patchActiveComposerProfile, syncModeToController],
   );
   const applyCollaborationMode = useCallback(
-    (m: CollaborationMode): Promise<void> => {
+    (m: CollaborationMode, options: { rememberUserIntent?: boolean } = {}): Promise<void> => {
+      if (options.rememberUserIntent !== false) {
+        userPlanModeByTabRef.current = updateUserPlanModeIntent(userPlanModeByTabRef.current, activeTabId, m === "plan");
+      }
       if (m === "goal") {
         patchActiveComposerProfile({ collaborationMode: "normal", goalDraftMode: true, goal: "" }, ["collaborationMode", "goal"]);
         return setControllerCollaborationMode("normal");
@@ -1262,7 +1304,7 @@ export default function App() {
       patchActiveComposerProfile({ collaborationMode: m, goalDraftMode: false, goal: "" }, ["collaborationMode", "goal"]);
       return setControllerCollaborationMode(m);
     },
-    [patchActiveComposerProfile, setControllerCollaborationMode],
+    [activeTabId, patchActiveComposerProfile, setControllerCollaborationMode],
   );
   const applyToolApprovalMode = useCallback(
     (m: ToolApprovalMode) => {
@@ -1292,6 +1334,7 @@ export default function App() {
   }, [activeTabId, applyToolApprovalMode, toolApprovalMode]);
   const applyGoal = useCallback(
     (nextGoal: string) => {
+      userPlanModeByTabRef.current = updateUserPlanModeIntent(userPlanModeByTabRef.current, activeTabId, false);
       const trimmed = nextGoal.trim();
       patchActiveComposerProfile({
         collaborationMode: trimmed ? "goal" : "normal",
@@ -1300,7 +1343,7 @@ export default function App() {
       }, ["collaborationMode", "goal"]);
       void (trimmed ? setControllerGoal(trimmed) : clearControllerGoal());
     },
-    [clearControllerGoal, patchActiveComposerProfile, setControllerGoal],
+    [activeTabId, clearControllerGoal, patchActiveComposerProfile, setControllerGoal],
   );
   const applyTokenMode = useCallback(
     (m: TokenMode) => {
@@ -1446,6 +1489,10 @@ export default function App() {
     runningRef.current = state.running;
   }, [state.running]);
 
+  useEffect(() => {
+    activeTabIdRef.current = activeTabId;
+  }, [activeTabId]);
+
   // handleSend intercepts slash commands that need a desktop-native action before
   // they reach the backend: "/model <ref>" rebuilds on that model, "/memory"
   // opens Settings, and "/clear" shows an in-app confirmation card. Everything else — skills (/init, …),
@@ -1485,6 +1532,7 @@ export default function App() {
         const displayGoal = stripGoalResearchFlags(arg);
         if (displayGoal && !["status", "clear", "off", "stop", "done"].includes(displayGoal.toLowerCase())) {
           if (hasGoalResearchFlag(arg)) {
+            userPlanModeByTabRef.current = updateUserPlanModeIntent(userPlanModeByTabRef.current, activeTabId, false);
             patchActiveComposerProfile({
               collaborationMode: "goal",
               goalDraftMode: false,
@@ -1547,7 +1595,7 @@ export default function App() {
       if (goal.trim()) await setControllerGoal(goal);
       commitThenSend(trimmed, submitText.trim());
     },
-    [applyGoal, closeTransientOverlays, collaborationMode, composerProfile, controllerReady, goal, send, runShell, notice, setControllerCollaborationMode, setControllerGoal, setControllerToolApprovalMode, steer, switchModel, t, toolApprovalMode, showToast],
+    [activeTabId, applyGoal, closeTransientOverlays, collaborationMode, composerProfile, controllerReady, goal, send, runShell, notice, setControllerCollaborationMode, setControllerGoal, setControllerToolApprovalMode, steer, switchModel, t, toolApprovalMode, showToast],
   );
 
   const refreshTabMetas = useCallback(async (): Promise<TabMeta[]> => {
@@ -1559,13 +1607,34 @@ export default function App() {
   useEffect(() => {
     const unsub = onEvent((e) => {
       if (e.kind !== "turn_done") return;
+      const turnTabId = resolvePlanRestoreTabId(e.tabId, activeTabIdRef.current);
       window.setTimeout(() => {
         setProjectRevision((value) => value + 1);
-        void refreshTabMetas();
+        refreshTabMetas().then((tabs) => {
+          if (!turnTabId) return;
+          const tab = tabs.find((item) => item.id === turnTabId);
+          const baseProfile = tab ? composerProfileFromTab(tab) : defaultComposerProfile;
+          if (!shouldRestoreUserPlanModeForProfile(userPlanModeByTabRef.current, turnTabId, baseProfile)) {
+            if (baseProfile.goal.trim()) {
+              userPlanModeByTabRef.current = updateUserPlanModeIntent(userPlanModeByTabRef.current, turnTabId, false);
+            }
+            return;
+          }
+          setComposerProfilesByTab((current) => patchComposerProfile(
+            current,
+            turnTabId,
+            current[turnTabId] ?? baseProfile,
+            { collaborationMode: "plan", goalDraftMode: false, goal: "" },
+            ["collaborationMode", "goal"],
+          ));
+          if (activeTabIdRef.current === turnTabId) {
+            void setControllerCollaborationMode("plan");
+          }
+        });
       }, 250);
     });
     return unsub;
-  }, [refreshTabMetas]);
+  }, [refreshTabMetas, setControllerCollaborationMode]);
 
   const blankSessionTarget = useCallback(() => {
     const activeWorkspaceRoot = activeTab?.scope === "project" ? activeTab.workspaceRoot || "" : "";
@@ -1669,6 +1738,7 @@ export default function App() {
   }, [anchorAppScrollToChat, closeTransientOverlays, pulseSidebarToggle, sidebarCollapsed]);
 
   const sidebarWidthClamp = desktopLayoutStyle === "creation" ? clampCreationSidebarWidth : clampSidebarWidth;
+  const sidebarRenderWidth = liveSidebarWidth ?? sidebarWidth;
   const sidebarResizeMinWidth = desktopLayoutStyle === "creation" ? CREATION_SIDEBAR_MIN_WIDTH : SIDEBAR_MIN_WIDTH;
 
   useEffect(() => {
@@ -1687,17 +1757,35 @@ export default function App() {
   const startSidebarResize = useCallback(
     (event: ReactPointerEvent<HTMLButtonElement>) => {
       if (sidebarCollapsed) return;
+      const layout = layoutRef.current;
+      if (!layout) return;
       event.preventDefault();
       closeTransientOverlays();
       setSidebarResizing(true);
       let nextWidth = sidebarWidth;
+      const liveResize = createRafResizeUpdater({
+        target: layout,
+        separator: event.currentTarget,
+        cssVar: "--sidebar-expanded-width",
+        onApply: setLiveSidebarWidth,
+      });
+      const dockLiveResize = createRafResizeUpdater({
+        target: layout,
+        cssVar: "--workspace-width",
+        onApply: setLiveWorkspacePanelRenderWidth,
+      });
       const onMove = (moveEvent: PointerEvent) => {
         nextWidth = sidebarWidthClamp(moveEvent.clientX);
-        setSidebarWidth(nextWidth);
+        liveResize.schedule(nextWidth);
+        dockLiveResize.schedule(resolveLiveWorkspacePanelRenderWidth(preferredWorkspacePanelWidth, nextWidth));
       };
       const onDone = () => {
+        liveResize.flush();
+        dockLiveResize.flush();
         setSidebarWidth(nextWidth);
         saveSidebarWidth(nextWidth);
+        setLiveSidebarWidth(null);
+        setLiveWorkspacePanelRenderWidth(null);
         setSidebarResizing(false);
         window.removeEventListener("pointermove", onMove);
         window.removeEventListener("pointerup", onDone);
@@ -1711,7 +1799,7 @@ export default function App() {
       window.addEventListener("pointerup", onDone);
       window.addEventListener("pointercancel", onDone);
     },
-    [closeTransientOverlays, sidebarCollapsed, sidebarWidth, sidebarWidthClamp],
+    [closeTransientOverlays, preferredWorkspacePanelWidth, resolveLiveWorkspacePanelRenderWidth, sidebarCollapsed, sidebarWidth, sidebarWidthClamp],
   );
 
   const resizeSidebarWithKeyboard = useCallback(
@@ -1761,23 +1849,34 @@ export default function App() {
   const startWorkspacePanelResize = useCallback(
     (event: ReactPointerEvent<HTMLButtonElement>) => {
       if (!workspacePanelOpen) return;
+      const layout = layoutRef.current;
+      if (!layout) return;
       event.preventDefault();
       closeTransientOverlays();
       setWorkspacePanelResizing(true);
       const startX = event.clientX;
       const startDockWidth = workspacePanelRenderWidth;
       let nextDockWidth = startDockWidth;
+      const liveResize = createRafResizeUpdater({
+        target: layout,
+        separator: event.currentTarget,
+        cssVar: "--workspace-width",
+        onApply: setLiveWorkspacePanelRenderWidth,
+      });
       const onMove = (moveEvent: PointerEvent) => {
         const delta = moveEvent.clientX - startX;
         nextDockWidth = startDockWidth - delta;
         if (rightDockDetailActive) {
-          setRightDockPreviewWidth(clampRightDockPreviewWidth(nextDockWidth));
+          nextDockWidth = clampRightDockPreviewWidth(nextDockWidth);
         } else {
-          setRightDockTreeWidth(clampRightDockTreeWidth(nextDockWidth));
+          nextDockWidth = clampRightDockTreeWidth(nextDockWidth);
         }
+        liveResize.schedule(resolveLiveWorkspacePanelRenderWidth(nextDockWidth));
       };
       const onDone = () => {
+        liveResize.flush();
         setSavedWorkspacePanelWidth(nextDockWidth);
+        setLiveWorkspacePanelRenderWidth(null);
         setWorkspacePanelResizing(false);
         window.removeEventListener("pointermove", onMove);
         window.removeEventListener("pointerup", onDone);
@@ -1791,7 +1890,7 @@ export default function App() {
       window.addEventListener("pointerup", onDone);
       window.addEventListener("pointercancel", onDone);
     },
-    [closeTransientOverlays, rightDockDetailActive, setSavedWorkspacePanelWidth, workspacePanelOpen, workspacePanelRenderWidth],
+    [closeTransientOverlays, resolveLiveWorkspacePanelRenderWidth, rightDockDetailActive, setSavedWorkspacePanelWidth, workspacePanelOpen, workspacePanelRenderWidth],
   );
 
   const resizeWorkspacePanelWithKeyboard = useCallback(
@@ -1872,12 +1971,12 @@ export default function App() {
   const layoutStyle = useMemo(
     () =>
       ({
-        "--sidebar-expanded-width": `${sidebarWidth}px`,
+        "--sidebar-expanded-width": `${sidebarRenderWidth}px`,
         "--chat-min-width": `${chatReservedWidth}px`,
         "--workspace-width": `${workspacePanelRenderWidth}px`,
         "--workspace-resizer-width": `${WORKSPACE_RESIZER_WIDTH}px`,
       }) as CSSProperties,
-    [chatReservedWidth, sidebarWidth, workspacePanelRenderWidth],
+    [chatReservedWidth, sidebarRenderWidth, workspacePanelRenderWidth],
   );
 
   const setWorkspacePanel = useCallback((open: boolean) => {
@@ -2173,6 +2272,17 @@ export default function App() {
     closeTransientOverlays();
     setHistView(null);
   }, [closeTransientOverlays]);
+  const refreshHistoryView = useCallback(async () => {
+    const sessions = await listSessions().catch(() => null);
+    if (!sessions) return;
+    setHistView((cur) =>
+      cur === null || cur.kind !== "history"
+        ? cur
+        : cur.source === "scope"
+          ? { ...cur, sessions: sessionsForScope(sessions, cur.filter) }
+          : { ...cur, sessions },
+    );
+  }, [listSessions]);
 
   const onResumeSession = useCallback(
     async (session: SessionMeta) => {
@@ -2206,6 +2316,8 @@ export default function App() {
         setTabRevealSignal((value) => value + 1);
         setTranscriptRevealSignal((value) => value + 1);
       } catch (err: any) {
+        await refreshHistoryView();
+        if (isMissingSessionError(err)) return;
         setHistView(null);
         if (scope === "project" && session.workspaceRoot) {
           const name = workspaceDisplayName(session.workspaceRoot);
@@ -2215,7 +2327,7 @@ export default function App() {
         }
       }
     },
-    [activateTopic, ensureBlankSurface, ensureBlankTab, openChannelSession, openGlobalTab, openProjectTab, refreshTabMetas, state.running, resumeSession, singleSurfaceLayout, t, showToast],
+    [activateTopic, ensureBlankSurface, ensureBlankTab, openChannelSession, openGlobalTab, openProjectTab, refreshHistoryView, refreshTabMetas, state.running, resumeSession, singleSurfaceLayout, t, showToast],
   );
 
   // Command palette: ⌘K / Ctrl+K opens a fuzzy navigator over commands and
@@ -2350,10 +2462,7 @@ export default function App() {
       try {
         await deleteSession(path);
       } catch {
-        // If the backend could not delete the session (validation, snapshot,
-        // or I/O failure), keep it in the history panel.  The old
-        // listSessions() refresh masked this by re-reading disk; with local
-        // state removal we must let the error propagate.
+        await refreshHistoryView();
         return;
       }
       // Local state removal: filter the deleted session out of the current
@@ -2364,7 +2473,7 @@ export default function App() {
           : { ...cur, sessions: cur.sessions.filter((s) => s.path !== path) },
       );
     },
-    [state.running, deleteSession],
+    [state.running, deleteSession, refreshHistoryView],
   );
   const onRenameSession = useCallback(
     async (path: string, title: string) => {
@@ -2527,6 +2636,7 @@ export default function App() {
       ].filter(Boolean).join(" ")}
     >
       <div
+        ref={layoutRef}
         className={[
           "layout",
           sidebarWorkbench ? "layout--workbench" : "",
@@ -2809,7 +2919,7 @@ export default function App() {
           aria-label={t("sidebar.resize")}
           aria-valuemin={sidebarResizeMinWidth}
           aria-valuemax={SIDEBAR_MAX_WIDTH}
-          aria-valuenow={sidebarWidth}
+          aria-valuenow={sidebarRenderWidth}
           onPointerDown={startSidebarResize}
           onKeyDown={resizeSidebarWithKeyboard}
           onDoubleClick={() => setExpandedSidebarWidth(defaultSidebarWidth())}
@@ -3075,7 +3185,7 @@ export default function App() {
 
           {!sidebarImDetailConnection && (
           <footer className="footer" ref={footerRef}>
-            {showTodos && <TodoPanel todoKey={todoKey} todos={todos} onDismiss={() => setDismissedTodo(todoKey)} />}
+            {showTodos && <TodoPanel todos={todos} onDismiss={() => setDismissedTodo(todoKey)} />}
             {rewindState && (
               <UndoRewindBanner
                 meta={{
@@ -3097,7 +3207,7 @@ export default function App() {
                   // Approving an exit_plan_mode plan leaves plan mode; await the
                   // mode switch before sending the approval so the controller
                   // observes the updated state before it unblocks.
-                  if (state.approval!.tool === "exit_plan_mode" && allow) await applyCollaborationMode("normal");
+                  if (state.approval!.tool === "exit_plan_mode" && allow) await applyCollaborationMode("normal", { rememberUserIntent: false });
                   approve(state.approval!.id, allow, session, persist);
                 }}
                 onRevisePlan={(text) => {
@@ -3162,6 +3272,7 @@ export default function App() {
               turnTokens={state.turnTokens}
               retry={state.retry}
               transientDismissSignal={transientOverlayDismissSignal}
+              sessionKey={composerSessionKey}
             />
             <StatusBar
               context={state.context}

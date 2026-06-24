@@ -226,6 +226,7 @@ type ScheduleState interface {
 // Settings covers runtime session settings that don't fit a richer domain.
 type Settings interface {
 	SetReasoningLanguage(lang string)
+	SetMemoryCompilerEnabled(enabled bool)
 	SetDisplayRecorder(fn func(content, display string))
 }
 

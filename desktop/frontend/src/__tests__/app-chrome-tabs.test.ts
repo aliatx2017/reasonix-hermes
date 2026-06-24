@@ -11,6 +11,7 @@ const commandPaletteSource = readFileSync(resolve(testDir, "../components/Comman
 const projectTreeSource = readFileSync(resolve(testDir, "../components/ProjectTree.tsx"), "utf8");
 const topicShortcutsSource = readFileSync(resolve(testDir, "../lib/topicShortcuts.ts"), "utf8");
 const transcriptSource = readFileSync(resolve(testDir, "../components/Transcript.tsx"), "utf8");
+const layoutStoreSource = readFileSync(resolve(testDir, "../store/layout.ts"), "utf8");
 const stylesSource = readFileSync(resolve(testDir, "../styles.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
 
 let passed = 0;
@@ -66,6 +67,12 @@ for (const propName of ["onTabChange", "onTabClose", "onTabsClose", "onTabsReord
 ok(
   /app-chrome__tab-strip/.test(appChromeSource),
   "AppChrome markup includes classic tab strip containers",
+);
+
+ok(
+  /const WORKSPACE_PANEL_DEFAULT_OPEN = false;/.test(layoutStoreSource) &&
+    /workspacePanelOpen:\s*WORKSPACE_PANEL_DEFAULT_OPEN/.test(layoutStoreSource),
+  "right dock starts collapsed on launch",
 );
 
 ok(

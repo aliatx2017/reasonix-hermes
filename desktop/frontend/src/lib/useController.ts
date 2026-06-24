@@ -20,6 +20,7 @@ import type {
   EffortInfo,
   HistoryMessage,
   JobView,
+  MemoryCitation,
   MemoryView,
   Meta,
   Mode,
@@ -43,7 +44,7 @@ export type HydrateReason = "switch-tab" | "new-session" | "resume-session" | "o
 
 export type Item =
   | { kind: "user"; id: string; text: string; submitText?: string; failed?: boolean; createdAt?: number }
-  | { kind: "assistant"; id: string; text: string; reasoning: string; streaming: boolean; reasoningComplete?: boolean }
+  | { kind: "assistant"; id: string; text: string; reasoning: string; streaming: boolean; reasoningComplete?: boolean; memoryCitations?: MemoryCitation[] }
   | { kind: "phase"; id: string; text: string }
   | { kind: "notice"; id: string; level: "info" | "warn"; text: string }
   | {
@@ -369,7 +370,15 @@ export function historyMessagesToItems(messages: HistoryMessage[], idPrefix: str
     if (m.role === "assistant") {
       const hasText = m.content.trim() !== "" || (m.reasoning ?? "").trim() !== "";
       if (hasText) {
-        items.push({ kind: "assistant", id: `${idPrefix}${seq}`, text: m.content, reasoning: m.reasoning ?? "", streaming: false });
+        const memoryCitations = asArray<MemoryCitation>(m.memoryCitations);
+        items.push({
+          kind: "assistant",
+          id: `${idPrefix}${seq}`,
+          text: m.content,
+          reasoning: m.reasoning ?? "",
+          streaming: false,
+          memoryCitations: memoryCitations.length > 0 ? memoryCitations : undefined,
+        });
         seq++;
       }
       const toolCalls = m.toolCalls ?? [];
@@ -498,6 +507,9 @@ function applyEvent(s: State, e: WireEvent): State {
     if (e.kind === "turn_done") return { ...s, discardTurn: false, running: false, turnActive: false, pendingPrompt: false, cancelRequested: false, cancellable: false, currentAssistant: undefined, live: undefined };
     return s;
   }
+  if (e.kind === "memory_compiler_stats") {
+    return s;
+  }
   if (s.pendingUser !== undefined && e.kind !== "turn_done") {
     s = flushPendingUser(s);
   }
@@ -531,7 +543,16 @@ function applyEvent(s: State, e: WireEvent): State {
       const { items, id, seq } = ensureAssistant(s);
       const next = items.map((it) =>
         it.kind === "assistant" && it.id === id
-          ? { ...it, text: e.text ?? s.live?.text ?? it.text, reasoning: e.reasoning ?? s.live?.reasoning ?? it.reasoning, streaming: false }
+          ? (() => {
+              const memoryCitations = asArray<MemoryCitation>(e.memoryCitations ?? it.memoryCitations);
+              return {
+                ...it,
+                text: e.text ?? s.live?.text ?? it.text,
+                reasoning: e.reasoning ?? s.live?.reasoning ?? it.reasoning,
+                streaming: false,
+                memoryCitations: memoryCitations.length > 0 ? memoryCitations : undefined,
+              };
+            })()
           : it,
       );
       return { ...s, items: next, live: undefined, currentAssistant: undefined, seq };
@@ -992,9 +1013,16 @@ export function useController() {
     }
   }, []);
 
-  const syncActiveTabFromBackend = useCallback(async (reset = false): Promise<string | undefined> => {
+  const syncActiveTabFromBackend = useCallback(async (reset = false, guard = false): Promise<string | undefined> => {
     const active = await activeTabFromBackend();
     if (!active) return undefined;
+    // When guard is true, skip if the frontend already settled on a
+    // different tab while we were fetching — this prevents fire-and-forget
+    // calls from mount/onReady from overwriting a user-initiated tab switch
+    // (e.g. handleNewTab → ensureBlankSurface / switchTab).
+    if (guard && activeTabIdRef.current && activeTabIdRef.current !== active.id) {
+      return active.id;
+    }
     setActiveTabId(active.id);
     activeTabIdRef.current = active.id;
     confirmBackendActiveTab(active.id);
@@ -1086,10 +1114,10 @@ export function useController() {
         void loadSessionDataForTab(readyTabId, false, "startup");
         return;
       }
-      void syncActiveTabFromBackend();
+      void syncActiveTabFromBackend(false, true);
     });
 
-    void syncActiveTabFromBackend();
+    void syncActiveTabFromBackend(false, true);
     // The event subscription is live now, so ask the backend to re-emit any
     // approval/ask prompt that was already blocking a tab before this load —
     // otherwise a session left mid-confirmation shows "waiting" with no modal

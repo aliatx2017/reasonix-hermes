@@ -1047,6 +1047,14 @@ func (a *App) openTopicTabWithActivation(scope, workspaceRoot, topicID, sessionP
 
 	tabID := a.newUniqueTabIDLocked()
 	topicTitle := topicTitleForTab(scope, workspaceRoot, topicID)
+	if sessionPath == "" {
+		var err error
+		sessionPath, err = createEmptySessionFile(desktopSessionDir(actualRoot), "")
+		if err != nil {
+			a.mu.Unlock()
+			return TabMeta{}, err
+		}
+	}
 	tab := &WorkspaceTab{
 		ID:               tabID,
 		Scope:            scope,
@@ -1255,6 +1263,14 @@ func (a *App) EnsureBlankTab(scope, workspaceRoot string) (TabMeta, error) {
 		a.tabs[tabID] = created
 		a.tabOrder = append(a.tabOrder, tabID)
 		a.activeTabID = tabID
+		prePath, err := createEmptySessionFile(desktopSessionDir(actualRoot), inheritedModel)
+		if err != nil {
+			delete(a.tabs, tabID)
+			a.removeTabOrderLocked(tabID)
+			a.mu.Unlock()
+			return TabMeta{}, err
+		}
+		created.SessionPath = prePath
 		a.saveTabsLocked()
 		meta := a.tabMeta(created, true)
 		a.mu.Unlock()
@@ -1303,6 +1319,14 @@ func (a *App) EnsureBlankTab(scope, workspaceRoot string) (TabMeta, error) {
 	a.tabs[tabID] = created
 	a.tabOrder = append(a.tabOrder, tabID)
 	a.activeTabID = tabID
+	prePath, err := createEmptySessionFile(desktopSessionDir(actualRoot), inheritedModel)
+	if err != nil {
+		delete(a.tabs, tabID)
+		a.removeTabOrderLocked(tabID)
+		a.mu.Unlock()
+		return TabMeta{}, err
+	}
+	created.SessionPath = prePath
 	a.saveTabsLocked()
 	meta := a.tabMeta(created, true)
 	a.mu.Unlock()
@@ -1322,12 +1346,65 @@ func (a *App) blankTabMatchesTargetLocked(tab *WorkspaceTab, scope, workspaceRoo
 		return false
 	}
 	if tab.Ctrl == nil {
-		return strings.TrimSpace(tab.SessionPath) == ""
+		return blankTabSessionPathHasNoContent(tab)
 	}
 	if tab.hasActiveRuntimeWork() {
 		return false
 	}
 	return !messagesHaveConversationContent(tab.Ctrl.History())
+}
+
+func createEmptySessionFile(dir, model string) (string, error) {
+	dir = strings.TrimSpace(dir)
+	if dir == "" {
+		return "", fmt.Errorf("session dir is required")
+	}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", err
+	}
+	for i := 0; i < 3; i++ {
+		path := agent.NewSessionPath(dir, model)
+		f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o644)
+		if err == nil {
+			if closeErr := f.Close(); closeErr != nil {
+				return "", closeErr
+			}
+			return path, nil
+		}
+		if os.IsExist(err) {
+			continue
+		}
+		return "", err
+	}
+	return "", fmt.Errorf("create empty session file: exhausted filename retries")
+}
+
+func blankTabSessionPathHasNoContent(tab *WorkspaceTab) bool {
+	if tab == nil {
+		return false
+	}
+	if strings.TrimSpace(tab.SessionPath) == "" {
+		return true
+	}
+	path, ok := pinnedTabSessionPath(tabSessionDir(tab), tab.SessionPath)
+	if !ok {
+		return false
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	if info.IsDir() {
+		return false
+	}
+	if info.Size() == 0 {
+		return true
+	}
+	session, err := agent.LoadSession(path)
+	if err != nil {
+		return false
+	}
+	return !session.HasContent()
 }
 
 func resetReusableBlankTabTitle(tab *WorkspaceTab, scope, workspaceRoot string) error {
@@ -1381,7 +1458,27 @@ func (a *App) indexedBlankTopicIDLocked(scope, workspaceRoot string) string {
 		}
 		openTopics[tab.TopicID] = true
 	}
-	sessionIndex, _ := topicSessionIndexForDir(config.SessionDir())
+	seenSessionDirs := map[string]bool{}
+	sessionIndexes := []topicSessionDirIndex{}
+	addSessionIndex := func(dir string) {
+		dir = cleanDesktopPath(dir)
+		if dir == "" {
+			return
+		}
+		if seenSessionDirs[dir] {
+			return
+		}
+		seenSessionDirs[dir] = true
+		if index, err := topicSessionIndexForDir(dir); err == nil {
+			sessionIndexes = append(sessionIndexes, index)
+		}
+	}
+	if scope == "project" {
+		addSessionIndex(desktopSessionDir(workspaceRoot))
+	} else {
+		addSessionIndex(config.SessionDir())
+		addSessionIndex(desktopSessionDir(globalWorkspaceRoot()))
+	}
 	for _, topicID := range topicIDs {
 		if openTopics[topicID] {
 			continue
@@ -1389,7 +1486,14 @@ func (a *App) indexedBlankTopicIDLocked(scope, workspaceRoot string) string {
 		if topicTitleForTab(scope, workspaceRoot, topicID) != defaultTopicTitle {
 			continue
 		}
-		if topicSessionIndexHasTopic(sessionIndex, topicID) {
+		hasSession := false
+		for _, index := range sessionIndexes {
+			if topicSessionIndexHasContentTopic(index, topicID) {
+				hasSession = true
+				break
+			}
+		}
+		if hasSession {
 			continue
 		}
 		return topicID
@@ -4988,6 +5092,14 @@ func topicSessionMatchMatchesTarget(match topicSessionMatch, scope, workspaceRoo
 }
 
 func (a *App) findTopicSessionForTarget(scope, workspaceRoot, topicID string) (string, string) {
+	return a.findTopicSessionForTargetByContent(scope, workspaceRoot, topicID, false)
+}
+
+func (a *App) findTopicContentSessionForTarget(scope, workspaceRoot, topicID string) (string, string) {
+	return a.findTopicSessionForTargetByContent(scope, workspaceRoot, topicID, true)
+}
+
+func (a *App) findTopicSessionForTargetByContent(scope, workspaceRoot, topicID string, requireContent bool) (string, string) {
 	topicID = strings.TrimSpace(topicID)
 	if topicID == "" {
 		return "", ""
@@ -4997,6 +5109,9 @@ func (a *App) findTopicSessionForTarget(scope, workspaceRoot, topicID string) (s
 	var bestTime time.Time
 	for _, dir := range a.knownSessionDirs() {
 		for _, match := range topicSessionMatches(dir, topicID) {
+			if requireContent && !sessionFileHasConversationContent(match.path) {
+				continue
+			}
 			if !topicSessionMatchMatchesTarget(match, scope, workspaceRoot) {
 				continue
 			}
@@ -5215,10 +5330,10 @@ func topicSessionIndexForDir(dir string) (topicSessionDirIndex, error) {
 	return index, nil
 }
 
-func topicSessionIndexHasTopic(index topicSessionDirIndex, topicID string) bool {
+func topicSessionIndexHasContentTopic(index topicSessionDirIndex, topicID string) bool {
 	matches := index.byTopic[strings.TrimSpace(topicID)]
 	for _, match := range matches {
-		if !agent.IsCleanupPending(match.path) {
+		if sessionFileHasConversationContent(match.path) {
 			return true
 		}
 	}

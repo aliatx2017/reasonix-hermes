@@ -3,7 +3,11 @@
 // Renders a list of tasks with add/edit/delete controls, plus a manual
 // "run now" button for each. The panel is opened from the sidebar nav item.
 
+<<<<<<< HEAD
 import { useCallback, useEffect, useRef, useState } from 'react';
+=======
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+>>>>>>> upstream/main-v2
 import {
   Activity,
   ChevronLeft,
@@ -29,6 +33,99 @@ import {
 } from './heartbeat.bridge';
 import type { HeartbeatTask } from './heartbeat.types';
 import type { WorkspaceView } from '../../../lib/types';
+
+const INTERVAL_MS: Record<"s" | "m" | "h", number> = {
+  s: 1000,
+  m: 60_000,
+  h: 3_600_000,
+};
+
+function heartbeatIntervalMs(interval?: string): number | null {
+  const clean = (interval || "").replace(/\|.*$/, "");
+  const m = clean.match(/^(\d+)([smh])$/);
+  if (!m) return null;
+  return parseInt(m[1], 10) * INTERVAL_MS[m[2] as "s" | "m" | "h"];
+}
+
+function heartbeatClockMinutes(value?: string): number | null {
+  const m = (value || "").match(/^(\d{2}):(\d{2})$/);
+  if (!m) return null;
+  const hour = parseInt(m[1], 10);
+  const minute = parseInt(m[2], 10);
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
+  return hour * 60 + minute;
+}
+
+function dateAtMinutes(base: Date, minutes: number): Date {
+  const d = new Date(base);
+  d.setHours(Math.floor(minutes / 60), minutes % 60, 0, 0);
+  return d;
+}
+
+function heartbeatWithinWindow(date: Date, start: number | null, end: number | null): boolean {
+  if (start === null && end === null) return true;
+  const minutes = date.getHours() * 60 + date.getMinutes();
+  if (start !== null && end === null) return minutes >= start;
+  if (start === null && end !== null) return minutes < end;
+  if (start === end) return true;
+  if (start! < end!) return minutes >= start! && minutes < end!;
+  return minutes >= start! || minutes < end!;
+}
+
+function nextHeartbeatWindowTime(from: Date, start: number | null, end: number | null): Date {
+  if (heartbeatWithinWindow(from, start, end)) return from;
+  if (start !== null && end === null) return dateAtMinutes(from, start);
+  if (start === null && end !== null) {
+    const next = new Date(from);
+    next.setDate(next.getDate() + 1);
+    next.setHours(0, 0, 0, 0);
+    return next;
+  }
+  const minutes = from.getHours() * 60 + from.getMinutes();
+  if (start! < end! && minutes < start!) return dateAtMinutes(from, start!);
+  if (start! > end! && minutes < start! && minutes >= end!) return dateAtMinutes(from, start!);
+  const next = dateAtMinutes(from, start!);
+  next.setDate(next.getDate() + 1);
+  return next;
+}
+
+export function heartbeatNextRunAt(task: Pick<HeartbeatTask, "interval" | "lastRunAt" | "timeWindowStart" | "timeWindowEnd">, now = Date.now()): number | null {
+  if (!task.lastRunAt) return null;
+  const intervalMs = heartbeatIntervalMs(task.interval);
+  if (intervalMs === null) return null;
+  const rawNext = task.lastRunAt + intervalMs;
+  if ((task.interval || "").includes("|")) return rawNext;
+  const start = heartbeatClockMinutes(task.timeWindowStart);
+  const end = heartbeatClockMinutes(task.timeWindowEnd);
+  if (start === null && end === null) return rawNext;
+  const candidate = new Date(Math.max(rawNext, now));
+  return nextHeartbeatWindowTime(candidate, start, end).getTime();
+}
+
+function heartbeatIntervalLabel(interval: string | undefined, t: ReturnType<typeof useT>): string {
+  const cycleMatch = (interval || "").match(/^(\d+)[smh]\|(daily|weekly|biweekly|monthly|yearly)(?::([^@]*))?(?:@(\d{2}:\d{2}))?$/);
+  if (cycleMatch) {
+    const [, , type, days, time] = cycleMatch;
+    const timeStr = time ? ` ${time}` : "";
+    if (type === "daily") return `${t("heartbeat.cycleDaily")}${timeStr}`;
+    if (type === "weekly") return `${t("heartbeat.cycleWeekly")}${timeStr}`;
+    if (type === "biweekly") return `${t("heartbeat.cycleBiweekly")}${timeStr}`;
+    if (type === "monthly") return `${t("heartbeat.cycleMonthly")}${days ? ` ${days}` : ""}${timeStr}`;
+    if (type === "yearly") {
+      const parts = (days || "").split("-");
+      return `${t("heartbeat.cycleYearly")} ${parts[0] || "1"}/${parts[1] || "1"}${timeStr}`;
+    }
+  }
+  const clean = (interval || "").replace(/\|.*$/, "");
+  const m = clean.match(/^(\d+)([smh])$/);
+  if (!m) return clean;
+  const unitLabels: Record<string, string> = {
+    s: t("heartbeat.unitSec"),
+    m: t("heartbeat.unitMin"),
+    h: t("heartbeat.unitHour"),
+  };
+  return `${t("heartbeat.freqEvery")}${t("heartbeat.everyJoiner")}${m[1]}${unitLabels[m[2]] || m[2]}`;
+}
 
 interface HeartbeatPanelProps {
   open: boolean;
@@ -94,6 +191,8 @@ export function HeartbeatPanel({ open, onClose, startNew, onOpenTopic }: Heartbe
           prompt: '',
           interval: '30m',
           enabled: true,
+          approvalMode: "yolo",
+          newConversationEachRun: false,
           createdAt: Date.now(),
         });
       });
@@ -117,6 +216,8 @@ export function HeartbeatPanel({ open, onClose, startNew, onOpenTopic }: Heartbe
       prompt: '',
       interval: '30m',
       enabled: true,
+      approvalMode: "yolo",
+      newConversationEachRun: false,
       createdAt: Date.now(),
     });
   }, []);
@@ -208,6 +309,7 @@ export function HeartbeatPanel({ open, onClose, startNew, onOpenTopic }: Heartbe
         </header>
 
         {editing ? (
+<<<<<<< HEAD
           <TaskEditor
             task={editing}
             onSave={handleSaveEdit}
@@ -217,6 +319,9 @@ export function HeartbeatPanel({ open, onClose, startNew, onOpenTopic }: Heartbe
               setEditing(null);
             }}
           />
+=======
+          <TaskEditor key={editing.id} task={editing} onSave={handleSaveEdit} onCancel={() => setEditing(null)} onDelete={() => { handleDelete(editing.id); setEditing(null); }} />
+>>>>>>> upstream/main-v2
         ) : (
           <div className="heartbeat-modal__body">
             <div className="heartbeat-toolbar">
@@ -442,10 +547,13 @@ export function HeartbeatPanel({ open, onClose, startNew, onOpenTopic }: Heartbe
                 </ul>
               );
             })()}
+<<<<<<< HEAD
 
             <div className="heartbeat-hint">
               <span>{t('heartbeat.configHint')}</span>
             </div>
+=======
+>>>>>>> upstream/main-v2
           </div>
         )}
       </div>
@@ -474,6 +582,7 @@ function TaskCard({
 }) {
   const t = useT();
 
+<<<<<<< HEAD
   // Parse interval for display and next-run calculation
   const intervalLabel = (() => {
     const clean = task.interval.replace(/\|.*$/, '');
@@ -491,7 +600,15 @@ function TaskCard({
     const ms = parseInt(m[1]) * { s: 1000, m: 60000, h: 3600000 }[m[2] as 's' | 'm' | 'h'];
     if (!task.lastRunAt) return t('heartbeat.neverRun');
     const next = task.lastRunAt + ms;
+=======
+  const intervalLabel = heartbeatIntervalLabel(task.interval, t);
+
+  const nextRunLabel = (() => {
+    if (!task.enabled) return t("heartbeat.disabled");
+>>>>>>> upstream/main-v2
     const now = Date.now();
+    const next = heartbeatNextRunAt(task, now);
+    if (next === null) return task.lastRunAt ? "" : t("heartbeat.neverRun");
     const diff = next - now;
     if (diff <= 0) return t('heartbeat.due' as any);
     if (diff < 60000) return t('heartbeat.soon' as any);
@@ -578,6 +695,44 @@ const WEEKDAYS = [
   { key: 'sun', label: '周日' },
 ] as const;
 
+const ALL_WEEKDAYS = WEEKDAYS.map(w => w.key);
+const DEFAULT_WEEKLY_DAY = "mon";
+
+function defaultHeartbeatCycleDays(cycleType: string): string[] {
+  if (cycleType === "daily") return [...ALL_WEEKDAYS];
+  if (cycleType === "weekly" || cycleType === "biweekly") return [DEFAULT_WEEKLY_DAY];
+  return [];
+}
+
+export function heartbeatBuildCycleInterval(cycleType: string, days: string[], time: string): string {
+  const base: Record<string, string> = {
+    daily: "24h",
+    weekly: "168h",
+    biweekly: "336h",
+    monthly: "720h",
+    yearly: "8760h",
+  };
+  const selectedDays = days.filter(Boolean);
+  const isDailyWithSelection = cycleType === "daily" && selectedDays.length > 0 && selectedDays.length < 7;
+  const isDailyWithoutSelection = cycleType === "daily" && selectedDays.length === 0;
+  const effectiveType = isDailyWithoutSelection || isDailyWithSelection ? "weekly" : cycleType;
+  const scheduleDays =
+    (effectiveType === "weekly" || effectiveType === "biweekly") && selectedDays.length === 0
+      ? defaultHeartbeatCycleDays(effectiveType)
+      : selectedDays;
+
+  let suffix = `|${effectiveType}`;
+  if (effectiveType === "weekly" || effectiveType === "biweekly") {
+    suffix += `:${scheduleDays.join(",")}`;
+  } else if (effectiveType === "monthly") {
+    suffix += `:${scheduleDays[0] || "1"}`;
+  } else if (effectiveType === "yearly") {
+    suffix += `:${scheduleDays[0] || "1"}-${scheduleDays[1] || "1"}`;
+  }
+  suffix += `@${time}`;
+  return (base[cycleType] || "24h") + suffix;
+}
+
 function CycleEditor({
   draft,
   setDraft,
@@ -586,6 +741,7 @@ function CycleEditor({
   setDraft: (field: keyof HeartbeatTask, value: string | boolean) => void;
 }) {
   const t = useT();
+<<<<<<< HEAD
   const cycleMatch = draft.interval.match(
     /^(\d+)[smh]\|(daily|weekly|biweekly|monthly|yearly)(?::([^@]*))?(?:@(\d{2}:\d{2}))?$/,
   );
@@ -596,9 +752,27 @@ function CycleEditor({
   const [monthDay, setMonthDay] = useState(cycleDays || '1');
   const [yearMonth, setYearMonth] = useState(cycleDays.split('-')[0] || '1');
   const [yearDay, setYearDay] = useState(cycleDays.split('-')[1] || '1');
+=======
+  const cycleMatch = (draft.interval || "").match(/^(\d+)[smh]\|(daily|weekly|biweekly|monthly|yearly)(?::([^@]*))?(?:@(\d{2}:\d{2}))?$/);
+  const [cycleType, setCycleType] = useState<string>(
+    cycleMatch ? cycleMatch[2] : "daily"
+  );
+  const cycleDays = cycleMatch?.[3] || "";
+  const cycleTime = cycleMatch?.[4] || "09:00";
+  const [selectedDays, setSelectedDays] = useState<string[]>(
+    cycleDays ? cycleDays.split(",").filter(Boolean) :
+    defaultHeartbeatCycleDays(cycleMatch ? cycleMatch[2] : "daily")
+  );
+  const [monthDay, setMonthDay] = useState(cycleDays || "1");
+  const [yearMonth, setYearMonth] = useState(cycleDays.split("-")[0] || "1");
+  const [yearDay, setYearDay] = useState(cycleDays.split("-")[1] || "1");
+>>>>>>> upstream/main-v2
   const [timeVal, setTimeVal] = useState(cycleTime);
 
+  const hasWeekdays = cycleType === "daily" || cycleType === "weekly" || cycleType === "biweekly";
+
   // Build interval string when config changes
+<<<<<<< HEAD
   const buildInterval = useCallback((ct: string, days: string[], tm: string) => {
     const base: Record<string, string> = {
       daily: '24h',
@@ -643,6 +817,28 @@ function CycleEditor({
     },
     [buildInterval, cycleType, setDraft, timeVal],
   );
+=======
+  const buildInterval = useCallback(heartbeatBuildCycleInterval, []);
+
+  const onCycleTypeChange = useCallback((ct: string) => {
+    setCycleType(ct);
+    const days = defaultHeartbeatCycleDays(ct);
+    setSelectedDays(days);
+    setMonthDay("1");
+    setYearMonth("1");
+    setYearDay("1");
+    setDraft("interval", buildInterval(ct, days, timeVal));
+  }, [buildInterval, setDraft, timeVal]);
+
+  const onDayToggle = useCallback((day: string) => {
+    setSelectedDays((prev) => {
+      if (prev.includes(day) && prev.length <= 1) return prev;
+      const next = prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day];
+      setDraft("interval", buildInterval(cycleType, next, timeVal));
+      return next;
+    });
+  }, [buildInterval, cycleType, setDraft, timeVal]);
+>>>>>>> upstream/main-v2
 
   const onMonthDayChange = useCallback(
     (d: string) => {
@@ -668,6 +864,7 @@ function CycleEditor({
     [buildInterval, cycleType, setDraft, timeVal, yearMonth],
   );
 
+<<<<<<< HEAD
   const onTimeChange = useCallback(
     (tm: string) => {
       setTimeVal(tm);
@@ -683,6 +880,16 @@ function CycleEditor({
     },
     [buildInterval, cycleType, selectedDays, monthDay, yearMonth, yearDay, setDraft],
   );
+=======
+  const onTimeChange = useCallback((tm: string) => {
+    setTimeVal(tm);
+    const days = hasWeekdays ? selectedDays
+      : cycleType === "monthly" ? [monthDay]
+      : cycleType === "yearly" ? [yearMonth, yearDay]
+      : [];
+    setDraft("interval", buildInterval(cycleType, days, tm));
+  }, [buildInterval, cycleType, selectedDays, monthDay, yearMonth, yearDay, setDraft]);
+>>>>>>> upstream/main-v2
 
   const MONTHS = Array.from({ length: 12 }, (_, i) => ({
     value: String(i + 1),
@@ -708,6 +915,7 @@ function CycleEditor({
           <option value="yearly">{t('heartbeat.cycleYearly')}</option>
         </select>
 
+<<<<<<< HEAD
         {(cycleType === 'weekly' || cycleType === 'biweekly') && (
           <div className="heartbeat-editor__weekdays">
             {WEEKDAYS.map((wd) => (
@@ -725,6 +933,9 @@ function CycleEditor({
         )}
 
         {cycleType === 'monthly' && (
+=======
+        {cycleType === "monthly" && (
+>>>>>>> upstream/main-v2
           <select
             className="heartbeat-editor__freq-select"
             value={monthDay}
@@ -771,12 +982,33 @@ function CycleEditor({
           value={timeVal}
           onChange={(e) => onTimeChange(e.target.value)}
         />
+
+        {hasWeekdays && (
+          <div className="set-seg">
+            {WEEKDAYS.map((wd) => (
+              <button
+                key={wd.key}
+                type="button"
+                className={`set-seg__btn${selectedDays.includes(wd.key) ? " set-seg__btn--on" : ""}`}
+                onClick={() => onDayToggle(wd.key)}
+                aria-pressed={selectedDays.includes(wd.key)}
+              >
+                {wd.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
 // ── Editor ─────────────────────────────────────────────────────────────────────
+
+function normalizeMode(mode: "ask" | "auto" | "yolo" | undefined): "ask" | "auto" | "yolo" {
+  if (mode === "ask" || mode === "auto" || mode === "yolo") return mode;
+  return "yolo"; // default
+}
 
 function TaskEditor({
   task,
@@ -816,13 +1048,32 @@ function TaskEditor({
   }, [projectOpen]);
 
   const [draft, setDraft] = useState(task);
+  const intervalBeforeCycle = useRef<string | null>(null);
+  const promptRef = useRef<HTMLTextAreaElement>(null);
+
+  // Auto-grow prompt textarea: shrink-to-fit then cap at 180px
+  const autoGrowPrompt = useCallback(() => {
+    const el = promptRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, 180) + "px";
+  }, []);
+
+  useLayoutEffect(() => {
+    autoGrowPrompt();
+  }, [draft.prompt, autoGrowPrompt]);
   const set = useCallback((field: keyof HeartbeatTask, value: string | boolean) => {
     setDraft((prev) => ({ ...prev, [field]: value }));
   }, []);
 
   // Detect frequency type from interval value
+<<<<<<< HEAD
   const [freqType, setFreqType] = useState<'cycle' | 'interval'>(
     task.interval.includes('|') ? 'cycle' : 'interval',
+=======
+  const [freqType, setFreqType] = useState<"cycle" | "interval">(
+    (task.interval && task.interval.includes("|")) ? "cycle" : "interval"
+>>>>>>> upstream/main-v2
   );
 
   const isNew = !task.createdAt;
@@ -833,9 +1084,16 @@ function TaskEditor({
 
   return (
     <div className="heartbeat-editor">
+<<<<<<< HEAD
       {/* Title */}
       <div className="heartbeat-editor__field">
         <label>{t('heartbeat.fieldTitle')}</label>
+=======
+      <div className="heartbeat-editor__fields">
+        {/* Title */}
+        <div className="heartbeat-editor__field">
+        <label>{t("heartbeat.fieldTitle")}</label>
+>>>>>>> upstream/main-v2
         <input
           ref={titleRef}
           className="heartbeat-editor__input"
@@ -899,12 +1157,73 @@ function TaskEditor({
       <div className="heartbeat-editor__field">
         <label>{t('heartbeat.fieldPrompt')}</label>
         <textarea
+          ref={promptRef}
           className="heartbeat-editor__textarea"
           value={draft.prompt}
+<<<<<<< HEAD
           onChange={(e) => set('prompt', e.target.value)}
           placeholder={t('heartbeat.promptPlaceholder')}
           rows={5}
+=======
+          onChange={(e) => {
+            set("prompt", e.target.value);
+            // autoGrowPrompt is called via useEffect watching draft.prompt
+          }}
+          placeholder={t("heartbeat.promptPlaceholder")}
+>>>>>>> upstream/main-v2
         />
+      </div>
+
+      {/* Approval Mode */}
+      <div className="heartbeat-editor__field">
+        <label>{t("heartbeat.fieldApprovalMode")}</label>
+        <div className="set-seg" style={{ alignSelf: "flex-start" }}>
+          <button
+            className={`set-seg__btn${normalizeMode(draft.approvalMode) === "ask" ? " set-seg__btn--on" : ""}`}
+            onClick={() => setDraft((prev) => ({ ...prev, approvalMode: "ask" }))}
+            title={t("heartbeat.approvalModeAskTooltip")}
+          >
+            {t("heartbeat.approvalModeAsk")}
+          </button>
+          <button
+            className={`set-seg__btn${normalizeMode(draft.approvalMode) === "auto" ? " set-seg__btn--on" : ""}`}
+            onClick={() => setDraft((prev) => ({ ...prev, approvalMode: "auto" }))}
+            title={t("heartbeat.approvalModeAutoTooltip")}
+          >
+            {t("heartbeat.approvalModeAuto")}
+          </button>
+          <button
+            className={`set-seg__btn${normalizeMode(draft.approvalMode) === "yolo" ? " set-seg__btn--on" : ""}`}
+            onClick={() => setDraft((prev) => ({ ...prev, approvalMode: "yolo" }))}
+            title={t("heartbeat.approvalModeYoloTooltip")}
+          >
+            {t("heartbeat.approvalModeYolo")}
+          </button>
+        </div>
+        <span className="heartbeat-editor__mode-hint">
+          {normalizeMode(draft.approvalMode) === "yolo" ? t("heartbeat.approvalModeYoloHint") :
+           normalizeMode(draft.approvalMode) === "auto" ? t("heartbeat.approvalModeAutoHint") :
+           t("heartbeat.approvalModeAskHint")}
+        </span>
+      </div>
+
+      {/* New conversation per run */}
+      <div className="heartbeat-editor__field">
+        <label>{t("heartbeat.fieldNewConversation")}</label>
+        <div className="set-seg" style={{ alignSelf: "flex-start" }}>
+          <button
+            className={`set-seg__btn${!draft.newConversationEachRun ? " set-seg__btn--on" : ""}`}
+            onClick={() => setDraft((prev) => ({ ...prev, newConversationEachRun: false }))}
+          >
+            {t("heartbeat.newConversationEachRunOff")}
+          </button>
+          <button
+            className={`set-seg__btn${draft.newConversationEachRun ? " set-seg__btn--on" : ""}`}
+            onClick={() => setDraft((prev) => ({ ...prev, newConversationEachRun: true }))}
+          >
+            {t("heartbeat.newConversationEachRunOn")}
+          </button>
+        </div>
       </div>
 
       {/* Frequency */}
@@ -914,18 +1233,43 @@ function TaskEditor({
           <button
             className={`set-seg__btn${freqType === 'cycle' ? ' set-seg__btn--on' : ''}`}
             onClick={() => {
+<<<<<<< HEAD
               setFreqType('cycle');
               // Initialize interval to daily schedule when switching to cycle mode
               if (!draft.interval.includes('|')) {
                 setDraft((prev) => ({ ...prev, interval: '24h|daily@09:00' }));
+=======
+              setFreqType("cycle");
+              // Save the original interval so switching back can restore it
+              const cur = draft.interval || "";
+              const nextInterval = cur.includes("|") ? cur : "24h|daily@09:00";
+              if (!cur.includes("|")) {
+                intervalBeforeCycle.current = cur;
+>>>>>>> upstream/main-v2
               }
+              setDraft((prev) => ({ ...prev, interval: nextInterval, timeWindowStart: undefined, timeWindowEnd: undefined }));
             }}
           >
             {t('heartbeat.freqCycle')}
           </button>
           <button
+<<<<<<< HEAD
             className={`set-seg__btn${freqType === 'interval' ? ' set-seg__btn--on' : ''}`}
             onClick={() => setFreqType('interval')}
+=======
+            className={`set-seg__btn${freqType === "interval" ? " set-seg__btn--on" : ""}`}
+            onClick={() => {
+              setFreqType("interval");
+              // Restore original interval if user toggled cycle and back without saving
+              if (intervalBeforeCycle.current !== null) {
+                setDraft((prev) => ({ ...prev, interval: intervalBeforeCycle.current! }));
+                intervalBeforeCycle.current = null;
+              } else if ((draft.interval || "").includes("|")) {
+                // Fallback: strip cycle suffix
+                setDraft((prev) => ({ ...prev, interval: (prev.interval || "").replace(/\|.*$/, "") }));
+              }
+            }}
+>>>>>>> upstream/main-v2
           >
             {t('heartbeat.freqInterval')}
           </button>
@@ -939,6 +1283,7 @@ function TaskEditor({
             <input
               className="heartbeat-editor__freq-input"
               value={(() => {
+<<<<<<< HEAD
                 const m = draft.interval.match(/^(\d+)/);
                 return m ? m[1] : '1';
               })()}
@@ -946,6 +1291,15 @@ function TaskEditor({
                 const num = e.target.value.replace(/\D/g, '');
                 const mUnit = draft.interval.match(/^(\d+)([smh])/);
                 const unit = mUnit ? mUnit[2] : 'h';
+=======
+                const m = (draft.interval || "").match(/^(\d+)/);
+                return m ? m[1] : "1";
+              })()}
+              onChange={(e) => {
+                const num = e.target.value.replace(/\D/g, "");
+                const mUnit = (draft.interval || "").match(/^(\d+)([smh])/);
+                const unit = mUnit ? mUnit[2] : "h";
+>>>>>>> upstream/main-v2
                 // Guard: never save a bare unit string like "h" or "m"
                 setDraft((prev) => ({ ...prev, interval: num ? num + unit : '1' + unit }));
               }}
@@ -954,19 +1308,66 @@ function TaskEditor({
             <select
               className="heartbeat-editor__freq-select"
               value={(() => {
+<<<<<<< HEAD
                 const m = draft.interval.match(/^(\d+)([smh])/);
                 return m ? m[2] : 'h';
               })()}
               onChange={(e) => {
                 const num = draft.interval.match(/^(\d+)/)?.[1] || '1';
+=======
+                const m = (draft.interval || "").match(/^(\d+)([smh])/);
+                return m ? m[2] : "h";
+              })()}
+              onChange={(e) => {
+                const num = (draft.interval || "").match(/^(\d+)/)?.[1] || "1";
+>>>>>>> upstream/main-v2
                 setDraft((prev) => ({ ...prev, interval: num + e.target.value }));
               }}
             >
               <option value="m">{t('heartbeat.unitMin')}</option>
               <option value="h">{t('heartbeat.unitHour')}</option>
             </select>
+            <span className="heartbeat-editor__freq-label" style={{ marginLeft: "6px" }}>
+              {draft.timeWindowStart || draft.timeWindowEnd ? (
+                <>{t("heartbeat.timeWindow")}</>
+              ) : (
+                <span className="heartbeat-editor__tw-add"
+                  onClick={() => setDraft((prev) => ({ ...prev, timeWindowStart: "09:00", timeWindowEnd: "17:00" }))}
+                >
+                  + {t("heartbeat.timeWindow")}
+                </span>
+              )}
+            </span>
+            {(draft.timeWindowStart || draft.timeWindowEnd) && (
+              <>
+                <input
+                  className="heartbeat-editor__freq-input heartbeat-editor__freq-input--time"
+                  type="time"
+                  value={draft.timeWindowStart || ""}
+                  onChange={(e) => setDraft((prev) => ({ ...prev, timeWindowStart: e.target.value || undefined }))}
+                  placeholder="09:00"
+                />
+                <span className="heartbeat-editor__freq-label heartbeat-editor__tw-sep">—</span>
+                <input
+                  className="heartbeat-editor__freq-input heartbeat-editor__freq-input--time"
+                  type="time"
+                  value={draft.timeWindowEnd || ""}
+                  onChange={(e) => setDraft((prev) => ({ ...prev, timeWindowEnd: e.target.value || undefined }))}
+                  placeholder="17:00"
+                />
+                <button
+                  className="heartbeat-card__open-btn heartbeat-editor__tw-clear"
+                  onClick={() => setDraft((prev) => ({ ...prev, timeWindowStart: undefined, timeWindowEnd: undefined }))}
+                  title={t("heartbeat.clearTimeWindow")}
+                >
+                  ×
+                </button>
+              </>
+            )}
           </div>
         )}
+      </div>
+
       </div>
 
       {/* Actions */}

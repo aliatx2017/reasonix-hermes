@@ -209,22 +209,112 @@ func validateSessionTrashTarget(dir, sessionPath, key string) error {
 		return err
 	}
 	itemDir := filepath.Join(sessionTrashPath(dir), key)
-	if _, err := os.Stat(itemDir); err == nil {
-		return fmt.Errorf("session already exists in trash: %s", key)
+	if info, err := os.Stat(itemDir); err == nil {
+		if !info.IsDir() {
+			return fmt.Errorf("session trash target is not a directory: %s", key)
+		}
+		trashPath := filepath.Join(itemDir, key)
+		if trashInfo, err := os.Stat(trashPath); err == nil && !trashInfo.IsDir() {
+			discardable, err := liveSessionDiscardable(sessionPath)
+			if err != nil {
+				return err
+			}
+			if discardable {
+				return nil
+			}
+			return fmt.Errorf("session already exists in trash: %s", key)
+		} else if err != nil && !os.IsNotExist(err) {
+			return err
+		}
+		return nil
 	} else if !os.IsNotExist(err) {
 		return err
 	}
 	return nil
 }
 
+func prepareSessionTrashTarget(dir, sessionPath, key string) (bool, error) {
+	if _, err := os.Stat(sessionPath); os.IsNotExist(err) {
+		return false, nil
+	} else if err != nil {
+		return false, err
+	}
+	itemDir := filepath.Join(sessionTrashPath(dir), key)
+	if info, err := os.Stat(itemDir); err == nil {
+		if !info.IsDir() {
+			return false, fmt.Errorf("session trash target is not a directory: %s", key)
+		}
+		trashPath := filepath.Join(itemDir, key)
+		if trashInfo, err := os.Stat(trashPath); err == nil && !trashInfo.IsDir() {
+			discardable, err := liveSessionDiscardable(sessionPath)
+			if err != nil {
+				return false, err
+			}
+			if discardable {
+				return false, removeDesktopSessionArtifacts(sessionPath)
+			}
+			return false, fmt.Errorf("session already exists in trash: %s", key)
+		} else if err != nil && !os.IsNotExist(err) {
+			return false, err
+		}
+		if err := os.RemoveAll(itemDir); err != nil {
+			return false, err
+		}
+	} else if !os.IsNotExist(err) {
+		return false, err
+	}
+	return true, nil
+}
+
+func liveSessionDiscardable(sessionPath string) (bool, error) {
+	if agent.IsCleanupPending(sessionPath) {
+		return true, nil
+	}
+	info, err := os.Stat(sessionPath)
+	if os.IsNotExist(err) {
+		return true, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	if info.IsDir() {
+		return false, nil
+	}
+	if info.Size() == 0 {
+		return true, nil
+	}
+	session, err := agent.LoadSession(sessionPath)
+	if err != nil {
+		return false, nil
+	}
+	return !session.HasContent(), nil
+}
+
+func sessionFileHasConversationContent(sessionPath string) bool {
+	if strings.TrimSpace(sessionPath) == "" || agent.IsCleanupPending(sessionPath) {
+		return false
+	}
+	info, err := os.Stat(sessionPath)
+	if err != nil || info.IsDir() || info.Size() == 0 {
+		return false
+	}
+	session, err := agent.LoadSession(sessionPath)
+	if err != nil {
+		return false
+	}
+	return session.HasContent()
+}
+
 func trashSessionArtifactsBeforeMove(dir, sessionPath, key string, beforeMove func()) error {
 	if err := validateSessionTrashTarget(dir, sessionPath, key); err != nil {
 		return err
 	}
-	if _, err := os.Stat(sessionPath); os.IsNotExist(err) {
-		return nil
-	} else if err != nil {
+	shouldMove, err := prepareSessionTrashTarget(dir, sessionPath, key)
+	if err != nil {
 		return err
+	}
+	if !shouldMove {
+		return nil
 	}
 	itemDir := filepath.Join(sessionTrashPath(dir), key)
 	if err := os.MkdirAll(itemDir, 0o755); err != nil {
@@ -304,7 +394,16 @@ func restoreTrashedSessionFile(dir, path string) error {
 	}
 	target := filepath.Join(dir, key)
 	if _, err := os.Stat(target); err == nil {
-		return fmt.Errorf("session already exists: %s", key)
+		discardable, err := liveSessionDiscardable(target)
+		if err != nil {
+			return err
+		}
+		if !discardable {
+			return fmt.Errorf("session already exists: %s", key)
+		}
+		if err := removeDesktopSessionArtifacts(target); err != nil {
+			return err
+		}
 	} else if !os.IsNotExist(err) {
 		return err
 	}

@@ -19,7 +19,8 @@ export type EventKind =
   | "compaction_done"
   | "mcp_surface_ready"
   | "retrying"
-  | "steer";
+  | "steer"
+  | "memory_compiler_stats";
 
 export interface WireCompaction {
   trigger?: string; // "auto" | "manual"
@@ -111,10 +112,38 @@ export interface QuestionAnswer {
   selected: string[];
 }
 
+export interface MemoryCitation {
+  id?: string;
+  source: string;
+  lineStart?: number;
+  lineEnd?: number;
+  note?: string;
+  kind?: string;
+}
+
+export interface MemoryCompilerStats {
+  injected: boolean;
+  usefulIR: boolean;
+  compiledTokens: number;
+  irOverheadTokens: number;
+  memoryReferences: number;
+  constraints: number;
+  riskNotes: number;
+  executionSteps: number;
+  totalNodes: number;
+  highSignalNodes: number;
+  toolResultNodes: number;
+  decisionNodes: number;
+  strategyCount: number;
+  learningCount: number;
+}
+
 export interface WireEvent {
   kind: EventKind;
   text?: string;
   reasoning?: string;
+  memoryCitations?: MemoryCitation[];
+  memoryCompiler?: MemoryCompilerStats;
   level?: "info" | "warn";
   tool?: WireTool;
   usage?: WireUsage;
@@ -254,6 +283,7 @@ export interface HistoryMessage {
   submitText?: string;
   createdAt?: number;
   reasoning?: string;
+  memoryCitations?: MemoryCitation[];
   level?: "info" | "warn";
   toolCalls?: HistoryToolCall[];
   toolCallId?: string;
@@ -917,6 +947,7 @@ export interface SettingsView {
   checkUpdates: boolean; // check for new versions on startup
   telemetry: boolean; // anonymous launch ping (install id + version + OS)
   metrics: boolean; // aggregate desktop metrics (anonymous signal/bucket counts)
+  memoryCompilerEnabled: boolean; // Memory v5 execution compiler
   configPath: string;
   providerKinds: string[]; // provider implementations the kernel registered (for the kind picker)
   autoApproveTools: boolean;

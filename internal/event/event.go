@@ -88,6 +88,9 @@ const (
 	// wrapper prefix), so a frontend can display it to the user as confirmation.
 	// Frontends use Steer to know a queued message has been delivered.
 	Steer
+	// MemoryCompilerStatsEvent carries content-free Memory v5 participation metrics
+	// for the current turn. Appended last to keep earlier Kind values stable.
+	MemoryCompilerStatsEvent
 	// KindCount is a sentinel one past the last real Kind. New event kinds must
 	// be inserted above it so completeness tests cover them automatically.
 	KindCount
@@ -218,13 +221,15 @@ const (
 // for Kind; the others are zero.
 type Event struct {
 	Kind             Kind
-	Text             string            // Reasoning / Text / Message / Notice / Phase
-	Reasoning        string            // Message: the full reasoning chain
-	Tool             Tool              // ToolDispatch / ToolResult
-	Usage            *provider.Usage   // Usage
-	Pricing          *provider.Pricing // Usage: for cost display (nil = omit cost)
-	UsageSource      string            // Usage: billable call source; empty means executor for compatibility
-	CacheDiagnostics *CacheDiagnostics // Usage: cache-churn attribution (nil = N/A)
+	Text             string                    // Reasoning / Text / Message / Notice / Phase
+	Reasoning        string                    // Message: the full reasoning chain
+	MemoryCitations  []provider.MemoryCitation // Message: local memory references displayed by rich frontends
+	MemoryCompiler   *MemoryCompilerStats      // MemoryCompilerStats: content-free Memory v5 usage counters
+	Tool             Tool                      // ToolDispatch / ToolResult
+	Usage            *provider.Usage           // Usage
+	Pricing          *provider.Pricing         // Usage: for cost display (nil = omit cost)
+	UsageSource      string                    // Usage: billable call source; empty means executor for compatibility
+	CacheDiagnostics *CacheDiagnostics         // Usage: cache-churn attribution (nil = N/A)
 	// SessionHit/SessionMiss carry cumulative cache tokens across the whole
 	// session (Usage events only), so a frontend can show the aggregate hit-rate
 	// — which doesn't crater on a short turn or after compaction — alongside
@@ -238,6 +243,25 @@ type Event struct {
 	Compaction   Compaction // Compaction
 	RetryAttempt int        // Retrying: 1-based attempt about to be made
 	RetryMax     int        // Retrying: total attempts before giving up
+}
+
+// MemoryCompilerStats is intentionally limited to counts and estimated token
+// sizes. It must never carry memory text, prompts, tool output, paths, or IDs.
+type MemoryCompilerStats struct {
+	Injected         bool
+	UsefulIR         bool
+	CompiledTokens   int
+	IROverheadTokens int
+	MemoryReferences int
+	Constraints      int
+	RiskNotes        int
+	ExecutionSteps   int
+	TotalNodes       int
+	HighSignalNodes  int
+	ToolResultNodes  int
+	DecisionNodes    int
+	StrategyCount    int
+	LearningCount    int
 }
 
 // ReadinessAuditSink is an optional sink capability. Sinks that do not care

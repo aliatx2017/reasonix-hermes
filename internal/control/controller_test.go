@@ -1348,6 +1348,73 @@ func (r blockingRunner) Run(_ context.Context, input string) error {
 	return nil
 }
 
+func TestRunTurnReportsErrTurnRunning(t *testing.T) {
+	sess := agent.NewSession("sys")
+	release := make(chan struct{})
+	c := New(Options{Runner: blockingRunner{session: sess, release: release}})
+
+	done := make(chan error, 1)
+	go func() {
+		done <- c.RunTurn(context.Background(), "first")
+	}()
+	waitForRunning(t, c)
+
+	if err := c.RunTurn(context.Background(), "second"); err != ErrTurnRunning {
+		t.Fatalf("RunTurn while running error = %v, want ErrTurnRunning", err)
+	}
+
+	close(release)
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("first RunTurn returned %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("first RunTurn did not finish after release")
+	}
+}
+
+func TestSendWhileRunningDoesNotInterleaveTurns(t *testing.T) {
+	sess := agent.NewSession("sys")
+	release := make(chan struct{})
+	events := make(chan event.Event, 4)
+	c := New(Options{
+		Runner: blockingRunner{session: sess, release: release},
+		Sink: event.FuncSink(func(e event.Event) {
+			events <- e
+		}),
+	})
+	defer c.autosaveWG.Wait()
+
+	c.Send("first")
+	waitForRunning(t, c)
+	c.Send("second")
+	close(release)
+	waitForTurnDone(t, events)
+
+	var users []string
+	for _, m := range sess.Messages {
+		if m.Role == provider.RoleUser {
+			users = append(users, m.Content)
+		}
+	}
+	if len(users) != 1 || users[0] != "first" {
+		t.Fatalf("user turns = %v, want only first turn recorded", users)
+	}
+}
+
+func waitForRunning(t *testing.T, c *Controller) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if c.Running() {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("controller did not enter running state")
+}
+
 func TestMidTurnAutosavePersistsDuringLongTurn(t *testing.T) {
 	old := midTurnSnapshotInterval.Load()
 	midTurnSnapshotInterval.Store(int64(10 * time.Millisecond))

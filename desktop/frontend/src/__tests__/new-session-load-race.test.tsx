@@ -191,6 +191,52 @@ eq(controller?.state.items.length, 0, 'stale history load cannot repopulate a ne
 await act(async () => {
   root.unmount();
 });
+
+const guardedStartupTabs = deferred<TabMeta[]>();
+let ensureBlankSurfaceCalls = 0;
+window.go.main.App = {
+  ListTabs: async () => guardedStartupTabs.promise,
+  MetaForTab: async () => meta(),
+  ContextUsageForTab: async () => context,
+  EffortForTab: async () => effort,
+  BalanceForTab: async () => balance,
+  JobsForTab: async () => jobs,
+  CheckpointsForTab: async () => checkpoints,
+  HistoryForTab: async () => [],
+  ReplayPendingPrompts: async () => {},
+  EnsureBlankSurface: async () => {
+    ensureBlankSurfaceCalls += 1;
+    return tabMeta({ id: "tab-new", topicId: "topic-new", topicTitle: "New session" });
+  },
+} as Partial<AppBindings> as AppBindings;
+
+controller = undefined;
+const guardRoot = createRoot(rootEl);
+
+await act(async () => {
+  guardRoot.render(<Probe />);
+  await flushPromises();
+});
+
+await act(async () => {
+  await controller?.ensureBlankSurface("project", "/repo");
+  await flushPromises();
+});
+
+eq(ensureBlankSurfaceCalls, 1, "EnsureBlankSurface is called once");
+eq(controller?.activeTabId, "tab-new", "blank surface becomes active before startup sync resolves");
+
+await act(async () => {
+  guardedStartupTabs.resolve([tabMeta({ id: "tab-old", topicId: "topic-old", topicTitle: "Old session" })]);
+  await guardedStartupTabs.promise;
+  await flushPromises();
+});
+
+eq(controller?.activeTabId, "tab-new", "guarded startup sync cannot restore an older active tab");
+
+await act(async () => {
+  guardRoot.unmount();
+});
 dom.window.close();
 
 console.log(`\n${passed} passed, ${failed} failed, ${passed + failed} total`);

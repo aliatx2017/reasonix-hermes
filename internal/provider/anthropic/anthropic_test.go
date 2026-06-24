@@ -269,6 +269,26 @@ func TestBuildRequestThinkingOff(t *testing.T) {
 	}
 }
 
+func TestBuildRequestDropsMemoryCitations(t *testing.T) {
+	c := &client{model: "claude-opus-4-8"}
+	r := c.buildRequest(provider.Request{Messages: []provider.Message{
+		{Role: provider.RoleUser, Content: "continue"},
+		{Role: provider.RoleAssistant, Content: "done", MemoryCitations: []provider.MemoryCitation{{
+			ID: "mem-1", Source: "MEMORY.md", LineStart: 116, LineEnd: 123, Note: "workflow",
+		}}},
+	}})
+	b, err := json.Marshal(r.Messages)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if strings.Contains(string(b), "memoryCitations") || strings.Contains(string(b), "MEMORY.md") {
+		t.Fatalf("local memory citations leaked into Anthropic request: %s", b)
+	}
+	if !strings.Contains(string(b), "done") {
+		t.Fatalf("assistant content was dropped with local metadata: %s", b)
+	}
+}
+
 const sseThinking = `event: content_block_start
 data: {"type":"content_block_start","index":0,"content_block":{"type":"thinking"}}
 

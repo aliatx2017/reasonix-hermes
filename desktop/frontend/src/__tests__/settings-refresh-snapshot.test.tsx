@@ -89,7 +89,12 @@ function baseSettings(displayMode: 'standard' | 'compact' = 'standard'): Setting
     checkUpdates: true,
     telemetry: true,
     metrics: true,
+<<<<<<< HEAD
     configPath: '/tmp/reasonix/config.toml',
+=======
+    memoryCompilerEnabled: true,
+    configPath: "/tmp/reasonix/config.toml",
+>>>>>>> upstream/main-v2
     providerKinds: [],
     autoApproveTools: false,
     bypass: false,

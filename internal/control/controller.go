@@ -41,7 +41,11 @@ import (
 	"reasonix/internal/jobs"
 	"reasonix/internal/learn"
 	"reasonix/internal/memory"
+<<<<<<< HEAD
 	"reasonix/internal/mesh"
+=======
+	"reasonix/internal/memorycompiler"
+>>>>>>> upstream/main-v2
 	"reasonix/internal/nilutil"
 	"reasonix/internal/permission"
 	"reasonix/internal/plugin"
@@ -270,6 +274,7 @@ type Options struct {
 	// persist to disk (e.g. "Bash(go test:*)"). The callback is wired into the
 	// permission Gate on EnableInteractiveApproval.
 	OnRemember func(rule string) RememberResult
+<<<<<<< HEAD
 	// Schedule, when non-nil, starts the cron scheduler goroutine on New().
 	Schedule *scheduler.Scheduler
 	// ScheduleConfig, when non-empty, builds a scheduler in New() that sends tasks
@@ -281,6 +286,10 @@ type Options struct {
 	Learner *learn.Learner
 	// PlanModeAllowedTools names tools exempt from the plan-mode read-only gate.
 	// Passed through to the executor agent so user-configured exceptions work.
+=======
+	// PlanModeAllowedTools names extra custom tools the plan-mode policy may treat
+	// as read-only. Known blocked tools and unsafe bash still lose.
+>>>>>>> upstream/main-v2
 	PlanModeAllowedTools []string
 	// ApprovalTimeout bounds how long a tool-approval or ask prompt blocks waiting
 	// for a user decision. Zero (default) waits forever — right for an interactive
@@ -546,126 +555,11 @@ func (c *Controller) runGoalLoopWithRaw(ctx context.Context, input, raw string) 
 }
 
 func (c *Controller) runGoalLoopWithRawDisplay(ctx context.Context, input, raw, display string) error {
-	if err := c.runTurnWithRawDisplay(ctx, input, raw, display); err != nil {
-		if ctx.Err() != nil {
-			c.stopGoal(GoalStatusStopped)
-		}
-		return err
-	}
-	return c.continueGoal(ctx)
+	return newTurnOrchestrator(c).runGoalLoopWithRawDisplay(ctx, input, raw, display)
 }
 
 func (c *Controller) runTurnWithRawDisplay(ctx context.Context, input, raw, display string) error {
-	c.maybeSessionStart(ctx)
-	c.maybeAutoPlan(ctx, raw)
-	parentSession := c.parentSessionID()
-	ctx = agent.WithParentSession(ctx, parentSession)
-	ctx = jobs.WithSession(ctx, parentSession)
-	ctx = agent.WithUserImages(ctx, c.inputImages(input))
-	input = c.Compose(input)
-	startMessages := c.messageCount()
-	defer c.snapshotActivityIfChanged(startMessages)
-	defer c.recordDisplayForNewUser(startMessages, display)
-	// Open a checkpoint for this turn before the user message is appended, so the
-	// recorded message boundary precedes it and pre-edit snapshots land here.
-	c.beginCheckpoint(input)
-	// UserPromptSubmit / Stop hooks bracket the whole turn (incl. the plan
-	// research + approved-execution sub-turns below): a gating UserPromptSubmit
-	// aborts before any model call; Stop fires once when the turn returns.
-	if c.hooks.Enabled() {
-		c.mu.Lock()
-		c.turn++
-		turn := c.turn
-		c.mu.Unlock()
-		if block, _ := c.hooks.PromptSubmit(ctx, input, turn); block {
-			return nil // the hook's notify callback already surfaced the reason
-		}
-		defer func() { c.hooks.Stop(ctx, lastAssistantText(c.History()), turn) }()
-	}
-	if err := c.runner.Run(ctx, input); err != nil {
-		return err
-	}
-	c.mu.Lock()
-	plan := c.planMode
-	c.mu.Unlock()
-	if !plan {
-		return nil
-	}
-	proposal := lastAssistantText(c.History())
-	if proposal == "" {
-		return nil // no substantive proposal to gate
-	}
-	// The plan is already visible as the assistant's answer, so the request
-	// carries no subject — it's purely the gate.
-	allow, _, err := c.requestApproval(ctx, planApprovalTool, "", nil)
-	if err != nil {
-		return err
-	}
-	if !allow {
-		return nil // keep planning; plan mode stays on
-	}
-	c.SetPlanMode(false)
-	todoArgs := c.seedPlanTodos(proposal)
-	execStart := c.sessionMessageCount()
-	// The plan is the go-ahead: don't re-prompt for each write of the approved
-	// work. Auto-approve writers for the duration of this execution turn only; a
-	// later turn (even "continue") falls back to the normal per-tool approval.
-	c.approval.setPlanAutoApprove(true)
-	defer c.approval.setPlanAutoApprove(false)
-	if err := c.runner.Run(ctx, c.ComposeSynthetic(planApprovedMessage)); err != nil {
-		return err
-	}
-	if todoArgs != "" && !c.hasTodoUpdateSince(execStart) {
-		c.completePlanTodos(todoArgs)
-	}
-	return nil
-}
-
-func (c *Controller) continueGoal(ctx context.Context) error {
-	for {
-		cont := c.advanceGoalAfterTurn()
-		if !cont {
-			return nil
-		}
-		if err := ctx.Err(); err != nil {
-			c.stopGoal(GoalStatusStopped)
-			return err
-		}
-		turn := goalContinueTurn
-		if msg, ok := c.goals.takeIntercept(); ok {
-			turn = msg
-			c.notice("goal intercept: incomplete todos remain (override with a second [goal:complete])")
-		}
-		if err := c.runTurnWithRawDisplay(ctx, turn, turn, ""); err != nil {
-			if ctx.Err() != nil {
-				c.stopGoal(GoalStatusStopped)
-			}
-			return err
-		}
-	}
-}
-
-func (c *Controller) advanceGoalAfterTurn() bool {
-	// Gather every input the FSM needs off the goal lock: parse the marker,
-	// snapshot the executor's todos + readiness, and check tool activity. None
-	// of these touch goal state, so the machine's critical section stays pure.
-	status, reason, _ := parseGoalStatusMarker(lastAssistantText(c.History()))
-	var readiness string
-	if c.executor != nil {
-		readiness = c.executor.GoalReadinessFailure()
-	}
-	res := c.goals.advance(goalAdvanceInput{
-		status:     status,
-		reason:     reason,
-		toolCalled: c.toolWasCalledLastTurn(),
-		todos:      c.goalTodos(),
-		readiness:  readiness,
-	})
-	c.persistGoalState(res.path, res.data, res.ok)
-	if res.notice != "" {
-		c.notice(res.notice)
-	}
-	return res.cont
+	return newTurnOrchestrator(c).runTurnWithRawDisplay(ctx, input, raw, display)
 }
 
 // toolWasCalledLastTurn reports whether the most recent assistant message
@@ -1493,6 +1387,19 @@ func (c *Controller) SetReasoningLanguage(lang string) {
 	} else if c.executor != nil {
 		c.executor.SetReasoningLanguage(mode)
 	}
+}
+
+// SetMemoryCompilerEnabled updates the Memory v5 runtime for subsequent turns
+// without rebuilding the controller or changing the stable provider prefix.
+func (c *Controller) SetMemoryCompilerEnabled(enabled bool) {
+	if c == nil || c.executor == nil {
+		return
+	}
+	var rt *memorycompiler.Runtime
+	if enabled {
+		rt = memorycompiler.New(config.MemoryCompilerDir(c.workspaceRoot))
+	}
+	c.executor.SetMemoryCompiler(rt)
 }
 
 // PlanMode reports whether outgoing turns currently receive the plan-mode

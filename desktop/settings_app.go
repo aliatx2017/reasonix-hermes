@@ -177,6 +177,7 @@ type SettingsView struct {
 	CheckUpdates       bool            `json:"checkUpdates"`
 	Telemetry          bool            `json:"telemetry"`
 	Metrics            bool            `json:"metrics"`
+	MemoryCompiler     bool            `json:"memoryCompilerEnabled"`
 	ExpandThinking     bool            `json:"expandThinking"`
 	ConfigPath         string          `json:"configPath"`
 	// ProviderKinds lists the provider implementations the kernel actually
@@ -445,6 +446,7 @@ func (a *App) Settings() SettingsView {
 			CheckUpdates:       true,
 			Telemetry:          true,
 			Metrics:            true,
+			MemoryCompiler:     true,
 			ExpandThinking:     false,
 			Hotbar:             hotbarView(config.HotbarConfig{}),
 			Profiles:           map[string]ProfileView{},
@@ -504,6 +506,7 @@ func (a *App) Settings() SettingsView {
 		CheckUpdates:       cfg.DesktopCheckUpdates(),
 		Telemetry:          cfg.DesktopTelemetry(),
 		Metrics:            cfg.DesktopMetrics(),
+		MemoryCompiler:     cfg.MemoryCompilerEnabled(),
 		ExpandThinking:     cfg.Desktop.ExpandThinking,
 		ConfigPath:         cfgPath,
 		ProviderKinds:      nonNil(provider.Kinds()),
@@ -1118,6 +1121,51 @@ func (a *App) SetAutoPlan(mode string) error {
 		return a.rebuild()
 	}
 	return nil
+}
+
+// SetMemoryCompilerEnabled toggles the Memory v5 execution compiler.
+func (a *App) SetMemoryCompilerEnabled(enabled bool) error {
+	cfg, path, err := a.loadDesktopUserConfigForEdit()
+	if err != nil {
+		return err
+	}
+	if err := cfg.SetMemoryCompilerEnabled(enabled); err != nil {
+		return err
+	}
+	if err := cfg.SaveTo(path); err != nil {
+		return err
+	}
+	a.applyMemoryCompilerToLiveControllers(enabled)
+	return nil
+}
+
+func (a *App) applyMemoryCompilerToLiveControllers(enabled bool) {
+	if a == nil {
+		return
+	}
+	var controllers []memoryCompilerTarget
+	a.mu.RLock()
+	for _, id := range a.orderedTabIDsLocked() {
+		tab := a.tabs[id]
+		if tab == nil || tab.Ctrl == nil {
+			continue
+		}
+		controllers = append(controllers, tab.Ctrl)
+	}
+	a.mu.RUnlock()
+	applyMemoryCompilerToControllers(enabled, controllers)
+}
+
+type memoryCompilerTarget interface {
+	SetMemoryCompilerEnabled(enabled bool)
+}
+
+func applyMemoryCompilerToControllers(enabled bool, controllers []memoryCompilerTarget) {
+	for _, ctrl := range controllers {
+		if ctrl != nil {
+			ctrl.SetMemoryCompilerEnabled(enabled)
+		}
+	}
 }
 
 func desktopAutoPlanMode(mode string) string {

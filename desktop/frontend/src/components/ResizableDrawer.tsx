@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type {
   CSSProperties,
@@ -8,6 +9,14 @@ import type {
 import { useT } from '../lib/i18n';
 import { type LayoutSizeKey, loadLayoutSize, saveLayoutSize } from '../lib/layoutPreferences';
 import { useDeferredClose } from '../lib/useMountTransition';
+=======
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { CSSProperties, KeyboardEvent, PointerEvent as ReactPointerEvent, ReactNode } from "react";
+import { useT } from "../lib/i18n";
+import { loadLayoutSize, saveLayoutSize, type LayoutSizeKey } from "../lib/layoutPreferences";
+import { createRafResizeUpdater } from "../lib/resizeDrag";
+import { useDeferredClose } from "../lib/useMountTransition";
+>>>>>>> upstream/main-v2
 
 const DRAWER_DEFAULT_WIDTH = 440;
 const DRAWER_MIN_WIDTH = 360;
@@ -56,9 +65,14 @@ export function ResizableDrawer({
 }) {
   const t = useT();
   const config = drawerConfig(wide);
+<<<<<<< HEAD
   const [viewportWidth, setViewportWidth] = useState(() =>
     typeof window === 'undefined' ? 1440 : window.innerWidth,
   );
+=======
+  const drawerRef = useRef<HTMLElement>(null);
+  const [viewportWidth, setViewportWidth] = useState(() => (typeof window === "undefined" ? 1440 : window.innerWidth));
+>>>>>>> upstream/main-v2
   const [width, setWidth] = useState(() =>
     loadLayoutSize(config.key, config.defaultWidth, (value) => clampDrawerWidth(value, wide)),
   );
@@ -92,18 +106,31 @@ export function ResizableDrawer({
   const startResize = useCallback(
     (event: ReactPointerEvent<HTMLButtonElement>) => {
       if (event.button !== 0) return;
+      const drawer = drawerRef.current;
+      if (!drawer) return;
       event.preventDefault();
       setResizing(true);
       let nextWidth = effectiveWidth;
+      const liveResize = createRafResizeUpdater({
+        target: drawer,
+        separator: event.currentTarget,
+        cssVar: "--drawer-width",
+      });
       const onMove = (moveEvent: PointerEvent) => {
+<<<<<<< HEAD
         nextWidth = clampDrawerWidth(
           window.innerWidth - moveEvent.clientX,
           wide,
           window.innerWidth,
         );
         setWidth(nextWidth);
+=======
+        nextWidth = clampDrawerWidth(window.innerWidth - moveEvent.clientX, wide, window.innerWidth);
+        liveResize.schedule(nextWidth);
+>>>>>>> upstream/main-v2
       };
       const onDone = () => {
+        liveResize.flush();
         setWidth(nextWidth);
         saveLayoutSize(config.key, nextWidth);
         setResizing(false);
@@ -145,7 +172,12 @@ export function ResizableDrawer({
       onClick={requestClose}
     >
       <aside
+<<<<<<< HEAD
         className={`drawer${wide ? ' drawer--wide' : ''}${resizing ? ' drawer--resizing' : ''}`}
+=======
+        ref={drawerRef}
+        className={`drawer${wide ? " drawer--wide" : ""}${resizing ? " drawer--resizing" : ""}`}
+>>>>>>> upstream/main-v2
         data-state={status}
         onClick={(e) => e.stopPropagation()}
         style={style}

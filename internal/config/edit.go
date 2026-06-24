@@ -77,6 +77,12 @@ func (c *Config) SetAutoPlan(mode string) error {
 	return nil
 }
 
+// SetMemoryCompilerEnabled toggles the v5 execution-memory compiler.
+func (c *Config) SetMemoryCompilerEnabled(enabled bool) error {
+	c.Agent.MemoryCompiler.Enabled = &enabled
+	return nil
+}
+
 // SetUIShortcutLayout selects the CLI keyboard shortcut layout. "classic" keeps
 // historical behavior; "desktop" enables the two-axis desktop-style shortcuts.
 func (c *Config) SetUIShortcutLayout(layout string) error {
