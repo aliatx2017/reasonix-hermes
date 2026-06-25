@@ -532,6 +532,53 @@ func TestSetReasoningLanguagePersistsToUserConfig(t *testing.T) {
 	}
 }
 
+func TestSetDesktopLanguagePersistsResponseLanguageAndUpdatesLiveTabs(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	projectRoot := t.TempDir()
+	if err := os.WriteFile(filepath.Join(projectRoot, "reasonix.toml"), []byte("language = \"zh\"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	app := NewApp()
+	userCtrl := control.New(control.Options{})
+	projectCtrl := control.New(control.Options{})
+	app.tabs = map[string]*WorkspaceTab{
+		"user": {
+			ID:          "user",
+			Scope:       "global",
+			Ctrl:        userCtrl,
+			Ready:       true,
+			disabledMCP: map[string]ServerView{},
+		},
+		"project": {
+			ID:            "project",
+			Scope:         "project",
+			WorkspaceRoot: projectRoot,
+			Ctrl:          projectCtrl,
+			Ready:         true,
+			disabledMCP:   map[string]ServerView{},
+		},
+	}
+	app.activeTabID = "user"
+
+	if err := app.SetDesktopLanguage("en"); err != nil {
+		t.Fatalf("SetDesktopLanguage: %v", err)
+	}
+
+	cfg := config.LoadForEdit(config.UserConfigPath())
+	if cfg.DesktopLanguage() != "en" || cfg.Language != "en" {
+		t.Fatalf("saved language prefs = desktop:%q response:%q, want en/en", cfg.DesktopLanguage(), cfg.Language)
+	}
+	got := userCtrl.Compose("解释这个函数")
+	if !strings.Contains(got, "<response-language>") || !strings.Contains(got, "use English") {
+		t.Fatalf("live controller Compose = %q, want English response language", got)
+	}
+	projectComposed := projectCtrl.Compose("explain this function")
+	if !strings.Contains(projectComposed, "use Simplified Chinese") {
+		t.Fatalf("project controller Compose = %q, want project zh response language", projectComposed)
+	}
+}
+
 func TestSetReasoningLanguageUpdatesLiveTabControllers(t *testing.T) {
 	home := isolateDesktopUserDirs(t)
 	t.Chdir(home) // avoid project reasonix.toml
@@ -748,6 +795,29 @@ func TestSetDesktopCheckUpdatesPersistsToUserConfig(t *testing.T) {
 	}
 }
 
+func TestSetDefaultToolApprovalModePersistsToUserConfig(t *testing.T) {
+	isolateDesktopUserDirs(t)
+
+	app := NewApp()
+	if app.Settings().DefaultToolApprovalMode != control.ToolApprovalAsk {
+		t.Fatalf("Settings().DefaultToolApprovalMode = %q, want ask", app.Settings().DefaultToolApprovalMode)
+	}
+	if err := app.SetDefaultToolApprovalMode(control.ToolApprovalAuto); err != nil {
+		t.Fatalf("SetDefaultToolApprovalMode: %v", err)
+	}
+	view := app.Settings()
+	if view.DefaultToolApprovalMode != control.ToolApprovalAuto {
+		t.Fatalf("Settings().DefaultToolApprovalMode = %q, want auto", view.DefaultToolApprovalMode)
+	}
+	cfg := config.LoadForEdit(config.UserConfigPath())
+	if cfg.Desktop.DefaultToolApprovalMode != control.ToolApprovalAuto {
+		t.Fatalf("desktop.default_tool_approval_mode = %q, want auto", cfg.Desktop.DefaultToolApprovalMode)
+	}
+	if cfg.DesktopDefaultToolApprovalMode() != control.ToolApprovalAuto {
+		t.Fatalf("DesktopDefaultToolApprovalMode() = %q, want auto", cfg.DesktopDefaultToolApprovalMode())
+	}
+}
+
 func TestSetDesktopMetricsDefaultsOnAndPersistsOff(t *testing.T) {
 	isolateDesktopUserDirs(t)
 
@@ -771,6 +841,7 @@ func TestSetDesktopMetricsDefaultsOnAndPersistsOff(t *testing.T) {
 	}
 }
 
+<<<<<<< HEAD
 // TestSettingsViewHasHotbarFields guards that the SettingsView struct carries the
 // Hotbar, Profiles, and ActiveProfile fields the frontend expects. If an upstream
 // merge strips these fields, the hotbar and profiles sections break silently.
@@ -965,6 +1036,50 @@ func TestSetProfilesPersists(t *testing.T) {
 	}
 	if cfg.Profiles["quick"].Model != "flash-model" {
 		t.Fatalf("Profiles[quick].Model = %q, want flash-model", cfg.Profiles["quick"].Model)
+=======
+func TestSetMemoryCompilerDefaultsOnAndPersistsOff(t *testing.T) {
+	isolateDesktopUserDirs(t)
+
+	app := NewApp()
+	if !app.Settings().MemoryCompiler {
+		t.Fatal("Settings().MemoryCompiler default = false, want true")
+	}
+	if err := app.SetMemoryCompilerEnabled(false); err != nil {
+		t.Fatalf("SetMemoryCompilerEnabled: %v", err)
+	}
+	view := app.Settings()
+	if view.MemoryCompiler {
+		t.Fatal("Settings().MemoryCompiler = true, want false")
+	}
+	cfg := config.LoadForEdit(config.UserConfigPath())
+	if cfg.Agent.MemoryCompiler.Enabled == nil || *cfg.Agent.MemoryCompiler.Enabled {
+		t.Fatalf("agent.memory_compiler.enabled = %+v, want false", cfg.Agent.MemoryCompiler.Enabled)
+	}
+	if cfg.MemoryCompilerEnabled() {
+		t.Fatal("MemoryCompilerEnabled() = true, want false")
+	}
+}
+
+type memoryCompilerTargetFake struct {
+	calls []bool
+}
+
+func (f *memoryCompilerTargetFake) SetMemoryCompilerEnabled(enabled bool) {
+	f.calls = append(f.calls, enabled)
+}
+
+func TestApplyMemoryCompilerToControllersBroadcastsToAllTargets(t *testing.T) {
+	first := &memoryCompilerTargetFake{}
+	second := &memoryCompilerTargetFake{}
+
+	applyMemoryCompilerToControllers(false, []memoryCompilerTarget{first, nil, second})
+
+	if !reflect.DeepEqual(first.calls, []bool{false}) {
+		t.Fatalf("first calls = %v, want [false]", first.calls)
+	}
+	if !reflect.DeepEqual(second.calls, []bool{false}) {
+		t.Fatalf("second calls = %v, want [false]", second.calls)
+>>>>>>> upstream/main-v2
 	}
 }
 

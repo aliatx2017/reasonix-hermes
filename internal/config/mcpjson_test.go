@@ -47,6 +47,30 @@ func TestLoadMCPJSON(t *testing.T) {
 	}
 }
 
+func TestMCPJSONTrustedReadOnlyToolsRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, mcpJSONFile)
+	if _, err := UpsertMCPJSONPlugin(path, PluginEntry{
+		Name:                 "github",
+		Command:              "npx",
+		Args:                 []string{"-y", "@modelcontextprotocol/server-github"},
+		TrustedReadOnlyTools: []string{"issue_read", "pull_request_read"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	got, err := loadMCPJSON(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("entries = %+v, want one github entry", got)
+	}
+	tools := got[0].TrustedReadOnlyTools
+	if len(tools) != 2 || tools[0] != "issue_read" || tools[1] != "pull_request_read" {
+		t.Fatalf("trusted read-only tools = %+v", tools)
+	}
+}
+
 func TestNormalizePluginCommandLine(t *testing.T) {
 	cases := []struct {
 		name        string

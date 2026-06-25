@@ -5,13 +5,15 @@
 // that streams a canned turn through the same contract — letting the whole UI be
 // developed and laid out without rebuilding the Go side.
 
+// @ts-ignore `wails generate module` creates this locally; fresh checkouts keep
+// typecheck green by falling back to a disabled drift check below.
 import type * as GeneratedApp from "../../wailsjs/go/main/App";
 
 import { addBreadcrumb } from "./breadcrumbs";
 import { t } from "./i18n";
 import { providerRequiresKey } from "./providerModels";
 import { DEFAULT_STATUS_BAR_ITEMS, normalizeStatusBarItems } from "./statusBarItems";
-import { modeWithAutoApproveTools, modeWithPlan, normalizeCollaborationMode, normalizeMode, normalizeTokenMode, normalizeToolApprovalMode } from "./types";
+import { modeHasAutoApproveTools, modeWithAutoApproveTools, modeWithPlan, normalizeCollaborationMode, normalizeMode, normalizeTokenMode, normalizeToolApprovalMode } from "./types";
 
 import type {
   BalanceInfo,
@@ -60,6 +62,7 @@ import type {
   MemorySuggestionsView,
   MemoryView,
   Meta,
+  Mode,
   ModelInfo,
   NetworkView,
   ProjectNode,
@@ -80,6 +83,7 @@ import type {
   SlashArgsResult,
   TabMeta,
   TopicMeta,
+  ToolApprovalMode,
   UpdateDownloadResult,
   UpdateInfo,
   UpdateProgress,
@@ -211,6 +215,9 @@ export interface AppBindings {
   RemoveMCPServer(name: string): Promise<void>;
   ReconnectMCPServer(name: string): Promise<void>;
   ClearMCPServerAuthentication(name: string): Promise<void>;
+  TrustMCPServerTool(name: string, toolName: string): Promise<void>;
+  TrustMCPServerTools(name: string, toolNames: string[]): Promise<void>;
+  UntrustMCPServerTool(name: string, toolName: string): Promise<void>;
   PickSkillFolder(): Promise<string>;
   AddSkillPath(path: string): Promise<void>;
   RemoveSkillPath(path: string): Promise<void>;
@@ -274,6 +281,7 @@ export interface AppBindings {
   SetSubagentModel(ref: string): Promise<void>;
   SetSubagentEffort(level: string): Promise<void>;
   SetAutoPlan(mode: string): Promise<void>;
+  SetDefaultToolApprovalMode(mode: string): Promise<void>;
   SaveProvider(p: ProviderView): Promise<void>;
   AddOfficialProviderAccess(kind: string, key: string): Promise<string>;
   FetchProviderModels(p: ProviderView): Promise<string[]>;
@@ -304,6 +312,7 @@ export interface AppBindings {
   SetDesktopCheckUpdates(enabled: boolean): Promise<void>;
   SetDesktopTelemetry(enabled: boolean): Promise<void>;
   SetDesktopMetrics(enabled: boolean): Promise<void>;
+  SetMemoryCompilerEnabled(enabled: boolean): Promise<void>;
   SetExpandThinking(on: boolean): Promise<void>;
   MigrateDesktopPreferences(language: string, theme: string, style: string): Promise<void>;
   SetAgentParams(temperature: number, maxSteps: number, plannerMaxSteps: number, systemPrompt: string): Promise<void>;
@@ -405,7 +414,15 @@ export interface AppBindings {
 // mismatch would produce false positives. Method-arity and parameter-order drift
 // are caught at the call sites by tsc when components invoke app.<method>(...).
 type AssertNever<T extends never> = T;
-export type _CheckGenToApp = AssertNever<Exclude<keyof typeof GeneratedApp, keyof AppBindings>>;
+type GeneratedAppKeys = keyof typeof GeneratedApp;
+type GeneratedAppMissing =
+  string extends GeneratedAppKeys ? true :
+  number extends GeneratedAppKeys ? true :
+  symbol extends GeneratedAppKeys ? true :
+  false;
+export type _CheckGenToApp = AssertNever<
+  GeneratedAppMissing extends true ? never : Exclude<GeneratedAppKeys, keyof AppBindings>
+>;
 
 interface WailsRuntime {
   EventsOn(name: string, cb: (...data: unknown[]) => void): () => void;
@@ -598,12 +615,12 @@ function bridgeBreadcrumb(method: string): string {
     return `turn ${method}`;
   if (/^(SetModel|SetEffort|SetTokenMode|SetDefaultModel|SetPlannerModel|SetSubagentModel|SetSubagentEffort)/.test(method))
     return `model ${method}`;
-  if (/^(SetDesktop|SetCloseBehavior|SetDisplayMode|SetStatusBar|SetExpandThinking|SetAutoPlan|SetReasoningLanguage)/.test(method))
+  if (/^(SetDesktop|SetCloseBehavior|SetDisplayMode|SetStatusBar|SetExpandThinking|SetAutoPlan|SetDefaultToolApprovalMode|SetMemoryCompilerEnabled|SetReasoningLanguage)/.test(method))
     return `settings ${method}`;
   if (/^(SaveProvider|AddOfficialProviderAccess|RemoveProviderAccess|DeleteProvider|SetProviderKey|ClearProviderKey|FetchProviderModels|ConnectKey)/.test(method))
     return `provider ${method}`;
   if (/^(CheckUpdate|DownloadUpdate|InstallUpdate|ApplyUpdate|OpenDownloadPage)/.test(method)) return `update ${method}`;
-  if (/^(AddMCPServer|UpdateMCPServer|RemoveMCPServer|ReconnectMCPServer|ClearMCPServerAuthentication|SetMCPServer)/.test(method))
+  if (/^(AddMCPServer|UpdateMCPServer|RemoveMCPServer|ReconnectMCPServer|ClearMCPServerAuthentication|TrustMCPServerTool|TrustMCPServerTools|UntrustMCPServerTool|SetMCPServer)/.test(method))
     return `mcp ${method}`;
   if (/^(AddSkillPath|RemoveSkillPath|RefreshSkills|SetSkillEnabled|AcceptSkillSuggestion)/.test(method))
     return `skill ${method}`;
@@ -666,6 +683,12 @@ function emit(e: WireEvent) {
   listeners.forEach((l) => l(event));
 }
 
+export function mockToolApprovalModeAfterModeChange(current: string | undefined, nextMode: Mode): ToolApprovalMode {
+  if (modeHasAutoApproveTools(nextMode)) return "yolo";
+  const currentMode = normalizeToolApprovalMode(current);
+  return currentMode === "yolo" ? "ask" : currentMode;
+}
+
 async function withMockTabScope<T>(tabId: string, fn: () => Promise<T>): Promise<T> {
   const previous = mockScopedTabId;
   mockScopedTabId = tabId || previous;
@@ -721,7 +744,26 @@ function makeMockApp(): AppBindings {
   const t0 = Date.now();
   // Mutable so MCP add/remove/retry are observable in browser dev.
   let capServers: ServerView[] = [
-    { name: "github", transport: "stdio", status: "connected", configured: true, autoStart: true, tier: "background", command: "npx", args: ["-y", "@modelcontextprotocol/server-github"], tools: 12, prompts: 2, resources: 0 },
+    {
+      name: "github",
+      transport: "stdio",
+      status: "connected",
+      configured: true,
+      autoStart: true,
+      tier: "background",
+      command: "npx",
+      args: ["-y", "@modelcontextprotocol/server-github"],
+      tools: 4,
+      prompts: 2,
+      resources: 0,
+      trustedReadOnlyTools: ["pull_request_read"],
+      toolList: [
+        { name: "issue_read", description: "Read GitHub issue details and comments.", readOnlyHint: true },
+        { name: "pull_request_read", description: "Read pull request metadata, files, and review threads.", readOnlyHint: true },
+        { name: "search_issues", description: "Search issues and pull requests.", readOnlyHint: true },
+        { name: "issue_write", description: "Create or update GitHub issues." },
+      ],
+    },
     {
       name: "linear",
       transport: "http",
@@ -989,12 +1031,17 @@ function makeMockApp(): AppBindings {
     displayMode: "compact",
     statusBarStyle: "text",
     statusBarItems: [...DEFAULT_STATUS_BAR_ITEMS],
+    defaultToolApprovalMode: "ask",
     checkUpdates: true,
     telemetry: true,
     metrics: true,
+<<<<<<< HEAD
     hotbar: { key1: "", key2: "", key3: "", key4: "", key5: "", key6: "", key7: "" }, // Hermes
     profiles: {}, // Hermes
     activeProfile: "", // Hermes
+=======
+    memoryCompilerEnabled: true,
+>>>>>>> upstream/main-v2
     configPath: "~/projects/reasonix/reasonix.toml",
     providerKinds: ["openai"],
     autoApproveTools: false,
@@ -1738,7 +1785,7 @@ function makeMockApp(): AppBindings {
                   ...tab,
                   mode: nextMode,
                   collaborationMode: normalizeCollaborationMode(undefined, tab.goal, nextMode),
-                  toolApprovalMode: normalizeToolApprovalMode(undefined, nextMode),
+                  toolApprovalMode: mockToolApprovalModeAfterModeChange(tab.toolApprovalMode, nextMode),
                 }
               : tab,
           );
@@ -2081,6 +2128,7 @@ function makeMockApp(): AppBindings {
           url: input.transport === "stdio" ? "" : input.url,
           envKeys: input.env ? Object.keys(input.env).sort() : s.envKeys,
           headerKeys: input.headers ? Object.keys(input.headers).sort() : s.headerKeys,
+          trustedReadOnlyTools: input.trustedReadOnlyTools ?? s.trustedReadOnlyTools,
           tools: nextTools,
           error: undefined,
           authStatus: nextStatus !== "connected" && input.transport !== "stdio" ? "possible" : undefined,
@@ -2116,6 +2164,33 @@ function makeMockApp(): AppBindings {
             }
           : s,
       );
+    },
+    async TrustMCPServerTool(name: string, toolName: string) {
+      const normalizedTool = toolName.trim();
+      if (!normalizedTool) return;
+      capServers = capServers.map((s) => {
+        if (s.name !== name) return s;
+        const trusted = Array.from(new Set([...(s.trustedReadOnlyTools ?? []), normalizedTool]));
+        return { ...s, trustedReadOnlyTools: trusted };
+      });
+    },
+    async TrustMCPServerTools(name: string, toolNames: string[]) {
+      const normalizedTools = toolNames.map((tool) => tool.trim()).filter(Boolean);
+      if (normalizedTools.length === 0) return;
+      capServers = capServers.map((s) => {
+        if (s.name !== name) return s;
+        const trusted = Array.from(new Set([...(s.trustedReadOnlyTools ?? []), ...normalizedTools]));
+        return { ...s, trustedReadOnlyTools: trusted };
+      });
+    },
+    async UntrustMCPServerTool(name: string, toolName: string) {
+      const normalizedTool = toolName.trim();
+      if (!normalizedTool) return;
+      capServers = capServers.map((s) => {
+        if (s.name !== name) return s;
+        const trusted = (s.trustedReadOnlyTools ?? []).filter((tool) => tool !== normalizedTool);
+        return { ...s, trustedReadOnlyTools: trusted };
+      });
     },
     async PickSkillFolder() {
       return "~/my-skills";
@@ -2524,6 +2599,9 @@ function makeMockApp(): AppBindings {
     async SetAutoPlan(mode: string) {
       settings.autoPlan = mode;
     },
+    async SetDefaultToolApprovalMode(mode: string) {
+      settings.defaultToolApprovalMode = normalizeToolApprovalMode(mode);
+    },
     async SaveProvider(p: ProviderView) {
       p.added = true;
       const i = settings.providers.findIndex((x) => x.name === p.name);
@@ -2711,6 +2789,9 @@ function makeMockApp(): AppBindings {
         async SetDesktopMetrics(enabled: boolean) {
           settings.metrics = enabled;
         },
+        async SetMemoryCompilerEnabled(enabled: boolean) {
+          settings.memoryCompilerEnabled = enabled;
+        },
         async SetExpandThinking(_on: boolean) {},
         async MigrateDesktopPreferences(language: string, theme: string, style: string) {
           if (!settings.desktopLanguage) settings.desktopLanguage = language === "en" || language === "zh" || language === "zh-TW" ? language : "";
@@ -2816,6 +2897,7 @@ function makeMockApp(): AppBindings {
         mockTabs = mockTabs.map((tab) => (tab.id === existing.id ? active : { ...tab, active: false }));
         return { ...active };
       }
+      const defaultToolApprovalMode = normalizeToolApprovalMode(settings.defaultToolApprovalMode);
       const tab: TabMeta = {
         id: "tab_" + Date.now(),
         scope: "project",
@@ -2827,12 +2909,12 @@ function makeMockApp(): AppBindings {
         topicTitle: topicLabel(_topicID, t("mock.newSession")),
         sessionPath: `/mock/sessions/${_topicID}.jsonl`,
         projectColor: mockProjectTree.find((node) => node.root === workspaceRoot)?.projectColor,
-        label: "deepseek-v4-flash",
+        label: mockModelLabel(settings.defaultModel),
         ready: true,
         running: mockTopicRunsInScenario(_topicID),
-        mode: "normal",
+        mode: modeWithAutoApproveTools("normal", defaultToolApprovalMode === "yolo"),
         collaborationMode: "normal",
-        toolApprovalMode: "ask",
+        toolApprovalMode: defaultToolApprovalMode,
         tokenMode: "full",
         active: true,
         cwd: workspaceRoot,
@@ -2846,6 +2928,7 @@ function makeMockApp(): AppBindings {
         setMockActiveTab(existing.id);
         return { ...existing, active: true };
       }
+      const defaultToolApprovalMode = normalizeToolApprovalMode(settings.defaultToolApprovalMode);
       const tab: TabMeta = {
         id: "tab_" + Date.now(),
         scope: "global",
@@ -2855,12 +2938,12 @@ function makeMockApp(): AppBindings {
         topicId: _topicID,
         topicTitle: topicLabel(_topicID, "Global"),
         sessionPath: `/mock/sessions/${_topicID}.jsonl`,
-        label: "deepseek-v4-flash",
+        label: mockModelLabel(settings.defaultModel),
         ready: true,
         running: false,
-        mode: "normal",
+        mode: modeWithAutoApproveTools("normal", defaultToolApprovalMode === "yolo"),
         collaborationMode: "normal",
-        toolApprovalMode: "ask",
+        toolApprovalMode: defaultToolApprovalMode,
         tokenMode: "full",
         active: true,
         cwd: "",

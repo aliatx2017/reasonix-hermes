@@ -140,6 +140,7 @@ eq(finalDeclaration('.statusbar', 'overflow'), 'hidden', 'status bar clips inste
 clipsSingleLine('.statusbar__model');
 
 for (const selector of [
+<<<<<<< HEAD
   '.sidebar-im__summary-label',
   '.sidebar-im__summary-status',
   '.workbench-dock__tab-label',
@@ -151,11 +152,27 @@ for (const selector of [
   '.topbar__model',
   '.composer-modebar__item span',
   '.composer-more-menu__item span',
+=======
+  ".sidebar-im__summary-label",
+  ".sidebar-im__summary-status",
+  ".workbench-dock__tab-label",
+  ".workspace-files__scope-title",
+  ".workspace-files__scope-meta",
+  ".context-panel__section-head span",
+  ".context-panel__metric span",
+  ".context-panel__metric strong",
+  ".app--creation .context-panel__mini-stat span",
+  ".app--creation .context-panel__mini-stat strong",
+  ".topbar__model",
+  ".composer-modebar__item span",
+  ".composer-more-menu__item span",
+>>>>>>> upstream/main-v2
 ]) {
   clipsSingleLine(selector);
 }
 
 eq(
+<<<<<<< HEAD
   finalDeclaration('.composer-modebar', 'overflow'),
   'hidden',
   'chat mode switcher contains enlarged labels',
@@ -165,6 +182,40 @@ eq(
   finalDeclaration('.code', 'overflow'),
   'auto',
   'code blocks scroll instead of widening the layout',
+=======
+  finalDeclaration(".app--creation .layout.layout--workspace-open", "transition"),
+  "grid-template-columns 0s, min-width 0s",
+  "creation dock skips zero-width grid interpolation on open",
+);
+eq(
+  finalDeclaration(".app--creation .context-panel__usage", "animation"),
+  "none",
+  "creation overview usage card disables inherited entrance animation",
+);
+ok(
+  finalDeclaration(".app--creation .context-panel__mini-stat", "justify-content") !== "space-between",
+  "creation overview rows avoid edge-pinned value alignment",
+);
+ok(
+  finalDeclaration(".app--creation .context-panel__mini-stat", "grid-template-columns") !== "minmax(0, 1fr) auto",
+  "creation overview rows avoid the spacer grid that pushes values to the edge",
+);
+ok(
+  finalDeclaration(".app--creation .context-panel__mini-stat strong", "max-width") !== "14ch",
+  "creation overview values are not capped to a fixed 14ch width",
+);
+
+eq(finalDeclaration(".composer-modebar", "overflow"), "hidden", "chat mode switcher contains enlarged labels");
+ok(
+  /@container\s*\(max-width:\s*760px\)[\s\S]*?\.composer-meta--has-intent-chip\s+\.composer-meta__control--model\s*\{[\s\S]*?flex\s*:\s*1 1 160px[\s\S]*?\.composer-meta__control--effort\s*\{[\s\S]*?display\s*:\s*none[\s\S]*?\.composer-meta__control--more\s*\{[\s\S]*?display\s*:\s*inline-flex/.test(styles),
+  "composer compact controls activate at the capped theme width",
+);
+eq(finalDeclaration(".md table", "overflow-x"), "auto", "markdown tables scroll horizontally");
+eq(finalDeclaration(".code", "overflow"), "auto", "code blocks scroll instead of widening the layout");
+ok(
+  /@media\s*\(max-width:\s*900px\)[\s\S]*?\.settings-center\s*\{[\s\S]*?grid-template-columns\s*:\s*1fr/.test(styles),
+  "settings center stacks navigation before the modal is too narrow",
+>>>>>>> upstream/main-v2
 );
 ok(
   /@media\s*\(max-width:\s*900px\)[\s\S]*?\.settings-center\s*\{[\s\S]*?grid-template-columns\s*:\s*1fr/.test(

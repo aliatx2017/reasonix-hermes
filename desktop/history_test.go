@@ -10,6 +10,7 @@ import (
 	"reasonix/internal/control"
 	"reasonix/internal/event"
 	"reasonix/internal/provider"
+	"reasonix/internal/tool"
 )
 
 func TestHistoryMessagesIncludeAssistantReasoning(t *testing.T) {
@@ -17,6 +18,8 @@ func TestHistoryMessagesIncludeAssistantReasoning(t *testing.T) {
 		{Role: provider.RoleUser, Content: "expanded prompt"},
 		{Role: provider.RoleAssistant, Content: "answer", ReasoningContent: "thinking trace", ToolCalls: []provider.ToolCall{{
 			ID: "call_1", Name: "bash", Arguments: `{"command":"pwd"}`,
+		}}, MemoryCitations: []provider.MemoryCitation{{
+			ID: "mem-1", Source: "Memory v5", Note: "use previous bash failure", Kind: "constraint",
 		}}},
 		{Role: provider.RoleTool, Name: "bash", ToolCallID: "call_1", Content: "tool output", ReasoningContent: "ignored by frontend filter"},
 		{Role: provider.RoleAssistant, ReasoningContent: "tool-call-only thinking"},
@@ -41,7 +44,14 @@ func TestHistoryMessagesIncludeAssistantReasoning(t *testing.T) {
 	if got[1].Reasoning != "thinking trace" {
 		t.Fatalf("assistant reasoning = %q, want thinking trace", got[1].Reasoning)
 	}
+<<<<<<< HEAD
 	if len(got[1].ToolCalls) != 1 || got[1].ToolCalls[0].ID != "call_1" || got[1].ToolCalls[0].Name != "bash" || got[1].ToolCalls[0].Arguments != `{"command":"pwd"}` {
+=======
+	if len(got[1].MemoryCitations) != 1 || got[1].MemoryCitations[0].Note != "use previous bash failure" {
+		t.Fatalf("assistant memory citations not preserved: %+v", got[1].MemoryCitations)
+	}
+	if len(got[1].ToolCalls) != 1 || got[1].ToolCalls[0].ID != "call_1" || got[1].ToolCalls[0].Name != "bash" {
+>>>>>>> upstream/main-v2
 		t.Fatalf("assistant tool calls not preserved: %+v", got[1].ToolCalls)
 	}
 	if got[2].ToolCallID != "call_1" || got[2].ToolName != "bash" || got[2].Content != "tool output" {
@@ -55,6 +65,234 @@ func TestHistoryMessagesIncludeAssistantReasoning(t *testing.T) {
 	}
 }
 
+<<<<<<< HEAD
+=======
+func TestHistoryForTabRestoresPlannerDisplayAfterReload(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "session.jsonl")
+	handoff := strings.Join([]string{
+		"# Reasonix executor handoff",
+		"",
+		"You are the executor now.",
+		"",
+		"Original task:",
+		"fix the sandbox reload bug",
+		"",
+		"Planner output:",
+		"inspect settings rebuild and preserve planner display",
+		"",
+		"Executor instructions:",
+		"- apply the fix",
+	}, "\n")
+
+	sess := agent.NewSession("system")
+	sess.Add(provider.Message{Role: provider.RoleUser, Content: handoff})
+	sess.Add(provider.Message{Role: provider.RoleAssistant, Content: "executor kept working"})
+	ag := agent.New(stubProvider{}, tool.NewRegistry(), sess, agent.Options{}, event.Discard)
+	ctrl := control.New(control.Options{Executor: ag, SessionDir: dir, SessionPath: path, Sink: event.Discard})
+	if err := recordSessionDisplay(dir, path, handoff, "fix the sandbox reload bug"); err != nil {
+		t.Fatalf("recordSessionDisplay: %v", err)
+	}
+
+	app := &App{
+		tabs:        map[string]*WorkspaceTab{},
+		activeTabID: "planner_tab",
+	}
+	tab := &WorkspaceTab{ID: "planner_tab", Scope: "global", Ctrl: ctrl, Ready: true, disabledMCP: map[string]ServerView{}}
+	tab.sink = &tabEventSink{tabID: tab.ID, app: app}
+	app.tabs[tab.ID] = tab
+
+	tab.sink.Emit(event.Event{Kind: event.TurnStarted})
+	tab.sink.Emit(event.Event{Kind: event.Phase, Text: "deepseek-v4-pro · planning", Source: event.UsageSourcePlanner})
+	tab.sink.Emit(event.Event{Kind: event.Reasoning, Text: "planner thinking\n", Source: event.UsageSourcePlanner})
+	tab.sink.Emit(event.Event{Kind: event.Text, Text: "planner visible plan", Source: event.UsageSourcePlanner})
+	tab.sink.Emit(event.Event{Kind: event.Message, Text: "planner visible plan", Reasoning: "planner thinking\n", Source: event.UsageSourcePlanner})
+	tab.sink.Emit(event.Event{Kind: event.TurnStarted})
+	tab.sink.Emit(event.Event{Kind: event.TurnDone})
+	waitForAutosaveIdle(t, tab)
+
+	got := app.HistoryForTab(tab.ID)
+	if len(got) != 5 {
+		t.Fatalf("history length = %d, want user + planner phase + planner answer + executor answer (plus system skipped later by UI): %+v", len(got), got)
+	}
+	if got[1].Content != "fix the sandbox reload bug" {
+		t.Fatalf("user display content = %q, want original prompt", got[1].Content)
+	}
+	if got[2].Role != "phase" || !strings.Contains(got[2].Content, "planning") {
+		t.Fatalf("planner phase missing after reload: %+v", got)
+	}
+	if got[3].Role != "assistant" || got[3].Content != "planner visible plan" || got[3].Reasoning != "planner thinking\n" {
+		t.Fatalf("planner assistant display missing after reload: %+v", got[3])
+	}
+	if got[4].Role != "assistant" || got[4].Content != "executor kept working" {
+		t.Fatalf("executor answer missing after reload: %+v", got[4])
+	}
+}
+
+func TestHistoryMessagesArchiveCompletedToolPayloads(t *testing.T) {
+	largeArgs := `{"command":"` + strings.Repeat("printf x;", 300) + `"}`
+	largeOutput := strings.Repeat("line of output\n", 600)
+	msgs := []provider.Message{
+		{Role: provider.RoleAssistant, ToolCalls: []provider.ToolCall{{
+			ID: "call_large", Name: "bash", Arguments: largeArgs,
+		}}},
+		{Role: provider.RoleTool, Name: "bash", ToolCallID: "call_large", Content: largeOutput},
+	}
+
+	got := historyMessages(msgs, func(content string) string { return content })
+	if len(got) != 2 {
+		t.Fatalf("history length = %d, want 2", len(got))
+	}
+	call := got[0].ToolCalls[0]
+	if !call.ArgumentsArchived {
+		t.Fatalf("tool arguments were not marked archived: %+v", call)
+	}
+	if call.Arguments != "" {
+		t.Fatalf("archived tool arguments should be omitted from initial history, got %d bytes", len(call.Arguments))
+	}
+	if call.Subject == "" {
+		t.Fatalf("archived tool call should keep a collapsed subject: %+v", call)
+	}
+	if call.Summary == "" {
+		t.Fatalf("archived tool call should keep a collapsed summary: %+v", call)
+	}
+	result := got[1]
+	if !result.ToolResultArchived {
+		t.Fatalf("tool result was not marked archived: %+v", result)
+	}
+	if result.Content != "" {
+		t.Fatalf("archived successful tool output should be omitted from initial history, got %d bytes", len(result.Content))
+	}
+	encoded, err := json.Marshal(got)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(encoded), largeArgs) || strings.Contains(string(encoded), largeOutput) {
+		t.Fatalf("initial history JSON still contains large args/output: %d bytes", len(encoded))
+	}
+}
+
+func TestHistoryMessagesKeepToolFileDiffMetadata(t *testing.T) {
+	diff := "@@ -27 +27 @@\n-func save():\n+func save_file():\n"
+	msgs := []provider.Message{
+		{Role: provider.RoleAssistant, ToolCalls: []provider.ToolCall{{
+			ID:        "edit",
+			Name:      "edit_file",
+			Arguments: `{"path":"settings/settings_IO.gd","old_string":"func save():","new_string":"func save_file():"}`,
+			Diff:      diff,
+			Added:     1,
+			Removed:   1,
+		}}},
+		{Role: provider.RoleTool, Name: "edit_file", ToolCallID: "edit", Content: "edited settings/settings_IO.gd"},
+	}
+
+	got := historyMessages(msgs, func(content string) string { return content })
+	call := got[0].ToolCalls[0]
+	if call.Diff != diff || call.Added != 1 || call.Removed != 1 {
+		t.Fatalf("history tool diff metadata = diff:%q +%d -%d", call.Diff, call.Added, call.Removed)
+	}
+	if !call.ArgumentsArchived || call.Arguments != "" {
+		t.Fatalf("tool arguments should still be archived: %+v", call)
+	}
+}
+
+func TestHistoryMessagesKeepBoundedToolErrors(t *testing.T) {
+	largeError := "error: " + strings.Repeat("permission denied ", 400)
+	msgs := []provider.Message{
+		{Role: provider.RoleAssistant, ToolCalls: []provider.ToolCall{{
+			ID: "call_error", Name: "bash", Arguments: `{"command":"rm protected"}`,
+		}}},
+		{Role: provider.RoleTool, Name: "bash", ToolCallID: "call_error", Content: largeError},
+	}
+
+	got := historyMessages(msgs, func(content string) string { return content })
+	result := got[1]
+	if result.ToolResultError == "" {
+		t.Fatalf("failed tool result should keep an error preview: %+v", result)
+	}
+	if result.Content != result.ToolResultError {
+		t.Fatalf("tool result content and error preview diverged: content=%q error=%q", result.Content, result.ToolResultError)
+	}
+	if len(result.Content) >= len(largeError) {
+		t.Fatalf("failed tool result preview was not bounded: got %d want < %d", len(result.Content), len(largeError))
+	}
+	if !strings.HasPrefix(result.Content, "error: permission denied") {
+		t.Fatalf("failed tool result preview lost useful prefix: %q", result.Content[:min(len(result.Content), 80)])
+	}
+	if !result.ToolResultArchived {
+		t.Fatalf("bounded failed tool result should still be marked archived for on-demand full data: %+v", result)
+	}
+}
+
+func TestHistoryMessagesClipToolErrorsAtUTF8Boundary(t *testing.T) {
+	largeError := "error: " + strings.Repeat("权限不足", 1000)
+	msgs := []provider.Message{
+		{Role: provider.RoleAssistant, ToolCalls: []provider.ToolCall{{
+			ID: "call_unicode_error", Name: "bash", Arguments: `{"command":"rm 受保护文件"}`,
+		}}},
+		{Role: provider.RoleTool, Name: "bash", ToolCallID: "call_unicode_error", Content: largeError},
+	}
+
+	got := historyMessages(msgs, func(content string) string { return content })
+	result := got[1]
+	if result.ToolResultError == "" {
+		t.Fatalf("failed tool result should keep an error preview: %+v", result)
+	}
+	if !utf8.ValidString(result.ToolResultError) {
+		t.Fatalf("failed tool result preview is not valid UTF-8: %q", result.ToolResultError)
+	}
+	if len(result.ToolResultError) >= len(largeError) {
+		t.Fatalf("failed tool result preview was not bounded: got %d want < %d", len(result.ToolResultError), len(largeError))
+	}
+}
+
+func TestHistoryMessagesKeepTodoWriteArguments(t *testing.T) {
+	args := `{"todos":[{"content":"A","status":"in_progress"}]}`
+	msgs := []provider.Message{
+		{Role: provider.RoleAssistant, ToolCalls: []provider.ToolCall{{
+			ID: "todo_1", Name: "todo_write", Arguments: args,
+		}}},
+		{Role: provider.RoleTool, Name: "todo_write", ToolCallID: "todo_1", Content: "Todos updated"},
+	}
+
+	got := historyMessages(msgs, func(content string) string { return content })
+	call := got[0].ToolCalls[0]
+	if call.ArgumentsArchived {
+		t.Fatalf("todo_write arguments must remain available for restored todo panel: %+v", call)
+	}
+	if call.Arguments != args {
+		t.Fatalf("todo_write arguments = %q, want %q", call.Arguments, args)
+	}
+}
+
+func TestHistoryMessagesPreserveUnaddressableToolPayloads(t *testing.T) {
+	args := `{"command":"legacy"}`
+	output := "legacy output\n" + strings.Repeat("detail\n", 8)
+	msgs := []provider.Message{
+		{Role: provider.RoleAssistant, ToolCalls: []provider.ToolCall{{
+			Name: "bash", Arguments: args,
+		}}},
+		{Role: provider.RoleTool, Name: "bash", Content: output},
+	}
+
+	got := historyMessages(msgs, func(content string) string { return content })
+	call := got[0].ToolCalls[0]
+	if call.ArgumentsArchived {
+		t.Fatalf("tool call without an id cannot be archived for later lookup: %+v", call)
+	}
+	if call.Arguments != args {
+		t.Fatalf("tool call without an id should keep args, got %q", call.Arguments)
+	}
+	result := got[1]
+	if result.ToolResultArchived {
+		t.Fatalf("tool result without an id cannot be archived for later lookup: %+v", result)
+	}
+	if result.Content != output {
+		t.Fatalf("tool result without an id should keep output, got %q", result.Content)
+	}
+}
+
+>>>>>>> upstream/main-v2
 func TestPreviewSessionMessagesLoadsWithoutResuming(t *testing.T) {
 	dir := t.TempDir()
 	session := agent.NewSession("")

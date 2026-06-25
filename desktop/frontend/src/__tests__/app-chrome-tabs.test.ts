@@ -11,6 +11,7 @@ const commandPaletteSource = readFileSync(resolve(testDir, "../components/Comman
 const projectTreeSource = readFileSync(resolve(testDir, "../components/ProjectTree.tsx"), "utf8");
 const topicShortcutsSource = readFileSync(resolve(testDir, "../lib/topicShortcuts.ts"), "utf8");
 const transcriptSource = readFileSync(resolve(testDir, "../components/Transcript.tsx"), "utf8");
+const layoutStoreSource = readFileSync(resolve(testDir, "../store/layout.ts"), "utf8");
 const stylesSource = readFileSync(resolve(testDir, "../styles.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
 
 let passed = 0;
@@ -66,6 +67,12 @@ for (const propName of ["onTabChange", "onTabClose", "onTabsClose", "onTabsReord
 ok(
   /app-chrome__tab-strip/.test(appChromeSource),
   "AppChrome markup includes classic tab strip containers",
+);
+
+ok(
+  /const WORKSPACE_PANEL_DEFAULT_OPEN = false;/.test(layoutStoreSource) &&
+    /workspacePanelOpen:\s*WORKSPACE_PANEL_DEFAULT_OPEN/.test(layoutStoreSource),
+  "right dock starts collapsed on launch",
 );
 
 ok(
@@ -174,10 +181,37 @@ ok(
 
 ok(
   /const controllerReady = state\.meta\?\.ready === true && !state\.backendActivationPending;/.test(appSource) &&
-    /if \(!controllerReady\) return;\s*void commitThenSend\(text\);/s.test(appSource) &&
+    /if \(!controllerReady\) return;\s*void commitThenSend\(text\)\.catch/.test(appSource) &&
     /onPrompt=\{handleTranscriptPrompt\}/.test(appSource) &&
     /submitDisabled=\{!controllerReady\}/.test(appSource),
   "welcome prompts and composer submit share the controller readiness gate",
+);
+
+ok(
+  /const transcriptHydrating = state\.hydrating && !state\.hydrateHistoryLoaded;/.test(appSource) &&
+    /hydrating=\{transcriptHydrating\}/.test(appSource),
+  "Welcome is suppressed only until transcript history has loaded",
+);
+
+const openTopicBlock = appSource.match(/const handleOpenTopic = useCallback\([\s\S]*?\n  \}, \[[^\]]*runOpenTopicRequest[^\]]*\]\);/)?.[0] ?? "";
+ok(
+  /const openTopicRunningRef = useRef\(false\);/.test(appSource) &&
+    /const openTopicPendingRef = useRef<PendingOpenTopicRequest \| null>\(null\);/.test(appSource) &&
+    /const runOpenTopicRequest = useCallback\(async \(request: PendingOpenTopicRequest\)/.test(appSource) &&
+    /openedTab = await activateTopic\(request\.scope/.test(appSource) &&
+    /openedTab = await openTopicSession\(request\.scope/.test(appSource) &&
+    /openedTab = await openGlobalTab\(request\.topicId\)/.test(appSource) &&
+    /openedTab = await openProjectTab\(request\.workspaceRoot, request\.topicId\)/.test(appSource) &&
+    /request\.seq !== openTopicSeqRef\.current/.test(appSource) &&
+    /enqueueOpenTopicRequest\([\s\S]*runningRef: openTopicRunningRef, pendingRef: openTopicPendingRef/.test(openTopicBlock) &&
+    !/openTopicQueueRef\.current\.catch\(\(\) => \{\}\)\.then/.test(appSource) &&
+    /seedActiveTabMeta\(openedTab\);[\s\S]*void refreshTabMetas\(\);/.test(appSource),
+  "opening topics coalesces pending navigation, ignores stale results, and seeds active tab metadata before background refresh",
+);
+
+ok(
+  /<HeartbeatPanel[\s\S]*onOpenTopic=\{\(scope, workspaceRoot, topicId\) => \{[\s\S]*void handleOpenTopic\(scope, workspaceRoot, topicId\);[\s\S]*\}\}/.test(appSource),
+  "heartbeat topic navigation uses the guarded open-topic path",
 );
 
 for (const selector of [
