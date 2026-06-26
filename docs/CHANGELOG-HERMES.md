@@ -4,24 +4,36 @@ Key milestones in the Hermes fork since June 2026.
 
 ## v1.10.x (June 2026)
 
-### Session 2026-06-26 (h59) — ACTION-PLAN audit P0+P1: security, concurrency, and operational hardening
+### Session 2026-06-26 (h59) — ACTION-PLAN full audit: P0 + P1 + P2 hardening
 
-All 20 P0 (immediate) and 20 P1 (short-term) items from `docs/ACTION-PLAN.md` verified and resolved. 8 new fixes landed; 32 items were already clean from prior sessions.
+Complete pass through all 60 items in `docs/ACTION-PLAN.md` (P0–P2). 20 new fixes landed across 32 files; 40 items were already clean from prior sessions. 5 multi-day P2 items deferred (P2-01/02/05/06/13).
 
-**New fixes (8 items, 14 files, +94/-39 lines):**
+**P0+P1 fixes (8 items, commit 3c1bc909):**
 
-- **P0-09 (hooks exit codes)**: `cmd/reasonix-hooks/main.go` — `doRetain`/`doReflect` now return `error`; `main()` calls `os.Exit(1)` on failure so the hook runner sees `DecisionWarn` instead of a silent pass. Updated leading comment to document exit-code semantics.
-- **P0-10 (CI test scope)**: `.github/workflows/ci-hermes.yml` — `test` and `race` jobs expanded from a hard-coded subset of packages to `go test -count=1 ./...` and `go test -race -count=1 ./...`, covering all 83 packages.
-- **P1-01 (collab WS auth)**: `internal/collab/collab.go` + `internal/config/config.go` + `internal/config/render.go` — `CollabConfig` and `collab.Config` gain a `Token string` field; `handleWS` rejects upgrades with a wrong or missing `?token=` query param using `subtle.ConstantTimeCompare`. Config renderer emits a commented-out example by default.
-- **P1-02 (unbounded upgrade download)**: `internal/cli/upgrade.go:243` — wrapped `io.ReadAll(resp.Body)` with `io.LimitReader(resp.Body, 128<<20)` to cap binary download size.
-- **P1-03 (file permissions 0o644 → 0o600)**: Six desktop files tightened: `desktop/write_mode.go`, `desktop/heartbeat.go`, `desktop/crash_pending.go`, `desktop/app.go`, `desktop/sessions.go`, `desktop/tabs.go` (7 call-sites total).
-- **P1-09 (session cleanup goroutines)**: `desktop/app.go` + `desktop/tabs.go` — added `cleanupWg sync.WaitGroup` to `App`; all `go delayedDesktopSessionCleanup` / `go delayedDesktopSessionTrash` calls now increment the WaitGroup; `shutdown()` calls `a.cleanupWg.Wait()` before tearing down controllers.
-- **P1-10 (mcpbridge signal handler)**: `cmd/reasonix-mcpbridge/main.go` — replaced `os.Exit(0)` in the SIGINT/SIGTERM handler with `_ = os.Stdin.Close()`, which makes `ServeStdio()`'s blocking `ReadBytes` return `io.EOF` for a graceful shutdown that honours `defer` statements.
-- **P1-14 (compressor cache eviction)**: `internal/compress/compress.go` — `Compress()` now evicts the oldest-turn entry when `len(cache) >= maxCache` (default 512), preventing unbounded map growth during long sessions.
+- **P0-09**: `cmd/reasonix-hooks/main.go` — `doRetain`/`doReflect` return `error`; `main()` calls `os.Exit(1)` on failure → hook runner sees `DecisionWarn` not a silent pass.
+- **P0-10**: `.github/workflows/ci-hermes.yml` — `test` + `race` jobs expanded from a subset to `go test ./...`, covering all 83 packages.
+- **P1-01**: Collab WebSocket token auth — `?token=` query-param check via `subtle.ConstantTimeCompare` in `handleWS`; `Token` field added to `CollabConfig` + config renderer.
+- **P1-02**: `internal/cli/upgrade.go` — `io.ReadAll` capped at 128 MiB via `io.LimitReader`.
+- **P1-03**: Seven `0o644` → `0o600` call-sites in `desktop/` (write_mode, heartbeat, crash_pending, app, sessions, tabs).
+- **P1-09**: `App.cleanupWg sync.WaitGroup` tracks `delayedDesktopSessionCleanup`/`delayedDesktopSessionTrash` goroutines; `shutdown()` waits before teardown.
+- **P1-10**: mcpbridge SIGTERM handler — `os.Exit(0)` → `os.Stdin.Close()` for graceful stdio shutdown through defers.
+- **P1-14**: Compressor LRU eviction — evicts oldest-turn entry when `len(cache) >= maxCache` (512).
 
-**Already clean (32 items verified):** P0-01 through P0-08 (WS origin check, HTTP timeouts, HTTP client, path traversal, context usage, rate-limit goroutine, hook param match, memory CreatedAt), P1-04 through P1-08, P1-11 through P1-13, P1-15 through P1-20.
+**P2 fixes (12 items, commit b44c5aaa):**
 
-- **Build**: `go build ./...` + `go vet ./...` clean. No new tests broken.
+- **P2-04**: `--pprof <addr>` flag added to `cmd/reasonix-mcpbridge` and `cmd/reasonix-memoryserver`; starts `http.ListenAndServe` with `net/http/pprof` registered on `DefaultServeMux`.
+- **P2-07**: Mesh peer init TTL — replaced package-level `var initializedPeers sync.Map` (never expired, shared across instances) with per-`Peer` `initialized bool` + `initializedAt time.Time` + `initMu sync.Mutex`; re-handshakes after 5-minute TTL or on connection error.
+- **P2-09**: `MemoryStore.Recall` read-path — access-count boosts and importance bumps deferred to `Tidy()` via `pendingBoosts map[string]bool`; eliminates `save()` call on every search query.
+- **P2-10**: `cmd/reasonix-mcpbridge/main.go` — `log.Fatal`/`log.Println`/`log.SetPrefix` → `slog.Info`/`slog.Error`.
+- **P2-11**: `.golangci.yml` — `gosec` and `gocritic` enabled with targeted exclusions (G104/G204/G304/G306/G404 for gosec; `commentFormatting`/`hugeParam`/`whyNoLint` for gocritic).
+- **P2-16**: Helm chart — `config_version` 1→2, pod+container `securityContext` (`runAsNonRoot`, `readOnlyRootFilesystem`, `allowPrivilegeEscalation: false`, `drop: ALL`), collab port conditional fixed from `if .Values.service.type` → `if .Values.components.bot.enabled`.
+- **P2-17**: `serve/auth.go` — `sessionKeyForPasswordHash` + `generateToken` return `(T, error)` instead of panicking; `newAuthGate` + `serve.New` propagate the error; `desktop/app.go` `mediaTokenStore.create` logs+returns empty on rand failure; `desktop/updater_app.go` `os.Exit(0)` removed.
+- **P2-18**: `internal/installsource/apply.go:225` — `%v` → `%w` for rollback error wrapping.
+- **P2-20**: `internal/netclient/netclient.go` — `DefaultClient()` returns a shared `*http.Client` via `sync.Once` instead of allocating per call.
+
+**Already clean (P2 items verified):** P2-03 (sqlite default), P2-08 (WS write deadlines), P2-12 (govulncheck blocking), P2-14 (multi-arch Docker), P2-15 (Dockerfile HEALTHCHECK), P2-19 (collab bind-error propagation).
+
+- **Build**: `go build ./...` + `go vet ./...` clean across both commits.
 
 ### Session 2026-06-21 (h54) — agent-reach MCP + headroom proxy + taste-skill + npm v1.11.0 + upstream merge
 
