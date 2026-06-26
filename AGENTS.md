@@ -174,6 +174,13 @@ skills-hub/            17-skill community registry + static catalog site
   - **LobeHub marketplace API integration**: Full M2M OAuth2 client at `internal/marketplace/lobehub_client.go` (stdlib-only HS256 JWT), auto-registration, paginated sync from 360k+ community skills at `market.lobehub.com`, desktop "Sync from LobeHub" button, CLI `reasonix marketplace sync`, `[marketplace.lobehub]` config section. Zero new dependencies.
   - **LAN skills**: 4 project skills (`searxng-local`, `crawl4ai-local`, `google-maps-scraper`, `last30days`) for local network services at 192.168.1.214.
   - **Total**: 30+ files changed, 3 new Go packages, 4 new React components, 80+ tests. All binaries rebuilt. Upstream synced to ed07684.
+- **2026-06-26 session (h60)** (deferred P2 items: boot refactor, bot pooling, coverage, fuzz):
+  - **P2-01 boot decomposition**: `internal/boot/builder.go` (new, 1000+ lines) — `builder` struct with 11 phase methods; `Build()` reduced to 40-line orchestrator. Hermes fingerprint test updated for file split.
+  - **P2-02 bot session pooling**: `SharedPluginPool` in `internal/bot/gateway.go` — ref-counted `plugin.Host` per workspace root. Eliminates duplicate MCP subprocess spawns for concurrent IM sessions.
+  - **P2-05 coverage**: `internal/collab` 73.9%→91.8% (EchoWSHandler, token auth, steer, bad-JSON tests); `cmd/reasonix-memoryserver` 37.1%→76.8% (sqlite CRUD, Tidy, embedding client, SearchDense, MCP handle). `internal/scheduler` already 98%.
+  - **P2-06 fuzz tests**: 5 fuzz test files — mcputil (JSON-RPC), webfetch (IP+URL), config (TOML), memoryserver (SQL LIKE), scheduler (cron).
+  - **P2-13 CI coverage gate**: Fixed bash syntax error; threshold 60%→65%.
+  - **Total**: 11 files changed, 1 new Go file (`builder.go`), 3 new test files. All 83 packages build+pass.
 - **2026-06-14 session (h6)** (banner + version + savings stats):
   - **Dynamic version**: `resolveVersion()` in `style.go` — uses ldflags first, then `git describe --tags --match 'v*'`, falls back to `"v1.10.0"` only as last resort. Pinned banner shows live git tag in dev builds.
   - **Diamond Wing logo**: `◆` replaces `⚚` caduceus in pinned header + session banner, gold accent preserved.

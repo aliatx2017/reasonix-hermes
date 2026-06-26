@@ -15,6 +15,7 @@ import (
 	"reasonix/internal/config"
 	"reasonix/internal/control"
 	"reasonix/internal/event"
+	"reasonix/internal/plugin"
 )
 
 // GatewayConfig 是 BotGateway 的配置。
@@ -69,6 +70,54 @@ type AllowlistConfig struct {
 	Groups   map[Platform][]string
 }
 
+// SharedPluginPool manages one plugin.Host per workspace root, shared across
+// all bot sessions targeting the same root. Sharing a host avoids spawning
+// duplicate MCP subprocesses when multiple users chat in the same workspace.
+// Reference-counted: the host is closed when its last session is evicted.
+type SharedPluginPool struct {
+	mu    sync.Mutex
+	hosts map[string]*sharedHostEntry // normalised workspaceRoot → entry
+}
+
+type sharedHostEntry struct {
+	host     *plugin.Host
+	refCount int
+}
+
+func newSharedPluginPool() *SharedPluginPool {
+	return &SharedPluginPool{hosts: make(map[string]*sharedHostEntry)}
+}
+
+// Acquire returns the shared host for workspaceRoot, creating it on first use.
+// Callers must call Release when the session is closed.
+func (p *SharedPluginPool) Acquire(workspaceRoot string) *plugin.Host {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	e, ok := p.hosts[workspaceRoot]
+	if !ok {
+		e = &sharedHostEntry{host: plugin.NewHost()}
+		p.hosts[workspaceRoot] = e
+	}
+	e.refCount++
+	return e.host
+}
+
+// Release decrements the reference count for workspaceRoot's host and closes
+// it once no sessions remain.
+func (p *SharedPluginPool) Release(workspaceRoot string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	e, ok := p.hosts[workspaceRoot]
+	if !ok {
+		return
+	}
+	e.refCount--
+	if e.refCount <= 0 {
+		e.host.Close()
+		delete(p.hosts, workspaceRoot)
+	}
+}
+
 // BotGateway 是 reasonix bot 消息网关，管理 Controller 生命周期、session 并发、
 // 事件渲染和平台适配器。
 type BotGateway struct {
@@ -82,6 +131,7 @@ type BotGateway struct {
 	allowlist      map[Platform]map[string]bool
 	groupAllowlist map[Platform]map[string]bool
 
+	pool        *SharedPluginPool
 	idleTimeout time.Duration // evict sessions idle longer than this (default 30m)
 	ctx         context.Context
 	cancel      context.CancelFunc
@@ -105,6 +155,7 @@ type sessionState struct {
 	sink             *sessionEventSink
 	cancel           context.CancelFunc
 	platform         Platform
+	workspaceRoot    string // used by pool.Release on eviction
 	pendingAsks      map[string][]event.AskQuestion
 	pendingApprovals map[string]event.Approval
 	lastApprovalID   string
@@ -162,6 +213,7 @@ func NewGatewayWithAdapterBindings(cfg GatewayConfig, adapters []AdapterBinding,
 		controllers:    make(map[string]*sessionState),
 		allowlist:      make(map[Platform]map[string]bool),
 		groupAllowlist: make(map[Platform]map[string]bool),
+		pool:           newSharedPluginPool(),
 		idleTimeout:    30 * time.Minute,
 		logger:         logger.With("component", "bot_gateway"),
 	}
@@ -315,6 +367,7 @@ func (gw *BotGateway) Stop() {
 			state.cancel()
 		}
 		state.ctrl.Close()
+		gw.pool.Release(state.workspaceRoot)
 		delete(gw.controllers, key)
 	}
 	gw.mu.Unlock()
@@ -976,6 +1029,7 @@ func (gw *BotGateway) getOrCreateSession(ctx context.Context, key string, msg In
 	// 创建新 Controller
 	sessionSink := &sessionEventSink{}
 	model, workspaceRoot, toolApprovalMode := gw.sessionOptionsForMessage(msg)
+	sharedHost := gw.pool.Acquire(workspaceRoot)
 	gw.logger.Info("bot session creating", "platform", msg.Platform, "chat_type", msg.ChatType, "chat", hashID(msg.ChatID), "session", key[:8], "model", model, "workspace_set", strings.TrimSpace(workspaceRoot) != "", "tool_approval_mode", normalizeBotToolApprovalMode(toolApprovalMode))
 	ctrl, err := boot.Build(ctx, boot.Options{
 		Model:           model,
@@ -985,8 +1039,10 @@ func (gw *BotGateway) getOrCreateSession(ctx context.Context, key string, msg In
 		WorkspaceRoot:   workspaceRoot,
 		SessionDir:      botSessionDir(workspaceRoot),
 		ApprovalTimeout: gw.approvalTimeout(),
+		SharedHost:      sharedHost,
 	})
 	if err != nil {
+		gw.pool.Release(workspaceRoot)
 		gw.logger.Error("build controller failed", "err", err)
 		return nil
 	}
@@ -1004,16 +1060,18 @@ func (gw *BotGateway) getOrCreateSession(ctx context.Context, key string, msg In
 		existing.lastActive = time.Now()
 		gw.mu.Unlock()
 		ctrl.Close()
+		gw.pool.Release(workspaceRoot)
 		gw.logger.Info("bot session built concurrently; discarding duplicate", "platform", msg.Platform, "chat", hashID(msg.ChatID), "session", key[:8])
 		return existing
 	}
 	state := &sessionState{
-		ctrl:        ctrl,
-		sink:        sessionSink,
-		platform:    msg.Platform,
-		pendingAsks: make(map[string][]event.AskQuestion),
-		createdAt:   time.Now(),
-		lastActive:  time.Now(),
+		ctrl:          ctrl,
+		sink:          sessionSink,
+		platform:      msg.Platform,
+		workspaceRoot: workspaceRoot,
+		pendingAsks:   make(map[string][]event.AskQuestion),
+		createdAt:     time.Now(),
+		lastActive:    time.Now(),
 	}
 	gw.controllers[key] = state
 	gw.mu.Unlock()
@@ -1238,6 +1296,7 @@ func (gw *BotGateway) evictIdleSessions() {
 			if state.ctrl != nil {
 				state.ctrl.Close()
 			}
+			gw.pool.Release(state.workspaceRoot)
 			delete(gw.controllers, key)
 		}
 	}

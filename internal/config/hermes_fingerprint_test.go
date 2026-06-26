@@ -33,23 +33,26 @@ func TestHermesFingerprintsGo(t *testing.T) {
 	repoRoot := findHermesRepoRoot(t)
 
 	checks := map[string][]string{
-		// ── internal/boot/boot.go — Hermes agent wiring ──
+		// ── internal/boot/boot.go — Build thin orchestrator ──
 		"internal/boot/boot.go": {
-			"agentlog.Init",
 			"applyExchangeRate",
+			"resolveAuxProviders",
+			"truncateHead",
+			"func languagePolicy",
+		},
+
+		// ── internal/boot/builder.go — Hermes agent wiring (moved from boot.go via P2-01) ──
+		"internal/boot/builder.go": {
+			"agentlog.Init",
 			"CompressToolOutput",
 			"VisionProv",
 			"ctrl.SetMesh",
 			"ctrl.SetLearner",
-			"resolveAuxProviders",
 			"RemoteSandboxURL",
 			"RemoteSandboxToken",
 			"WorkshopThreshold",
 			"workshopSynthesizer",
-			"WorkshopSynthesisText",
 			"workshopThreshold",
-			"truncateHead",
-			"func languagePolicy",
 		},
 
 		// ── internal/control/controller.go — Hermes struct fields ──

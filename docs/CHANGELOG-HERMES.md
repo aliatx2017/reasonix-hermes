@@ -4,6 +4,16 @@ Key milestones in the Hermes fork since June 2026.
 
 ## v1.10.x (June 2026)
 
+### Session 2026-06-26 (h60) — Deferred P2 items: boot refactor, bot pooling, coverage, fuzz
+
+Completed all 5 deferred P2 items from h59. 8 files modified, 3 new files created.
+
+- **P2-01**: `internal/boot/boot.go` decomposed into `builder` struct in `internal/boot/builder.go`. `Build()` is now a 40-line thin orchestrator that delegates to 11 phase methods (`loadConfig`, `buildProviders`, `buildPrompt`, `buildToolRegistry`, `buildPlugins`, `buildPermissions`, `buildSubagents`, `buildToolSurface`, `buildExecutor`, `buildLearner`, `assemble`). Hermes fingerprint test updated for new file split.
+- **P2-02**: `internal/bot/gateway.go` — `SharedPluginPool` struct (reference-counted per workspace root) reuses one `plugin.Host` per root across all bot sessions. `getOrCreateSession` acquires a shared host before `boot.Build`; `evictIdleSessions` + `Stop` call `pool.Release` on session teardown. Eliminates duplicate MCP subprocess spawns when multiple users connect to the same workspace.
+- **P2-05**: Coverage raised from baseline to: `internal/collab` 73.9% → 91.8% (EchoWSHandler, token auth, bad-JSON, steer, empty-sessionID tests); `cmd/reasonix-memoryserver` 37.1% → 76.8% (sqlite_storage CRUD, upsert, wildcard search, bad-JSON rows, Tidy boosts/purge, SetEmbedder, denseCosine, sqrt, newEmbeddingClient, Embed/embedOne, SearchDense, MCP handle dense-recall path, error paths). `internal/scheduler` already at 98% — no work needed.
+- **P2-06**: Fuzz tests created: `pkg/mcputil/fuzz_test.go` (JSON-RPC parsing), `internal/tool/builtin/webfetch_fuzz_test.go` (IP bytes + URL validation), `internal/config/fuzz_test.go` (TOML decoding), `cmd/reasonix-memoryserver/fuzz_test.go` (SQL LIKE escaping), `internal/scheduler/fuzz_test.go` (cron parsing + NextAfter).
+- **P2-13**: `.github/workflows/ci.yml` coverage threshold fixed (bash syntax error) and raised from 60% → 65% interim.
+
 ### Session 2026-06-26 (h59) — ACTION-PLAN full audit: P0 + P1 + P2 hardening
 
 Complete pass through all 60 items in `docs/ACTION-PLAN.md` (P0–P2). 20 new fixes landed across 32 files; 40 items were already clean from prior sessions. 5 multi-day P2 items deferred (P2-01/02/05/06/13).

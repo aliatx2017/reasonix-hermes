@@ -206,7 +206,8 @@ jobs:
         run: |
           COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}')
           echo "Coverage: ${COVERAGE}"
-          if [ "${COVERAGE%\%" -lt 60 ]; then
-            echo "Coverage ${COVERAGE} below 60%"
+          COVERAGE_INT=$(echo "${COVERAGE}" | awk -F. '{print $1}')
+          if [ "${COVERAGE_INT}" -lt 65 ]; then
+            echo "Coverage ${COVERAGE} is below 65% minimum"
             exit 1
           fi

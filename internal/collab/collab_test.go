@@ -228,3 +228,196 @@ func TestActiveSessionsEmpty(t *testing.T) {
 		t.Errorf("expected 0 active sessions, got %d", len(sessions))
 	}
 }
+
+// --- EchoWSHandler ---
+
+func TestEchoWSHandler(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(EchoWSHandler())
+	defer srv.Close()
+
+	wsURL := "ws" + strings.TrimPrefix(srv.URL, "http")
+	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		t.Fatalf("dial echo: %v", err)
+	}
+	defer conn.Close()
+
+	want := []byte("ping payload")
+	if err := conn.WriteMessage(websocket.TextMessage, want); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+	_, got, err := conn.ReadMessage()
+	if err != nil {
+		t.Fatalf("read echo: %v", err)
+	}
+	if string(got) != string(want) {
+		t.Errorf("echo = %q, want %q", got, want)
+	}
+}
+
+// --- Token auth rejection ---
+
+func TestHandleWS_TokenRejected(t *testing.T) {
+	t.Parallel()
+	h := &Hub{
+		peers:    make(map[*Peer]bool),
+		sessions: make(map[string]*peerSet),
+		upgrader: websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }},
+		logger:   slog.Default(),
+		token:    "secret",
+	}
+	srv := httptest.NewServer(http.HandlerFunc(h.handleWS))
+	defer srv.Close()
+
+	// Upgrade without token — expect HTTP 401.
+	wsURL := "ws" + strings.TrimPrefix(srv.URL, "http") + "/"
+	_, resp, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err == nil {
+		t.Fatal("expected dial to fail with 401")
+	}
+	if resp == nil || resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("status = %v, want 401", resp)
+	}
+}
+
+// --- Bad JSON and steer message ---
+
+func TestHandleWS_BadJSONIgnored(t *testing.T) {
+	t.Parallel()
+	h := &Hub{
+		peers:    make(map[*Peer]bool),
+		sessions: make(map[string]*peerSet),
+		upgrader: websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }},
+		logger:   slog.Default(),
+	}
+	srv := httptest.NewServer(http.HandlerFunc(h.handleWS))
+	defer srv.Close()
+
+	wsURL := "ws" + strings.TrimPrefix(srv.URL, "http") + "/"
+	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	defer conn.Close()
+
+	// Send malformed JSON — hub should log and continue, not close.
+	if err := conn.WriteMessage(websocket.TextMessage, []byte("not json {")); err != nil {
+		t.Fatalf("write bad json: %v", err)
+	}
+	time.Sleep(50 * time.Millisecond)
+
+	// Send a valid subscribe to confirm connection is still alive.
+	sub := Message{Type: "subscribe", SessionID: "alive", Role: RoleWatcher}
+	raw, _ := json.Marshal(sub)
+	if err := conn.WriteMessage(websocket.TextMessage, raw); err != nil {
+		t.Fatalf("write after bad json: %v", err)
+	}
+	time.Sleep(50 * time.Millisecond)
+	if h.SessionWatchers("alive") != 1 {
+		t.Error("session should have 1 watcher after valid subscribe")
+	}
+}
+
+func TestHandleWS_SteerCallback(t *testing.T) {
+	t.Parallel()
+	steered := make(chan string, 1)
+	h := &Hub{
+		peers:    make(map[*Peer]bool),
+		sessions: make(map[string]*peerSet),
+		upgrader: websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }},
+		logger:   slog.Default(),
+		onSteer: func(sid, text string) {
+			steered <- sid + ":" + text
+		},
+	}
+	srv := httptest.NewServer(http.HandlerFunc(h.handleWS))
+	defer srv.Close()
+
+	wsURL := "ws" + strings.TrimPrefix(srv.URL, "http") + "/"
+	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	defer conn.Close()
+
+	msg := Message{Type: "steer", SessionID: "s1", Text: "do something"}
+	raw, _ := json.Marshal(msg)
+	if err := conn.WriteMessage(websocket.TextMessage, raw); err != nil {
+		t.Fatalf("write steer: %v", err)
+	}
+
+	select {
+	case got := <-steered:
+		if got != "s1:do something" {
+			t.Errorf("steer = %q, want s1:do something", got)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("steer callback not called")
+	}
+}
+
+// --- handleSubscribe with empty session ID ---
+
+func TestHandleSubscribe_EmptySessionID(t *testing.T) {
+	t.Parallel()
+	h := &Hub{
+		peers:    make(map[*Peer]bool),
+		sessions: make(map[string]*peerSet),
+		upgrader: websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }},
+		logger:   slog.Default(),
+	}
+	srv := httptest.NewServer(http.HandlerFunc(h.handleWS))
+	defer srv.Close()
+
+	wsURL := "ws" + strings.TrimPrefix(srv.URL, "http") + "/"
+	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	defer conn.Close()
+
+	// Empty session ID subscribe — should be ignored.
+	sub := Message{Type: "subscribe", SessionID: "   ", Role: RoleWatcher}
+	raw, _ := json.Marshal(sub)
+	if err := conn.WriteMessage(websocket.TextMessage, raw); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	time.Sleep(50 * time.Millisecond)
+	if len(h.sessions) != 0 {
+		t.Errorf("expected 0 sessions, got %d", len(h.sessions))
+	}
+}
+
+// --- Token authentication success ---
+
+func TestHandleWS_TokenAccepted(t *testing.T) {
+	t.Parallel()
+	h := &Hub{
+		peers:    make(map[*Peer]bool),
+		sessions: make(map[string]*peerSet),
+		upgrader: websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }},
+		logger:   slog.Default(),
+		token:    "mytoken",
+	}
+	srv := httptest.NewServer(http.HandlerFunc(h.handleWS))
+	defer srv.Close()
+
+	wsURL := "ws" + strings.TrimPrefix(srv.URL, "http") + "/?token=mytoken"
+	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		t.Fatalf("dial with valid token: %v", err)
+	}
+	defer conn.Close()
+
+	sub := Message{Type: "subscribe", SessionID: "s-tok", Role: RoleWatcher}
+	raw, _ := json.Marshal(sub)
+	if err := conn.WriteMessage(websocket.TextMessage, raw); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	time.Sleep(50 * time.Millisecond)
+	if h.SessionWatchers("s-tok") != 1 {
+		t.Error("expected 1 watcher after token-authenticated subscribe")
+	}
+}

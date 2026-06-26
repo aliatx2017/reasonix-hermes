@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -1567,3 +1568,437 @@ func containsString(s, substr string) bool {
 		(s[:len(substr)] == substr || s[len(s)-len(substr):] == substr ||
 			strings.Contains(s, substr)))
 }
+
+// ── Tidy tests ──────────────────────────────────────────────────────────────
+
+func TestTidy_RemovesExpiredLowImportance(t *testing.T) {
+	t.Parallel()
+	store, _ := newTestStore(t)
+	past := time.Now().Add(-time.Hour)
+	store.mu.Lock()
+	store.entries = []MemoryEntry{
+		{ID: "exp1", Content: "expired low", ExpiresAt: past, Importance: 0.0, CreatedAt: past},
+		{ID: "exp2", Content: "expired high", ExpiresAt: past, Importance: 0.8, CreatedAt: past},
+		{ID: "live", Content: "not expired", Importance: 0.5, CreatedAt: time.Now()},
+	}
+	store.mu.Unlock()
+	store.Tidy()
+	store.mu.RLock()
+	defer store.mu.RUnlock()
+	for _, e := range store.entries {
+		if e.ID == "exp1" {
+			t.Error("exp1 (expired, low importance) should have been purged")
+		}
+	}
+	found := false
+	for _, e := range store.entries {
+		if e.ID == "live" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("live entry should not have been purged")
+	}
+}
+
+func TestTidy_AppliesDeferredBoosts(t *testing.T) {
+	t.Parallel()
+	store, _ := newTestStore(t)
+	store.mu.Lock()
+	store.entries = []MemoryEntry{
+		{ID: "b1", Content: "boost me", Importance: 0.4, CreatedAt: time.Now(), AccessCount: 0},
+	}
+	store.pendingBoosts["b1"] = true
+	store.mu.Unlock()
+	store.Tidy()
+	store.mu.RLock()
+	defer store.mu.RUnlock()
+	for _, e := range store.entries {
+		if e.ID == "b1" {
+			if e.AccessCount != 1 {
+				t.Errorf("access count = %d, want 1", e.AccessCount)
+			}
+			if e.Importance <= 0.4 {
+				t.Errorf("importance = %.2f, should have increased from 0.4", e.Importance)
+			}
+		}
+	}
+}
+
+// ── SetEmbedder / denseCosine / sqrt tests ─────────────────────────────────
+
+func TestSetEmbedder(t *testing.T) {
+	t.Parallel()
+	store, _ := newTestStore(t)
+	ec := newEmbeddingClient("http://localhost", "key", "model")
+	store.SetEmbedder(ec, 8)
+	if store.embed == nil {
+		t.Error("SetEmbedder: embed should be set")
+	}
+	if store.embedBatch != 8 {
+		t.Errorf("embedBatch = %d, want 8", store.embedBatch)
+	}
+}
+
+func TestDenseCosine(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		a, b []float64
+		want float64 // approximate
+	}{
+		{[]float64{1, 0}, []float64{1, 0}, 1.0},
+		{[]float64{1, 0}, []float64{0, 1}, 0.0},
+		{nil, []float64{1}, 0},
+		{[]float64{1}, nil, 0},
+		{[]float64{1, 2}, []float64{1}, 0},       // length mismatch
+		{[]float64{0, 0}, []float64{0, 0}, 0},    // zero vectors
+	}
+	for _, tc := range tests {
+		got := denseCosine(tc.a, tc.b)
+		diff := got - tc.want
+		if diff < 0 {
+			diff = -diff
+		}
+		if diff > 0.01 {
+			t.Errorf("denseCosine(%v, %v) = %.4f, want %.4f", tc.a, tc.b, got, tc.want)
+		}
+	}
+}
+
+func TestSqrtFallback(t *testing.T) {
+	t.Parallel()
+	cases := []float64{0, 1, 4, 9, 2}
+	for _, x := range cases {
+		got := sqrtFallback(x)
+		want := math.Sqrt(x)
+		if math.Abs(got-want) > 1e-6 {
+			t.Errorf("sqrtFallback(%v) = %v, want %v", x, got, want)
+		}
+	}
+	// Negative input
+	if sqrtFallback(-1) != 0 {
+		t.Error("sqrtFallback(-1) should return 0")
+	}
+}
+
+func TestNewEmbeddingClient(t *testing.T) {
+	t.Parallel()
+	ec := newEmbeddingClient("http://example.com", "mykey", "text-emb")
+	if ec == nil {
+		t.Fatal("newEmbeddingClient returned nil")
+	}
+	if ec.baseURL != "http://example.com" {
+		t.Errorf("baseURL = %q", ec.baseURL)
+	}
+	if ec.model != "text-emb" {
+		t.Errorf("model = %q", ec.model)
+	}
+}
+
+func TestNewEmbeddingClientFromEnv_NoEnv(t *testing.T) {
+	t.Setenv("EMBEDDING_PROVIDER", "")
+	ec := newEmbeddingClientFromEnv()
+	if ec != nil {
+		t.Error("expected nil when EMBEDDING_PROVIDER is unset")
+	}
+}
+
+func TestNewEmbeddingClientFromEnv_Set(t *testing.T) {
+	t.Setenv("EMBEDDING_PROVIDER", "http://myapi.example.com")
+	t.Setenv("EMBEDDING_MODEL", "my-model")
+	t.Setenv("EMBEDDING_API_KEY", "testkey")
+	ec := newEmbeddingClientFromEnv()
+	if ec == nil {
+		t.Fatal("expected non-nil client")
+	}
+	if ec.model != "my-model" {
+		t.Errorf("model = %q", ec.model)
+	}
+	if ec.apiKey != "testkey" {
+		t.Errorf("apiKey = %q", ec.apiKey)
+	}
+}
+
+func TestNewEmbeddingClientFromEnv_FallbackKey(t *testing.T) {
+	t.Setenv("EMBEDDING_PROVIDER", "http://example.com")
+	t.Setenv("EMBEDDING_MODEL", "")
+	t.Setenv("EMBEDDING_API_KEY", "")
+	t.Setenv("DEEPSEEK_API_KEY", "dskey")
+	t.Setenv("OPENAI_API_KEY", "")
+	ec := newEmbeddingClientFromEnv()
+	if ec == nil {
+		t.Fatal("expected non-nil client")
+	}
+	if ec.apiKey != "dskey" {
+		t.Errorf("apiKey = %q, want dskey", ec.apiKey)
+	}
+	if ec.model != "text-embedding-3-small" {
+		t.Errorf("default model = %q", ec.model)
+	}
+}
+
+func TestNewEmbeddingClientFromEnv_OpenAIFallback(t *testing.T) {
+	t.Setenv("EMBEDDING_PROVIDER", "http://example.com")
+	t.Setenv("EMBEDDING_API_KEY", "")
+	t.Setenv("DEEPSEEK_API_KEY", "")
+	t.Setenv("OPENAI_API_KEY", "oaikey")
+	ec := newEmbeddingClientFromEnv()
+	if ec == nil {
+		t.Fatal("expected non-nil client")
+	}
+	if ec.apiKey != "oaikey" {
+		t.Errorf("apiKey = %q, want oaikey", ec.apiKey)
+	}
+}
+
+// ── Embed + embedOne + SearchDense ─────────────────────────────────────────
+
+func newFakeEmbedServer(t *testing.T, vec []float64) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string]any{
+			"data": []map[string]any{
+				{"embedding": vec, "index": 0},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	}))
+}
+
+func TestEmbed_Success(t *testing.T) {
+	t.Parallel()
+	vec := []float64{0.1, 0.2, 0.3}
+	srv := newFakeEmbedServer(t, vec)
+	defer srv.Close()
+
+	ec := newEmbeddingClient(srv.URL, "", "test-model")
+	result, err := ec.Embed([]string{"hello"})
+	if err != nil {
+		t.Fatalf("Embed: %v", err)
+	}
+	if len(result) != 1 || len(result[0]) != 3 {
+		t.Fatalf("Embed result shape: %v", result)
+	}
+	if result[0][0] != 0.1 {
+		t.Errorf("Embed result[0][0] = %v, want 0.1", result[0][0])
+	}
+}
+
+func TestEmbed_Empty(t *testing.T) {
+	t.Parallel()
+	ec := newEmbeddingClient("http://localhost:0", "", "model")
+	result, err := ec.Embed(nil)
+	if err != nil {
+		t.Errorf("Embed nil: %v", err)
+	}
+	if result != nil {
+		t.Errorf("Embed nil should return nil, got %v", result)
+	}
+}
+
+func TestEmbed_ServerError(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+	}))
+	defer srv.Close()
+
+	ec := newEmbeddingClient(srv.URL, "key", "model")
+	_, err := ec.Embed([]string{"test"})
+	if err == nil {
+		t.Error("expected error from server 500")
+	}
+}
+
+func TestEmbedOne_Success(t *testing.T) {
+	t.Parallel()
+	vec := []float64{0.5, 0.5}
+	srv := newFakeEmbedServer(t, vec)
+	defer srv.Close()
+
+	ec := newEmbeddingClient(srv.URL, "", "m")
+	got := ec.embedOne("text")
+	if len(got) != 2 {
+		t.Fatalf("embedOne result len = %d, want 2", len(got))
+	}
+}
+
+func TestEmbedOne_Error(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "bad", http.StatusBadRequest)
+	}))
+	defer srv.Close()
+	ec := newEmbeddingClient(srv.URL, "", "m")
+	got := ec.embedOne("text")
+	if got != nil {
+		t.Error("expected nil on error")
+	}
+}
+
+func TestSearchDense_NoEmbedder(t *testing.T) {
+	t.Parallel()
+	store, _ := newTestStore(t)
+	_, err := store.SearchDense("query", "", 5)
+	if err == nil {
+		t.Error("expected error when no embedder set")
+	}
+}
+
+func TestSearchDense_WithEmbedder(t *testing.T) {
+	t.Parallel()
+	vec := []float64{1.0, 0.0, 0.0}
+	srv := newFakeEmbedServer(t, vec)
+	defer srv.Close()
+
+	store, _ := newTestStore(t)
+	ec := newEmbeddingClient(srv.URL, "", "m")
+	store.SetEmbedder(ec, 4)
+
+	// Add entries with dense vectors.
+	store.mu.Lock()
+	store.entries = []MemoryEntry{
+		{ID: "d1", Content: "matches", DenseVector: []float64{1.0, 0.0, 0.0}, Importance: 0.8, CreatedAt: time.Now()},
+		{ID: "d2", Content: "no match", DenseVector: []float64{0.0, 1.0, 0.0}, Importance: 0.8, CreatedAt: time.Now()},
+		{ID: "d3", Content: "no dense vector", Importance: 0.5, CreatedAt: time.Now()},
+	}
+	store.mu.Unlock()
+
+	results, err := store.SearchDense("query", "", 5)
+	if err != nil {
+		t.Fatalf("SearchDense: %v", err)
+	}
+	if len(results) == 0 {
+		t.Fatal("expected at least one result")
+	}
+	if results[0].ID != "d1" {
+		t.Errorf("top result = %q, want d1", results[0].ID)
+	}
+}
+
+func TestSearchDense_SessionFilter(t *testing.T) {
+	t.Parallel()
+	vec := []float64{1.0, 0.0, 0.0}
+	srv := newFakeEmbedServer(t, vec)
+	defer srv.Close()
+
+	store, _ := newTestStore(t)
+	ec := newEmbeddingClient(srv.URL, "", "m")
+	store.SetEmbedder(ec, 4)
+
+	store.mu.Lock()
+	store.entries = []MemoryEntry{
+		{ID: "s1", SessionID: "sessA", Content: "match A", DenseVector: []float64{1.0, 0.0, 0.0}, Importance: 0.8, CreatedAt: time.Now()},
+		{ID: "s2", SessionID: "sessB", Content: "match B", DenseVector: []float64{1.0, 0.0, 0.0}, Importance: 0.8, CreatedAt: time.Now()},
+	}
+	store.mu.Unlock()
+
+	results, err := store.SearchDense("query", "sessA", 5)
+	if err != nil {
+		t.Fatalf("SearchDense session filter: %v", err)
+	}
+	for _, r := range results {
+		if r.SessionID != "sessA" {
+			t.Errorf("session filter broken: got session %q", r.SessionID)
+		}
+	}
+}
+
+func TestSearchDense_QueryEmbedFails(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "fail", http.StatusInternalServerError)
+	}))
+	defer srv.Close()
+
+	store, _ := newTestStore(t)
+	ec := newEmbeddingClient(srv.URL, "", "m")
+	store.SetEmbedder(ec, 4)
+
+	_, err := store.SearchDense("query", "", 5)
+	if err == nil {
+		t.Error("expected error when embed fails")
+	}
+}
+
+func TestEmbed_BadJSONResponse(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("not json {"))
+	}))
+	defer srv.Close()
+
+	ec := newEmbeddingClient(srv.URL, "", "m")
+	_, err := ec.Embed([]string{"test"})
+	if err == nil {
+		t.Error("expected error for bad JSON response")
+	}
+}
+
+func TestEmbed_NetworkError(t *testing.T) {
+	t.Parallel()
+	// Use an invalid address to force a network error.
+	ec := newEmbeddingClient("http://localhost:1", "", "m")
+	_, err := ec.Embed([]string{"test"})
+	if err == nil {
+		t.Error("expected network error")
+	}
+}
+
+// ── MCP handle: dense recall path ─────────────────────────────────────────
+
+func TestHandleDenseRecall_WithEmbedder(t *testing.T) {
+	t.Parallel()
+	vec := []float64{1.0, 0.0, 0.0}
+	srv := newFakeEmbedServer(t, vec)
+	defer srv.Close()
+
+	store, _ := newTestStore(t)
+	ec := newEmbeddingClient(srv.URL, "", "m")
+	store.SetEmbedder(ec, 4)
+
+	store.mu.Lock()
+	store.entries = []MemoryEntry{
+		{ID: "hd1", Content: "dense recall hit", DenseVector: []float64{1.0, 0.0, 0.0}, Importance: 0.9, CreatedAt: time.Now()},
+	}
+	store.mu.Unlock()
+
+	mcpSrv := newTestMCPServer(store)
+	data := callHandleMessage(t, mcpSrv, "tools/call", json.RawMessage(`1`), map[string]any{
+		"name": "hindsight_recall",
+		"arguments": map[string]any{
+			"query": "test",
+			"dense": true,
+			"limit": 5,
+		},
+	})
+	resp := parseRPCResp(t, data)
+	if resp.Error != nil {
+		t.Fatalf("handle dense recall: %v", resp.Error)
+	}
+}
+
+func TestHandleRetain_ErrorPath(t *testing.T) {
+	t.Parallel()
+	// Use a storage that always fails to Save.
+	store, err := NewMemoryStoreWithStorage(&alwaysFailStorage{}, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := &memoryHandler{store: store}
+	_, err = h.handle("hindsight_retain", map[string]any{
+		"session_id": "s",
+		"content":    "test",
+	})
+	if err == nil {
+		t.Error("expected error from failing storage")
+	}
+}
+
+// alwaysFailStorage always returns an error on Save.
+type alwaysFailStorage struct{}
+
+func (a *alwaysFailStorage) Load() ([]MemoryEntry, error) { return nil, nil }
+func (a *alwaysFailStorage) Save(_ []MemoryEntry) error   { return fmt.Errorf("disk full") }
