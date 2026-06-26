@@ -145,7 +145,7 @@ type authGate struct {
 
 // newAuthGate creates the auth middleware from the serve config. For token mode
 // without a configured token, it generates a random one.
-func newAuthGate(cfg config.ServeConfig) *authGate {
+func newAuthGate(cfg config.ServeConfig) (*authGate, error) {
 	ag := &authGate{
 		rateLimit:   newRateLimit(),
 		behindProxy: cfg.BehindProxy,
@@ -153,23 +153,31 @@ func newAuthGate(cfg config.ServeConfig) *authGate {
 	mode, err := NormalizeAuthMode(cfg.AuthMode)
 	if err != nil {
 		ag.mode = authInvalid
-		return ag
+		return ag, nil
 	}
 	switch mode {
 	case "token":
 		ag.mode = authToken
 		ag.token = strings.TrimSpace(cfg.Token)
 		if ag.token == "" {
-			ag.token = generateToken()
+			tok, err := generateToken()
+			if err != nil {
+				return nil, err
+			}
+			ag.token = tok
 		}
 	case "password":
 		ag.mode = authPassword
 		ag.passwordHash = strings.TrimSpace(cfg.PasswordHash)
-		ag.sessKey = sessionKeyForPasswordHash(ag.passwordHash)
+		key, err := sessionKeyForPasswordHash(ag.passwordHash)
+		if err != nil {
+			return nil, err
+		}
+		ag.sessKey = key
 	default:
 		ag.mode = authNone
 	}
-	return ag
+	return ag, nil
 }
 
 // Token returns the shared token (empty if not in token mode).
@@ -199,21 +207,19 @@ func HashPassword(password string) (string, error) {
 	return string(b), nil
 }
 
-func sessionKeyForPasswordHash(passwordHash string) []byte {
+func sessionKeyForPasswordHash(passwordHash string) ([]byte, error) {
 	if passwordHash != "" {
 		key, err := pbkdf2.Key(sha256.New, passwordHash, []byte("reasonix serve session key"), pbkdf2Iter, 32)
 		if err != nil {
-			panic("serve/auth: pbkdf2 failed: " + err.Error())
+			return nil, fmt.Errorf("serve/auth: pbkdf2 failed: %w", err)
 		}
-		return key
+		return key, nil
 	}
 	key := make([]byte, 32)
 	if _, err := rand.Read(key); err != nil {
-		// crypto/rand.Read cannot fail on modern systems; panic rather than
-		// fall back to a deterministic key that would weaken every session.
-		panic("serve/auth: crypto/rand.Read failed: " + err.Error())
+		return nil, fmt.Errorf("serve/auth: crypto/rand.Read failed: %w", err)
 	}
-	return key
+	return key, nil
 }
 
 // middleware returns an http.Handler that wraps next with authentication checks.
@@ -538,13 +544,12 @@ func htmlEscape(s string) string {
 }
 
 // generateToken returns a cryptographically random URL-safe token.
-func generateToken() string {
+func generateToken() (string, error) {
 	b := make([]byte, tokenByteLen)
 	if _, err := rand.Read(b); err != nil {
-		// crypto/rand.Read failure is fatal for token generation.
-		panic("serve/auth: crypto/rand.Read failed: " + err.Error())
+		return "", fmt.Errorf("serve/auth: crypto/rand.Read failed: %w", err)
 	}
-	return base64.RawURLEncoding.EncodeToString(b)
+	return base64.RawURLEncoding.EncodeToString(b), nil
 }
 
 // acceptsHTML reports whether the request's Accept header prefers text/html.

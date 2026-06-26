@@ -512,7 +512,11 @@ func runServe(args []string) int {
 		ctrl.SetSessionPath(agent.NewSessionPath(ctrl.SessionDir(), ctrl.Label()))
 	}
 
-	srv := serve.New(ctrl, bc, serveCfg)
+	srv, err := serve.New(ctrl, bc, serveCfg)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "serve: auth init failed:", err)
+		return 1
+	}
 	fmt.Printf("reasonix serve — %s on http://%s\n", ctrl.Label(), *addr)
 	if srv.AuthMode() == "token" {
 		fmt.Printf("  auth: token\n")

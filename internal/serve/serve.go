@@ -47,15 +47,19 @@ type Server struct {
 
 // New builds a Server. bc must be the controller's event sink.
 // serveCfg controls authentication (none, token, or password).
-func New(ctrl control.SessionAPI, bc *Broadcaster, serveCfg config.ServeConfig) *Server {
+func New(ctrl control.SessionAPI, bc *Broadcaster, serveCfg config.ServeConfig) (*Server, error) {
+	auth, err := newAuthGate(serveCfg)
+	if err != nil {
+		return nil, fmt.Errorf("serve: init auth: %w", err)
+	}
 	s := &Server{
 		ctrl:   ctrl,
 		bc:     bc,
 		titles: newTitleCache(ctrl.SessionDir()),
-		auth:   newAuthGate(serveCfg),
+		auth:   auth,
 	}
 	s.initTitleProvider()
-	return s
+	return s, nil
 }
 
 // ctl returns the current controller. Handlers must read it through here, never

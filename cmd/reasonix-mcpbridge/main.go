@@ -15,8 +15,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
+	_ "net/http/pprof" // registers pprof handlers on DefaultServeMux; activated via --pprof
 	"os"
 	"os/exec"
 	"os/signal"
@@ -549,6 +550,7 @@ func (b *Bridge) Server() *mcputil.Server {
 func main() {
 	port := "9090"
 	httpMode := false
+	pprofAddr := ""
 	for i := 1; i < len(os.Args); i++ {
 		switch os.Args[i] {
 		case "--port":
@@ -558,7 +560,21 @@ func main() {
 			}
 		case "--http":
 			httpMode = true
+		case "--pprof":
+			if i+1 < len(os.Args) {
+				pprofAddr = os.Args[i+1]
+				i++
+			}
 		}
+	}
+
+	if pprofAddr != "" {
+		go func() {
+			slog.Info("pprof server listening", "addr", pprofAddr)
+			if err := http.ListenAndServe(pprofAddr, nil); err != nil { //nolint:gosec
+				slog.Warn("pprof server exited", "err", err)
+			}
+		}()
 	}
 
 	workDir, _ := os.Getwd()
@@ -572,7 +588,10 @@ func main() {
 	}
 
 	if httpMode {
-		log.Fatal(srv.ServeHTTP(":"+port, "MCP_API_KEY"))
+		if err := srv.ServeHTTP(":"+port, "MCP_API_KEY"); err != nil {
+			slog.Error("MCP HTTP server exited", "err", err)
+			os.Exit(1)
+		}
 	}
 
 	// Graceful shutdown on SIGINT/SIGTERM — close stdin so ServeStdio's
@@ -584,9 +603,9 @@ func main() {
 		_ = os.Stdin.Close()
 	}()
 
-	log.SetPrefix("[reasonix-bridge] ")
-	log.Println("Starting in stdio mode (MCP)...")
+	slog.Info("starting in stdio mode (MCP)")
 	if err := srv.ServeStdio(); err != nil {
-		log.Fatal(err)
+		slog.Error("stdio server exited", "err", err)
+		os.Exit(1)
 	}
 }

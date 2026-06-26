@@ -14,6 +14,8 @@ import (
 	"fmt"
 	"log/slog"
 	"math"
+	"net/http"
+	_ "net/http/pprof" // registers pprof handlers on DefaultServeMux; activated via --pprof
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -79,6 +81,10 @@ type MemoryStore struct {
 	nextID  atomic.Int64
 	embed   *embeddingClient // optional dense embedding API client
 	embedBatch int            // max facts per embedding API call
+
+	// pendingBoosts holds IDs recalled since the last Tidy() pass.
+	// Boosts are applied lazily to avoid write amplification on every query.
+	pendingBoosts map[string]bool
 }
 
 // Dir returns the storage directory path.
@@ -182,7 +188,7 @@ func NewMemoryStore(dir string) (*MemoryStore, error) {
 }
 
 func NewMemoryStoreWithStorage(s Storage, dir string) (*MemoryStore, error) {
-	ms := &MemoryStore{storage: s, dir: dir}
+	ms := &MemoryStore{storage: s, dir: dir, pendingBoosts: make(map[string]bool)}
 	if err := ms.load(); err != nil {
 		// Start fresh if load fails (e.g. no file yet).
 		ms.nextID.Store(1)
@@ -271,16 +277,29 @@ func (ms *MemoryStore) save() error {
 	return ms.storage.Save(ms.entries)
 }
 
-// Tidy purges expired entries that fall below the minimum importance threshold,
-// then persists. Safe to call periodically.
+// Tidy purges expired entries, applies deferred recall boosts, and persists.
+// Safe to call periodically; avoids write amplification on every Recall query.
 func (ms *MemoryStore) Tidy() {
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
+
+	// Drain pending recall boosts accumulated since the last Tidy pass.
+	boosts := ms.pendingBoosts
+	ms.pendingBoosts = make(map[string]bool)
 
 	now := time.Now()
 	filtered := ms.entries[:0]
 	for i := range ms.entries {
 		e := &ms.entries[i]
+
+		// Apply deferred access boosts.
+		if boosts[e.ID] {
+			e.AccessCount++
+			e.Importance = min(1.0, e.Importance+importanceBoostOnRecall)
+			boost := time.Duration(importanceBoostOnRecall * float64(defaultTTL))
+			e.ExpiresAt = e.ExpiresAt.Add(boost)
+		}
+
 		if e.Expired() && e.Importance <= minImportanceToKeep {
 			continue // purge
 		}
@@ -401,24 +420,11 @@ func (ms *MemoryStore) Recall(sessionID, query string, limit int) ([]MemoryEntry
 		results = results[:limit]
 	}
 
-	// Increment access counts and boost importance, then persist immediately
-	// so crash-recovery sees the updated metadata.
-	if len(results) > 0 {
-		matched := make(map[string]bool, len(results))
-		for _, r := range results {
-			matched[r.ID] = true
-		}
-		for i := range ms.entries {
-			if matched[ms.entries[i].ID] {
-				ms.entries[i].AccessCount++
-				ms.entries[i].Importance = min(1.0, ms.entries[i].Importance+importanceBoostOnRecall)
-				boost := time.Duration(importanceBoostOnRecall * float64(defaultTTL))
-				ms.entries[i].ExpiresAt = ms.entries[i].ExpiresAt.Add(boost)
-			}
-		}
-		if err := ms.save(); err != nil {
-			logger.Warn("failed to persist recall boosts", "err", err)
-		}
+	// Record which IDs were recalled so Tidy() can apply access boosts
+	// in its next periodic pass, avoiding write amplification on every read.
+	// (mu is already held by the caller above — no nested lock needed.)
+	for _, r := range results {
+		ms.pendingBoosts[r.ID] = true
 	}
 
 	return results, nil
@@ -641,10 +647,11 @@ func main() {
 		storeDir = filepath.Join(home, ".reasonix", "hindsight-memory")
 	}
 
-	// Parse flags: --backend file|sqlite, --http [--port N]
+	// Parse flags: --backend file|sqlite, --http [--port N], --pprof <addr>
 	backend := "sqlite"
 	httpMode := false
 	port := "8080"
+	pprofAddr := ""
 	for i := 0; i < len(os.Args); i++ {
 		switch os.Args[i] {
 		case "--backend":
@@ -657,6 +664,11 @@ func main() {
 		case "--port":
 			if i+1 < len(os.Args) {
 				port = os.Args[i+1]
+				i++
+			}
+		case "--pprof":
+			if i+1 < len(os.Args) {
+				pprofAddr = os.Args[i+1]
 				i++
 			}
 		}
@@ -685,6 +697,15 @@ func main() {
 		defer ss.Close()
 	}
 	store.Tidy() // clean up expired entries on startup
+
+	if pprofAddr != "" {
+		go func() {
+			logger.Info("pprof server listening", "addr", pprofAddr)
+			if err := http.ListenAndServe(pprofAddr, nil); err != nil { //nolint:gosec
+				logger.Warn("pprof server exited", "err", err)
+			}
+		}()
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

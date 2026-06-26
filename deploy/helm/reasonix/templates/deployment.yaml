@@ -16,12 +16,22 @@ spec:
         app.kubernetes.io/name: {{ include "reasonix.name" . }}
         app.kubernetes.io/instance: {{ .Release.Name }}
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
       containers:
         {{- if .Values.components.bot.enabled }}
         - name: bot
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          command: ["/app/reasonix-bot"]
+          command: ["/usr/local/bin/reasonix-bot"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
           envFrom:
             - secretRef:
                 name: {{ include "reasonix.fullname" . }}-secrets
@@ -39,7 +49,12 @@ spec:
         - name: mcpbridge
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          command: ["/app/reasonix-mcpbridge", "--http", "--port", "{{ .Values.service.mcpbridgePort }}"]
+          command: ["/usr/local/bin/reasonix-mcpbridge", "--http", "--port", "{{ .Values.service.mcpbridgePort }}"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
           ports:
             - containerPort: {{ .Values.service.mcpbridgePort }}
               name: mcp
@@ -54,7 +69,12 @@ spec:
         - name: memoryserver
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          command: ["/app/reasonix-memoryserver", "--http", "--port", "{{ .Values.service.memoryPort }}"]
+          command: ["/usr/local/bin/reasonix-memoryserver", "--http", "--port", "{{ .Values.service.memoryPort }}"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
           ports:
             - containerPort: {{ .Values.service.memoryPort }}
               name: memory

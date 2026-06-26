@@ -223,7 +223,8 @@ func (s *mediaTokenStore) create(absPath, filename, mime, kind string, size int6
 
 	tok := make([]byte, 16)
 	if _, err := rand.Read(tok); err != nil {
-		panic("crypto/rand.Read failed: " + err.Error())
+		slog.Error("crypto/rand.Read failed; media preview unavailable", "err", err)
+		return ""
 	}
 	token := hex.EncodeToString(tok)
 
@@ -5768,9 +5769,11 @@ func (a *App) ReadFile(rel string) FilePreview {
 	out.Size = info.Size()
 	if kind, mime := previewMediaKind(path); kind != "" {
 		token := a.ensureMediaTokenStore().create(path, info.Name(), mime, kind, info.Size(), info.ModTime())
-		out.Kind = kind
-		out.Mime = mime
-		out.URL = "/__reasonix_workspace_media/" + token + "/" + url.PathEscape(info.Name())
+		if token != "" {
+			out.Kind = kind
+			out.Mime = mime
+			out.URL = "/__reasonix_workspace_media/" + token + "/" + url.PathEscape(info.Name())
+		}
 		return out
 	}
 	f, err := os.Open(path)

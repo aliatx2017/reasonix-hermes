@@ -11,9 +11,25 @@ import (
 	"reasonix/internal/config"
 )
 
+// mustAuthGate is a test helper that calls newAuthGate and fails the test on error.
+func mustAuthGate(t *testing.T, cfg config.ServeConfig) *authGate {
+	t.Helper()
+	ag, err := newAuthGate(cfg)
+	if err != nil {
+		t.Fatalf("newAuthGate: %v", err)
+	}
+	return ag
+}
+
 func TestGenerateToken(t *testing.T) {
-	t1 := generateToken()
-	t2 := generateToken()
+	t1, err := generateToken()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t2, err := generateToken()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if t1 == t2 {
 		t.Error("generateToken should produce unique values")
 	}
@@ -42,7 +58,7 @@ func TestHashPassword(t *testing.T) {
 }
 
 func TestAuthGateModeNone(t *testing.T) {
-	ag := newAuthGate(config.ServeConfig{}) // default: authNone
+	ag := mustAuthGate(t, config.ServeConfig{}) // default: authNone
 	if ag.Mode() != "none" {
 		t.Errorf("mode = %q, want none", ag.Mode())
 	}
@@ -73,7 +89,7 @@ func TestNormalizeAuthModeRejectsUnknown(t *testing.T) {
 }
 
 func TestInvalidAuthModeFailsClosed(t *testing.T) {
-	ag := newAuthGate(config.ServeConfig{AuthMode: "tokne"})
+	ag := mustAuthGate(t, config.ServeConfig{AuthMode: "tokne"})
 	if ag.Mode() != "invalid" {
 		t.Errorf("mode = %q, want invalid", ag.Mode())
 	}
@@ -95,7 +111,7 @@ func TestInvalidAuthModeFailsClosed(t *testing.T) {
 // ── Token mode tests ──
 
 func TestTokenModeNoAuthReturns401(t *testing.T) {
-	ag := newAuthGate(config.ServeConfig{AuthMode: "token", Token: "secret"})
+	ag := mustAuthGate(t, config.ServeConfig{AuthMode: "token", Token: "secret"})
 	ts := httptest.NewServer(ag.middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})))
@@ -112,7 +128,7 @@ func TestTokenModeNoAuthReturns401(t *testing.T) {
 }
 
 func TestTokenModeValidCookie(t *testing.T) {
-	ag := newAuthGate(config.ServeConfig{AuthMode: "token", Token: "secret"})
+	ag := mustAuthGate(t, config.ServeConfig{AuthMode: "token", Token: "secret"})
 	ts := httptest.NewServer(ag.middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})))
@@ -131,7 +147,7 @@ func TestTokenModeValidCookie(t *testing.T) {
 }
 
 func TestTokenModeInvalidCookie(t *testing.T) {
-	ag := newAuthGate(config.ServeConfig{AuthMode: "token", Token: "secret"})
+	ag := mustAuthGate(t, config.ServeConfig{AuthMode: "token", Token: "secret"})
 	ts := httptest.NewServer(ag.middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})))
@@ -150,7 +166,7 @@ func TestTokenModeInvalidCookie(t *testing.T) {
 }
 
 func TestTokenModeValidQueryParamRedirects(t *testing.T) {
-	ag := newAuthGate(config.ServeConfig{AuthMode: "token", Token: "secret"})
+	ag := mustAuthGate(t, config.ServeConfig{AuthMode: "token", Token: "secret"})
 
 	// Use a handler that records whether auth passed.
 	var passed bool
@@ -189,7 +205,7 @@ func TestTokenModeValidQueryParamRedirects(t *testing.T) {
 }
 
 func TestTokenModeLoopbackCookieAllowsLocalHTTP(t *testing.T) {
-	ag := newAuthGate(config.ServeConfig{AuthMode: "token", Token: "secret"})
+	ag := mustAuthGate(t, config.ServeConfig{AuthMode: "token", Token: "secret"})
 	ts := httptest.NewServer(ag.middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})))
@@ -216,7 +232,7 @@ func TestTokenModeLoopbackCookieAllowsLocalHTTP(t *testing.T) {
 }
 
 func TestTokenModeNonLoopbackCookieIsSecure(t *testing.T) {
-	ag := newAuthGate(config.ServeConfig{AuthMode: "token", Token: "secret"})
+	ag := mustAuthGate(t, config.ServeConfig{AuthMode: "token", Token: "secret"})
 	ts := httptest.NewServer(ag.middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})))
@@ -245,7 +261,7 @@ func TestTokenModeNonLoopbackCookieIsSecure(t *testing.T) {
 }
 
 func TestTokenModeInvalidQueryParam(t *testing.T) {
-	ag := newAuthGate(config.ServeConfig{AuthMode: "token", Token: "secret"})
+	ag := mustAuthGate(t, config.ServeConfig{AuthMode: "token", Token: "secret"})
 	ts := httptest.NewServer(ag.middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})))
@@ -262,7 +278,7 @@ func TestTokenModeInvalidQueryParam(t *testing.T) {
 }
 
 func TestTokenModeAutoGeneratesToken(t *testing.T) {
-	ag := newAuthGate(config.ServeConfig{AuthMode: "token"})
+	ag := mustAuthGate(t, config.ServeConfig{AuthMode: "token"})
 	if ag.Mode() != "token" {
 		t.Errorf("mode = %q, want token", ag.Mode())
 	}
@@ -277,7 +293,7 @@ func TestTokenModeAutoGeneratesToken(t *testing.T) {
 // ── Password mode tests ──
 
 func TestPasswordModeLoginPage(t *testing.T) {
-	ag := newAuthGate(config.ServeConfig{AuthMode: "password", PasswordHash: mustHash("test")})
+	ag := mustAuthGate(t, config.ServeConfig{AuthMode: "password", PasswordHash: mustHash("test")})
 	ts := httptest.NewServer(ag.middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})))
@@ -294,7 +310,7 @@ func TestPasswordModeLoginPage(t *testing.T) {
 }
 
 func TestPasswordModeNoSessionRedirects(t *testing.T) {
-	ag := newAuthGate(config.ServeConfig{AuthMode: "password", PasswordHash: mustHash("test")})
+	ag := mustAuthGate(t, config.ServeConfig{AuthMode: "password", PasswordHash: mustHash("test")})
 	ts := httptest.NewServer(ag.middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})))
@@ -322,7 +338,7 @@ func TestPasswordModeNoSessionRedirects(t *testing.T) {
 }
 
 func TestPasswordModeAPIWithoutSessionReturns401(t *testing.T) {
-	ag := newAuthGate(config.ServeConfig{AuthMode: "password", PasswordHash: mustHash("test")})
+	ag := mustAuthGate(t, config.ServeConfig{AuthMode: "password", PasswordHash: mustHash("test")})
 	ts := httptest.NewServer(ag.middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})))
@@ -341,7 +357,7 @@ func TestPasswordModeAPIWithoutSessionReturns401(t *testing.T) {
 }
 
 func TestPasswordModeValidLogin(t *testing.T) {
-	ag := newAuthGate(config.ServeConfig{AuthMode: "password", PasswordHash: mustHash("correct")})
+	ag := mustAuthGate(t, config.ServeConfig{AuthMode: "password", PasswordHash: mustHash("correct")})
 	ts := httptest.NewServer(ag.middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})))
@@ -389,7 +405,7 @@ func TestPasswordModeValidLogin(t *testing.T) {
 }
 
 func TestPasswordModeSanitizesRedirectCookie(t *testing.T) {
-	ag := newAuthGate(config.ServeConfig{AuthMode: "password", PasswordHash: mustHash("correct")})
+	ag := mustAuthGate(t, config.ServeConfig{AuthMode: "password", PasswordHash: mustHash("correct")})
 	ts := httptest.NewServer(ag.middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})))
@@ -419,7 +435,7 @@ func TestPasswordModeSanitizesRedirectCookie(t *testing.T) {
 }
 
 func TestPasswordModeWrongPassword(t *testing.T) {
-	ag := newAuthGate(config.ServeConfig{AuthMode: "password", PasswordHash: mustHash("correct")})
+	ag := mustAuthGate(t, config.ServeConfig{AuthMode: "password", PasswordHash: mustHash("correct")})
 	ts := httptest.NewServer(ag.middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})))
@@ -444,7 +460,7 @@ func TestPasswordModeWrongPassword(t *testing.T) {
 }
 
 func TestPasswordModeEmptyPassword(t *testing.T) {
-	ag := newAuthGate(config.ServeConfig{AuthMode: "password", PasswordHash: mustHash("correct")})
+	ag := mustAuthGate(t, config.ServeConfig{AuthMode: "password", PasswordHash: mustHash("correct")})
 	ts := httptest.NewServer(ag.middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})))
@@ -463,7 +479,7 @@ func TestPasswordModeEmptyPassword(t *testing.T) {
 // ── Session HMAC tests ──
 
 func TestSignAndVerifySession(t *testing.T) {
-	ag := newAuthGate(config.ServeConfig{AuthMode: "password", PasswordHash: mustHash("test")})
+	ag := mustAuthGate(t, config.ServeConfig{AuthMode: "password", PasswordHash: mustHash("test")})
 
 	tok := ag.signSession()
 	if !ag.verifySession(tok) {
@@ -473,27 +489,27 @@ func TestSignAndVerifySession(t *testing.T) {
 
 func TestSessionVerifiesAcrossRestartWithSamePasswordHash(t *testing.T) {
 	hash := mustHash("test")
-	ag1 := newAuthGate(config.ServeConfig{AuthMode: "password", PasswordHash: hash})
+	ag1 := mustAuthGate(t, config.ServeConfig{AuthMode: "password", PasswordHash: hash})
 	tok := ag1.signSession()
 
-	ag2 := newAuthGate(config.ServeConfig{AuthMode: "password", PasswordHash: hash})
+	ag2 := mustAuthGate(t, config.ServeConfig{AuthMode: "password", PasswordHash: hash})
 	if !ag2.verifySession(tok) {
 		t.Fatal("session signed with a persisted password hash should verify after restart")
 	}
 }
 
 func TestSessionRejectsDifferentPasswordHash(t *testing.T) {
-	ag1 := newAuthGate(config.ServeConfig{AuthMode: "password", PasswordHash: mustHash("first")})
+	ag1 := mustAuthGate(t, config.ServeConfig{AuthMode: "password", PasswordHash: mustHash("first")})
 	tok := ag1.signSession()
 
-	ag2 := newAuthGate(config.ServeConfig{AuthMode: "password", PasswordHash: mustHash("second")})
+	ag2 := mustAuthGate(t, config.ServeConfig{AuthMode: "password", PasswordHash: mustHash("second")})
 	if ag2.verifySession(tok) {
 		t.Fatal("session should not verify with a different password hash")
 	}
 }
 
 func TestSessionTampered(t *testing.T) {
-	ag := newAuthGate(config.ServeConfig{AuthMode: "password", PasswordHash: mustHash("test")})
+	ag := mustAuthGate(t, config.ServeConfig{AuthMode: "password", PasswordHash: mustHash("test")})
 
 	tok := ag.signSession()
 	// Tamper with the payload (change a character before the dot).
@@ -505,7 +521,7 @@ func TestSessionTampered(t *testing.T) {
 }
 
 func TestSessionWrongSignature(t *testing.T) {
-	ag := newAuthGate(config.ServeConfig{AuthMode: "password", PasswordHash: mustHash("test")})
+	ag := mustAuthGate(t, config.ServeConfig{AuthMode: "password", PasswordHash: mustHash("test")})
 
 	tok := ag.signSession()
 	dot := strings.LastIndexByte(tok, '.')
@@ -518,7 +534,7 @@ func TestSessionWrongSignature(t *testing.T) {
 }
 
 func TestSessionExpired(t *testing.T) {
-	ag := newAuthGate(config.ServeConfig{AuthMode: "password", PasswordHash: mustHash("test")})
+	ag := mustAuthGate(t, config.ServeConfig{AuthMode: "password", PasswordHash: mustHash("test")})
 
 	// Craft a session with an expiry in the past.
 	tok := ag.signSession()
@@ -531,7 +547,7 @@ func TestSessionExpired(t *testing.T) {
 }
 
 func TestSessionMalformed(t *testing.T) {
-	ag := newAuthGate(config.ServeConfig{AuthMode: "password", PasswordHash: mustHash("test")})
+	ag := mustAuthGate(t, config.ServeConfig{AuthMode: "password", PasswordHash: mustHash("test")})
 
 	for _, bad := range []string{
 		"",
@@ -604,7 +620,7 @@ func TestRateLimiterDifferentIPs(t *testing.T) {
 // ── clientIP tests ──
 
 func TestClientIPRemoteAddr(t *testing.T) {
-	ag := newAuthGate(config.ServeConfig{AuthMode: "token", Token: "x"})
+	ag := mustAuthGate(t, config.ServeConfig{AuthMode: "token", Token: "x"})
 	req, _ := http.NewRequest("GET", "/", nil)
 	req.RemoteAddr = "192.0.2.42:12345"
 	if got := ag.clientIP(req); got != "192.0.2.42" {
@@ -613,7 +629,7 @@ func TestClientIPRemoteAddr(t *testing.T) {
 }
 
 func TestClientIPIgnoresXForwardedForWithoutProxy(t *testing.T) {
-	ag := newAuthGate(config.ServeConfig{AuthMode: "token", Token: "x"})
+	ag := mustAuthGate(t, config.ServeConfig{AuthMode: "token", Token: "x"})
 	req, _ := http.NewRequest("GET", "/", nil)
 	req.RemoteAddr = "192.0.2.1:12345"
 	req.Header.Set("X-Forwarded-For", "10.0.0.1, 10.0.0.2")
@@ -623,7 +639,7 @@ func TestClientIPIgnoresXForwardedForWithoutProxy(t *testing.T) {
 }
 
 func TestClientIPTrustsXForwardedForWithProxy(t *testing.T) {
-	ag := newAuthGate(config.ServeConfig{AuthMode: "token", Token: "x", BehindProxy: true})
+	ag := mustAuthGate(t, config.ServeConfig{AuthMode: "token", Token: "x", BehindProxy: true})
 	req, _ := http.NewRequest("GET", "/", nil)
 	req.RemoteAddr = "10.0.0.99:12345"
 	req.Header.Set("X-Forwarded-For", "192.0.2.42, 10.0.0.1")
@@ -635,7 +651,7 @@ func TestClientIPTrustsXForwardedForWithProxy(t *testing.T) {
 // ── isTLS tests ──
 
 func TestIsTLS(t *testing.T) {
-	ag := newAuthGate(config.ServeConfig{AuthMode: "token", Token: "x"})
+	ag := mustAuthGate(t, config.ServeConfig{AuthMode: "token", Token: "x"})
 	req, _ := http.NewRequest("GET", "/", nil)
 	if ag.isTLS(req) {
 		t.Error("plain request should not be TLS")
@@ -643,7 +659,7 @@ func TestIsTLS(t *testing.T) {
 }
 
 func TestIsTLSIgnoresForwardedProtoWithoutProxy(t *testing.T) {
-	ag := newAuthGate(config.ServeConfig{AuthMode: "token", Token: "x"})
+	ag := mustAuthGate(t, config.ServeConfig{AuthMode: "token", Token: "x"})
 	req, _ := http.NewRequest("GET", "/", nil)
 	req.Header.Set("X-Forwarded-Proto", "https")
 	if ag.isTLS(req) {
@@ -652,7 +668,7 @@ func TestIsTLSIgnoresForwardedProtoWithoutProxy(t *testing.T) {
 }
 
 func TestIsTLSTrustsForwardedProtoWithProxy(t *testing.T) {
-	ag := newAuthGate(config.ServeConfig{AuthMode: "token", Token: "x", BehindProxy: true})
+	ag := mustAuthGate(t, config.ServeConfig{AuthMode: "token", Token: "x", BehindProxy: true})
 	req, _ := http.NewRequest("GET", "/", nil)
 	req.Header.Set("X-Forwarded-Proto", "https")
 	if !ag.isTLS(req) {
@@ -661,7 +677,7 @@ func TestIsTLSTrustsForwardedProtoWithProxy(t *testing.T) {
 }
 
 func TestAuthCookieSecurePolicy(t *testing.T) {
-	ag := newAuthGate(config.ServeConfig{AuthMode: "token", Token: "x"})
+	ag := mustAuthGate(t, config.ServeConfig{AuthMode: "token", Token: "x"})
 	for _, host := range []string{"localhost:8787", "127.0.0.1:8787", "[::1]:8787"} {
 		req, _ := http.NewRequest("GET", "http://"+host+"/", nil)
 		if ag.authCookieSecure(req) {
@@ -674,7 +690,7 @@ func TestAuthCookieSecurePolicy(t *testing.T) {
 		t.Fatal("non-loopback HTTP cookies should be marked Secure")
 	}
 
-	proxy := newAuthGate(config.ServeConfig{AuthMode: "token", Token: "x", BehindProxy: true})
+	proxy := mustAuthGate(t, config.ServeConfig{AuthMode: "token", Token: "x", BehindProxy: true})
 	req, _ = http.NewRequest("GET", "http://example.test/", nil)
 	req.Header.Set("X-Forwarded-Proto", "https")
 	if !proxy.authCookieSecure(req) {

@@ -7,6 +7,8 @@ linters:
     - ineffassign
     - staticcheck
     - unused
+    - gosec
+    - gocritic
   settings:
     errcheck:
       check-type-assertions: false
@@ -21,6 +23,21 @@ linters:
         - -ST1005 # error strings ending with punctuation — too strict for initial adoption
         - -ST1018 # Unicode format characters — intentional in TUI code
         - -QF1001 # De Morgan's law — readability preference
+    gosec:
+      excludes:
+        - G104 # unhandled errors (duplicate of errcheck)
+        - G204 # subprocess launched with variable (intentional in bash tool)
+        - G304 # file path provided as taint (intentional in workspace tools)
+        - G306 # file mode (all 0o600 fixes applied in P1-03)
+        - G404 # weak random source (non-security contexts)
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - performance
+      disabled-checks:
+        - commentFormatting  # too noisy for initial adoption
+        - hugeParam          # intentional in some hot paths
+        - whyNoLint          # too noisy
   exclusions:
     generated: lax
     presets:

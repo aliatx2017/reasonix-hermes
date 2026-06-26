@@ -46,6 +46,10 @@ type Peer struct {
 	URL    string
 	token  string
 	client *http.Client
+
+	initMu      sync.Mutex
+	initialized bool
+	initializedAt time.Time
 }
 
 // DelegationResult is the result of a single delegate/broadcast operation.
@@ -106,8 +110,7 @@ type Mesh struct {
 	reqID  atomic.Int64
 }
 
-// initializedPeers tracks which peer URLs have completed MCP initialization.
-var initializedPeers sync.Map
+const peerInitTTL = 5 * time.Minute
 
 // New creates a Mesh from config. Returns nil when no peers are configured
 // or the mesh is disabled.
@@ -330,8 +333,11 @@ func (m *Mesh) executeQuery(ctx context.Context, peer *Peer, question string) (*
 }
 
 func (m *Mesh) initialize(ctx context.Context, peer *Peer) error {
-	// Skip re-initialization if this peer was recently initialized.
-	if _, ok := initializedPeers.Load(peer.URL); ok {
+	peer.initMu.Lock()
+	defer peer.initMu.Unlock()
+
+	// Skip re-initialization if the peer was initialized within the TTL window.
+	if peer.initialized && time.Since(peer.initializedAt) < peerInitTTL {
 		return nil
 	}
 
@@ -346,17 +352,20 @@ func (m *Mesh) initialize(ctx context.Context, peer *Peer) error {
 
 	resp, err := m.call(ctx, peer, "initialize", initParams)
 	if err != nil {
+		peer.initialized = false
 		return fmt.Errorf("initialize: %w", err)
 	}
 
 	var initResult initializeResult
 	if err := json.Unmarshal(resp, &initResult); err != nil {
+		peer.initialized = false
 		return fmt.Errorf("parse initialize result: %w", err)
 	}
 
 	// Send initialized notification (fire-and-forget)
 	_ = m.notify(ctx, peer, "notifications/initialized", nil)
-	initializedPeers.Store(peer.URL, true)
+	peer.initialized = true
+	peer.initializedAt = time.Now()
 	return nil
 }
 

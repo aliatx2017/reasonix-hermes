@@ -18,7 +18,7 @@ func TestServeRejectsNonJSONPost(t *testing.T) {
 	got := make(chan string, 1)
 	bc := NewBroadcaster()
 	ctrl := control.New(control.Options{Runner: fakeRunner{got: got}, Sink: bc})
-	srv := httptest.NewServer(New(ctrl, bc, config.ServeConfig{}).Handler())
+	srv := httptest.NewServer(mustNew(ctrl, bc, config.ServeConfig{}).Handler())
 	defer srv.Close()
 
 	for _, ct := range []string{"text/plain", "application/x-www-form-urlencoded", ""} {

@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"golang.org/x/net/http/httpproxy"
@@ -48,16 +49,23 @@ func DefaultTransport() *http.Transport {
 	return tr
 }
 
-// DefaultClient returns an *http.Client with a generous overall Timeout. It
-// delegates to http.DefaultTransport so that callers who replace the default
-// transport (e.g. in tests) still receive their mocks. Callers doing API calls
-// should prefer this over http.DefaultClient so that hung servers or stalled
-// TCP connections cannot leak goroutines.
+var (
+	defaultClientOnce sync.Once
+	defaultClientVal  *http.Client
+)
+
+// DefaultClient returns a shared *http.Client with a generous overall Timeout.
+// It delegates to http.DefaultTransport so that callers who replace the default
+// transport (e.g. in tests) still receive their mocks. The instance is created
+// once and reused to share the underlying connection pool across callers.
 func DefaultClient() *http.Client {
-	return &http.Client{
-		Transport: http.DefaultTransport,
-		Timeout:   defaultOverallTimeout,
-	}
+	defaultClientOnce.Do(func() {
+		defaultClientVal = &http.Client{
+			Transport: http.DefaultTransport,
+			Timeout:   defaultOverallTimeout,
+		}
+	})
+	return defaultClientVal
 }
 
 // ProxySpec is the resolved proxy configuration used by network clients. URL is

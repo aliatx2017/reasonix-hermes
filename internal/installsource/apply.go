@@ -222,7 +222,7 @@ func (t *installSourceTool) applyInstallMCP(ctx context.Context, req request, ac
 		if err != nil {
 			if oldDisconnected {
 				if rbErr := t.restoreMCP(previous); rbErr != nil {
-					return fmt.Errorf("%w; reconnect previous server failed: %v", err, rbErr)
+					return fmt.Errorf("%w; reconnect previous server failed: %w", err, rbErr)
 				}
 			}
 			return err

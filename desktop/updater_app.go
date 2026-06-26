@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"os"
 	"runtime"
 
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
@@ -146,7 +145,7 @@ func (a *App) InstallUpdate() error {
 	if runtime.GOOS == "linux" {
 		_ = relaunch()
 	}
-	os.Exit(0)
+	// Wails will exit the process when the window closes; no os.Exit needed here.
 	return nil
 }
 

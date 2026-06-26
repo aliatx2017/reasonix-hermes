@@ -6,7 +6,7 @@ metadata:
     {{- include "reasonix.labels" . | nindent 4 }}
 data:
   reasonix.toml: |
-    config_version = 1
+    config_version = 2
     default_model = "{{ .Values.config.defaultModel }}"
     language = "{{ .Values.config.language }}"
 

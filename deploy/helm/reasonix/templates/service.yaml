@@ -17,7 +17,7 @@ spec:
       targetPort: memory
       name: memory
     {{- end }}
-    {{- if .Values.service.type }}
+    {{- if .Values.components.bot.enabled }}
     - port: {{ .Values.service.collabPort }}
       targetPort: collab
       name: collab
