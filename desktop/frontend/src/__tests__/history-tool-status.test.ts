@@ -42,6 +42,25 @@ eq(
   'history users preserve createdAt when present',
 );
 
+const checkpointTurnItems = historyMessagesToItems([
+  { role: "user", content: "first", checkpointTurn: 0 },
+  { role: "assistant", content: "ok" },
+  { role: "user", content: "second", checkpointTurn: 3 },
+] as HistoryMessage[], "c").items.filter((item) => item.kind === "user");
+eq(checkpointTurnItems[0]?.kind === "user" && checkpointTurnItems[0].checkpointTurn, 0, "history users preserve checkpoint turn zero");
+eq(checkpointTurnItems[1]?.kind === "user" && checkpointTurnItems[1].checkpointTurn, 3, "history users preserve non-contiguous backend checkpoint turns");
+
+const citedAssistant = historyMessagesToItems([
+  {
+    role: "assistant",
+    content: "done",
+    memoryCitations: [{ id: "mem-1", source: "MEMORY.md", lineStart: 116, lineEnd: 123, note: "workflow" }],
+  },
+] as HistoryMessage[], "m").items.filter((item) => item.kind === "assistant");
+eq(citedAssistant[0]?.kind === "assistant" && citedAssistant[0].memoryCitations?.length, 1, "assistant history preserves memory citations");
+eq(citedAssistant[0]?.kind === "assistant" && citedAssistant[0].memoryCitations?.[0]?.source, "MEMORY.md", "assistant memory citation source is preserved");
+eq(citedAssistant[0]?.kind === "assistant" && citedAssistant[0].memoryCitations?.[0]?.lineEnd, 123, "assistant memory citation line range is preserved");
+
 const lowercaseError = toolItems([
   {
     role: 'assistant',

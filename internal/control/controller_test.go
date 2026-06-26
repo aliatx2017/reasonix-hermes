@@ -70,6 +70,15 @@ func (r *sessionContextRunner) Run(ctx context.Context, input string) error {
 	return nil
 }
 
+type cancelingRunner struct {
+	cancel context.CancelFunc
+}
+
+func (r cancelingRunner) Run(_ context.Context, _ string) error {
+	r.cancel()
+	return nil
+}
+
 type fakeControlTool struct{ name string }
 
 func (t fakeControlTool) Name() string { return t.name }
@@ -291,6 +300,39 @@ func TestRunInjectsParentSessionForJobs(t *testing.T) {
 	}
 	if runner.jobSession != want {
 		t.Fatalf("jobs session = %q, want %q", runner.jobSession, want)
+	}
+}
+
+func TestRunStopHookIgnoresCanceledCallerContext(t *testing.T) {
+	runCtx, cancel := context.WithCancel(context.Background())
+	var stopCalls int
+	var stopErr error
+	hooks := hook.NewRunner([]hook.ResolvedHook{{
+		HookConfig: hook.HookConfig{Command: "record-stop"},
+		Event:      hook.Stop,
+		Scope:      hook.ScopeProject,
+	}}, "", func(ctx context.Context, in hook.SpawnInput) hook.SpawnResult {
+		stopCalls++
+		stopErr = ctx.Err()
+		return hook.SpawnResult{ExitCode: 0}
+	}, nil)
+	c := New(Options{
+		Runner: cancelingRunner{cancel: cancel},
+		Hooks:  hooks,
+	})
+
+	if err := c.Run(runCtx, "hello"); err != nil {
+		t.Fatal(err)
+	}
+
+	if runCtx.Err() != context.Canceled {
+		t.Fatalf("caller context err = %v, want %v", runCtx.Err(), context.Canceled)
+	}
+	if stopCalls != 1 {
+		t.Fatalf("Stop hook calls = %d, want 1", stopCalls)
+	}
+	if stopErr != nil {
+		t.Fatalf("Stop hook context err = %v, want nil", stopErr)
 	}
 }
 
@@ -1346,6 +1388,73 @@ func (r blockingRunner) Run(_ context.Context, input string) error {
 	r.session.Add(provider.Message{Role: provider.RoleUser, Content: input})
 	<-r.release
 	return nil
+}
+
+func TestRunTurnReportsErrTurnRunning(t *testing.T) {
+	sess := agent.NewSession("sys")
+	release := make(chan struct{})
+	c := New(Options{Runner: blockingRunner{session: sess, release: release}})
+
+	done := make(chan error, 1)
+	go func() {
+		done <- c.RunTurn(context.Background(), "first")
+	}()
+	waitForRunning(t, c)
+
+	if err := c.RunTurn(context.Background(), "second"); err != ErrTurnRunning {
+		t.Fatalf("RunTurn while running error = %v, want ErrTurnRunning", err)
+	}
+
+	close(release)
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("first RunTurn returned %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("first RunTurn did not finish after release")
+	}
+}
+
+func TestSendWhileRunningDoesNotInterleaveTurns(t *testing.T) {
+	sess := agent.NewSession("sys")
+	release := make(chan struct{})
+	events := make(chan event.Event, 4)
+	c := New(Options{
+		Runner: blockingRunner{session: sess, release: release},
+		Sink: event.FuncSink(func(e event.Event) {
+			events <- e
+		}),
+	})
+	defer c.autosaveWG.Wait()
+
+	c.Send("first")
+	waitForRunning(t, c)
+	c.Send("second")
+	close(release)
+	waitForTurnDone(t, events)
+
+	var users []string
+	for _, m := range sess.Messages {
+		if m.Role == provider.RoleUser {
+			users = append(users, m.Content)
+		}
+	}
+	if len(users) != 1 || users[0] != "first" {
+		t.Fatalf("user turns = %v, want only first turn recorded", users)
+	}
+}
+
+func waitForRunning(t *testing.T, c *Controller) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if c.Running() {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("controller did not enter running state")
 }
 
 func TestMidTurnAutosavePersistsDuringLongTurn(t *testing.T) {

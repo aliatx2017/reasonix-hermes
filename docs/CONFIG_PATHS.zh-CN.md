@@ -160,6 +160,16 @@ Windows:     %APPDATA%\reasonix\config.toml
 4. 导入尚未迁移过的 memory 文件和 sessions；
 5. 输出最终汇总。
 
+如果旧 v0.x sessions 不在上述已知旧路径里，例如 Windows v0.52 安装时选择了自定义安装/数据目录，可以显式指定旧目录：
+
+```text
+/migrate --from "D:\OldReasonix"
+```
+
+显式形式只导入 sessions。这个路径可以是旧安装目录、`.reasonix`/数据目录，或者
+`sessions` 目录本身；Reasonix 会在该根目录下检查常见布局，并使用按来源目录区分的
+marker，因此之前已经运行过普通 `/migrate` 也不会挡住这次后补导入。
+
 该补救命令仍然是非破坏性的。它不会覆盖已有的
 `<Reasonix home>/config.toml`；如果新配置已经存在，需要手动把旧配置里缺失的设置复制过去。旧 memory 文件只会在目标文件不存在时复制。它也会尊重 session 导入 marker，因此已经迁移过、之后又被用户删除的会话，不会在后续 `/migrate` 中被重新恢复。
 
@@ -168,4 +178,4 @@ Windows:     %APPDATA%\reasonix\config.toml
 - 自动迁移从 **v1.11.0** 开始。
 - `/migrate` 只存在于包含该命令的 Go 版 Reasonix 构建中。如果 Reasonix 提示 `unknown command`，请先升级后再运行。
 - legacy `0.x` TypeScript 线没有这个命令。
-- 它只会重新扫描上面列出的旧路径；它不是备份恢复工具、降级导入工具，也不是任意目录导入器。
+- 普通 `/migrate` 只会重新扫描上面列出的旧路径。只有确认某个目录是 v0.x session 来源时，才使用 `/migrate --from <path>`；它不是备份恢复工具或降级导入工具。

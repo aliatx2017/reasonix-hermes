@@ -580,10 +580,14 @@ export function reportCrash(label: string, err: unknown, extra?: string) {
 type GlobalCrashEventLike = Pick<Event, 'defaultPrevented'> & {
   message?: unknown;
   error?: unknown;
+  filename?: unknown;
+  lineno?: unknown;
+  colno?: unknown;
 };
 
 const RESIZE_OBSERVER_LOOP_MESSAGE_RE =
   /^ResizeObserver loop (?:limit exceeded|completed with undelivered notifications\.?)$/;
+const OPAQUE_SCRIPT_ERROR_MESSAGE = "Script error.";
 
 function globalCrashEventMessages(e: GlobalCrashEventLike): string[] {
   const messages: string[] = [];
@@ -606,6 +610,24 @@ export function shouldReportGlobalCrashEvent(e: GlobalCrashEventLike): boolean {
   if (globalCrashEventMessages(e).some((message) => RESIZE_OBSERVER_LOOP_MESSAGE_RE.test(message)))
     return false;
   return true;
+}
+
+function globalScriptErrorLocation(e: GlobalCrashEventLike): string {
+  const parts: string[] = [];
+  if (typeof e.filename === "string" && e.filename.trim()) parts.push(`filename=${e.filename.trim()}`);
+  if (typeof e.lineno === "number" && Number.isFinite(e.lineno) && e.lineno > 0) parts.push(`lineno=${e.lineno}`);
+  if (typeof e.colno === "number" && Number.isFinite(e.colno) && e.colno > 0) parts.push(`colno=${e.colno}`);
+  return parts.join(" ");
+}
+
+export function globalCrashReportReason(e: GlobalCrashEventLike): unknown {
+  if (e.error !== undefined && e.error !== null) return e.error;
+  const message = typeof e.message === "string" ? e.message.trim() : e.message;
+  if (message === OPAQUE_SCRIPT_ERROR_MESSAGE) {
+    const location = globalScriptErrorLocation(e);
+    if (location) return `${OPAQUE_SCRIPT_ERROR_MESSAGE}\n${location}`;
+  }
+  return e.message;
 }
 
 export function shouldPromptForPerformanceLabel(
@@ -736,8 +758,13 @@ export function installPerformancePressureMonitor() {
 }
 
 export function installGlobalCrashHandlers() {
+<<<<<<< HEAD
   window.addEventListener('error', (e) => {
     if (shouldReportGlobalCrashEvent(e)) reportCrash('window.error', e.error ?? e.message);
+=======
+  window.addEventListener("error", (e) => {
+    if (shouldReportGlobalCrashEvent(e)) reportCrash("window.error", globalCrashReportReason(e));
+>>>>>>> upstream/main-v2
   });
   window.addEventListener('unhandledrejection', (e) => {
     if (shouldReportGlobalCrashEvent(e)) reportCrash('unhandledrejection', e.reason);

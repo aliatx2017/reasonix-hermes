@@ -190,6 +190,19 @@ same command into the composer. The command prints progress notices while it:
 4. imports memory files and sessions that were not previously imported, and
 5. prints a final summary.
 
+If old v0.x sessions live outside the known legacy locations — for example a
+Windows v0.52 install/data directory chosen during setup — pass that directory
+explicitly:
+
+```text
+/migrate --from "D:\OldReasonix"
+```
+
+The explicit form imports sessions only. The path may be the old install
+directory, a `.reasonix`/data directory, or the `sessions` directory itself;
+Reasonix checks the common layouts below that root and uses a source-specific
+marker, so a previous plain `/migrate` run does not hide the later import.
+
 The rescue command is intentionally non-destructive. It does not overwrite an
 existing `<Reasonix home>/config.toml`; if the new config already exists, copy
 any missing legacy settings across by hand. It copies legacy memory files only
@@ -203,5 +216,6 @@ Version limits:
 - `/migrate` is available only in Go-based Reasonix builds that include the
   command. If Reasonix reports `unknown command`, upgrade first and rerun it.
 - The command is not available in the legacy `0.x` TypeScript line.
-- It rescans the legacy locations listed above; it is not a backup restore tool,
-  a downgrade importer, or a general importer for arbitrary directories.
+- Plain `/migrate` rescans the legacy locations listed above. Use
+  `/migrate --from <path>` only for a known v0.x session source; it is not a
+  backup restore tool or a downgrade importer.

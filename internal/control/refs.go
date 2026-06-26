@@ -165,6 +165,9 @@ func (c *Controller) HasRefs(line string) bool {
 // turn can carry them to a vision-capable model. Best-effort: an unreadable image
 // is skipped — the @ref still lands as text via ResolveRefs.
 func (c *Controller) inputImages(line string) []string {
+	if !c.imageInputEnabled() {
+		return nil
+	}
 	var urls []string
 	for _, r := range c.detectRefs(line) {
 		if url, err := visionRefImageDataURL(r, c.workspaceRoot); err == nil {
@@ -465,7 +468,7 @@ func (c *Controller) resolveRefs(ctx context.Context, line string, scopedOnly bo
 			}
 			appendRefBlock(&b, tag, `path="`+r.path+`"`, text)
 		case refImage:
-			appendRefBlock(&b, "image", `path="`+r.path+`"`, "[image attachment available at @"+r.path+" and attached to this turn as model image input when the selected model supports vision; no local extraction tool is needed for direct visual understanding]")
+			appendRefBlock(&b, "image", `path="`+r.path+`"`, "[image attachment available at @"+r.path+"; sent as direct model image input only when the selected model supports vision. Text-only models can still use an available OCR/image/vision tool with this local path; image bytes are not inlined into prompt text.]")
 		}
 	}
 	return b.String(), errs
@@ -635,9 +638,9 @@ func readFileRefUnscoped(path string) (content string, isDir bool, err error) {
 
 func imageFileRefNote(displayPath, mime string, size int64, attached bool) string {
 	if attached {
-		return fmt.Sprintf("[image file %s, mime=%s, %d bytes — attached to this turn as model image input when the selected model supports vision; no local extraction tool is needed for direct visual understanding.]", displayPath, mime, size)
+		return fmt.Sprintf("[image file %s, mime=%s, %d bytes — sent as direct model image input only when the selected model supports vision. Text-only models can still use an available OCR/image/vision tool with this local path; image bytes are not inlined into prompt text.]", displayPath, mime, size)
 	}
-	return fmt.Sprintf("[image file %s, mime=%s, %d bytes — not attached as model image input because no workspace root is available. Use a workspace-scoped file reference or image attachment to send it to a vision-capable model.]", displayPath, mime, size)
+	return fmt.Sprintf("[image file %s, mime=%s, %d bytes — not sent as direct model image input because no workspace root is available. Use a workspace-scoped file reference, image attachment, or an available OCR/image/vision tool with a readable local path.]", displayPath, mime, size)
 }
 
 // walkRootDir walks a directory under a sandboxed *os.Root and writes each

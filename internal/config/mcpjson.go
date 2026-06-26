@@ -22,13 +22,14 @@ const mcpJSONFile = ".mcp.json"
 // names and semantics match PluginEntry (and Claude): command/args/env describe
 // a local stdio server; type/url/headers describe a remote one.
 type mcpServerSpec struct {
-	Type      string            `json:"type"`
-	Command   string            `json:"command"`
-	Args      []string          `json:"args"`
-	Env       map[string]string `json:"env"`
-	URL       string            `json:"url"`
-	Headers   map[string]string `json:"headers"`
-	AutoStart *bool             `json:"auto_start"`
+	Type                 string            `json:"type"`
+	Command              string            `json:"command"`
+	Args                 []string          `json:"args"`
+	Env                  map[string]string `json:"env"`
+	URL                  string            `json:"url"`
+	Headers              map[string]string `json:"headers"`
+	TrustedReadOnlyTools []string          `json:"trusted_read_only_tools"`
+	AutoStart            *bool             `json:"auto_start"`
 }
 
 // loadMCPJSON reads path (Claude Code's .mcp.json) and returns its servers as
@@ -186,14 +187,15 @@ func anonymousMCPName(i int) string {
 
 func pluginEntryFromMCPSpec(name string, s mcpServerSpec) PluginEntry {
 	e := PluginEntry{
-		Name:      name,
-		Type:      s.Type,
-		Command:   s.Command,
-		Args:      s.Args,
-		Env:       s.Env,
-		URL:       s.URL,
-		Headers:   s.Headers,
-		AutoStart: s.AutoStart,
+		Name:                 name,
+		Type:                 s.Type,
+		Command:              s.Command,
+		Args:                 s.Args,
+		Env:                  s.Env,
+		URL:                  s.URL,
+		Headers:              s.Headers,
+		TrustedReadOnlyTools: s.TrustedReadOnlyTools,
+		AutoStart:            s.AutoStart,
 	}
 	e, _ = NormalizePluginCommandLine(e)
 	return e
@@ -310,6 +312,7 @@ func applyPluginEntryToMCPJSONServer(server map[string]json.RawMessage, entry Pl
 		delete(server, "command")
 		delete(server, "args")
 	}
+	setMCPJSONStringArray(server, "trusted_read_only_tools", entry.TrustedReadOnlyTools)
 	setMCPJSONBool(server, "auto_start", entry.AutoStart)
 }
 

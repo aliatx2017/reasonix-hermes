@@ -1,5 +1,6 @@
 // Run: tsx src/__tests__/use-controller-meta.test.ts
 
+<<<<<<< HEAD
 import {
   foregroundRunningFromRuntimeMeta,
   initialState,
@@ -8,6 +9,12 @@ import {
   shouldReconcileStaleTurn,
 } from '../lib/useController';
 import type { Meta, WireUsage } from '../lib/types';
+=======
+import { foregroundRunningFromRuntimeMeta, initialState, metaFromTab, reducer, sameMeta, shouldReconcileStaleTurn } from "../lib/useController";
+import type { Meta, TabMeta, WireUsage } from "../lib/types";
+
+type LooseTabMeta = Omit<TabMeta, "toolApprovalMode"> & { toolApprovalMode?: TabMeta["toolApprovalMode"] | "" };
+>>>>>>> upstream/main-v2
 
 let passed = 0;
 let failed = 0;
@@ -28,12 +35,22 @@ function meta(overrides: Partial<Meta> = {}): Meta {
   return {
     label: 'DeepSeek-R1',
     ready: true,
+<<<<<<< HEAD
     eventChannel: 'events',
     cwd: '/repo',
     workspaceRoot: '/repo',
     workspaceName: 'repo',
     workspacePath: '/repo',
     gitBranch: 'main',
+=======
+    eventChannel: "events",
+    cwd: "/repo",
+    workspaceRoot: "/repo",
+    workspaceName: "repo",
+    workspacePath: "/repo",
+    gitBranch: "main",
+    imageInputEnabled: true,
+>>>>>>> upstream/main-v2
     autoApproveTools: false,
     bypass: false,
     collaborationMode: 'normal',
@@ -43,6 +60,31 @@ function meta(overrides: Partial<Meta> = {}): Meta {
     goalStatus: 'stopped',
     ...overrides,
   };
+}
+
+function tab(overrides: Partial<LooseTabMeta> = {}): TabMeta {
+  return {
+    id: "tab-1",
+    scope: "project",
+    workspaceRoot: "/repo",
+    workspaceName: "repo",
+    workspacePath: "/repo",
+    gitBranch: "main",
+    topicId: "topic-1",
+    topicTitle: "Topic",
+    label: "DeepSeek-R1",
+    ready: true,
+    running: false,
+    mode: "normal",
+    collaborationMode: "normal",
+    toolApprovalMode: "ask",
+    tokenMode: "full",
+    goal: "",
+    goalStatus: "stopped",
+    active: true,
+    cwd: "/repo",
+    ...overrides,
+  } as TabMeta;
 }
 
 function usage(source: string): WireUsage {
@@ -63,6 +105,7 @@ function usage(source: string): WireUsage {
 console.log('\nuse controller meta');
 
 {
+<<<<<<< HEAD
   eq(sameMeta(meta(), meta()), true, 'identical meta is unchanged');
   eq(
     sameMeta(meta({ collaborationMode: 'normal' }), meta({ collaborationMode: 'plan' })),
@@ -79,6 +122,19 @@ console.log('\nuse controller meta');
     false,
     'git branch changes invalidate meta equality',
   );
+=======
+  eq(sameMeta(meta(), meta()), true, "identical meta is unchanged");
+  eq(sameMeta(meta({ collaborationMode: "normal" }), meta({ collaborationMode: "plan" })), false, "collaboration mode changes invalidate meta equality");
+  eq(sameMeta(meta({ workspacePath: "/repo" }), meta({ workspacePath: "/other" })), false, "workspace path changes invalidate meta equality");
+  eq(sameMeta(meta({ gitBranch: "main" }), meta({ gitBranch: "feature" })), false, "git branch changes invalidate meta equality");
+  eq(sameMeta(meta({ imageInputEnabled: true }), meta({ imageInputEnabled: false })), false, "image input capability changes invalidate meta equality");
+}
+
+{
+  const preserved = metaFromTab(tab({ toolApprovalMode: "" }), meta({ toolApprovalMode: "auto", autoApproveTools: false }));
+  eq(preserved.toolApprovalMode, "auto", "blank tab snapshot preserves explicit auto approval mode");
+  eq(preserved.autoApproveTools, false, "blank tab snapshot does not silently resurrect yolo approval");
+>>>>>>> upstream/main-v2
 }
 
 {
@@ -232,6 +288,24 @@ console.log('\nuse controller meta');
     0.001,
     'helper usage inside a turn still counts toward session cost',
   );
+}
+
+{
+  let s = reducer(initialState, { type: "user", text: "first", seq: 0 });
+  s = reducer(s, { type: "event", e: { kind: "turn_started" } });
+  s = reducer(s, { type: "event", e: { kind: "notice", level: "info", text: "runtime notice" } });
+  s = reducer(s, { type: "event", e: { kind: "turn_done" } });
+  const merged = reducer(s, {
+    type: "history_checkpoint_turns",
+    messages: [
+      { role: "user", content: "first", checkpointTurn: 0 },
+      { role: "assistant", content: "done" },
+    ],
+  });
+  const user = merged.items.find((item) => item.kind === "user");
+  const notice = merged.items.find((item) => item.kind === "notice" && item.text === "runtime notice");
+  eq(user?.kind === "user" && user.checkpointTurn, 0, "turn_done checkpoint merge stamps user turn zero");
+  eq(Boolean(notice), true, "turn_done checkpoint merge preserves runtime notices");
 }
 
 console.log(`\n${passed} passed, ${failed} failed, ${passed + failed} total`);
