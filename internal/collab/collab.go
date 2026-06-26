@@ -17,6 +17,7 @@ package collab
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"log/slog"
 	"net"
@@ -34,6 +35,7 @@ import (
 type Config struct {
 	Enabled    bool   `toml:"enabled"`
 	ListenAddr string `toml:"listen_addr"` // e.g. ":9091"
+	Token      string `toml:"token"`       // optional Bearer token; if set, clients must pass ?token=<value>
 }
 
 // Role is the participant role.
@@ -86,6 +88,7 @@ type Hub struct {
 	server   *http.Server
 	logger   *slog.Logger
 	upgrader websocket.Upgrader
+	token    string // required query-param token (empty = no auth)
 }
 
 type peerSet struct {
@@ -108,6 +111,7 @@ func New(cfg Config, onSteer SteerCallback, logger *slog.Logger) *Hub {
 		sessions: make(map[string]*peerSet),
 		onSteer:  onSteer,
 		logger:   logger.With("component", "collab"),
+		token:    cfg.Token,
 		upgrader: websocket.Upgrader{
 			CheckOrigin: func(r *http.Request) bool {
 				host := r.Host
@@ -223,6 +227,15 @@ func (h *Hub) ActiveSessions() []string {
 func (h *Hub) handleWS(w http.ResponseWriter, r *http.Request) {
 	if h.logger == nil {
 		h.logger = slog.Default()
+	}
+	// Token auth: if configured, require ?token=<value> on the upgrade request.
+	if h.token != "" {
+		got := r.URL.Query().Get("token")
+		if subtle.ConstantTimeCompare([]byte(got), []byte(h.token)) != 1 {
+			h.logger.Warn("collab: rejected unauthenticated upgrade", "remote", r.RemoteAddr)
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
 	}
 	conn, err := h.upgrader.Upgrade(w, r, nil)
 	if err != nil {

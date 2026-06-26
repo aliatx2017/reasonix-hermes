@@ -56,7 +56,7 @@ func writePendingCrash(site string, r any, stack []byte) {
 	if os.MkdirAll(filepath.Dir(path), 0o755) != nil {
 		return
 	}
-	_ = os.WriteFile(path, body, 0o644)
+	_ = os.WriteFile(path, body, 0o600)
 }
 
 func (a *App) goSafe(site string, fn func()) {

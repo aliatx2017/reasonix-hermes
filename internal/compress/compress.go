@@ -120,9 +120,21 @@ func (c *Compressor) Compress(toolName, raw string) string {
 		}
 		return fmt.Sprintf("[content unchanged since turn %d (sha256:%s…): %s]", entry.turn, hash[:12], entry.summary)
 	}
-	// Store in cache.
+	// Store in cache, evicting the oldest entry when maxCache is reached.
 	c.mu.Lock()
 	if _, exists := c.cache[hash]; !exists {
+		if c.maxCache > 0 && len(c.cache) >= c.maxCache {
+			// Evict the entry with the smallest (oldest) turn number.
+			var evictKey string
+			minTurn := int(^uint(0) >> 1) // MaxInt
+			for k, v := range c.cache {
+				if v.turn < minTurn {
+					minTurn = v.turn
+					evictKey = k
+				}
+			}
+			delete(c.cache, evictKey)
+		}
 		summary := firstLine(raw, 100)
 		c.cache[hash] = cacheEntry{turn: int(c.turn.Load()), summary: summary}
 	}

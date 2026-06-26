@@ -640,6 +640,11 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 		} else {
 			b.WriteString("# listen_addr = \":9091\"   # WebSocket listen address\n")
 		}
+		if c.Collab.Token != "" {
+			fmt.Fprintf(&b, "token = %q   # required ?token=<value> on WebSocket upgrade\n", c.Collab.Token)
+		} else {
+			b.WriteString("# token = \"\"   # set to require ?token=<value> on WebSocket upgrade\n")
+		}
 		b.WriteString("\n")
 	}
 

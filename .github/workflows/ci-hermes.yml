@@ -26,7 +26,7 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
-      - run: go test -count=1 ./internal/config/ ./internal/agent/ ./internal/agentlog/... ./internal/billing/... ./internal/provider/ ./internal/control/ ./internal/tool/... ./internal/plugin/... ./internal/bot/... ./internal/compress/... ./internal/scheduler/... ./internal/publish/... ./internal/eval/... ./internal/learn/... ./internal/mesh/... ./internal/collab/... ./internal/constitution/... ./internal/orchestrate/... ./internal/marketplace/...
+      - run: go test -count=1 ./...
 
   race:
     name: Test (-race)
@@ -37,7 +37,7 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
-      - run: go test -race -count=1 ./internal/config/ ./internal/agent/ ./internal/provider/ ./internal/control/ ./internal/compress/... ./internal/mesh/... ./internal/collab/...
+      - run: go test -race -count=1 ./...
 
   desktop-frontend:
     name: Desktop Frontend

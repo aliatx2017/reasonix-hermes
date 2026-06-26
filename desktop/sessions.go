@@ -196,7 +196,7 @@ func reconcileDesktopTrashSessionArtifacts(dir, sessionPath, key string) error {
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(filepath.Join(itemDir, sessionTrashMetaFile), b, 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(itemDir, sessionTrashMetaFile), b, 0o600); err != nil {
 		return err
 	}
 	return agent.ClearCleanupPending(sessionPath)
@@ -246,7 +246,7 @@ func trashSessionArtifactsBeforeMove(dir, sessionPath, key string, beforeMove fu
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(filepath.Join(itemDir, sessionTrashMetaFile), b, 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(itemDir, sessionTrashMetaFile), b, 0o600); err != nil {
 		return err
 	}
 	if err := agent.ClearCleanupPending(sessionPath); err != nil {

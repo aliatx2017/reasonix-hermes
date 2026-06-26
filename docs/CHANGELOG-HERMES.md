@@ -4,6 +4,25 @@ Key milestones in the Hermes fork since June 2026.
 
 ## v1.10.x (June 2026)
 
+### Session 2026-06-26 (h59) — ACTION-PLAN audit P0+P1: security, concurrency, and operational hardening
+
+All 20 P0 (immediate) and 20 P1 (short-term) items from `docs/ACTION-PLAN.md` verified and resolved. 8 new fixes landed; 32 items were already clean from prior sessions.
+
+**New fixes (8 items, 14 files, +94/-39 lines):**
+
+- **P0-09 (hooks exit codes)**: `cmd/reasonix-hooks/main.go` — `doRetain`/`doReflect` now return `error`; `main()` calls `os.Exit(1)` on failure so the hook runner sees `DecisionWarn` instead of a silent pass. Updated leading comment to document exit-code semantics.
+- **P0-10 (CI test scope)**: `.github/workflows/ci-hermes.yml` — `test` and `race` jobs expanded from a hard-coded subset of packages to `go test -count=1 ./...` and `go test -race -count=1 ./...`, covering all 83 packages.
+- **P1-01 (collab WS auth)**: `internal/collab/collab.go` + `internal/config/config.go` + `internal/config/render.go` — `CollabConfig` and `collab.Config` gain a `Token string` field; `handleWS` rejects upgrades with a wrong or missing `?token=` query param using `subtle.ConstantTimeCompare`. Config renderer emits a commented-out example by default.
+- **P1-02 (unbounded upgrade download)**: `internal/cli/upgrade.go:243` — wrapped `io.ReadAll(resp.Body)` with `io.LimitReader(resp.Body, 128<<20)` to cap binary download size.
+- **P1-03 (file permissions 0o644 → 0o600)**: Six desktop files tightened: `desktop/write_mode.go`, `desktop/heartbeat.go`, `desktop/crash_pending.go`, `desktop/app.go`, `desktop/sessions.go`, `desktop/tabs.go` (7 call-sites total).
+- **P1-09 (session cleanup goroutines)**: `desktop/app.go` + `desktop/tabs.go` — added `cleanupWg sync.WaitGroup` to `App`; all `go delayedDesktopSessionCleanup` / `go delayedDesktopSessionTrash` calls now increment the WaitGroup; `shutdown()` calls `a.cleanupWg.Wait()` before tearing down controllers.
+- **P1-10 (mcpbridge signal handler)**: `cmd/reasonix-mcpbridge/main.go` — replaced `os.Exit(0)` in the SIGINT/SIGTERM handler with `_ = os.Stdin.Close()`, which makes `ServeStdio()`'s blocking `ReadBytes` return `io.EOF` for a graceful shutdown that honours `defer` statements.
+- **P1-14 (compressor cache eviction)**: `internal/compress/compress.go` — `Compress()` now evicts the oldest-turn entry when `len(cache) >= maxCache` (default 512), preventing unbounded map growth during long sessions.
+
+**Already clean (32 items verified):** P0-01 through P0-08 (WS origin check, HTTP timeouts, HTTP client, path traversal, context usage, rate-limit goroutine, hook param match, memory CreatedAt), P1-04 through P1-08, P1-11 through P1-13, P1-15 through P1-20.
+
+- **Build**: `go build ./...` + `go vet ./...` clean. No new tests broken.
+
 ### Session 2026-06-21 (h54) — agent-reach MCP + headroom proxy + taste-skill + npm v1.11.0 + upstream merge
 
 - **agent-reach e2e**: Verified sandbox whitelist fix works — agent-reach v1.5.0 runs inside bash=enforce sandbox from reasonix CLI sessions. `~/.agent-reach` + `~/.local/share` write access confirmed.

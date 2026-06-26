@@ -575,12 +575,13 @@ func main() {
 		log.Fatal(srv.ServeHTTP(":"+port, "MCP_API_KEY"))
 	}
 
-	// Graceful shutdown on SIGINT/SIGTERM — signal ServeStdio to return.
+	// Graceful shutdown on SIGINT/SIGTERM — close stdin so ServeStdio's
+	// ReadBytes returns EOF and the process exits cleanly through all defers.
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-sigCh
-		os.Exit(0) //nolint:revive // intentional: signal handler exits after stdio flush
+		_ = os.Stdin.Close()
 	}()
 
 	log.SetPrefix("[reasonix-bridge] ")

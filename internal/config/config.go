@@ -599,6 +599,7 @@ type MeshPeerConfig struct {
 type CollabConfig struct {
 	Enabled    bool   `toml:"enabled"`
 	ListenAddr string `toml:"listen_addr"` // WebSocket listen address, e.g. ":9091"
+	Token      string `toml:"token"`       // optional Bearer token; clients must pass ?token=<value>
 }
 
 // MarketplaceConfig is the [marketplace] section for community skill registries.

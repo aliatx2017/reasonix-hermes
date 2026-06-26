@@ -146,6 +146,10 @@ type App struct {
 	skillRootsCache skillRootsCache
 
 	heartbeat *HeartbeatEngine // scheduled heartbeat tasks; nil until startup
+
+	// cleanupWg tracks fire-and-forget session cleanup goroutines so shutdown
+	// can wait for them to finish before the process exits.
+	cleanupWg sync.WaitGroup
 }
 
 type skillRootsCache struct {
@@ -566,6 +570,9 @@ func (a *App) snapshotAllTabs() {
 
 // shutdown snapshots all tabs, saves the final window geometry, and closes tabs.
 func (a *App) shutdown(context.Context) {
+	// Wait for any in-flight delayed session cleanup goroutines before tearing
+	// down controllers and shared hosts — they may still hold session handles.
+	a.cleanupWg.Wait()
 	if a.heartbeat != nil {
 		a.heartbeat.Stop()
 	}
@@ -1080,7 +1087,11 @@ func (a *App) clearActiveSessionRuntime(tab *WorkspaceTab, oldCtrl control.Sessi
 		if teardownTimedOut {
 			// The old session was already marked cleanup-pending, so finish the
 			// destroy cleanup instead of re-exposing a runtime in teardown.
-			go delayedDesktopSessionCleanup(oldPath, destroys)
+			a.cleanupWg.Add(1)
+			go func() {
+				defer a.cleanupWg.Done()
+				delayedDesktopSessionCleanup(oldPath, destroys)
+			}()
 		} else {
 			finishDestroyHandles(destroys)
 		}
@@ -1091,7 +1102,11 @@ func (a *App) clearActiveSessionRuntime(tab *WorkspaceTab, oldCtrl control.Sessi
 		return err
 	}
 	if teardownTimedOut {
-		go delayedDesktopSessionCleanup(oldPath, destroys)
+		a.cleanupWg.Add(1)
+		go func() {
+			defer a.cleanupWg.Done()
+			delayedDesktopSessionCleanup(oldPath, destroys)
+		}()
 	} else {
 		if err := removeDesktopSessionArtifacts(oldPath); err != nil {
 			finishDestroyHandles(destroys)
@@ -1639,7 +1654,11 @@ func (a *App) DeleteSession(path string) error {
 			a.closeRemainingRemovedSessionRuntimesAfterDestroy(removed, closedRemoved)
 			return err
 		}
-		go delayedDesktopSessionTrash(dir, sessionPath, key, destroys)
+		a.cleanupWg.Add(1)
+		go func() {
+			defer a.cleanupWg.Done()
+			delayedDesktopSessionTrash(dir, sessionPath, key, destroys)
+		}()
 	} else {
 		err = trashSessionArtifacts(dir, sessionPath, key)
 		finishDestroyHandles(destroys)
@@ -6050,7 +6069,7 @@ func (a *App) SaveExportFile(path, payload string, base64Encoded bool) error {
 	} else {
 		data = []byte(payload)
 	}
-	if err := os.WriteFile(path, data, 0o644); err != nil {
+	if err := os.WriteFile(path, data, 0o600); err != nil {
 		return err
 	}
 	return nil

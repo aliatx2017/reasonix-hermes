@@ -240,7 +240,7 @@ func fetchBytes(c *http.Client, url string) ([]byte, error) {
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("GET %s: %s", url, resp.Status)
 	}
-	return io.ReadAll(resp.Body)
+	return io.ReadAll(io.LimitReader(resp.Body, 128<<20))
 }
 
 // verifyChecksum checks that data's SHA256 matches the entry for fileName in

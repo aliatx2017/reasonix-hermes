@@ -125,7 +125,7 @@ func (a *App) SaveMarkdownFile(relPath, content string) error {
 	if !strings.HasPrefix(resolved, root) {
 		return os.ErrPermission
 	}
-	return os.WriteFile(resolved, []byte(content), 0o644)
+	return os.WriteFile(resolved, []byte(content), 0o600)
 }
 
 // CreateMarkdownFile creates a new .md file with optional initial content.

@@ -2385,7 +2385,7 @@ func (a *App) saveTabsWrite(dir string, entries []desktopTabEntry, activeID stri
 	}
 	path := filepath.Join(dir, tabsFileName)
 	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, b, 0o644); err != nil {
+	if err := os.WriteFile(tmp, b, 0o600); err != nil {
 		return
 	}
 	if err := fileutil.ReplaceFile(tmp, path); err != nil {
@@ -2494,7 +2494,7 @@ func saveProjectsFile(f desktopProjectFile) error {
 	}
 	path := filepath.Join(dir, desktopProjectsFile)
 	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, b, 0o644); err != nil {
+	if err := os.WriteFile(tmp, b, 0o600); err != nil {
 		return err
 	}
 	return fileutil.ReplaceFile(tmp, path)
@@ -3020,7 +3020,7 @@ func saveTopicTitles(workspaceRoot string, m map[string]string) error {
 		return err
 	}
 	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, b, 0o644); err != nil {
+	if err := os.WriteFile(tmp, b, 0o600); err != nil {
 		return err
 	}
 	return fileutil.ReplaceFile(tmp, path)
@@ -3036,7 +3036,7 @@ func saveTopicTitleSources(workspaceRoot string, m map[string]string) error {
 		return err
 	}
 	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, b, 0o644); err != nil {
+	if err := os.WriteFile(tmp, b, 0o600); err != nil {
 		return err
 	}
 	return fileutil.ReplaceFile(tmp, path)
@@ -3052,7 +3052,7 @@ func saveTopicCreatedAts(workspaceRoot string, m map[string]int64) error {
 		return err
 	}
 	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, b, 0o644); err != nil {
+	if err := os.WriteFile(tmp, b, 0o600); err != nil {
 		return err
 	}
 	return fileutil.ReplaceFile(tmp, path)
@@ -3209,7 +3209,7 @@ func saveTelemetry(path string, snapshot tabTelemetrySnapshot) error {
 		return err
 	}
 	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, b, 0o644); err != nil {
+	if err := os.WriteFile(tmp, b, 0o600); err != nil {
 		return err
 	}
 	return fileutil.ReplaceFile(tmp, path)
@@ -3357,7 +3357,7 @@ func markTopicMigrationDone(dir string) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return
 	}
-	_ = os.WriteFile(filepath.Join(dir, topicMigrationMarker), nil, 0o644)
+	_ = os.WriteFile(filepath.Join(dir, topicMigrationMarker), nil, 0o600)
 }
 
 func migrateLegacySessionsIntoGlobalTopics(dir string) []string {
@@ -4116,7 +4116,11 @@ func (a *App) TrashTopic(topicID string) error {
 			if err := agent.MarkCleanupPending(target.sessionPath, "delete"); err != nil {
 				return err
 			}
-			go delayedDesktopSessionTrash(target.dir, target.sessionPath, target.key, destroys)
+			a.cleanupWg.Add(1)
+		go func() {
+			defer a.cleanupWg.Done()
+			delayedDesktopSessionTrash(target.dir, target.sessionPath, target.key, destroys)
+		}()
 		} else {
 			err := trashSessionArtifacts(target.dir, target.sessionPath, target.key)
 			finishDestroyHandles(destroys)

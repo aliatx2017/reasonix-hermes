@@ -13,7 +13,7 @@
 //	HINDSIGHT_KEY   — Bearer token if MEMORY_API_KEY is set on the server
 //	HINDSIGHT_TIMEOUT — HTTP timeout in seconds (default: 5)
 //
-// Exit codes: 0 on success, 0 on non-fatal errors (never blocks the agent).
+// Exit codes: 0 on success, 1 on error (maps to DecisionWarn — non-blocking), 2 to block.
 package main
 
 import (
@@ -78,19 +78,25 @@ func main() {
 
 	switch action {
 	case "retain":
-		doRetain(url, key, timeout, payload)
+		if err := doRetain(url, key, timeout, payload); err != nil {
+			fmt.Fprintf(os.Stderr, "[reasonix-hooks] retain: %v\n", err)
+			os.Exit(1)
+		}
 	case "reflect":
-		doReflect(url, key, timeout, payload)
+		if err := doReflect(url, key, timeout, payload); err != nil {
+			fmt.Fprintf(os.Stderr, "[reasonix-hooks] reflect: %v\n", err)
+			os.Exit(1)
+		}
 	default:
 		fmt.Fprintf(os.Stderr, "[reasonix-hooks] unknown action: %s\n", action)
 		os.Exit(1)
 	}
 }
 
-func doRetain(url, key string, timeout time.Duration, p hookPayload) {
+func doRetain(url, key string, timeout time.Duration, p hookPayload) error {
 	tool := p.ToolName
 	if noiseTools[tool] {
-		return // skip noise
+		return nil // skip noise
 	}
 
 	content := tool
@@ -105,15 +111,12 @@ func doRetain(url, key string, timeout time.Duration, p hookPayload) {
 
 	body, err := json.Marshal(req)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "[reasonix-hooks] retain marshal: %v\n", err)
-		return
+		return fmt.Errorf("marshal: %w", err)
 	}
-	if err := postJSON(url, key, timeout, body); err != nil {
-		fmt.Fprintf(os.Stderr, "[reasonix-hooks] retain: %v\n", err)
-	}
+	return postJSON(url, key, timeout, body)
 }
 
-func doReflect(url, key string, timeout time.Duration, p hookPayload) {
+func doReflect(url, key string, timeout time.Duration, p hookPayload) error {
 	session := p.SessionID
 	if session == "" {
 		session = "latest"
@@ -126,12 +129,9 @@ func doReflect(url, key string, timeout time.Duration, p hookPayload) {
 
 	body, err := json.Marshal(req)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "[reasonix-hooks] reflect marshal: %v\n", err)
-		return
+		return fmt.Errorf("marshal: %w", err)
 	}
-	if err := postJSON(url, key, timeout, body); err != nil {
-		fmt.Fprintf(os.Stderr, "[reasonix-hooks] reflect: %v\n", err)
-	}
+	return postJSON(url, key, timeout, body)
 }
 
 // jsonrpcRequest builds a JSON-RPC 2.0 tools/call request.
