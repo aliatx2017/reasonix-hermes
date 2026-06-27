@@ -36,6 +36,7 @@ func TestSlashCompletionFilterAndAccept(t *testing.T) {
 	if !m.completion.active || m.completion.kind != compSlash {
 		t.Fatalf("typing /co should open the slash menu: %+v", m.completion)
 	}
+<<<<<<< HEAD
 	// /co prefix matches /compact, /cost, /council.
 	if len(m.completion.items) != 3 {
 		t.Fatalf("filter = %v, want 3 items (/compact, /cost, /council)", labels(m.completion.items))
@@ -44,6 +45,14 @@ func TestSlashCompletionFilterAndAccept(t *testing.T) {
 	got := labels(m.completion.items)
 	if got[0] != "/compact" || got[1] != "/cost" || got[2] != "/council" {
 		t.Fatalf("filter = %v, want [/compact /cost /council]", got)
+=======
+	// /compact and /copy both start with "/co".
+	if len(m.completion.items) != 2 {
+		t.Fatalf("filter = %v, want /compact and /copy", labels(m.completion.items))
+	}
+	if m.completion.items[0].label != "/compact" || m.completion.items[1].label != "/copy" {
+		t.Fatalf("filter = %v, want [/compact /copy]", labels(m.completion.items))
+>>>>>>> upstream/main-v2
 	}
 
 	m.acceptCompletion()
@@ -483,6 +492,20 @@ func TestSlashArgCompletionReasoningLanguage(t *testing.T) {
 	}
 	if hasLabel(m.completion.items, "中文") {
 		t.Fatalf("/reasoning-language completion should expose only auto|zh|en: %v", labels(m.completion.items))
+	}
+}
+
+func TestSlashArgCompletionMemoryV5(t *testing.T) {
+	m := newTestChatTUI()
+	m.input.SetValue("/memory-v5 ")
+	m.updateCompletion()
+	if !m.completion.active || m.completion.kind != compSlashArg {
+		t.Fatalf("/memory-v5 should open arg completion: %+v", m.completion)
+	}
+	for _, want := range []string{"status", "off", "on"} {
+		if !hasLabel(m.completion.items, want) {
+			t.Fatalf("/memory-v5 completion missing %q: %v", want, labels(m.completion.items))
+		}
 	}
 }
 

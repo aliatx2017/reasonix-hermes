@@ -111,6 +111,15 @@ function avgRate(u?: WireUsage): string | null {
   return formatRate(u.sessionCacheHitTokens, denom);
 }
 
+// contextAvgRate computes the session-aggregate cache-hit % from ContextInfo
+// cache tokens (loaded from persisted telemetry on session resume). Used as a
+// fallback when no live WireUsage is available yet.
+function contextAvgRate(ctx: ContextInfo): string | null {
+  const hit = ctx.cacheHitTokens ?? 0;
+  const miss = ctx.cacheMissTokens ?? 0;
+  return formatRate(hit, hit + miss);
+}
+
 function rateValueClass(rate: string | null): string {
   if (rate === null) return 'stat__value--empty';
   const pct = Number.parseFloat(rate);
@@ -234,7 +243,7 @@ export function StatusBar({
   const compactNear = pct !== null && compactPct !== null && pct >= Math.max(0, compactPct - 10);
   const compactReached = pct !== null && compactPct !== null && pct >= compactPct;
   const nowPct = nowRate(usage);
-  const avgPct = avgRate(usage);
+  const avgPct = avgRate(usage) ?? contextAvgRate(context);
   const jobsList = jobs ?? [];
   const turnCostLabel = formatMoneyLocalized(turnCost, currency, { locale });
   const costLabel = formatMoneyLocalized(cost, currency, { locale });

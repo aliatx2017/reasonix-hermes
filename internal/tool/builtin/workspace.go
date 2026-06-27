@@ -18,15 +18,17 @@ import (
 // Dir is that directory (empty yields process-cwd tools, byte-identical to the
 // compile-time built-ins). WriteRoots confines the file-writers (as
 // ConfineWriters); when empty and Dir is set, Dir itself becomes the sole write
-// root, so writes stay inside the project by default. Bash is the OS-sandbox
-// spec for the bash tool (as ConfineBash).
+// root, so writes stay inside the project by default. ForbidReadRoots confines
+// the read/list/search built-ins so they cannot peek at the listed directories.
+// Bash is the OS-sandbox spec for the bash tool (as ConfineBash).
 type Workspace struct {
-	Dir         string
-	WriteRoots  []string
-	Bash        sandbox.Spec
-	BashTimeout time.Duration
-	Search      SearchSpec
-	ProxySpec   netclient.ProxySpec
+	Dir             string
+	WriteRoots      []string
+	ForbidReadRoots []string
+	Bash            sandbox.Spec
+	BashTimeout     time.Duration
+	Search          SearchSpec
+	ProxySpec       netclient.ProxySpec
 }
 
 // Tools returns the built-in tools bound to the workspace, ready to Add to a
@@ -40,9 +42,10 @@ func (w Workspace) Tools(enabled ...string) []tool.Tool {
 		writeRoots = []string{w.Dir}
 	}
 	roots := realRoots(writeRoots)
+	forbidRoots := realRoots(w.ForbidReadRoots)
 
 	overrides := map[string]tool.Tool{
-		"read_file":     readFile{workDir: w.Dir},
+		"read_file":     readFile{workDir: w.Dir, forbidRoots: forbidRoots},
 		"write_file":    writeFile{workDir: w.Dir, roots: roots},
 		"edit_file":     editFile{workDir: w.Dir, roots: roots},
 		"multi_edit":    multiEdit{workDir: w.Dir, roots: roots},
@@ -50,11 +53,11 @@ func (w Workspace) Tools(enabled ...string) []tool.Tool {
 		"notebook_edit": notebookEdit{workDir: w.Dir, roots: roots},
 		"delete_range":  deleteRange{workDir: w.Dir, roots: roots},
 		"delete_symbol": deleteSymbol{workDir: w.Dir, roots: roots},
-		"code_index":    codeIndex{workDir: w.Dir},
+		"code_index":    codeIndex{workDir: w.Dir, forbidRoots: forbidRoots},
 		"bash":          bash{workDir: w.Dir, sb: w.Bash, timeout: w.BashTimeout},
-		"ls":            listDir{workDir: w.Dir},
-		"glob":          globTool{workDir: w.Dir},
-		"grep":          grepTool{workDir: w.Dir, rg: w.Search.RgPath},
+		"ls":            listDir{workDir: w.Dir, forbidRoots: forbidRoots},
+		"glob":          globTool{workDir: w.Dir, forbidRoots: forbidRoots},
+		"grep":          grepTool{workDir: w.Dir, rg: w.Search.RgPath, forbidRoots: forbidRoots, sb: w.Bash},
 		"web_fetch":     webFetch{proxySpec: w.ProxySpec},
 	}
 	all := tool.Builtins()
@@ -121,4 +124,11 @@ func skipWalkDir(root, path, name string) bool {
 		return false
 	}
 	return vendorDirs[name] || isProtectedDir(absClean(path))
+}
+
+// skipForbidDir reports whether a directory should be pruned from a recursive
+// walk because it is within any forbid-read root. forbidRoots are pre-resolved
+// absolute paths; empty means unconfined.
+func skipForbidDir(path string, forbidRoots []string) bool {
+	return confineRead(forbidRoots, path)
 }

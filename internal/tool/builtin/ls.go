@@ -14,8 +14,12 @@ import (
 func init() { tool.RegisterBuiltin(listDir{}) }
 
 // listDir lists a directory. workDir, when non-empty, is the directory a
-// relative path resolves against (see resolveIn).
-type listDir struct{ workDir string }
+// relative path resolves against (see resolveIn). forbidRoots lists directories
+// the tool may not list or recurse into.
+type listDir struct {
+	workDir     string
+	forbidRoots []string
+}
 
 func (listDir) Name() string { return "ls" }
 
@@ -43,6 +47,9 @@ func (l listDir) Execute(ctx context.Context, args json.RawMessage) (string, err
 		p.Path = "."
 	}
 	p.Path = resolveIn(l.workDir, p.Path)
+	if confineRead(l.forbidRoots, p.Path) {
+		return "(empty directory)", nil
+	}
 
 	// Recursive mode: walk the whole tree depth-first.
 	if p.Recursive {
@@ -86,6 +93,9 @@ func (l listDir) listRecursive(root string) (string, error) {
 		if d.IsDir() {
 			switch d.Name() {
 			case ".git", "node_modules", ".DS_Store", "__pycache__", ".idea", ".vscode":
+				return filepath.SkipDir
+			}
+			if skipForbidDir(p, l.forbidRoots) {
 				return filepath.SkipDir
 			}
 		}

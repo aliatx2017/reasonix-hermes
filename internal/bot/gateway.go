@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"reasonix/internal/agent"
 	"reasonix/internal/boot"
 	"reasonix/internal/config"
 	"reasonix/internal/control"
@@ -458,6 +457,17 @@ func (gw *BotGateway) handleMessage(ctx context.Context, binding AdapterBinding,
 		return
 	}
 
+<<<<<<< HEAD
+=======
+	// Run the turn on its own goroutine so the dispatch loop stays free to read
+	// the next inbound message. A turn that hits interactive approval/ask blocks
+	// inside RunTurn waiting for ctrl.Approve/AnswerQuestion — and the ONLY path
+	// that calls those is handleSlashCommand on this same dispatch goroutine. Run
+	// it inline and the loop can never deliver the /approve (or card) reply that
+	// would unblock it: the session wedges until restart (#4701, #4863, #4402).
+	// Per-session serialization is still held by the session lock (active[key]),
+	// which the deferred Release inside runTurn clears.
+>>>>>>> upstream/main-v2
 	go gw.runTurn(ctx, binding.Adapter, key, msg)
 }
 
@@ -993,6 +1003,9 @@ func (gw *BotGateway) runTurn(ctx context.Context, adapter Adapter, key string, 
 			gw.mu.Unlock()
 		},
 	)
+	// Finish initializing the sink before publishing it as the live target: once
+	// setTarget runs, other goroutines can reach this sink via state.sink.Emit.
+	sink.ctrl = state.ctrl
 	state.sink.setTarget(sink)
 	defer state.sink.setTarget(nil)
 
@@ -1006,7 +1019,6 @@ func (gw *BotGateway) runTurn(ctx context.Context, adapter Adapter, key string, 
 	gw.mu.Unlock()
 
 	// 运行一轮对话
-	sink.ctrl = state.ctrl
 	err := state.ctrl.RunTurn(turnCtx, input)
 	sink.Emit(event.Event{Kind: event.TurnDone, Err: err})
 	if err != nil {
@@ -1048,7 +1060,7 @@ func (gw *BotGateway) getOrCreateSession(ctx context.Context, key string, msg In
 	}
 	ctrl.EnableInteractiveApproval()
 	ctrl.SetToolApprovalMode(toolApprovalMode)
-	ensureControllerSessionPath(ctrl)
+	ctrl.EnsureSessionPath()
 
 	gw.mu.Lock()
 	// Re-check under the lock: while we were off-lock in boot.Build, a second
@@ -1078,13 +1090,6 @@ func (gw *BotGateway) getOrCreateSession(ctx context.Context, key string, msg In
 
 	gw.logger.Info("bot session created", "platform", msg.Platform, "chat_type", msg.ChatType, "chat", hashID(msg.ChatID), "session", key[:8])
 	return state
-}
-
-func ensureControllerSessionPath(ctrl botController) {
-	if ctrl == nil || ctrl.SessionPath() != "" || ctrl.SessionDir() == "" {
-		return
-	}
-	ctrl.SetSessionPath(agent.NewSessionPath(ctrl.SessionDir(), ctrl.Label()))
 }
 
 // defaultBotApprovalTimeout caps how long a bot session waits for a remote

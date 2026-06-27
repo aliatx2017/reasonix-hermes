@@ -142,6 +142,9 @@ func TestResolveRefsAttachmentKinds(t *testing.T) {
 	if !strings.Contains(block, `<image path="`+pngRef+`">`) {
 		t.Fatalf("expected png attachment to resolve as image block, got: %s", block)
 	}
+	if !strings.Contains(block, "OCR/image/vision tool") || !strings.Contains(block, "image bytes are not inlined") {
+		t.Fatalf("expected image attachment note to mention tool-readable path without inlined bytes, got: %s", block)
+	}
 }
 
 func TestReadFileRef(t *testing.T) {
@@ -178,7 +181,7 @@ func TestReadFileRef(t *testing.T) {
 	if got, _, err := readFileRef(imagePath, ""); err != nil || !strings.Contains(got, "image file") {
 		t.Errorf("image file = (%q, %v), want an image note", got, err)
 	}
-	if got, _, err := readFileRef(imagePath, ""); err != nil || !strings.Contains(got, "not attached as model image input") || strings.Contains(got, "attached to this turn as model image input") {
+	if got, _, err := readFileRef(imagePath, ""); err != nil || !strings.Contains(got, "not sent as direct model image input") || !strings.Contains(got, "OCR/image/vision tool") {
 		t.Errorf("unscoped image file = (%q, %v), want a non-attached image note", got, err)
 	}
 
@@ -571,7 +574,8 @@ func TestWorkspaceImageRefsAlsoAttachAsModelImages(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	c := &Controller{workspaceRoot: workspace}
+	writeVisionTestConfig(t, workspace)
+	c := &Controller{workspaceRoot: workspace, modelRef: "custom/vision-pro"}
 	refs := c.detectRefs("see @" + diagram + " @" + attachment)
 	if len(refs) != 2 {
 		t.Fatalf("detectRefs = %+v, want two refs", refs)
@@ -587,8 +591,8 @@ func TestWorkspaceImageRefsAlsoAttachAsModelImages(t *testing.T) {
 	if len(errs) != 0 {
 		t.Fatalf("ResolveRefs errors = %v", errs)
 	}
-	if !strings.Contains(block, `<file path="docs/diagram.png">`) || !strings.Contains(block, "attached to this turn as model image input") || strings.Contains(block, "OCR") {
-		t.Fatalf("workspace png should resolve as attached image-file metadata without OCR guidance:\n%s", block)
+	if !strings.Contains(block, `<file path="docs/diagram.png">`) || !strings.Contains(block, "sent as direct model image input only when the selected model supports vision") || !strings.Contains(block, "OCR/image/vision tool") {
+		t.Fatalf("workspace png should resolve as direct-vision-or-tool image metadata:\n%s", block)
 	}
 	if urls := c.inputImages("see @" + diagram); len(urls) != 1 || !strings.HasPrefix(urls[0], "data:image/png;base64,") {
 		t.Fatalf("workspace png inputImages = %v, want one png data URL", urls)
@@ -606,7 +610,7 @@ func TestResolveRefsWithoutWorkspaceDoesNotClaimImageAttachment(t *testing.T) {
 	if len(errs) != 0 {
 		t.Fatalf("ResolveRefs errors = %v", errs)
 	}
-	if !strings.Contains(block, "not attached as model image input") || strings.Contains(block, "attached to this turn as model image input") {
+	if !strings.Contains(block, "not sent as direct model image input") || !strings.Contains(block, "OCR/image/vision tool") {
 		t.Fatalf("unscoped image ref should not claim model image attachment:\n%s", block)
 	}
 }

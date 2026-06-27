@@ -1,5 +1,6 @@
 // Run: tsx src/__tests__/new-session-load-race.test.tsx
 
+<<<<<<< HEAD
 import { JSDOM } from 'jsdom';
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -15,6 +16,14 @@ import type {
   Meta,
   TabMeta,
 } from '../lib/types';
+=======
+import { JSDOM } from "jsdom";
+import React, { act } from "react";
+import { createRoot } from "react-dom/client";
+import { initialState, reducer, useController, type Item } from "../lib/useController";
+import type { AppBindings } from "../lib/bridge";
+import type { BalanceInfo, CheckpointMeta, ContextInfo, EffortInfo, HistoryMessage, JobView, Meta, TabMeta } from "../lib/types";
+>>>>>>> upstream/main-v2
 
 let passed = 0;
 let failed = 0;
@@ -105,7 +114,34 @@ function meta(): Meta {
 
 console.log('\nnew session load race');
 
+<<<<<<< HEAD
 const dom = new JSDOM('<!doctype html><html><body><div id="root"></div></body></html>', {
+=======
+const resetSourceItems: Item[] = [{ kind: "user", id: "old-user", text: "old prompt" }];
+const resetPlaceholderItems: Item[] = [{ kind: "user", id: "placeholder-user", text: "placeholder prompt" }];
+const resetState = reducer(
+  {
+    ...initialState,
+    items: resetSourceItems,
+    hydrating: true,
+    hydrateReason: "open-topic",
+    hydratePlaceholderItems: resetPlaceholderItems,
+  },
+  { type: "reset" },
+);
+eq(resetState.items.length, 0, "reset clears real transcript items");
+eq(resetState.hydratePlaceholderItems?.length, 1, "reset preserves hydration placeholder separately");
+
+const emptyHistoryState = reducer(resetState, { type: "history", messages: [] });
+eq(emptyHistoryState.items.length, 0, "empty history keeps the real transcript empty");
+eq(emptyHistoryState.hydrateHistoryLoaded, true, "empty history marks transcript hydration loaded");
+eq(emptyHistoryState.hydratePlaceholderItems?.length ?? 0, 0, "empty history clears hydration placeholder items");
+
+const hydrateDoneState = reducer(emptyHistoryState, { type: "hydrate_done" });
+eq(Boolean(hydrateDoneState.hydrateHistoryLoaded), false, "hydrate_done clears the history-loaded marker");
+
+const dom = new JSDOM("<!doctype html><html><body><div id=\"root\"></div></body></html>", {
+>>>>>>> upstream/main-v2
   pretendToBeVisual: true,
   url: 'http://localhost/',
 });
@@ -190,6 +226,52 @@ eq(controller?.state.items.length, 0, 'stale history load cannot repopulate a ne
 
 await act(async () => {
   root.unmount();
+});
+
+const guardedStartupTabs = deferred<TabMeta[]>();
+let ensureBlankSurfaceCalls = 0;
+window.go.main.App = {
+  ListTabs: async () => guardedStartupTabs.promise,
+  MetaForTab: async () => meta(),
+  ContextUsageForTab: async () => context,
+  EffortForTab: async () => effort,
+  BalanceForTab: async () => balance,
+  JobsForTab: async () => jobs,
+  CheckpointsForTab: async () => checkpoints,
+  HistoryForTab: async () => [],
+  ReplayPendingPrompts: async () => {},
+  EnsureBlankSurface: async () => {
+    ensureBlankSurfaceCalls += 1;
+    return tabMeta({ id: "tab-new", topicId: "topic-new", topicTitle: "New session" });
+  },
+} as Partial<AppBindings> as AppBindings;
+
+controller = undefined;
+const guardRoot = createRoot(rootEl);
+
+await act(async () => {
+  guardRoot.render(<Probe />);
+  await flushPromises();
+});
+
+await act(async () => {
+  await controller?.ensureBlankSurface("project", "/repo");
+  await flushPromises();
+});
+
+eq(ensureBlankSurfaceCalls, 1, "EnsureBlankSurface is called once");
+eq(controller?.activeTabId, "tab-new", "blank surface becomes active before startup sync resolves");
+
+await act(async () => {
+  guardedStartupTabs.resolve([tabMeta({ id: "tab-old", topicId: "topic-old", topicTitle: "Old session" })]);
+  await guardedStartupTabs.promise;
+  await flushPromises();
+});
+
+eq(controller?.activeTabId, "tab-new", "guarded startup sync cannot restore an older active tab");
+
+await act(async () => {
+  guardRoot.unmount();
 });
 dom.window.close();
 
