@@ -1,6 +1,7 @@
 // Run: tsx src/__tests__/provider-model-refresh.test.ts
 
 import {
+  apiKeyEnvFromProviderName,
   inferredVisionModels,
   isLikelyChatModel,
   isLikelyVisionModel,
@@ -152,11 +153,34 @@ eq(
 
 eq(
   [
+<<<<<<< HEAD
     providerRequiresKey({ apiKeyEnv: '' }),
     providerIsConfigured({ apiKeyEnv: '', keySet: false }),
     providerIsConfigured({ apiKeyEnv: 'LOCAL_API_KEY', keySet: false, requiresKey: false }),
     providerIsConfigured({ apiKeyEnv: 'REMOTE_API_KEY', keySet: false, requiresKey: true }),
     providerIsConfigured({ apiKeyEnv: 'REMOTE_API_KEY', keySet: true, requiresKey: true }),
+=======
+    apiKeyEnvFromProviderName("商汤"),
+    apiKeyEnvFromProviderName("通义千问"),
+  ],
+  ["CUSTOM_d39b9067_API_KEY", "CUSTOM_e995c4c9_API_KEY"],
+  "generates distinct stable key envs for non-ASCII provider names",
+);
+
+eq(
+  providerApiKeyEnvForSave("商汤", "CUSTOM_API_KEY", "sk-test"),
+  "CUSTOM_API_KEY",
+  "preserves an explicitly configured legacy custom key env",
+);
+
+eq(
+  [
+    providerRequiresKey({ apiKeyEnv: "" }),
+    providerIsConfigured({ apiKeyEnv: "", keySet: false }),
+    providerIsConfigured({ apiKeyEnv: "LOCAL_API_KEY", keySet: false, requiresKey: false }),
+    providerIsConfigured({ apiKeyEnv: "REMOTE_API_KEY", keySet: false, requiresKey: true }),
+    providerIsConfigured({ apiKeyEnv: "REMOTE_API_KEY", keySet: true, requiresKey: true }),
+>>>>>>> upstream/main-v2
   ],
   [false, true, true, false, true],
   'separates provider selectability from key presence for no-auth providers',

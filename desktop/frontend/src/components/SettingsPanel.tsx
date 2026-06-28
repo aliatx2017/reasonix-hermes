@@ -32,6 +32,7 @@ import {
 import { getAvailableFontFamilies, getAvailableMonoFontFamilies } from "../lib/fontAvailability";
 import { getDisplayMode, onDisplayModeChange, setDisplayMode as setLocalDisplayMode } from "../lib/displayMode";
 import { DEFAULT_STATUS_BAR_ITEMS, normalizeStatusBarItems, type StatusBarItemId } from "../lib/statusBarItems";
+import { normalizeToolApprovalMode } from "../lib/types";
 import {
   comboFromKeyboardEvent,
   detectShortcutPlatform,
@@ -83,6 +84,8 @@ export function SettingsPanel({
 }) {
   const t = useT();
   const [s, setS] = useState<SettingsView | null>(null);
+  const [loadingSettings, setLoadingSettings] = useState(true);
+  const [settingsLoadFailed, setSettingsLoadFailed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
@@ -98,9 +101,25 @@ export function SettingsPanel({
   const { status, requestClose } = useDeferredClose(onClose, 240);
 
   const reload = useCallback(async () => {
+<<<<<<< HEAD
     const next = normalizeSettingsView(await app.Settings().catch((e) => { console.warn('SettingsPanel: Settings load failed', e); return null; }));
     setS(next);
     return next;
+=======
+    setLoadingSettings(true);
+    setSettingsLoadFailed(false);
+    try {
+      const next = normalizeSettingsView(await app.Settings());
+      setS(next);
+      return next;
+    } catch {
+      setS(null);
+      setSettingsLoadFailed(true);
+      return null;
+    } finally {
+      setLoadingSettings(false);
+    }
+>>>>>>> upstream/main-v2
   }, []);
   useEffect(() => {
     void reload();
@@ -181,10 +200,16 @@ export function SettingsPanel({
             ))}
           </nav>
           <main className="settings-center__content">
+            {needsSettings && settingsLoadFailed && (
+              <div className="banner banner--error settings-load-error" role="alert">
+                <span>{t("settings.loadFailed")}</span>
+                <button className="btn btn--small" type="button" onClick={() => void reload()}>{t("common.retry")}</button>
+              </div>
+            )}
             {needsSettings && err && <div className="banner banner--error">{err}</div>}
             {needsSettings && warning && <div className="banner banner--warning">{warning}</div>}
             {needsSettings && !s ? (
-              <div className="empty">{t("settings.loading")}</div>
+              loadingSettings ? <div className="empty">{t("settings.loading")}</div> : null
             ) : (
               <>
                 {tab === "general" && s && <SettingsPageShell key={tab} s={s} tab={tab} busy={busy} apply={apply}><GeneralSection s={s} busy={busy} apply={apply} agentRunning={agentRunning} /></SettingsPageShell>}
@@ -483,6 +508,59 @@ function ShortcutsSection() {
   );
 }
 
+<<<<<<< HEAD
+=======
+// allRefs flattens providers into "provider/model" refs for the model selectors.
+function allRefs(s: SettingsView): string[] {
+  const out: string[] = [];
+  for (const p of s.providers) {
+    if (!p.added || !providerIsConfigured(p)) continue;
+    for (const m of p.models) out.push(`${p.name}/${m}`);
+  }
+  return out;
+}
+
+// toRef normalises a stored model id (a provider name, a bare model, or a ref) to
+// a "provider/model" ref so a <select> of refs can show it selected.
+function toRef(model: string, s: SettingsView): string {
+  if (!model) return "";
+  if (model.includes("/")) return model;
+  const byName = s.providers.find((p) => p.name === model);
+  if (byName) return `${byName.name}/${byName.default || byName.models[0] || ""}`;
+  const byModel = s.providers.find((p) => p.models.includes(model));
+  if (byModel) return `${byModel.name}/${model}`;
+  return model;
+}
+
+const PROXY_MODES = ["auto", "custom", "off"] as const;
+
+// EFFORT_PRESETS is the canonical union of /effort levels the kernel
+// recognises. The settings UI exposes these as toggleable checkboxes; users
+// can additionally add arbitrary custom names via the "Add" input. The order
+// here is what the user sees in the dropdown.
+const EFFORT_PRESETS: readonly string[] = ["low", "medium", "high", "xhigh", "max"];
+const REASONING_PROTOCOLS: readonly string[] = ["", "deepseek", "openai", "none"];
+const PROXY_TYPES = ["http", "https", "socks5", "socks5h"] as const;
+const LANGUAGE_PREFS: LangPref[] = ["", "zh", "en"];
+const AUTO_PLAN_MODES = ["off", "on"] as const;
+const TOOL_APPROVAL_MODES = ["ask", "auto", "yolo"] as const;
+const BOT_TOOL_APPROVAL_MODES = ["", "ask", "auto", "yolo"] as const;
+
+type ProxyMode = (typeof PROXY_MODES)[number];
+type AutoPlanMode = (typeof AUTO_PLAN_MODES)[number];
+
+function normalizeProxyMode(mode: string): ProxyMode {
+  switch (mode) {
+    case "custom":
+      return "custom";
+    case "off":
+      return "off";
+    default:
+      return "auto";
+  }
+}
+
+>>>>>>> upstream/main-v2
 function normalizeNetworkView(network: NetworkView): NetworkView {
   return { ...network, proxyMode: normalizeProxyMode(network.proxyMode) };
 }
@@ -562,6 +640,7 @@ function normalizeSettingsView(view: SettingsView | null | undefined): SettingsV
     agent,
     bot: normalizeBotSettings(view.bot),
     autoPlan: normalizeAutoPlan(view.autoPlan),
+    defaultToolApprovalMode: normalizeToolApprovalMode(view.defaultToolApprovalMode),
     autoApproveTools: Boolean(view.autoApproveTools ?? view.bypass),
     bypass: Boolean(view.autoApproveTools ?? view.bypass),
     desktopLanguage: normalizeLangPref(view.desktopLanguage),
@@ -573,6 +652,7 @@ function normalizeSettingsView(view: SettingsView | null | undefined): SettingsV
     statusBarStyle: normalizeStatusBarStyle(view.statusBarStyle),
     statusBarItems: normalizeStatusBarItems(view.statusBarItems),
     checkUpdates: view.checkUpdates !== false,
+    memoryCompilerEnabled: view.memoryCompilerEnabled !== false,
   };
 }
 
@@ -676,6 +756,8 @@ function GeneralSection({ s, busy, apply, agentRunning }: SectionProps & { agent
   useEffect(() => onDisplayModeChange((mode) => setDisplayMode(mode)), []);
   useEffect(() => () => mouseDragCleanupRef.current?.(), []);
   const autoPlan = normalizeAutoPlan(s.autoPlan);
+  const defaultToolApprovalMode = normalizeToolApprovalMode(s.defaultToolApprovalMode);
+  const memoryCompilerEnabled = s.memoryCompilerEnabled !== false;
   const languagePref = normalizeLangPref(s.desktopLanguage);
   const desktopLayoutStyle = normalizeDesktopLayoutStyle(s.desktopLayoutStyle);
   const [genMusicPreset, setGenMusicPreset] = useState<GenerativePreset>(getGenerativePreset());
@@ -893,6 +975,20 @@ function GeneralSection({ s, busy, apply, agentRunning }: SectionProps & { agent
           ))}
         </div>
       </SettingsField>
+      <SettingsField label={t("settings.defaultToolApprovalMode")} hint={t("settings.defaultToolApprovalModeHint")}>
+        <div className="set-seg">
+          {TOOL_APPROVAL_MODES.map((mode) => (
+            <button
+              key={mode}
+              className={`set-seg__btn${defaultToolApprovalMode === mode ? " set-seg__btn--on" : ""}`}
+              disabled={busy}
+              onClick={() => void apply(() => app.SetDefaultToolApprovalMode(mode))}
+            >
+              {t(`settings.defaultToolApprovalMode.${mode}`)}
+            </button>
+          ))}
+        </div>
+      </SettingsField>
       <SettingsField label={t("settings.autoPlan")}>
         <div className="set-seg">
           {AUTO_PLAN_MODES.map((mode) => (
@@ -906,6 +1002,13 @@ function GeneralSection({ s, busy, apply, agentRunning }: SectionProps & { agent
             </button>
           ))}
         </div>
+      </SettingsField>
+      <SettingsField label={t("settings.memoryCompiler")} hint={t("settings.memoryCompilerHint")}>
+        <ToggleSegment
+          value={memoryCompilerEnabled}
+          disabled={busy}
+          onChange={(enabled) => void apply(() => app.SetMemoryCompilerEnabled(enabled))}
+        />
       </SettingsField>
       <SettingsField label={t("settings.sound")} hint={t("settings.soundHint")} stacked>
         <div className={`settings-sound-editor${soundExpanded ? " settings-sound-editor--expanded" : ""}`}>
@@ -1300,6 +1403,3025 @@ function NetworkSection({ s, busy, apply }: SectionProps) {
   );
 }
 
+<<<<<<< HEAD
+=======
+type BotInstallTarget = "qq" | "feishu" | "lark" | "weixin";
+type BotOfficialInstallTarget = Exclude<BotInstallTarget, "qq">;
+const BOT_ALLOWLIST_TEXT_KEYS = ["qqUsers", "feishuUsers", "weixinUsers", "qqGroups", "feishuGroups", "weixinGroups"] as const;
+type BotAllowlistTextKey = typeof BOT_ALLOWLIST_TEXT_KEYS[number];
+type BotInstallState = {
+  target: BotInstallTarget | "";
+  result: BotInstallStartResult | null;
+  status: "idle" | "starting" | "showing" | "connected" | "error";
+  timeLeft: number;
+  message: string;
+};
+const BOT_INSTALL_TARGETS: BotInstallTarget[] = ["qq", "feishu", "lark", "weixin"];
+const BOT_INSTALL_DEFAULT_TIMEOUT_SECONDS = 300;
+const BOT_INSTALL_MIN_POLL_SECONDS = 3;
+const DEFAULT_QQ_SECRET_ENV = "QQ_BOT_APP_SECRET";
+const QQ_CONNECTION_ID = "__qq_bot__";
+
+type BotConnectionListItem =
+  | { kind: "qq" }
+  | { kind: "connection"; connection: BotConnectionView };
+
+type BotsSectionProps = SectionProps & { initialFocus?: SettingsInitialFocus };
+
+function BotsSection({ s, busy, apply, initialFocus }: BotsSectionProps) {
+  const t = useT();
+  const savedBot = normalizeBotSettings(s.bot);
+  const [draft, setDraft] = useState<BotSettingsView>(savedBot);
+  const [allowlistText, setAllowlistText] = useState<Record<BotAllowlistTextKey, string>>(() => botAllowlistTextValues(savedBot.allowlist));
+  const [allowlistFocused, setAllowlistFocused] = useState(false);
+  const [allowlistOpen, setAllowlistOpen] = useState(false);
+  const [installTarget, setInstallTarget] = useState<BotInstallTarget>("qq");
+  const [install, setInstall] = useState<BotInstallState>({ target: "qq", result: null, status: "idle", timeLeft: 0, message: "" });
+  const [diagnostics, setDiagnostics] = useState<Record<string, BotConnectionDiagnostic | string>>({});
+  const [testTargets, setTestTargets] = useState<Record<string, string>>({});
+  const [connectionSecrets, setConnectionSecrets] = useState<Record<string, string>>({});
+  const [qqSecretValue, setQQSecretValue] = useState("");
+  const [expandedConnectionId, setExpandedConnectionId] = useState("");
+  const installRef = useRef(install);
+  const installPollTimerRef = useRef<number | null>(null);
+  const installCountdownTimerRef = useRef<number | null>(null);
+  const installRequestInFlightRef = useRef(false);
+  const installAttemptRef = useRef(0);
+  const allowlistRef = useRef<HTMLDetailsElement | null>(null);
+  const initialFocusHandledRef = useRef("");
+  const pendingAllowlistFocusRef = useRef(false);
+  const refs = allRefs(s);
+
+  useEffect(() => {
+    const nextBot = normalizeBotSettings(s.bot);
+    setDraft(nextBot);
+    setAllowlistText(botAllowlistTextValues(nextBot.allowlist));
+    setConnectionSecrets({});
+    setQQSecretValue("");
+    setTestTargets({});
+  }, [s.bot]);
+  useEffect(() => {
+    if (initialFocus?.target !== "bot-allowlist") return;
+    const focusKey = `${initialFocus.target}:${initialFocus.connectionId ?? ""}`;
+    if (initialFocusHandledRef.current === focusKey) return;
+    let focusConnectionId = "";
+    if (initialFocus.connectionId === QQ_CONNECTION_ID && qqBotAdded(draft.qq)) {
+      focusConnectionId = QQ_CONNECTION_ID;
+    } else if (initialFocus.connectionId && draft.connections.some((connection) => connection.id === initialFocus.connectionId)) {
+      focusConnectionId = initialFocus.connectionId;
+    } else {
+      focusConnectionId = draft.connections[0]?.id ?? "";
+    }
+    if (!focusConnectionId) return;
+    initialFocusHandledRef.current = focusKey;
+    pendingAllowlistFocusRef.current = true;
+    setExpandedConnectionId(focusConnectionId);
+    setAllowlistOpen(false);
+  }, [draft.connections, draft.qq, initialFocus]);
+  useEffect(() => {
+    setAllowlistOpen(false);
+  }, [expandedConnectionId]);
+  useEffect(() => {
+    installRef.current = install;
+  }, [install]);
+  useEffect(() => {
+    installAttemptRef.current += 1;
+    installRequestInFlightRef.current = false;
+    clearInstallTimers();
+    setInstall({ target: installTarget, result: null, status: "idle", timeLeft: 0, message: "" });
+  }, [installTarget]);
+  useEffect(() => () => {
+    installAttemptRef.current += 1;
+    clearInstallTimers();
+  }, []);
+
+  const setConnections = (mapper: (connections: BotConnectionView[]) => BotConnectionView[]) =>
+    setDraft((prev) => ({ ...prev, connections: mapper(prev.connections) }));
+  const persistBotDraft = async (nextDraft: BotSettingsView) => {
+    const nextBot = botDraftWithDerivedGatewayState(nextDraft);
+    setDraft(nextBot);
+    await apply(async () => {
+      await app.SetBotSettings(nextBot);
+    });
+  };
+  const persistConnections = (mapper: (connections: BotConnectionView[]) => BotConnectionView[]) =>
+    persistBotDraft({ ...draft, connections: mapper(draft.connections) });
+  const updateConnection = (id: string, patch: Partial<BotConnectionView>) =>
+    setConnections((items) => items.map((item) => item.id === id ? { ...item, ...patch } : item));
+  const persistConnection = (id: string, patch: Partial<BotConnectionView>) =>
+    persistConnections((items) => items.map((item) => item.id === id ? { ...item, ...patch } : item));
+  const persistConnectionToolApprovalMode = (id: string, mode: string) => {
+    const normalizedMode = normalizeBotToolApprovalMode(mode, true);
+    setConnections((items) => items.map((item) => item.id === id ? { ...item, toolApprovalMode: normalizedMode } : item));
+    void apply(() => app.SetBotConnectionToolApprovalMode(id, normalizedMode));
+  };
+  const updateConnectionCredential = (id: string, patch: Partial<BotConnectionView["credential"]>) =>
+    setConnections((items) => items.map((item) => item.id === id ? { ...item, credential: { ...item.credential, ...patch } } : item));
+  const persistConnectionCredential = (id: string, patch: Partial<BotConnectionView["credential"]>) =>
+    persistConnections((items) => items.map((item) => item.id === id ? { ...item, credential: { ...item.credential, ...patch } } : item));
+  const updateAllowlist = (patch: Partial<BotAllowlistView>) =>
+    setDraft((prev) => ({ ...prev, allowlist: { ...prev.allowlist, ...patch } }));
+  const persistAllowlist = (patch: Partial<BotAllowlistView>) =>
+    persistBotDraft({ ...draft, allowlist: { ...draft.allowlist, ...patch } });
+  const persistAllowlistText = (key: BotAllowlistTextKey, value: string) => {
+    const entries = parseBotListInput(value);
+    setAllowlistText((prev) => ({ ...prev, [key]: entries.join("\n") }));
+    void persistAllowlist({ [key]: entries } as Partial<BotAllowlistView>);
+  };
+  const updateQQ = (patch: Partial<BotSettingsView["qq"]>) =>
+    setDraft((prev) => ({ ...prev, qq: { ...prev.qq, ...patch } }));
+  const persistQQ = (patch: Partial<BotSettingsView["qq"]>) =>
+    persistBotDraft({ ...draft, qq: { ...draft.qq, ...patch } });
+  const removeConnection = async (connection: BotConnectionView) => {
+    const nextDraft = botDraftWithDerivedGatewayState({
+      ...draft,
+      connections: draft.connections.filter((item) => item.id !== connection.id),
+    });
+    await apply(async () => {
+      await app.SetBotSettings(nextDraft);
+    });
+  };
+  const installQrURL = install.result?.url ?? "";
+  const installQrIsImage = installQrURL.startsWith("data:image/");
+  const isQQInstallTarget = installTarget === "qq";
+  const selectedInstallConnection = isQQInstallTarget ? undefined : draft.connections.find((connection) => botInstallTargetMatchesConnection(installTarget, connection));
+  const selectedInstallLabel = botTargetLabel(installTarget, t);
+  const installUserCode = install.result?.userCode && installTarget !== "weixin" ? formatInstallUserCode(install.result.userCode) : "";
+  const qqSecretEnv = draft.qq.appSecretEnv.trim() || DEFAULT_QQ_SECRET_ENV;
+  const qqConfigured = draft.qq.enabled && draft.qq.appId.trim() && qqSecretEnv && draft.qq.secretSet;
+  const qqCanEnableAccess = qqAccessReady(draft.allowlist);
+  const qqCanSaveAndEnable = Boolean(draft.qq.appId.trim() && qqSecretEnv && (draft.qq.secretSet || qqSecretValue.trim()) && qqCanEnableAccess);
+  const qqAdded = qqBotAdded(draft.qq);
+  const nativeRuntimeAvailable = typeof window !== "undefined" && Boolean(window.runtime);
+  const browserPreviewBotConfigured = !nativeRuntimeAvailable && (qqAdded || draft.connections.length > 0);
+  const qqOnline = qqConfigured && nativeRuntimeAvailable;
+  const connectionItems: BotConnectionListItem[] = [
+    ...(qqAdded ? [{ kind: "qq" as const }] : []),
+    ...draft.connections.map((connection) => ({ kind: "connection" as const, connection })),
+  ];
+
+  const saveBot = () => app.SetBotSettings(botDraftWithDerivedGatewayState(draft));
+  function clearInstallTimers() {
+    if (installPollTimerRef.current !== null) {
+      window.clearTimeout(installPollTimerRef.current);
+      installPollTimerRef.current = null;
+    }
+    if (installCountdownTimerRef.current !== null) {
+      window.clearInterval(installCountdownTimerRef.current);
+      installCountdownTimerRef.current = null;
+    }
+  }
+  function beginInstallCountdown(attempt: number) {
+    if (installCountdownTimerRef.current !== null) {
+      window.clearInterval(installCountdownTimerRef.current);
+    }
+    installCountdownTimerRef.current = window.setInterval(() => {
+      setInstall((prev) => {
+        if (installAttemptRef.current !== attempt || prev.status !== "showing") return prev;
+        return { ...prev, timeLeft: Math.max(0, prev.timeLeft - 1) };
+      });
+    }, 1000);
+  }
+  function scheduleInstallPoll(attempt: number, interval: number) {
+    if (installPollTimerRef.current !== null) {
+      window.clearTimeout(installPollTimerRef.current);
+    }
+    installPollTimerRef.current = window.setTimeout(() => void pollInstall(attempt), Math.max(interval || BOT_INSTALL_MIN_POLL_SECONDS, BOT_INSTALL_MIN_POLL_SECONDS) * 1000);
+  }
+  const startInstall = async (target: BotOfficialInstallTarget) => {
+    if (installRequestInFlightRef.current) return;
+    const existing = draft.connections.find((connection) => botInstallTargetMatchesConnection(target, connection));
+    if (existing) {
+      installAttemptRef.current += 1;
+      clearInstallTimers();
+      setInstall({ target, result: null, status: "connected", timeLeft: 0, message: t("settings.botInstallAlreadyConnected", { provider: botTargetLabel(target, t) }) });
+      return;
+    }
+    clearInstallTimers();
+    const attempt = installAttemptRef.current + 1;
+    installAttemptRef.current = attempt;
+    installRequestInFlightRef.current = true;
+    setInstall({ target, result: null, status: "starting", timeLeft: 0, message: t("settings.botInstallStarting") });
+    const provider = target === "weixin" ? "weixin" : "feishu";
+    const domain = target === "lark" ? "lark" : target === "weixin" ? "weixin" : "feishu";
+    try {
+      const result = await app.StartBotConnectionInstall(provider, domain);
+      if (installAttemptRef.current !== attempt) return;
+      if (!result.ok) {
+        setInstall({ target, result, status: "error", timeLeft: 0, message: result.message || t("settings.botInstallFailed") });
+        return;
+      }
+      const timeLeft = result.expireIn > 0 ? result.expireIn : BOT_INSTALL_DEFAULT_TIMEOUT_SECONDS;
+      setInstall({ target, result, status: "showing", timeLeft, message: result.message || t("settings.botInstallScanHint") });
+      beginInstallCountdown(attempt);
+      scheduleInstallPoll(attempt, result.interval);
+    } catch (err) {
+      if (installAttemptRef.current === attempt) {
+        setInstall({ target, result: null, status: "error", timeLeft: 0, message: err instanceof Error ? err.message : t("settings.botInstallFailed") });
+      }
+    } finally {
+      if (installAttemptRef.current === attempt) {
+        installRequestInFlightRef.current = false;
+      }
+    }
+  };
+  const pollInstall = async (attempt = installAttemptRef.current) => {
+    const current = installRef.current;
+    if (installAttemptRef.current !== attempt || current.status !== "showing" || !current.result?.installId || !current.target) return;
+    const poll = await app.PollBotConnectionInstall(current.result.installId);
+    if (installAttemptRef.current !== attempt) return;
+    if (poll.done) {
+      clearInstallTimers();
+      setDraft((prev) => ({
+        ...prev,
+        enabled: true,
+        connections: [...prev.connections.filter((c) => c.id !== poll.connection.id), poll.connection],
+      }));
+      setInstall((prev) => ({ ...prev, status: "connected", timeLeft: 0, message: poll.message || t("settings.botInstallConnected") }));
+      return;
+    }
+    if (poll.error) {
+      clearInstallTimers();
+      setInstall((prev) => ({ ...prev, status: "error", timeLeft: 0, message: poll.error }));
+      return;
+    }
+    setInstall((prev) => ({ ...prev, message: poll.message || t("settings.botInstallWaiting") }));
+    scheduleInstallPoll(attempt, current.result.interval);
+  };
+  useEffect(() => {
+    if (install.status !== "showing" || install.timeLeft > 0) return;
+    installAttemptRef.current += 1;
+    clearInstallTimers();
+    setInstall((prev) => prev.status === "showing" ? { ...prev, status: "error", message: t("settings.botInstallExpired") } : prev);
+  }, [install.status, install.timeLeft]);
+  const diagnoseConnection = async (id: string) => {
+    const diag = await app.DiagnoseBotConnection(id);
+    setDiagnostics((prev) => ({ ...prev, [id]: diag }));
+    return diag;
+  };
+  const testConnection = async (connection: BotConnectionView) => {
+    const target = (testTargets[connection.id] ?? firstConnectionRemote(connection)).trim();
+    const diag = await app.TestBotConnection(connection.id, target);
+    setDiagnostics((prev) => ({ ...prev, [connection.id]: diag }));
+    if (diag.messageId && target) {
+      const updatedAt = new Date().toISOString();
+      await persistConnections((items) => items.map((item) => {
+        if (item.id !== connection.id) return item;
+        const scope = connection.workspaceRoot ? "project" : "global";
+        const matchesTestMapping = (mapping: BotConnectionView["sessionMappings"][number]) =>
+          mapping.remoteId === target &&
+          !mapping.chatType.trim() &&
+          !mapping.userId.trim() &&
+          !mapping.threadId.trim();
+        const sessionMappings = [
+          ...item.sessionMappings.filter((mapping) => !matchesTestMapping(mapping)),
+          { remoteId: target, sessionId: "", sessionSource: "", chatType: "", userId: "", threadId: "", scope, workspaceRoot: scope === "project" ? connection.workspaceRoot : "", updatedAt },
+        ];
+        return { ...item, sessionMappings, updatedAt };
+      }));
+    }
+  };
+  const ensureReportableDiagnostic = async (connection: BotConnectionView) => {
+    return diagnoseConnection(connection.id);
+  };
+  const copyConnectionDiagnostic = async (connection: BotConnectionView) => {
+    const diag = await ensureReportableDiagnostic(connection);
+    if (!diag.reportDetail) return;
+    try {
+      await navigator.clipboard.writeText(diag.reportDetail);
+      setDiagnostics((prev) => ({ ...prev, [connection.id]: { ...diag, message: t("settings.botDiagnosticCopied") } }));
+    } catch (err) {
+      setDiagnostics((prev) => ({
+        ...prev,
+        [connection.id]: { ...diag, status: "error", message: err instanceof Error ? err.message : t("settings.botDiagnosticCopyFailed") },
+      }));
+    }
+  };
+  const reportConnectionDiagnostic = async (connection: BotConnectionView) => {
+    const diag = await ensureReportableDiagnostic(connection);
+    if (!diag.reportDetail) return;
+    try {
+      await app.ReportCrash(diag.reportKind || "bot", diag.reportDetail);
+      setDiagnostics((prev) => ({ ...prev, [connection.id]: { ...diag, status: "ok", message: t("settings.botDiagnosticReportSent") } }));
+    } catch (err) {
+      setDiagnostics((prev) => ({
+        ...prev,
+        [connection.id]: { ...diag, status: "error", message: err instanceof Error ? err.message : t("settings.botDiagnosticReportFailed") },
+      }));
+    }
+  };
+  const saveConnectionSecret = async (connection: BotConnectionView) => {
+    const env = botConnectionSecretEnv(connection).trim();
+    const value = (connectionSecrets[connection.id] ?? "").trim();
+    if (!env || !value) return;
+    await apply(async () => {
+      await saveBot();
+      await app.SetBotSecret(env, value);
+    });
+    setConnectionSecrets((prev) => ({ ...prev, [connection.id]: "" }));
+  };
+  const clearConnectionSecret = async (connection: BotConnectionView) => {
+    const env = botConnectionSecretEnv(connection).trim();
+    if (!env) return;
+    await apply(async () => {
+      await saveBot();
+      await app.ClearBotSecret(env);
+    });
+  };
+  const clearQQSecret = async () => {
+    const env = draft.qq.appSecretEnv.trim() || DEFAULT_QQ_SECRET_ENV;
+    if (!env) return;
+    await apply(async () => {
+      await saveBot();
+      await app.ClearBotSecret(env);
+    });
+    setQQSecretValue("");
+  };
+  const focusQQAccessSettings = () => {
+    pendingAllowlistFocusRef.current = true;
+    setExpandedConnectionId(QQ_CONNECTION_ID);
+    setAllowlistOpen(true);
+    setAllowlistFocused(true);
+    setDiagnostics((prev) => ({ ...prev, [QQ_CONNECTION_ID]: t("settings.botQQAccessRequired") }));
+  };
+  const saveQQAndEnable = async () => {
+    if (!qqCanEnableAccess) {
+      focusQQAccessSettings();
+      return;
+    }
+    const env = draft.qq.appSecretEnv.trim() || DEFAULT_QQ_SECRET_ENV;
+    const secret = qqSecretValue.trim();
+    const nextDraft = botDraftWithDerivedGatewayState({
+      ...draft,
+      qq: {
+        ...draft.qq,
+        enabled: true,
+        appId: draft.qq.appId.trim(),
+        appSecretEnv: env,
+        secretSet: draft.qq.secretSet || Boolean(secret),
+      },
+    });
+    await apply(async () => {
+      await app.SetBotSettings(nextDraft);
+      if (secret) await app.SetBotSecret(env, secret);
+    });
+    setDraft(nextDraft);
+    setQQSecretValue("");
+  };
+  const removeQQBot = async () => {
+    const env = draft.qq.appSecretEnv.trim() || DEFAULT_QQ_SECRET_ENV;
+    const nextDraft = botDraftWithDerivedGatewayState({
+      ...draft,
+      qq: { enabled: false, appId: "", appSecretEnv: DEFAULT_QQ_SECRET_ENV, secretSet: false, sandbox: false },
+    });
+    await apply(async () => {
+      await app.SetBotSettings(nextDraft);
+      if (draft.qq.secretSet) await app.ClearBotSecret(env);
+    });
+    setDraft(nextDraft);
+    setQQSecretValue("");
+    setExpandedConnectionId("");
+  };
+  const onlineConnections = (qqOnline ? 1 : 0) + draft.connections.filter((connection) => connection.enabled && connection.status === "connected").length;
+  const selectedQQ = qqAdded && expandedConnectionId === QQ_CONNECTION_ID;
+  const selectedConnection = selectedQQ ? null : draft.connections.find((connection) => connection.id === expandedConnectionId) ?? null;
+  const selectedDiagnostic = selectedConnection ? diagnostics[selectedConnection.id] : undefined;
+  const selectedDiagnosticDetail = diagnosticReportDetail(selectedDiagnostic);
+  const selectedConnectionRemote = selectedConnection ? firstConnectionRemote(selectedConnection) : "";
+  const selectedConnectionToolApprovalMode = selectedConnection ? normalizeBotToolApprovalMode(selectedConnection.toolApprovalMode, true) : "";
+  const selectedAllowlistTargetReady = selectedQQ || Boolean(selectedConnection);
+  useEffect(() => {
+    if (!pendingAllowlistFocusRef.current || !selectedAllowlistTargetReady) return;
+    setAllowlistOpen(true);
+    const scrollTimer = window.setTimeout(() => {
+      if (!allowlistRef.current) return;
+      pendingAllowlistFocusRef.current = false;
+      allowlistRef.current.scrollIntoView({ block: "center", behavior: "smooth" });
+      setAllowlistFocused(true);
+    }, 80);
+    const clearTimer = window.setTimeout(() => setAllowlistFocused(false), 2100);
+    return () => {
+      window.clearTimeout(scrollTimer);
+      window.clearTimeout(clearTimer);
+    };
+  }, [selectedAllowlistTargetReady]);
+
+  return (
+    <div className="bot-phone-connect">
+        <div className="bot-connection-list">
+          <div className="bot-connection-list__head">
+            <div className="bot-connection-list__title">
+              <strong>{t("settings.botConnectedBots")}</strong>
+              <span>{t("settings.botConnectedBotsSummary", { online: onlineConnections, total: connectionItems.length })}</span>
+            </div>
+          </div>
+          {browserPreviewBotConfigured ? (
+            <div className="bot-connection-warning">{t("settings.botBrowserPreviewWarning")}</div>
+          ) : null}
+          {connectionItems.length === 0 ? (
+            <div className="bot-connection-empty">{t("settings.botConnectionsEmpty")}</div>
+          ) : (
+            <div className="bot-connection-table" role="table" aria-label={t("settings.botConnectedBots")}>
+              <div className="bot-connection-table__header" role="row">
+                <span>{t("settings.botConnectionColumnChannel")}</span>
+                <span>{t("settings.botConnectionColumnName")}</span>
+                <span>{t("settings.botConnectionColumnStatus")}</span>
+                <span>{t("settings.botConnectionColumnActions")}</span>
+              </div>
+              {connectionItems.map((item) => {
+                if (item.kind === "qq") {
+                  const appID = draft.qq.appId.trim();
+                  const qqDiagMessage = diagnosticMessage(diagnostics[QQ_CONNECTION_ID]);
+                  const statusText = qqOnline
+                    ? t("settings.botConnectionConnected")
+                    : qqConfigured
+                      ? t("settings.botConnectionConfigured")
+                      : draft.qq.secretSet
+                      ? t("settings.botConnectionDisconnected")
+                      : t("settings.botSecretMissing");
+                  return (
+                    <div key={QQ_CONNECTION_ID} className="bot-connection-row" role="rowgroup">
+                      <div className="bot-connection-row__grid" role="row">
+                      <div className="bot-connection-row__channel" role="cell">
+                        <span>QQ</span>
+                      </div>
+                      <div className="bot-connection-row__identity-cell" role="cell">
+                        <button
+                          type="button"
+                          className="bot-connection-identity"
+                          disabled={busy}
+                          onClick={() => setExpandedConnectionId((current) => current === QQ_CONNECTION_ID ? "" : QQ_CONNECTION_ID)}
+                          title={appID || "QQ Bot"}
+                        >
+                          <span className="bot-connection-identity__main">
+                            <strong>QQ Bot</strong>
+                            <code>{appID || "—"}</code>
+                          </span>
+                        </button>
+                      </div>
+                      <div className="bot-connection-row__state" role="cell">
+                        <span className={`bot-connection-row__status bot-connection-row__status--${qqOnline ? "connected" : qqConfigured ? "configured" : "disconnected"}`}>
+                            {statusText}
+                          </span>
+                          <ToggleSegment
+                            value={draft.qq.enabled}
+                            disabled={busy}
+                            onChange={(enabled) => {
+                              if (enabled && !qqCanEnableAccess) {
+                                focusQQAccessSettings();
+                                return;
+                              }
+                              updateQQ({ enabled });
+                              void persistQQ({ enabled });
+                            }}
+                          />
+                        </div>
+                        <div className="bot-connection-row__actions" role="cell">
+                          <button
+                            type="button"
+                            className={`btn btn--small${selectedQQ ? " btn--primary" : " btn--secondary"}`}
+                            disabled={busy}
+                            onClick={() => setExpandedConnectionId((current) => current === QQ_CONNECTION_ID ? "" : QQ_CONNECTION_ID)}
+                          >
+                            {t("settings.botManage")}
+                          </button>
+                        </div>
+                      </div>
+                      {qqDiagMessage ? <em className="bot-connection-row__diag">{qqDiagMessage}</em> : null}
+                    </div>
+                  );
+                }
+                const connection = item.connection;
+                const sessionID = firstConnectionRemote(connection);
+                const diagMessage = diagnosticMessage(diagnostics[connection.id]);
+                const connectionStatusClass = connection.status === "connected" ? "connected" : "disconnected";
+                return (
+                  <div key={connection.id} className="bot-connection-row" role="rowgroup">
+                    <div className="bot-connection-row__grid" role="row">
+                      <div className="bot-connection-row__channel" role="cell">
+                        <span>{botConnectionLabel(connection, t)}</span>
+                      </div>
+                      <div className="bot-connection-row__identity-cell" role="cell">
+                        <button
+                          type="button"
+                          className="bot-connection-identity"
+                          disabled={busy}
+                          onClick={() => setExpandedConnectionId((current) => current === connection.id ? "" : connection.id)}
+                          title={sessionID || connection.label || botConnectionLabel(connection, t)}
+                        >
+                          <span className="bot-connection-identity__main">
+                            <strong>{connection.label || botConnectionLabel(connection, t)}</strong>
+                            <code>{sessionID || "—"}</code>
+                          </span>
+                        </button>
+                      </div>
+                      <div className="bot-connection-row__state" role="cell">
+                        <span className={`bot-connection-row__status bot-connection-row__status--${connectionStatusClass}`}>
+                          {connection.status === "connected" ? t("settings.botConnectionConnected") : connection.status || t("settings.botConnectionDisconnected")}
+                        </span>
+                        <ToggleSegment
+                          value={connection.enabled}
+                          disabled={busy}
+                          onChange={(enabled) => void persistConnection(connection.id, { enabled })}
+                        />
+                      </div>
+                      <div className="bot-connection-row__actions" role="cell">
+                        <button
+                          type="button"
+                          className={`btn btn--small${expandedConnectionId === connection.id ? " btn--primary" : " btn--secondary"}`}
+                          disabled={busy}
+                          onClick={() => setExpandedConnectionId((current) => current === connection.id ? "" : connection.id)}
+                        >
+                          {t("settings.botManage")}
+                        </button>
+                      </div>
+                    </div>
+                    {diagMessage ? <em className="bot-connection-row__diag">{diagMessage}</em> : null}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {selectedQQ ? (
+          <article className="bot-detail-card" aria-labelledby="bot-detail-title">
+            <div className="bot-detail-card__head">
+              <div className="bot-detail-card__identity">
+                <div className="bot-detail-card__title" id="bot-detail-title">
+                  QQ Bot
+                  <span className="badge badge--neutral">QQ</span>
+                  <span className={`badge ${qqOnline ? "badge--project" : qqConfigured ? "badge--feedback" : "badge--feedback"}`}>
+                    {qqOnline ? t("settings.botConnectionConnected") : qqConfigured ? t("settings.botConnectionConfigured") : t("settings.botConnectionDisconnected")}
+                  </span>
+                </div>
+                <div className="bot-detail-card__desc">{t("settings.botAutoSaveHint")}</div>
+              </div>
+              <div className="bot-detail-card__actions">
+                <button type="button" className="btn btn--small" onClick={() => setExpandedConnectionId("")}>
+                  {t("common.collapse")}
+                </button>
+              </div>
+            </div>
+
+            <section className="bot-detail-section">
+              <div className="bot-detail-section__head">{t("settings.botConnectionSummary")}</div>
+              <div className="bot-detail-summary">
+                <div>
+                  <span>{t("settings.botConnectionColumnChannel")}</span>
+                  <strong>QQ</strong>
+                </div>
+                <div>
+                  <span>{t("settings.botConnectionColumnRemote")}</span>
+                  <code title={draft.qq.appId.trim() || undefined}>{draft.qq.appId.trim() || "—"}</code>
+                </div>
+                <div>
+                  <span>{t("settings.botConnectionColumnScope")}</span>
+                  <strong>{t("settings.botScopeGlobal")}</strong>
+                </div>
+                <div>
+                  <span>{t("settings.botConnectionColumnStatus")}</span>
+                  <strong>{qqOnline ? t("settings.botConnectionConnected") : qqConfigured ? t("settings.botConnectionConfigured") : t("settings.botConnectionDisconnected")}</strong>
+                </div>
+              </div>
+            </section>
+
+            <section className="bot-detail-section">
+              <div className="bot-detail-section__head">{t("settings.botRuntimeSettings")}</div>
+              <SettingsField label={t("settings.botEnableBot")} hint={t("settings.botGatewayEnabled")}>
+                <ToggleSegment
+                  value={draft.qq.enabled}
+                  disabled={busy}
+                  onChange={(enabled) => {
+                    if (enabled && !qqCanEnableAccess) {
+                      focusQQAccessSettings();
+                      return;
+                    }
+                    updateQQ({ enabled });
+                    void persistQQ({ enabled });
+                  }}
+                />
+              </SettingsField>
+              <SettingsField label={t("settings.botSandbox")} hint={t("settings.botInstallQQHint")}>
+                <ToggleSegment
+                  value={draft.qq.sandbox}
+                  disabled={busy}
+                  onLabel={t("settings.toggleOn")}
+                  offLabel={t("settings.toggleOff")}
+                  onChange={(sandbox) => {
+                    updateQQ({ sandbox });
+                    void persistQQ({ sandbox });
+                  }}
+                />
+              </SettingsField>
+            </section>
+
+            <section className="bot-detail-section">
+              <div className="bot-detail-section__head">{t("settings.botCredential")}</div>
+              <div className="bot-credential-stack">
+                <div className="bot-credential-line">
+                  <span>{draft.qq.appId.trim() ? t("settings.botCredentialApp", { value: draft.qq.appId.trim() }) : t("settings.botCredentialConfigured")}</span>
+                  <strong>{draft.qq.secretSet ? t("settings.botSecretSet") : t("settings.botSecretMissing")}</strong>
+                </div>
+                <div className="bot-secret-row bot-secret-row--qq">
+                  <input
+                    className="mem-input"
+                    value={draft.qq.appId}
+                    disabled={busy}
+                    placeholder={t("settings.botAppId")}
+                    spellCheck={false}
+                    aria-label={t("settings.botAppId")}
+                    onChange={(event) => updateQQ({ appId: event.target.value })}
+                    onBlur={(event) => void persistQQ({ appId: event.currentTarget.value })}
+                  />
+                  <input
+                    className="mem-input"
+                    value={draft.qq.appSecretEnv || DEFAULT_QQ_SECRET_ENV}
+                    disabled={busy}
+                    placeholder={DEFAULT_QQ_SECRET_ENV}
+                    spellCheck={false}
+                    aria-label={t("settings.botSecretEnv")}
+                    onChange={(event) => updateQQ({ appSecretEnv: event.target.value })}
+                    onBlur={(event) => void persistQQ({ appSecretEnv: event.currentTarget.value || DEFAULT_QQ_SECRET_ENV })}
+                  />
+                  <input
+                    className="mem-input"
+                    type="password"
+                    value={qqSecretValue}
+                    disabled={busy}
+                    placeholder={draft.qq.secretSet ? t("settings.botSecretReplace") : t("settings.botSecretPaste")}
+                    aria-label={t("settings.botSecretValue")}
+                    onChange={(event) => setQQSecretValue(event.target.value)}
+                  />
+                  <button type="button" className="btn btn--secondary btn--small" disabled={busy || !qqCanSaveAndEnable} onClick={() => void saveQQAndEnable()}>
+                    {draft.qq.secretSet ? t("settings.saveKey") : t("settings.botSaveAndEnable")}
+                  </button>
+                  <button type="button" className="btn btn--secondary btn--small" disabled={busy || !draft.qq.secretSet} onClick={() => void clearQQSecret()}>
+                    {t("settings.clearKey")}
+                  </button>
+                </div>
+                {!qqCanEnableAccess ? <div className="bot-connect-panel__hint bot-connect-panel__hint--warning">{t("settings.botQQAccessRequired")}</div> : null}
+              </div>
+            </section>
+
+            <details
+              ref={allowlistRef}
+              className={`bot-access-panel${allowlistFocused ? " bot-access-panel--focused" : ""}`}
+              data-focus-target="bot-allowlist"
+              open={allowlistOpen}
+              onToggle={(event) => setAllowlistOpen(event.currentTarget.open)}
+            >
+              <summary className="bot-access-panel__summary">
+                <span>
+                  <strong>{t("settings.botAccessControl")}</strong>
+                  <small>{t("settings.botAllowlistHint")}</small>
+                </span>
+                <ChevronDown className="bot-access-panel__chevron" size={16} aria-hidden="true" />
+              </summary>
+              {allowlistOpen ? (
+                <div className="bot-access-panel__body">
+                  <SettingsField label={t("settings.botAccessMode")} hint={t("settings.botAccessControlHint")}>
+                    <ToggleSegment
+                      value={!draft.allowlist.allowAll}
+                      disabled={busy}
+                      onLabel={t("settings.botAccessWhitelist")}
+                      offLabel={t("settings.botAccessAll")}
+                      onChange={(whitelistOnly) => {
+                        const patch = { enabled: whitelistOnly, allowAll: !whitelistOnly };
+                        updateAllowlist(patch);
+                        void persistAllowlist(patch);
+                      }}
+                    />
+                  </SettingsField>
+                  {draft.allowlist.allowAll ? <div className="bot-access-panel__warning">{t("settings.botAllowAllWarn")}</div> : null}
+                  <SettingsField label={t("settings.botAllowlistEntries")} hint={t("settings.botListPlaceholder")}>
+                    <div className="bot-list-grid bot-list-grid--qq">
+                      <label className="bot-list-input">
+                        <span>{t("settings.botQQUsers")}</span>
+                        <textarea
+                          className="mem-input bot-list-input__textarea"
+                          value={allowlistText.qqUsers}
+                          disabled={busy || draft.allowlist.allowAll}
+                          placeholder={t("settings.botListPlaceholder")}
+                          spellCheck={false}
+                          onChange={(event) => setAllowlistText((prev) => ({ ...prev, qqUsers: event.target.value }))}
+                          onBlur={(event) => persistAllowlistText("qqUsers", event.currentTarget.value)}
+                        />
+                      </label>
+                      <label className="bot-list-input">
+                        <span>{t("settings.botQQGroups")}</span>
+                        <textarea
+                          className="mem-input bot-list-input__textarea"
+                          value={allowlistText.qqGroups}
+                          disabled={busy || draft.allowlist.allowAll}
+                          placeholder={t("settings.botListPlaceholder")}
+                          spellCheck={false}
+                          onChange={(event) => setAllowlistText((prev) => ({ ...prev, qqGroups: event.target.value }))}
+                          onBlur={(event) => persistAllowlistText("qqGroups", event.currentTarget.value)}
+                        />
+                      </label>
+                    </div>
+                  </SettingsField>
+                </div>
+              ) : null}
+            </details>
+
+            <section className="bot-detail-section bot-detail-section--danger">
+              <div>
+                <div className="bot-detail-section__head">{t("settings.botDangerZone")}</div>
+                <p>{t("settings.deleteBotHint")}</p>
+              </div>
+              <InlineConfirmButton
+                label={t("settings.deleteBot")}
+                confirmLabel={t("settings.confirmDeleteBot")}
+                cancelLabel={t("common.cancel")}
+                disabled={busy}
+                danger
+                onConfirm={() => void removeQQBot()}
+              />
+            </section>
+          </article>
+        ) : null}
+
+        {selectedConnection ? (
+          <article className="bot-detail-card" aria-labelledby="bot-detail-title">
+            <div className="bot-detail-card__head">
+              <div className="bot-detail-card__identity">
+                <div className="bot-detail-card__title" id="bot-detail-title">
+                  {selectedConnection.label || botConnectionLabel(selectedConnection, t)}
+                  <span className="badge badge--neutral">{botConnectionLabel(selectedConnection, t)}</span>
+                  <span className={`badge ${selectedConnection.status === "connected" ? "badge--project" : "badge--feedback"}`}>
+                    {selectedConnection.status === "connected" ? t("settings.botConnectionConnected") : selectedConnection.status || t("settings.botConnectionDisconnected")}
+                  </span>
+                </div>
+                <div className="bot-detail-card__desc">{t("settings.botAutoSaveHint")}</div>
+              </div>
+              <div className="bot-detail-card__actions">
+                <button type="button" className="btn btn--small" disabled={busy} onClick={() => void diagnoseConnection(selectedConnection.id)}>
+                  {t("settings.botDiagnose")}
+                </button>
+                {(selectedConnection.provider === "feishu" || selectedConnection.provider === "weixin") ? (
+                  <button type="button" className="btn btn--small" disabled={busy || !selectedConnectionRemote} onClick={() => void testConnection(selectedConnection)}>
+                    {t("settings.botTest")}
+                  </button>
+                ) : null}
+                <button type="button" className="btn btn--small" onClick={() => setExpandedConnectionId("")}>
+                  {t("common.collapse")}
+                </button>
+              </div>
+            </div>
+
+              {diagnosticMessage(selectedDiagnostic) ? (
+                <div className="bot-detail-notice">
+                  <span>{diagnosticMessage(selectedDiagnostic)}</span>
+                  {selectedDiagnosticDetail ? (
+                    <div className="bot-diagnostic-actions">
+                      <button type="button" className="btn btn--secondary btn--small" disabled={busy} onClick={() => void copyConnectionDiagnostic(selectedConnection)}>
+                        <Clipboard aria-hidden="true" />
+                        {t("settings.botCopyDiagnostic")}
+                      </button>
+                      <button type="button" className="btn btn--primary btn--small" disabled={busy} onClick={() => void reportConnectionDiagnostic(selectedConnection)}>
+                        <Send aria-hidden="true" />
+                        {t("settings.botSendDiagnostic")}
+                      </button>
+                      <small>{t("settings.botDiagnosticPrivacy")}</small>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+
+              <section className="bot-detail-section">
+                <div className="bot-detail-section__head">{t("settings.botConnectionSummary")}</div>
+                <div className="bot-detail-summary">
+                  <div>
+                    <span>{t("settings.botConnectionColumnChannel")}</span>
+                    <strong>{botConnectionLabel(selectedConnection, t)}</strong>
+                  </div>
+                  <div>
+                    <span>{t("settings.botConnectionColumnRemote")}</span>
+                    <code title={selectedConnectionRemote || undefined}>{selectedConnectionRemote || "—"}</code>
+                  </div>
+                  <div>
+                    <span>{t("settings.botConnectionColumnScope")}</span>
+                    <strong>{botConnectionScopeLabel(selectedConnection, t)}</strong>
+                  </div>
+                  <div>
+                    <span>{t("settings.botConnectionColumnStatus")}</span>
+                    <strong>{selectedConnection.status === "connected" ? t("settings.botConnectionConnected") : selectedConnection.status || t("settings.botConnectionDisconnected")}</strong>
+                  </div>
+                </div>
+              </section>
+
+              <details
+                ref={allowlistRef}
+                className={`bot-access-panel${allowlistFocused ? " bot-access-panel--focused" : ""}`}
+                data-focus-target="bot-allowlist"
+                open={allowlistOpen}
+                onToggle={(event) => setAllowlistOpen(event.currentTarget.open)}
+              >
+                <summary className="bot-access-panel__summary">
+                  <span>
+                    <strong>{t("settings.botAccessControl")}</strong>
+                    <small>{t("settings.botAllowlistHint")}</small>
+                  </span>
+                  <ChevronDown className="bot-access-panel__chevron" size={16} aria-hidden="true" />
+                </summary>
+                {allowlistOpen ? (
+                  <div className="bot-access-panel__body">
+                    <SettingsField label={t("settings.botAccessMode")} hint={t("settings.botAccessControlHint")}>
+                      <ToggleSegment
+                        value={!draft.allowlist.allowAll}
+                        disabled={busy}
+                        onLabel={t("settings.botAccessWhitelist")}
+                        offLabel={t("settings.botAccessAll")}
+                        onChange={(whitelistOnly) => {
+                          const patch = { enabled: whitelistOnly, allowAll: !whitelistOnly };
+                          updateAllowlist(patch);
+                          void persistAllowlist(patch);
+                        }}
+                      />
+                    </SettingsField>
+                    {draft.allowlist.allowAll ? <div className="bot-access-panel__warning">{t("settings.botAllowAllWarn")}</div> : null}
+                    <SettingsField label={t("settings.botAllowlistEntries")} hint={t("settings.botListPlaceholder")}>
+                      <div className="bot-list-grid">
+                        <label className="bot-list-input">
+                          <span>{t("settings.botQQUsers")}</span>
+                          <textarea
+                            className="mem-input bot-list-input__textarea"
+                            value={allowlistText.qqUsers}
+                            disabled={busy || draft.allowlist.allowAll}
+                            placeholder={t("settings.botListPlaceholder")}
+                            spellCheck={false}
+                            onChange={(event) => setAllowlistText((prev) => ({ ...prev, qqUsers: event.target.value }))}
+                            onBlur={(event) => persistAllowlistText("qqUsers", event.currentTarget.value)}
+                          />
+                        </label>
+                        <label className="bot-list-input">
+                          <span>{t("settings.botFeishuLarkUsers")}</span>
+                          <textarea
+                            className="mem-input bot-list-input__textarea"
+                            value={allowlistText.feishuUsers}
+                            disabled={busy || draft.allowlist.allowAll}
+                            placeholder={t("settings.botListPlaceholder")}
+                            spellCheck={false}
+                            onChange={(event) => setAllowlistText((prev) => ({ ...prev, feishuUsers: event.target.value }))}
+                            onBlur={(event) => persistAllowlistText("feishuUsers", event.currentTarget.value)}
+                          />
+                        </label>
+                        <label className="bot-list-input">
+                          <span>{t("settings.botWeixinUsers")}</span>
+                          <textarea
+                            className="mem-input bot-list-input__textarea"
+                            value={allowlistText.weixinUsers}
+                            disabled={busy || draft.allowlist.allowAll}
+                            placeholder={t("settings.botListPlaceholder")}
+                            spellCheck={false}
+                            onChange={(event) => setAllowlistText((prev) => ({ ...prev, weixinUsers: event.target.value }))}
+                            onBlur={(event) => persistAllowlistText("weixinUsers", event.currentTarget.value)}
+                          />
+                        </label>
+                        <label className="bot-list-input">
+                          <span>{t("settings.botQQGroups")}</span>
+                          <textarea
+                            className="mem-input bot-list-input__textarea"
+                            value={allowlistText.qqGroups}
+                            disabled={busy || draft.allowlist.allowAll}
+                            placeholder={t("settings.botListPlaceholder")}
+                            spellCheck={false}
+                            onChange={(event) => setAllowlistText((prev) => ({ ...prev, qqGroups: event.target.value }))}
+                            onBlur={(event) => persistAllowlistText("qqGroups", event.currentTarget.value)}
+                          />
+                        </label>
+                        <label className="bot-list-input">
+                          <span>{t("settings.botFeishuLarkGroups")}</span>
+                          <textarea
+                            className="mem-input bot-list-input__textarea"
+                            value={allowlistText.feishuGroups}
+                            disabled={busy || draft.allowlist.allowAll}
+                            placeholder={t("settings.botListPlaceholder")}
+                            spellCheck={false}
+                            onChange={(event) => setAllowlistText((prev) => ({ ...prev, feishuGroups: event.target.value }))}
+                            onBlur={(event) => persistAllowlistText("feishuGroups", event.currentTarget.value)}
+                          />
+                        </label>
+                        <label className="bot-list-input">
+                          <span>{t("settings.botWeixinGroups")}</span>
+                          <textarea
+                            className="mem-input bot-list-input__textarea"
+                            value={allowlistText.weixinGroups}
+                            disabled={busy || draft.allowlist.allowAll}
+                            placeholder={t("settings.botListPlaceholder")}
+                            spellCheck={false}
+                            onChange={(event) => setAllowlistText((prev) => ({ ...prev, weixinGroups: event.target.value }))}
+                            onBlur={(event) => persistAllowlistText("weixinGroups", event.currentTarget.value)}
+                          />
+                        </label>
+                      </div>
+                    </SettingsField>
+                  </div>
+                ) : null}
+              </details>
+
+              <section className="bot-detail-section">
+                <div className="bot-detail-section__head">{t("settings.botRuntimeSettings")}</div>
+                <SettingsField label={t("settings.botToolApprovalMode")} hint={t("settings.botToolApprovalModeHint")}>
+                  <div className="provider-add-segmented" role="group" aria-label={t("settings.botToolApprovalMode")}>
+                    {BOT_TOOL_APPROVAL_MODES.map((mode) => (
+                      <button
+                        key={mode || "inherit"}
+                        type="button"
+                        className={selectedConnectionToolApprovalMode === mode ? "provider-add-segmented__item provider-add-segmented__item--active" : "provider-add-segmented__item"}
+                        disabled={busy}
+                        onClick={() => persistConnectionToolApprovalMode(selectedConnection.id, mode)}
+                      >
+                        {t(`settings.botToolApprovalMode.${mode || "inherit"}` as DictKey)}
+                      </button>
+                    ))}
+                  </div>
+                </SettingsField>
+                <SettingsField label={t("settings.botChannelModel")} hint={t("settings.botChannelModelHint")}>
+                  <ModelPicker
+                    s={s}
+                    refs={refs}
+                    value={toRef(selectedConnection.model, s)}
+                    disabled={busy}
+                    emptyOptionLabel={t("settings.botChannelModelAuto")}
+                    emptyOptionHint={settingsModelMeta(s, t)}
+                    onPick={(model) => void persistConnection(selectedConnection.id, { model })}
+                  />
+                </SettingsField>
+                <SettingsField label={t("settings.botWorkspaceRoot")} hint={t("settings.botWorkspaceRootHint")}>
+                  <input
+                    className="mem-input"
+                    value={selectedConnection.workspaceRoot}
+                    disabled={busy}
+                    placeholder={t("settings.botWorkspaceRootPlaceholder")}
+                    spellCheck={false}
+                    onChange={(event) => updateConnection(selectedConnection.id, { workspaceRoot: event.target.value })}
+                    onBlur={(event) => void persistConnection(selectedConnection.id, { workspaceRoot: event.currentTarget.value })}
+                  />
+                </SettingsField>
+              </section>
+
+              <section className="bot-detail-section">
+                <div className="bot-detail-section__head">{t("settings.botCredential")}</div>
+                <div className="bot-credential-stack">
+                  <div className="bot-credential-line">
+                    <span>{botConnectionCredentialSummary(selectedConnection, t)}</span>
+                    <strong>{selectedConnection.credential.secretSet ? t("settings.botSecretSet") : t("settings.botSecretMissing")}</strong>
+                  </div>
+                  {botConnectionSecretEnv(selectedConnection) ? (
+                    <div className="bot-secret-row">
+                      <input
+                        className="mem-input"
+                        value={botConnectionSecretEnv(selectedConnection)}
+                        disabled={busy}
+                        spellCheck={false}
+                        onChange={(event) => updateConnectionCredential(selectedConnection.id, botConnectionSecretPatch(selectedConnection, event.target.value))}
+                        onBlur={(event) => void persistConnectionCredential(selectedConnection.id, botConnectionSecretPatch(selectedConnection, event.currentTarget.value))}
+                      />
+                      <input
+                        className="mem-input"
+                        type="password"
+                        value={connectionSecrets[selectedConnection.id] ?? ""}
+                        disabled={busy}
+                        placeholder={selectedConnection.credential.secretSet ? t("settings.botSecretReplace") : t("settings.botSecretPaste")}
+                        onChange={(event) => setConnectionSecrets((prev) => ({ ...prev, [selectedConnection.id]: event.target.value }))}
+                      />
+                      <button type="button" className="btn btn--secondary btn--small" disabled={busy || !(connectionSecrets[selectedConnection.id] ?? "").trim()} onClick={() => void saveConnectionSecret(selectedConnection)}>
+                        {t("settings.saveKey")}
+                      </button>
+                      <button type="button" className="btn btn--secondary btn--small" disabled={busy || !selectedConnection.credential.secretSet} onClick={() => void clearConnectionSecret(selectedConnection)}>
+                        {t("settings.clearKey")}
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              </section>
+
+              <section className="bot-detail-section bot-detail-section--danger">
+                <div>
+                  <div className="bot-detail-section__head">{t("settings.botDangerZone")}</div>
+                  <p>{t("settings.deleteBotHint")}</p>
+                </div>
+                <InlineConfirmButton
+                  label={t("settings.deleteBot")}
+                  confirmLabel={t("settings.confirmDeleteBot")}
+                  cancelLabel={t("common.cancel")}
+                  disabled={busy}
+                  danger
+                  onConfirm={() => removeConnection(selectedConnection)}
+                />
+              </section>
+          </article>
+        ) : null}
+
+        <div className="bot-add-panel">
+          <div className="bot-phone-connect__top">
+            <div className="bot-phone-connect__title">
+              <strong>{t("settings.botConnectPhoneTitle")}</strong>
+              <span>{t("settings.botConnectPhoneSubtitle")}</span>
+            </div>
+          </div>
+
+          <div className="bot-phone-targets" role="tablist" aria-label={t("settings.botChannels")}>
+            {BOT_INSTALL_TARGETS.map((target) => (
+              <button
+                key={target}
+                type="button"
+                role="tab"
+                aria-selected={installTarget === target}
+                className={`bot-phone-target${installTarget === target ? " bot-phone-target--active" : ""}`}
+                disabled={busy || install.status === "starting"}
+                onClick={() => setInstallTarget(target)}
+              >
+                <strong>{botTargetLabel(target, t)}</strong>
+                <span>{botTargetHint(target, t)}</span>
+              </button>
+            ))}
+          </div>
+
+          {isQQInstallTarget ? (
+            <div className="bot-connect-panel bot-connect-panel--manual bot-connect-panel--qq">
+              <div className="bot-connect-panel__body">
+                <div className="bot-qq-simple__head">
+                  <div>
+                    <strong>{selectedInstallLabel}</strong>
+                    <p>{t("settings.botInstallManualQQ")}</p>
+                  </div>
+                  <span className={`bot-qq-simple__status${qqConfigured ? " bot-qq-simple__status--ready" : ""}`}>
+                    {qqConfigured ? <CheckCircle2 aria-hidden="true" /> : <KeyRound aria-hidden="true" />}
+                    {draft.qq.secretSet ? t("settings.botSecretSet") : t("settings.botSecretMissing")}
+                  </span>
+                </div>
+                <div className="bot-manual-form bot-manual-form--qq">
+                  <div className="bot-card-field">
+                    <span>{t("settings.botAppId")}</span>
+                    <div>
+                      <input
+                        className="mem-input"
+                        aria-label={t("settings.botAppId")}
+                        value={draft.qq.appId}
+                        disabled={busy}
+                        spellCheck={false}
+                        onChange={(event) => updateQQ({ appId: event.target.value })}
+                        onBlur={(event) => void persistQQ({ appId: event.currentTarget.value })}
+                      />
+                    </div>
+                  </div>
+                  <div className="bot-card-field">
+                    <span>{t("settings.botAppSecret")}</span>
+                    <div>
+                      <input
+                        className="mem-input"
+                        type="password"
+                        value={qqSecretValue}
+                        disabled={busy}
+                        placeholder={draft.qq.secretSet ? t("settings.botSecretSavedOptional") : t("settings.botSecretPaste")}
+                        spellCheck={false}
+                        aria-label={t("settings.botSecretValue")}
+                        onChange={(event) => setQQSecretValue(event.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <div className="bot-qq-simple__actions">
+                    <button type="button" className="btn btn--primary btn--small" disabled={busy || !qqCanSaveAndEnable} onClick={() => void saveQQAndEnable()}>
+                      {t("settings.botSaveAndEnable")}
+                    </button>
+                  </div>
+                  {!qqCanEnableAccess ? <div className="bot-connect-panel__hint bot-connect-panel__hint--warning">{t("settings.botQQAccessRequired")}</div> : null}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="bot-connect-panel bot-connect-panel--phone">
+              <div className="bot-connect-panel__qr">
+                {selectedInstallConnection ? (
+                  <div className="bot-connect-panel__state bot-connect-panel__state--success">
+                    <CheckCircle2 aria-hidden="true" />
+                  </div>
+                ) : install.status === "showing" && installQrURL ? (
+                  installQrIsImage ? (
+                    <img src={installQrURL} alt={t("settings.botInstallQrAlt")} />
+                  ) : (
+                    <Suspense fallback={<div className="bot-connect-panel__state"><QrCode aria-hidden="true" /></div>}>
+                      <QRCodeSVG className="bot-connect-panel__qr-code" value={installQrURL} size={196} marginSize={1} />
+                    </Suspense>
+                  )
+                ) : install.status === "starting" ? (
+                  <div className="bot-connect-panel__state">
+                    <Loader2 className="bot-spin" aria-hidden="true" />
+                    <span>{t("settings.botInstallStarting")}</span>
+                  </div>
+                ) : install.status === "error" ? (
+                  <div className="bot-connect-panel__state bot-connect-panel__state--error">
+                    <RefreshCw aria-hidden="true" />
+                  </div>
+                ) : (
+                  <div className="bot-connect-panel__state">
+                    <QrCode aria-hidden="true" />
+                  </div>
+                )}
+              </div>
+              <div className="bot-connect-panel__body">
+                <strong>{selectedInstallLabel}</strong>
+                <p>
+                  {selectedInstallConnection
+                    ? t("settings.botInstallAlreadyConnected", { provider: selectedInstallLabel })
+                    : install.message || botTargetHint(installTarget, t)}
+                </p>
+                {install.status === "showing" && install.timeLeft > 0 ? (
+                  <span className="bot-connect-panel__timer">{t("settings.botInstallTimeLeft", { time: formatInstallTimeLeft(install.timeLeft) })}</span>
+                ) : null}
+                {installUserCode ? <code>{installUserCode}</code> : null}
+                <div className="bot-connect-panel__actions">
+                  {!selectedInstallConnection && install.status !== "showing" && install.status !== "starting" ? (
+                    <button type="button" className="btn btn--primary btn--small" disabled={busy} onClick={() => void startInstall(installTarget)}>
+                      {install.status === "error" ? <RefreshCw aria-hidden="true" /> : <QrCode aria-hidden="true" />}
+                      {install.status === "error" ? t("settings.botInstallRetry") : t("settings.botInstallGenerate")}
+                    </button>
+                  ) : null}
+                  {install.status === "showing" ? (
+                    <button type="button" className="btn btn--secondary btn--small" disabled={busy} onClick={() => void pollInstall()}>
+                      {t("settings.botInstallCheck")}
+                    </button>
+                  ) : null}
+                  {selectedInstallConnection ? (
+                    <button type="button" className="btn btn--secondary btn--small" disabled={busy} onClick={() => void diagnoseConnection(selectedInstallConnection.id)}>
+                      {t("settings.botDiagnose")}
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+    </div>
+  );
+}
+
+function diagnosticMessage(diag?: BotConnectionDiagnostic | string): string {
+  if (typeof diag === "string") return diag;
+  return diag?.message || diag?.status || "";
+}
+
+function diagnosticReportDetail(diag?: BotConnectionDiagnostic | string): string {
+  if (typeof diag === "string") return "";
+  return diag?.reportDetail || "";
+}
+
+function botTargetLabel(target: BotInstallTarget, t: ReturnType<typeof useT>): string {
+  switch (target) {
+    case "qq": return "QQ";
+    case "lark": return "Lark";
+    case "weixin": return t("settings.botWeixin");
+    default: return t("settings.botFeishu");
+  }
+}
+
+function botTargetHint(target: BotInstallTarget, t: ReturnType<typeof useT>): string {
+  switch (target) {
+    case "qq": return t("settings.botInstallQQHint");
+    case "lark": return t("settings.botInstallLarkHint");
+    case "weixin": return t("settings.botInstallWeixinHint");
+    default: return t("settings.botInstallFeishuHint");
+  }
+}
+
+function qqBotAdded(qq: BotSettingsView["qq"]): boolean {
+  return Boolean(qq.enabled || qq.secretSet || qq.appId.trim());
+}
+
+function qqAccessReady(allowlist: BotAllowlistView): boolean {
+  if (allowlist.allowAll) return true;
+  if (!allowlist.enabled) return false;
+  return asArray(allowlist.qqUsers).some((value) => value.trim()) || asArray(allowlist.qqGroups).some((value) => value.trim());
+}
+
+function botInstallTargetMatchesConnection(target: BotOfficialInstallTarget, connection: BotConnectionView): boolean {
+  if (target === "weixin") return connection.provider === "weixin";
+  if (target === "lark") return connection.provider === "feishu" && connection.domain === "lark";
+  return connection.provider === "feishu" && connection.domain !== "lark";
+}
+
+function formatInstallUserCode(code: string): string {
+  const compact = code.replace(/[^a-z0-9]/gi, "").toUpperCase().slice(0, 8);
+  if (compact.length <= 4) return compact;
+  return `${compact.slice(0, 4)}-${compact.slice(4)}`;
+}
+
+function formatInstallTimeLeft(seconds: number): string {
+  const value = Math.max(0, Math.floor(seconds));
+  const minutes = Math.floor(value / 60);
+  const rest = value % 60;
+  return `${minutes}:${String(rest).padStart(2, "0")}`;
+}
+
+function botConnectionLabel(connection: BotConnectionView, t: ReturnType<typeof useT>): string {
+  if (connection.domain === "lark") return "Lark";
+  if (connection.provider === "weixin") return t("settings.botWeixin");
+  if (connection.provider === "qq") return "QQ";
+  return t("settings.botFeishu");
+}
+
+function firstConnectionRemote(connection: BotConnectionView): string {
+  return connection.sessionMappings.find((mapping) => mapping.remoteId.trim())?.remoteId ?? "";
+}
+
+function botConnectionScopeLabel(connection: BotConnectionView, t: ReturnType<typeof useT>): string {
+  return connection.workspaceRoot.trim() ? t("settings.botScopeProject") : t("settings.botScopeGlobal");
+}
+
+function botConnectionSecretEnv(connection: BotConnectionView): string {
+  return connection.provider === "weixin" ? connection.credential.tokenEnv : connection.credential.appSecretEnv;
+}
+
+function botConnectionSecretPatch(connection: BotConnectionView, value: string): Partial<BotConnectionView["credential"]> {
+  return connection.provider === "weixin" ? { tokenEnv: value } : { appSecretEnv: value };
+}
+
+function botConnectionCredentialSummary(connection: BotConnectionView, t: ReturnType<typeof useT>): string {
+  if (connection.provider === "weixin") {
+    return connection.credential.accountId
+      ? t("settings.botCredentialAccount", { value: connection.credential.accountId })
+      : t("settings.botCredentialLocalWeixin");
+  }
+  if (connection.credential.appId) {
+    return t("settings.botCredentialApp", { value: connection.credential.appId });
+  }
+  return t("settings.botCredentialConfigured");
+}
+
+function ToggleSegment({
+  value,
+  disabled,
+  onLabel,
+  offLabel,
+  onChange,
+}: {
+  value: boolean;
+  disabled: boolean;
+  onLabel?: string;
+  offLabel?: string;
+  onChange: (value: boolean) => void;
+}) {
+  const t = useT();
+  return (
+    <div className="set-seg">
+      <button
+        type="button"
+        className={`set-seg__btn${value ? " set-seg__btn--on" : ""}`}
+        disabled={disabled}
+        onClick={() => onChange(true)}
+      >
+        {onLabel ?? t("settings.toggleOn")}
+      </button>
+      <button
+        type="button"
+        className={`set-seg__btn${!value ? " set-seg__btn--on" : ""}`}
+        disabled={disabled}
+        onClick={() => onChange(false)}
+      >
+        {offLabel ?? t("settings.toggleOff")}
+      </button>
+    </div>
+  );
+}
+
+function sanitizeBotDraft(draft: BotSettingsView): BotSettingsView {
+  const bot = normalizeBotSettings(draft);
+  return {
+    ...bot,
+    model: bot.model.trim(),
+    toolApprovalMode: normalizeBotToolApprovalMode(bot.toolApprovalMode),
+    maxSteps: Math.max(0, Math.floor(bot.maxSteps || 0)),
+    debounceMs: Math.max(0, Math.floor(bot.debounceMs || 0)),
+    allowlist: {
+      ...bot.allowlist,
+      qqUsers: uniqueStrings(bot.allowlist.qqUsers.map((v) => v.trim())),
+      feishuUsers: uniqueStrings(bot.allowlist.feishuUsers.map((v) => v.trim())),
+      weixinUsers: uniqueStrings(bot.allowlist.weixinUsers.map((v) => v.trim())),
+      qqGroups: uniqueStrings(bot.allowlist.qqGroups.map((v) => v.trim())),
+      feishuGroups: uniqueStrings(bot.allowlist.feishuGroups.map((v) => v.trim())),
+      weixinGroups: uniqueStrings(bot.allowlist.weixinGroups.map((v) => v.trim())),
+    },
+    qq: {
+      ...bot.qq,
+      appId: bot.qq.appId.trim(),
+      appSecretEnv: bot.qq.appSecretEnv.trim(),
+    },
+    feishu: {
+      ...bot.feishu,
+      domain: bot.feishu.domain === "lark" ? "lark" : "feishu",
+      appId: bot.feishu.appId.trim(),
+      appSecretEnv: bot.feishu.appSecretEnv.trim(),
+      verificationToken: bot.feishu.verificationToken.trim(),
+      mode: bot.feishu.mode === "websocket" ? "websocket" : "webhook",
+      webhookPort: Math.max(0, Math.floor(bot.feishu.webhookPort || 0)),
+    },
+    weixin: {
+      ...bot.weixin,
+      accountId: bot.weixin.accountId.trim(),
+      tokenEnv: bot.weixin.tokenEnv.trim(),
+      apiBase: bot.weixin.apiBase.trim().replace(/\/+$/, ""),
+    },
+    connections: bot.connections.map(normalizeBotConnection).filter((conn) => conn.id && conn.provider),
+  };
+}
+
+function botDraftWithDerivedGatewayState(draft: BotSettingsView): BotSettingsView {
+  const bot = sanitizeBotDraft(draft);
+  return {
+    ...bot,
+    enabled: bot.qq.enabled || bot.connections.some((connection) => connection.enabled),
+  };
+}
+
+function ModelsSection({ s, busy, apply, backgroundApply }: ModelsSectionProps) {
+  const t = useT();
+  const [subtab, setSubtab] = useState<"usage" | "access">("usage");
+  const autoRefreshKeyRef = useRef("");
+  const refs = useMemo(() => allRefs(s), [s.providers]);
+  const defaultRef = toRef(s.defaultModel, s);
+  const plannerRef = toRef(s.plannerModel, s);
+  const subagentRef = toRef(s.subagentModel, s);
+  const plannerSelectRef = plannerRef === defaultRef ? "" : plannerRef;
+  const [defaultProvider] = defaultRef.split("/");
+  const defaultProviderView = s.providers.find((p) => p.name === defaultProvider);
+  const modelIssue = !defaultProviderView
+    ? t("settings.modelUnavailable", { ref: defaultRef || t("common.none") })
+    : !providerIsConfigured(defaultProviderView)
+      ? t("settings.modelNeedsKey", { provider: modelProviderLabel(defaultProvider, defaultProviderView, t) })
+      : "";
+  const agent = s.agent ?? { temperature: 0, maxSteps: 0, plannerMaxSteps: 0, systemPrompt: "", coldResumePrune: true, reasoningLanguage: "auto" };
+  const setAgentSteps = (maxSteps: number, plannerMaxSteps: number) => (
+    app.SetAgentParams(agent.temperature, maxSteps, plannerMaxSteps, agent.systemPrompt)
+  );
+
+  useEffect(() => {
+    if (subtab !== "usage") return;
+    const groups = providerAccessGroups(s.providers.filter((p) => p.added), t);
+    const candidates = groups
+      .map((group) => {
+        const provider = group.providers.find((p) => providerIsConfigured(p) && p.baseUrl);
+        return provider ? { group, provider } : null;
+      })
+      .filter((item): item is { group: ProviderAccessGroup; provider: ProviderView } => Boolean(item));
+    const refreshKey = candidates.map(({ group, provider }) => `${group.id}:${provider.apiKeyEnv || provider.name}:${provider.baseUrl}`).join("|");
+    if (!refreshKey || autoRefreshKeyRef.current === refreshKey) return;
+    autoRefreshKeyRef.current = refreshKey;
+
+    void backgroundApply(async () => {
+      for (const { provider } of candidates) {
+        // Background auto-refresh only protects a user-curated model list.
+        // If the user hasn't specified any models, don't silently populate
+        // the provider with every model from the API.
+        if (!provider.models || provider.models.length === 0) continue;
+        try {
+          const fetched = await app.FetchProviderModels(provider);
+          if (fetched.length === 0) continue;
+          const models = mergedFetchedProviderModels(provider.models, fetched, { preserveCurated: true });
+          const currentDefault = providerDefaultModel(provider.default, models);
+          const visionModels = provider.visionModels.filter((model) => models.includes(model));
+          if (sameStringList(provider.models, models) && provider.default === currentDefault && sameStringList(provider.visionModels, visionModels)) continue;
+          await app.SaveProvider({ ...provider, models, default: currentDefault, visionModels });
+        } catch {
+          // Background discovery is opportunistic; manual refresh shows errors.
+        }
+      }
+    });
+  }, [backgroundApply, s.providers, subtab, t]);
+
+  return (
+    <>
+      <div className="settings-subtabs">
+        <button
+          type="button"
+          className={`settings-subtab${subtab === "usage" ? " settings-subtab--active" : ""}`}
+          aria-selected={subtab === "usage"}
+          onClick={() => setSubtab("usage")}
+        >
+          {t("settings.modelTab.usage")}
+        </button>
+        <button
+          type="button"
+          className={`settings-subtab${subtab === "access" ? " settings-subtab--active" : ""}`}
+          aria-selected={subtab === "access"}
+          onClick={() => setSubtab("access")}
+        >
+          {t("settings.modelTab.access")}
+        </button>
+      </div>
+
+      {subtab === "usage" ? (
+        <>
+          <SettingsSection title={t("settings.modelUsage")}>
+            <SettingsField label={t("settings.defaultModel")} hint={t("settings.defaultModelHint")}>
+              <ModelPicker
+                s={s}
+                refs={refs}
+                value={toRef(s.defaultModel, s)}
+                disabled={busy}
+                onPick={(ref) => void apply(() => app.SetDefaultModel(ref))}
+              />
+            </SettingsField>
+
+            <SettingsField label={t("settings.plannerModel")}>
+              <ModelPicker
+                s={s}
+                refs={refs}
+                value={plannerSelectRef}
+                disabled={busy}
+                includeSameDefault
+                onPick={(ref) => void apply(() => app.SetPlannerModel(ref))}
+              />
+            </SettingsField>
+
+            <SettingsField label={t("settings.subagentModel")}>
+              <ModelPicker
+                s={s}
+                refs={refs}
+                value={subagentRef}
+                disabled={busy}
+                emptyOptionLabel={t("settings.subagentModelDefault")}
+                emptyOptionHint={t("common.auto")}
+                onPick={(ref) => void apply(() => app.SetSubagentModel(ref))}
+              />
+            </SettingsField>
+
+            <SettingsField label={t("settings.subagentEffort")} hint={t("settings.subagentHint")}>
+              <select
+                className="mem-select set-grow"
+                value={s.subagentEffort || ""}
+                disabled={busy}
+                onChange={(e) => void apply(() => app.SetSubagentEffort(e.target.value))}
+              >
+                <option value="">{t("settings.subagentEffortDefault")}</option>
+                {EFFORT_PRESETS.map((level) => (
+                  <option key={level} value={level}>
+                    {level}
+                  </option>
+                ))}
+              </select>
+            </SettingsField>
+
+            {modelIssue && <div className="provider-fetch-banner provider-fetch-banner--warn">{modelIssue}</div>}
+          </SettingsSection>
+          <SettingsSection title={t("settings.agentRuntime")} description={t("settings.agentRuntimeHint")}>
+            <SettingsField label={t("settings.executorMaxSteps")} hint={t("settings.executorMaxStepsHint")}>
+              <StepLimitControl
+                value={agent.maxSteps}
+                presets={[10, 25, 50, 0]}
+                busy={busy}
+                onChange={(next) => void apply(() => setAgentSteps(next, agent.plannerMaxSteps))}
+              />
+            </SettingsField>
+            <SettingsField label={t("settings.plannerMaxSteps")} hint={plannerSelectRef ? t("settings.plannerMaxStepsHint") : t("settings.plannerMaxStepsDisabledHint")}>
+              <StepLimitControl
+                value={agent.plannerMaxSteps}
+                presets={[6, 12, 25, 0]}
+                busy={busy}
+                onChange={(next) => void apply(() => setAgentSteps(agent.maxSteps, next))}
+              />
+            </SettingsField>
+            <SettingsField label={t("settings.coldResumePrune")} hint={t("settings.coldResumePruneHint")}>
+              <div className="set-seg">
+                {([true, false] as const).map((on) => (
+                  <button
+                    key={on ? "on" : "off"}
+                    className={`set-seg__btn${agent.coldResumePrune === on ? " set-seg__btn--on" : ""}`}
+                    disabled={busy}
+                    onClick={() => void apply(() => app.SetColdResumePrune(on))}
+                  >
+                    {on ? t("settings.coldResumePrune.on") : t("settings.coldResumePrune.off")}
+                  </button>
+                ))}
+              </div>
+            </SettingsField>
+            <SettingsField label={t("settings.reasoningLanguage")} hint={t("settings.reasoningLanguageHint")}>
+              <div className="set-seg">
+                {(["auto", "zh", "en"] as const).map((lang) => (
+                  <button
+                    key={lang}
+                    className={`set-seg__btn${agent.reasoningLanguage === lang ? " set-seg__btn--on" : ""}`}
+                    disabled={busy}
+                    onClick={() => void apply(() => app.SetReasoningLanguage(lang))}
+                  >
+                    {t(`settings.reasoningLanguage.${lang}`)}
+                  </button>
+                ))}
+              </div>
+            </SettingsField>
+          </SettingsSection>
+        </>
+      ) : (
+        <ProvidersSection s={s} busy={busy} apply={apply} />
+      )}
+    </>
+  );
+}
+
+type ModelPickerOption = {
+  ref: string;
+  provider: string;
+  model: string;
+  providerView?: ProviderView;
+};
+
+function ModelPicker({
+  s,
+  refs,
+  value,
+  disabled,
+  includeSameDefault = false,
+  emptyOptionLabel,
+  emptyOptionHint,
+  onPick,
+}: {
+  s: SettingsView;
+  refs: string[];
+  value: string;
+  disabled: boolean;
+  includeSameDefault?: boolean;
+  emptyOptionLabel?: string;
+  emptyOptionHint?: string;
+  onPick: (ref: string) => void;
+}) {
+  const t = useT();
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  // Debounce search to avoid expensive filtering on every keystroke
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(query), 150);
+    return () => clearTimeout(timer);
+  }, [query]);
+  const q = debouncedQuery.trim().toLowerCase();
+  const emptyLabel = includeSameDefault ? t("settings.plannerNone") : emptyOptionLabel;
+  const emptyHint = includeSameDefault ? t("settings.plannerNoneHint") : emptyOptionHint;
+  const emptyMeta = includeSameDefault ? t("settings.plannerNoneHintShort") : emptyOptionHint;
+  const selected = refs.includes(value) ? modelOptionFromRef(value, s) : null;
+  const selectedLabel = value === "" && emptyLabel
+    ? emptyLabel
+    : selected?.model || value || t("common.none");
+  const selectedMeta = value === "" && emptyLabel
+    ? emptyMeta || ""
+    : selected
+    ? modelOptionMeta(selected, t)
+    : t("settings.noModelsConfigured");
+  const emptyOptionVisible = Boolean(emptyLabel) && (!q || `${emptyLabel} ${emptyHint || ""}`.toLowerCase().includes(q));
+
+  const groups = useMemo(() => {
+    const providerOrder: string[] = [];
+    const providerSeen = new Set<string>();
+    for (const p of s.providers) {
+      const id = providerGroupID(p);
+      if (!providerSeen.has(id)) {
+        providerOrder.push(id);
+        providerSeen.add(id);
+      }
+    }
+    const options = refs
+      .map((ref) => modelOptionFromRef(ref, s))
+      .filter((opt): opt is ModelPickerOption => Boolean(opt))
+      .filter((opt) => !q || `${opt.ref} ${opt.provider} ${modelProviderLabel(opt.provider, opt.providerView, t)} ${opt.model}`.toLowerCase().includes(q));
+    for (const opt of options) {
+      const groupID = modelOptionGroupID(opt);
+      if (!providerSeen.has(groupID)) {
+        providerOrder.push(groupID);
+        providerSeen.add(groupID);
+      }
+    }
+    return providerOrder
+      .map((groupID) => {
+        const providerViews = s.providers.filter((p) => providerGroupID(p) === groupID);
+        const firstProvider = providerViews[0];
+        return {
+          groupID,
+          label: firstProvider ? providerGroupLabel(firstProvider, t) : groupID,
+          keySet: providerViews.some((p) => p.keySet),
+          requiresKey: providerViews.every((p) => providerRequiresKey(p)),
+          options: uniqueModelOptions(options.filter((opt) => modelOptionGroupID(opt) === groupID)),
+        };
+      })
+      .filter((group) => group.options.length > 0);
+  }, [q, refs, s, t]);
+
+  useEffect(() => {
+    if (!open) setQuery("");
+  }, [open]);
+
+  const pick = (ref: string) => {
+    setOpen(false);
+    if (ref !== value) onPick(ref);
+  };
+
+  return (
+    <div className="settings-model-picker">
+      <button
+        ref={triggerRef}
+        type="button"
+        className="settings-model-picker__trigger"
+        disabled={disabled || (!includeSameDefault && !emptyOptionLabel && refs.length === 0)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen((next) => !next)}
+      >
+        <span className="settings-model-picker__selected">
+          <span>{selectedLabel}</span>
+          <small>{selectedMeta}</small>
+        </span>
+        <ChevronDown size={16} className={`settings-model-picker__chev${open ? " settings-model-picker__chev--open" : ""}`} />
+      </button>
+      <AnchoredPopover
+        open={open && !disabled}
+        anchorRef={triggerRef}
+        onClose={() => setOpen(false)}
+        className="settings-model-picker__menu"
+        placement="bottom"
+        style={{ width: triggerRef.current?.getBoundingClientRect().width }}
+      >
+        <div className="settings-model-picker__search">
+          <input
+            value={query}
+            placeholder={t("settings.searchModels")}
+            onChange={(e) => setQuery(e.target.value)}
+            autoFocus
+          />
+        </div>
+        <div className="settings-model-picker__list" role="listbox">
+          {emptyOptionVisible && (
+            <button
+              type="button"
+              role="option"
+              aria-selected={value === ""}
+              className={`settings-model-picker__option settings-model-picker__option--pinned${value === "" ? " settings-model-picker__option--selected" : ""}`}
+              onClick={() => pick("")}
+            >
+              <span>
+                <strong>{emptyLabel}</strong>
+                {emptyHint && <small>{emptyHint}</small>}
+              </span>
+              {value === "" && <Check size={14} />}
+            </button>
+          )}
+          {groups.map((group) => (
+            <div className="settings-model-picker__group" key={group.groupID}>
+              <div className="settings-model-picker__group-title">
+                <span>{group.label}</span>
+                <small>{providerKeyStatusLabel(group, t)}</small>
+              </div>
+              {group.options.map((opt) => (
+                <button
+                  key={opt.ref}
+                  type="button"
+                  role="option"
+                  aria-selected={opt.ref === value}
+                  className={`settings-model-picker__option${opt.ref === value ? " settings-model-picker__option--selected" : ""}`}
+                  onClick={() => pick(opt.ref)}
+                >
+                  <span>
+                    <strong>{opt.model}</strong>
+                    <small>{modelOptionMeta(opt, t)}</small>
+                  </span>
+                  {opt.ref === value && <Check size={14} />}
+                </button>
+              ))}
+            </div>
+          ))}
+          {!emptyOptionVisible && groups.length === 0 && <div className="settings-model-picker__empty">{t("settings.noMatchingModels")}</div>}
+        </div>
+      </AnchoredPopover>
+    </div>
+  );
+}
+
+function modelOptionFromRef(ref: string, s: SettingsView): ModelPickerOption | null {
+  if (!ref) return null;
+  const [provider, ...modelParts] = ref.split("/");
+  const model = modelParts.join("/") || ref;
+  return {
+    ref,
+    provider,
+    model,
+    providerView: s.providers.find((p) => p.name === provider),
+  };
+}
+
+function modelOptionMeta(option: ModelPickerOption, t: ReturnType<typeof useT>): string {
+  const key = option.providerView ? providerKeyStatusLabel(option.providerView, t) : t("settings.noKey");
+  return `${modelProviderLabel(option.provider, option.providerView, t)} · ${key}`;
+}
+
+function providerKeyStatusLabel(provider: { keySet: boolean; requiresKey?: boolean; apiKeyEnv?: string }, t: ReturnType<typeof useT>): string {
+  if (!providerRequiresKey(provider)) return t("settings.noKeyRequired");
+  return provider.keySet ? t("settings.keySet") : t("settings.noKey");
+}
+
+function modelProviderLabel(provider: string, providerView: ProviderView | undefined, t: ReturnType<typeof useT>): string {
+  return providerView ? providerGroupLabel(providerView, t) : provider;
+}
+
+function modelOptionGroupID(option: ModelPickerOption): string {
+  return option.providerView ? providerGroupID(option.providerView) : `custom:${option.provider}`;
+}
+
+function uniqueModelOptions(options: ModelPickerOption[]): ModelPickerOption[] {
+  const seen = new Set<string>();
+  const out: ModelPickerOption[] = [];
+  for (const option of options) {
+    if (seen.has(option.model)) continue;
+    seen.add(option.model);
+    out.push(option);
+  }
+  return out;
+}
+
+function sameStringList(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  return a.every((value, i) => value === b[i]);
+}
+
+function proxyModeLabel(mode: ProxyMode, t: ReturnType<typeof useT>): string {
+  switch (mode) {
+    case "auto":
+      return t("settings.proxyMode.auto");
+    case "custom":
+      return t("settings.proxyMode.custom");
+    case "off":
+      return t("settings.proxyMode.off");
+  }
+}
+
+function ProvidersSection({ s, busy, apply }: SectionProps) {
+  const t = useT();
+  const defaultProvider = toRef(s.defaultModel, s).split("/")[0];
+  const [editing, setEditing] = useState<string | null>(null);
+  const [adding, setAdding] = useState<AddProviderMode>(null);
+  const [fetchingProvider, setFetchingProvider] = useState<string | null>(null);
+  const [fetchResults, setFetchResults] = useState<Record<string, ProviderFetchResult>>({});
+  const [modelDrafts, setModelDrafts] = useState<Record<string, ProviderModelDraft>>({});
+  const groups = useMemo(() => providerAccessGroups(s.providers.filter((p) => p.added), t), [s.providers, t]);
+
+  const setGroupFetchResult = (groupID: string, result: ProviderFetchResult | null) => {
+    setFetchResults((prev) => {
+      const next = { ...prev };
+      if (result) next[groupID] = result;
+      else delete next[groupID];
+      return next;
+    });
+  };
+
+  const setGroupModelDraft = (groupID: string, draft: ProviderModelDraft | null) => {
+    setModelDrafts((prev) => {
+      const next = { ...prev };
+      if (draft) next[groupID] = draft;
+      else delete next[groupID];
+      return next;
+    });
+  };
+
+  const modelDraftForFetch = (p: ProviderView, fetched: string[]): ProviderModelDraft => {
+    const candidates = providerModelCandidates(p.models, fetched);
+    const selected = mergedFetchedProviderModels(p.models, fetched, { preserveCurated: true });
+    const visionSource = p.visionModelsConfigured ? p.visionModels : inferredVisionModels(candidates);
+    return {
+      providerName: p.name,
+      candidates,
+      selected: candidates.filter((model) => selected.includes(model)),
+      visionModels: candidates.filter((model) => visionSource.includes(model)),
+    };
+  };
+
+  const updateModelDraftSelection = (groupID: string, nextSelected: (draft: ProviderModelDraft) => string[]) => {
+    setModelDrafts((prev) => {
+      const draft = prev[groupID];
+      if (!draft) return prev;
+      const selectedSet = new Set(nextSelected(draft));
+      return {
+        ...prev,
+        [groupID]: {
+          ...draft,
+          selected: draft.candidates.filter((model) => selectedSet.has(model)),
+        },
+      };
+    });
+  };
+
+  const toggleModelDraftVision = (groupID: string, model: string) => {
+    setModelDrafts((prev) => {
+      const draft = prev[groupID];
+      if (!draft) return prev;
+      return {
+        ...prev,
+        [groupID]: {
+          ...draft,
+          visionModels: draft.visionModels.includes(model)
+            ? draft.visionModels.filter((candidate) => candidate !== model)
+            : draft.candidates.filter((candidate) => candidate === model || draft.visionModels.includes(candidate)),
+        },
+      };
+    });
+  };
+
+  const refreshModels = async (group: ProviderAccessGroup, p: ProviderView) => {
+    setFetchingProvider(group.id);
+    setGroupFetchResult(group.id, null);
+    setGroupModelDraft(group.id, null);
+    try {
+      let fetched: string[];
+      try {
+        fetched = await app.FetchProviderModels(p);
+      } catch (e) {
+        setGroupFetchResult(group.id, {
+          kind: "warn",
+          text: t("settings.fetchModelsFailedForProvider", { provider: group.label, err: String((e as Error)?.message ?? e) }),
+        });
+        return;
+      }
+      if (fetched.length === 0) {
+        setGroupFetchResult(group.id, {
+          kind: "warn",
+          text: t("settings.fetchModelsEmptyForProvider", { provider: group.label }),
+        });
+        return;
+      }
+      const draft = modelDraftForFetch(p, fetched);
+      setGroupModelDraft(group.id, draft);
+      setGroupFetchResult(group.id, {
+        kind: "ok",
+        text: t("settings.fetchModelsReadyForProvider", { provider: group.label, n: draft.candidates.length }),
+      });
+    } finally {
+      setFetchingProvider(null);
+    }
+  };
+
+  const refreshGroup = async (group: ProviderAccessGroup) => {
+    const probe = group.providers[0];
+    if (!probe) return;
+    await refreshModels(group, probe);
+  };
+
+  const saveKeyEnvAndAutoRefresh = async (group: ProviderAccessGroup, apiKeyEnv: string, value: string) => {
+    const probe = group.providers[0];
+    if (!probe || !apiKeyEnv) return;
+    setFetchingProvider(group.id);
+    setGroupFetchResult(group.id, null);
+    setGroupModelDraft(group.id, null);
+    try {
+      await apply(async () => {
+        await app.SetProviderKey(apiKeyEnv, value);
+        try {
+          const fetched = await app.FetchProviderModels({ ...probe, apiKeyEnv });
+          if (fetched.length > 0) {
+            const draft = modelDraftForFetch({ ...probe, apiKeyEnv }, fetched);
+            setGroupModelDraft(group.id, draft);
+            setGroupFetchResult(group.id, {
+              kind: "ok",
+              text: t("settings.fetchModelsReadyForProvider", { provider: group.label, n: draft.candidates.length }),
+            });
+            return;
+          }
+          setGroupFetchResult(group.id, {
+            kind: "warn",
+            text: t("settings.fetchModelsEmptyForProvider", { provider: group.label }),
+          });
+        } catch (e) {
+          setGroupFetchResult(group.id, {
+            kind: "warn",
+            text: t("settings.fetchModelsAfterKeyFailedForProvider", { provider: group.label, err: String((e as Error)?.message ?? e) }),
+          });
+        }
+      });
+    } finally {
+      setFetchingProvider(null);
+    }
+  };
+
+  const saveProviderKey = async (group: ProviderAccessGroup, apiKeyEnv: string, value: string) => {
+    if (!apiKeyEnv) return;
+    setGroupFetchResult(group.id, null);
+    setGroupModelDraft(group.id, null);
+    await apply(() => app.SetProviderKey(apiKeyEnv, value));
+  };
+
+  const clearProviderKey = async (apiKeyEnv: string) => {
+    if (!apiKeyEnv) return;
+    await apply(() => app.ClearProviderKey(apiKeyEnv));
+  };
+
+  const saveModelDraft = async (group: ProviderAccessGroup) => {
+    const draft = modelDrafts[group.id];
+    const provider = draft ? group.providers.find((p) => p.name === draft.providerName) : null;
+    const models = uniqueStrings(draft?.selected ?? []);
+    const visionModels = uniqueStrings(draft?.visionModels ?? []).filter((model) => models.includes(model));
+    if (!draft || !provider || models.length === 0) return;
+    let saved = false;
+    await apply(async () => {
+      await app.SaveProvider({
+        ...provider,
+        models,
+        visionModels,
+        visionModelsConfigured: true,
+        default: providerDefaultModel(provider.default, models),
+      });
+      saved = true;
+    });
+    if (!saved) return;
+    setGroupModelDraft(group.id, null);
+    setGroupFetchResult(group.id, {
+      kind: "ok",
+      text: t("settings.enabledModelsSavedForProvider", { provider: group.label, n: models.length }),
+    });
+  };
+
+  return (
+    <SettingsSection
+      title={t("settings.providerAccess")}
+      description={t("settings.providerAccessHint")}
+      actions={
+        <button className="btn btn--small" disabled={busy || adding !== null} onClick={() => setAdding("official")}>
+          {t("settings.addProvider")}
+        </button>
+      }
+    >
+      <div className="provider-access-grid">
+        {groups.length === 0 && adding === null && (
+          <div className="provider-empty">
+            <strong>{t("settings.providerAccessEmptyTitle")}</strong>
+            <span>{t("settings.providerAccessEmptyHint")}</span>
+            <div className="provider-empty__actions">
+              <button type="button" className="btn btn--small" disabled={busy} onClick={() => setAdding("official")}>
+                {t("settings.addProvider.officialChoice")}
+              </button>
+              <button type="button" className="btn btn--small" disabled={busy} onClick={() => setAdding("custom")}>
+                {t("settings.addProvider.customChoice")}
+              </button>
+            </div>
+          </div>
+        )}
+        {adding !== null && (
+          <AddProviderPanel
+            mode={adding}
+            kinds={s.providerKinds}
+            busy={busy}
+            onMode={setAdding}
+            onCancel={() => setAdding(null)}
+            onAddOfficial={(kind, key) => apply(() => app.AddOfficialProviderAccess(kind, key)).then(() => setAdding(null))}
+            onAddCustom={(pv) => apply(() => app.SaveProvider(pv)).then(() => setAdding(null))}
+          />
+        )}
+        {adding === null && groups.map((group) => (
+          <ProviderAccessCard
+            key={group.id}
+            group={group}
+            busy={busy}
+            fetching={fetchingProvider === group.id || group.providers.some((p) => fetchingProvider === p.name)}
+            fetchResult={fetchResults[group.id]}
+            modelDraft={modelDrafts[group.id]}
+            defaultProvider={defaultProvider}
+            editing={editing}
+            kinds={s.providerKinds}
+            onEdit={setEditing}
+            onCancelEdit={() => setEditing(null)}
+            onSave={(pv) => apply(() => app.SaveProvider(pv)).then(() => {
+              setEditing(null);
+              setGroupModelDraft(group.id, null);
+            })}
+            onRefresh={() => void refreshGroup(group)}
+            onToggleDraftModel={(model) => updateModelDraftSelection(group.id, (draft) => (
+              draft.selected.includes(model)
+                ? draft.selected.filter((candidate) => candidate !== model)
+                : [...draft.selected, model]
+            ))}
+            onToggleDraftVision={(model) => toggleModelDraftVision(group.id, model)}
+            onSelectAllDraftModels={() => updateModelDraftSelection(group.id, (draft) => draft.candidates)}
+            onClearDraftModels={() => updateModelDraftSelection(group.id, () => [])}
+            onCancelDraftModels={() => setGroupModelDraft(group.id, null)}
+            onSaveDraftModels={() => void saveModelDraft(group)}
+            onSaveEditorKey={(env, value) => group.builtIn ? saveProviderKey(group, env, value) : saveKeyEnvAndAutoRefresh(group, env, value)}
+            onClearEditorKey={clearProviderKey}
+            onDelete={(p) => apply(() => app.RemoveProviderAccess(p.name))}
+          />
+        ))}
+      </div>
+    </SettingsSection>
+  );
+}
+
+type ProviderAccessGroup = {
+  id: string;
+  label: string;
+  description: string;
+  builtIn: boolean;
+  providers: ProviderView[];
+  apiKeyEnv: string;
+  keySet: boolean;
+  requiresKey: boolean;
+  configured: boolean;
+  keySource?: string;
+  keySourcePath?: string;
+  baseUrl: string;
+  kind: string;
+  models: string[];
+};
+
+type ProviderFetchResult = {
+  kind: "ok" | "warn";
+  text: string;
+};
+
+type ProviderModelDraft = {
+  providerName: string;
+  candidates: string[];
+  selected: string[];
+  visionModels: string[];
+};
+
+type AddProviderMode = null | "official" | "custom";
+type OfficialProviderKind = "deepseek";
+
+const OFFICIAL_PROVIDER_CHOICES: Array<{ kind: OfficialProviderKind; labelKey: DictKey; descKey: DictKey; keyEnv: string }> = [
+  { kind: "deepseek", labelKey: "settings.addProvider.official.deepseek", descKey: "settings.addProvider.official.deepseekDesc", keyEnv: "DEEPSEEK_API_KEY" },
+];
+
+function AddProviderPanel({
+  mode,
+  kinds,
+  busy,
+  onMode,
+  onCancel,
+  onAddOfficial,
+  onAddCustom,
+}: {
+  mode: AddProviderMode;
+  kinds: string[];
+  busy: boolean;
+  onMode: (mode: AddProviderMode) => void;
+  onCancel: () => void;
+  onAddOfficial: (kind: OfficialProviderKind, key: string) => Promise<void>;
+  onAddCustom: (p: ProviderView) => void | Promise<void>;
+}) {
+  const t = useT();
+  const [officialKind, setOfficialKind] = useState<OfficialProviderKind>("deepseek");
+  const [key, setKey] = useState("");
+  const selected = OFFICIAL_PROVIDER_CHOICES.find((choice) => choice.kind === officialKind) ?? OFFICIAL_PROVIDER_CHOICES[0];
+
+  const header = (
+    <div className="provider-add-panel__head">
+      <div>
+        <strong>{t("settings.addProvider.chooseTitle")}</strong>
+        <span>{t("settings.addProvider.chooseHint")}</span>
+      </div>
+      <button type="button" className="btn btn--small" disabled={busy} onClick={onCancel}>
+        {t("common.cancel")}
+      </button>
+    </div>
+  );
+  const modeSwitch = (
+    <div className="provider-add-segmented" role="tablist" aria-label={t("settings.addProvider.chooseTitle")}>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={mode === "official"}
+        className={mode === "official" ? "provider-add-segmented__item provider-add-segmented__item--active" : "provider-add-segmented__item"}
+        disabled={busy}
+        onClick={() => onMode("official")}
+      >
+        {t("settings.addProvider.officialChoice")}
+      </button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={mode === "custom"}
+        className={mode === "custom" ? "provider-add-segmented__item provider-add-segmented__item--active" : "provider-add-segmented__item"}
+        disabled={busy}
+        onClick={() => onMode("custom")}
+      >
+        {t("settings.addProvider.customChoice")}
+      </button>
+    </div>
+  );
+
+  if (mode === "official") {
+    return (
+      <div className="provider-add-panel">
+        {header}
+        {modeSwitch}
+        <div className="provider-add-panel__hint">{t("settings.addProvider.officialHint")}</div>
+        <div className="provider-template-grid">
+          {OFFICIAL_PROVIDER_CHOICES.map((choice) => (
+            <button
+              key={choice.kind}
+              type="button"
+              className={`provider-template-card${officialKind === choice.kind ? " provider-template-card--active" : ""}`}
+              disabled={busy}
+              onClick={() => setOfficialKind(choice.kind)}
+            >
+              <strong>{t(choice.labelKey)}</strong>
+              <span>{t(choice.descKey)}</span>
+            </button>
+          ))}
+        </div>
+        <label className="set-label">{t("settings.providerKeyOptional")}</label>
+        <input
+          className="mem-input"
+          type="password"
+          placeholder={t("settings.setKey", { env: selected.keyEnv })}
+          value={key}
+          disabled={busy}
+          onChange={(e) => setKey(e.target.value)}
+        />
+        <div className="prov-card__actions">
+          <button type="button" className="btn btn--small" disabled={busy} onClick={onCancel}>
+            {t("common.cancel")}
+          </button>
+          <button
+            type="button"
+            className="btn btn--primary btn--small"
+            disabled={busy}
+            onClick={() => void onAddOfficial(officialKind, key.trim())}
+          >
+            {t("settings.addProvider.confirm")}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (mode === "custom") {
+    return (
+      <div className="provider-add-panel">
+        {header}
+        {modeSwitch}
+        <div className="provider-add-panel__hint">{t("settings.addProvider.customHint")}</div>
+        <ProviderEditor
+          kinds={kinds}
+          busy={busy}
+          onCancel={onCancel}
+          onSave={onAddCustom}
+        />
+      </div>
+    );
+  }
+  return null;
+}
+
+function ProviderAccessCard({
+  group,
+  busy,
+  fetching,
+  fetchResult,
+  modelDraft,
+  defaultProvider,
+  editing,
+  kinds,
+  onEdit,
+  onCancelEdit,
+  onSave,
+  onRefresh,
+  onToggleDraftModel,
+  onToggleDraftVision,
+  onSelectAllDraftModels,
+  onClearDraftModels,
+  onCancelDraftModels,
+  onSaveDraftModels,
+  onSaveEditorKey,
+  onClearEditorKey,
+  onDelete,
+}: {
+  group: ProviderAccessGroup;
+  busy: boolean;
+  fetching: boolean;
+  fetchResult?: ProviderFetchResult;
+  modelDraft?: ProviderModelDraft;
+  defaultProvider: string;
+  editing: string | null;
+  kinds: string[];
+  onEdit: (name: string) => void;
+  onCancelEdit: () => void;
+  onSave: (p: ProviderView) => void | Promise<void>;
+  onRefresh: () => void;
+  onToggleDraftModel: (model: string) => void;
+  onToggleDraftVision: (model: string) => void;
+  onSelectAllDraftModels: () => void;
+  onClearDraftModels: () => void;
+  onCancelDraftModels: () => void;
+  onSaveDraftModels: () => void;
+  onSaveEditorKey: (apiKeyEnv: string, value: string) => Promise<void>;
+  onClearEditorKey?: (apiKeyEnv: string) => Promise<void>;
+  onDelete?: (p: ProviderView) => Promise<void>;
+}) {
+  const t = useT();
+  const editableProvider = group.providers[0];
+  const isDefault = group.providers.some((p) => p.name === defaultProvider);
+  const editingProvider = group.providers.find((p) => editing === p.name);
+  const primaryProviderExpanded = Boolean(editableProvider && editing === editableProvider.name);
+  const visibleModels = group.models.slice(0, 6);
+  const hiddenModelCount = Math.max(0, group.models.length - visibleModels.length);
+  return (
+    <article className={`provider-access-card${group.builtIn ? " provider-access-card--builtin" : ""}`}>
+      <div className="provider-access-card__head">
+        <div className="provider-access-card__identity">
+          <div className="provider-access-card__title">
+            {group.label}
+            <span className={`badge ${group.builtIn ? "badge--project" : "badge--neutral"}`}>
+              {group.builtIn ? t("settings.builtinProviderBadge") : t("settings.customProviderBadge")}
+            </span>
+            <span className={`badge ${group.keySet ? "badge--project" : "badge--feedback"}`}>
+              {providerKeyStatusLabel(group, t)}
+            </span>
+          </div>
+          <div className="provider-access-card__desc">{group.description}</div>
+        </div>
+        <div className="provider-access-card__actions">
+          {editableProvider && (
+            <button
+              className="btn btn--small"
+              disabled={busy}
+              aria-expanded={primaryProviderExpanded}
+              onClick={() => primaryProviderExpanded ? onCancelEdit() : onEdit(editableProvider.name)}
+            >
+              {primaryProviderExpanded ? t("common.collapse") : t("settings.configureProvider")}
+            </button>
+          )}
+          <button
+            className="btn btn--small"
+            disabled={busy || fetching || !group.baseUrl || !group.configured}
+            onClick={onRefresh}
+          >
+            {fetching ? t("settings.fetchingModels") : t("settings.fetchModels")}
+          </button>
+          {editableProvider && onDelete && (
+            isDefault && !group.builtIn ? (
+              <Tooltip label={t("settings.cantDeleteDefault")}>
+                <button className="btn btn--small" disabled>{t("settings.removeProviderAccess")}</button>
+              </Tooltip>
+            ) : (
+              <InlineConfirmButton
+                label={t("settings.removeProviderAccess")}
+                confirmLabel={group.builtIn ? t("settings.confirmRemoveProviderAccess") : t("settings.confirmDeleteProvider")}
+                cancelLabel={t("common.cancel")}
+                disabled={busy}
+                danger={!group.builtIn}
+                onConfirm={() => onDelete(editableProvider)}
+              />
+            )
+          )}
+        </div>
+      </div>
+
+      <div className="provider-access-meta">
+        <span>{group.kind}</span>
+        <span>{group.baseUrl}</span>
+        <span>{group.apiKeyEnv || t("common.none")}</span>
+        {group.keySource && <span title={group.keySourcePath || undefined}>{t("settings.keySource", { source: group.keySource })}</span>}
+      </div>
+
+      <div className="provider-card-block">
+        <div className="provider-card-block__label">{t(group.configured ? "settings.enabledModels" : "settings.modelList")}</div>
+        <div className="provider-model-chips" aria-label={t(group.configured ? "settings.enabledModels" : "settings.modelList")}>
+          {visibleModels.length > 0 ? visibleModels.map((model) => (
+            <span className="provider-model-chip" key={model}>
+              {model}
+            </span>
+          )) : <span className="provider-model-chip provider-model-chip--empty">{t("settings.noModelsConfigured")}</span>}
+          {hiddenModelCount > 0 && (
+            <span className="provider-model-chip provider-model-chip--more">
+              {t("settings.moreModels", { n: hiddenModelCount })}
+            </span>
+          )}
+        </div>
+        {!group.configured && group.requiresKey && (
+          <div className="provider-card-status provider-card-status--warn">
+            {t("settings.modelsRequireKey")}
+          </div>
+        )}
+        {fetchResult && (
+          <div className={`provider-card-status provider-card-status--${fetchResult.kind}`}>
+            {fetchResult.text}
+          </div>
+        )}
+      </div>
+
+      {modelDraft && (
+        <ProviderModelDraftPicker
+          draft={modelDraft}
+          busy={busy}
+          fetching={fetching}
+          onToggle={onToggleDraftModel}
+          onToggleVision={onToggleDraftVision}
+          onSelectAll={onSelectAllDraftModels}
+          onClear={onClearDraftModels}
+          onCancel={onCancelDraftModels}
+          onSave={onSaveDraftModels}
+        />
+      )}
+
+      {group.providers.length > 1 && (
+        <div className="provider-profiles">
+          {group.providers.map((p) => {
+            const profileExpanded = editing === p.name;
+            return (
+              <div className="provider-profile-row" key={p.name}>
+                <span>{p.name}</span>
+                <span>{p.models.join(", ") || t("common.none")}</span>
+                <button
+                  className="btn btn--small"
+                  disabled={busy}
+                  aria-expanded={profileExpanded}
+                  onClick={() => profileExpanded ? onCancelEdit() : onEdit(p.name)}
+                >
+                  {profileExpanded ? t("common.collapse") : t("settings.configureProfile")}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {editingProvider && (
+        <ProviderEditor
+          initial={editingProvider}
+          kinds={kinds}
+          busy={busy}
+          onCancel={onCancelEdit}
+          onSave={onSave}
+          onSaveKey={onSaveEditorKey}
+          onClearKey={onClearEditorKey}
+        />
+      )}
+    </article>
+  );
+}
+
+function ProviderModelDraftPicker({
+  draft,
+  busy,
+  fetching,
+  onToggle,
+  onToggleVision,
+  onSelectAll,
+  onClear,
+  onCancel,
+  onSave,
+}: {
+  draft: ProviderModelDraft;
+  busy: boolean;
+  fetching: boolean;
+  onToggle: (model: string) => void;
+  onToggleVision: (model: string) => void;
+  onSelectAll: () => void;
+  onClear: () => void;
+  onCancel: () => void;
+  onSave: () => void;
+}) {
+  const t = useT();
+  const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  // Debounce search to avoid expensive filtering on every keystroke
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(query), 150);
+    return () => clearTimeout(timer);
+  }, [query]);
+  const selected = new Set(draft.selected);
+  const vision = new Set(draft.visionModels);
+  const q = debouncedQuery.trim().toLowerCase();
+  const visibleCandidates = q
+    ? draft.candidates.filter((model) => model.toLowerCase().includes(q))
+    : draft.candidates;
+  const disabled = busy || fetching;
+
+  return (
+    <div className="provider-model-draft">
+      <div className="provider-model-draft__head">
+        <div>
+          <div className="provider-card-block__label">{t("settings.modelCandidates")}</div>
+          <span>{t("settings.modelCandidatesSelected", { n: draft.selected.length })}</span>
+        </div>
+        <div className="provider-model-draft__tools">
+          <button type="button" className="btn btn--small" disabled={disabled || draft.selected.length === draft.candidates.length} onClick={onSelectAll}>
+            {t("settings.selectAllModels")}
+          </button>
+          <button type="button" className="btn btn--small" disabled={disabled || draft.selected.length === 0} onClick={onClear}>
+            {t("settings.clearModelSelection")}
+          </button>
+        </div>
+      </div>
+      <input
+        className="mem-input provider-model-draft__search"
+        placeholder={t("settings.modelCandidateSearch")}
+        value={query}
+        disabled={disabled}
+        onChange={(e) => setQuery(e.target.value)}
+      />
+      <div className="provider-model-draft__list" role="list" aria-label={t("settings.modelCandidates")}>
+        {visibleCandidates.length > 0 ? visibleCandidates.map((model) => {
+          const enabled = selected.has(model);
+          return (
+            <div className="provider-model-draft__option" key={model}>
+              <label className="provider-model-draft__model">
+                <input
+                  type="checkbox"
+                  checked={enabled}
+                  disabled={disabled}
+                  onChange={() => onToggle(model)}
+                />
+                <span>{model}</span>
+              </label>
+              <label className="provider-model-draft__vision">
+                <input
+                  type="checkbox"
+                  checked={enabled && vision.has(model)}
+                  disabled={disabled || !enabled}
+                  onChange={() => onToggleVision(model)}
+                />
+                <span>{t("settings.visionModel")}</span>
+              </label>
+            </div>
+          );
+        }) : (
+          <div className="provider-model-draft__empty">{t("settings.noMatchingCandidateModels")}</div>
+        )}
+      </div>
+      <div className="provider-model-draft__actions">
+        <button type="button" className="btn btn--small" disabled={disabled} onClick={onCancel}>
+          {t("common.cancel")}
+        </button>
+        <button type="button" className="btn btn--primary btn--small" disabled={disabled || draft.selected.length === 0} onClick={onSave}>
+          {t("settings.saveEnabledModels")}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function providerAccessGroups(providers: ProviderView[], t: ReturnType<typeof useT>): ProviderAccessGroup[] {
+  const groups = new Map<string, ProviderAccessGroup>();
+  for (const p of providers) {
+    const id = providerGroupID(p);
+    const builtIn = id.startsWith("builtin:");
+    const existing = groups.get(id);
+    if (existing) {
+      existing.providers.push(p);
+      existing.keySet = existing.keySet || p.keySet;
+      existing.requiresKey = existing.requiresKey && providerRequiresKey(p);
+      existing.configured = existing.configured || providerIsConfigured(p);
+      if (!existing.keySource && p.keySource) existing.keySource = p.keySource;
+      if (!existing.keySourcePath && p.keySourcePath) existing.keySourcePath = p.keySourcePath;
+      existing.models = uniqueStrings([...existing.models, ...p.models]);
+      continue;
+    }
+    groups.set(id, {
+      id,
+      label: providerGroupLabel(p, t),
+      description: providerGroupDescription(p, t),
+      builtIn,
+      providers: [p],
+      apiKeyEnv: p.apiKeyEnv,
+      keySet: p.keySet,
+      requiresKey: providerRequiresKey(p),
+      configured: providerIsConfigured(p),
+      keySource: p.keySource,
+      keySourcePath: p.keySourcePath,
+      baseUrl: p.baseUrl,
+      kind: p.kind,
+      models: uniqueStrings(p.models),
+    });
+  }
+  return Array.from(groups.values());
+}
+
+function providerBaseHost(baseUrl: string): string {
+  try {
+    return new URL(baseUrl).hostname.toLowerCase();
+  } catch {
+    return "";
+  }
+}
+
+function canonicalOfficialProviderName(name: string): string {
+  switch (name.trim()) {
+    case "deepseek-flash":
+    case "deepseek-pro":
+      return "deepseek";
+    default:
+      return name.trim();
+  }
+}
+
+function officialProviderKind(p: ProviderView): string {
+  if (!p.builtIn) return "";
+  const name = canonicalOfficialProviderName(p.name);
+  const host = providerBaseHost(p.baseUrl);
+  if (name === "deepseek" && host === "api.deepseek.com") return "deepseek";
+  return "";
+}
+
+function providerGroupID(p: ProviderView): string {
+  const official = officialProviderKind(p);
+  if (official) return `builtin:${official}`;
+  return `custom:${p.name}`;
+}
+
+function providerGroupLabel(p: ProviderView, t?: ReturnType<typeof useT>): string {
+  const id = providerGroupID(p);
+  if (id === "builtin:deepseek") return t ? t("settings.providerLabel.deepseek") : "DeepSeek";
+  return p.name;
+}
+
+function providerGroupDescription(p: ProviderView, t: ReturnType<typeof useT>): string {
+  const id = providerGroupID(p);
+  if (id === "builtin:deepseek") return t("settings.providerDesc.deepseek");
+  return p.baseUrl;
+}
+
+function uniqueStrings(values: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const value of values) {
+    if (value && !seen.has(value)) {
+      seen.add(value);
+      out.push(value);
+    }
+  }
+  return out;
+}
+
+function parseProviderListInput(value: string): string[] {
+  return uniqueStrings(value
+    .split(/[,，]/)
+    .map((entry) => entry.trim())
+    .filter(Boolean));
+}
+
+function botAllowlistTextValues(allowlist: BotAllowlistView): Record<BotAllowlistTextKey, string> {
+  return {
+    qqUsers: allowlist.qqUsers.join("\n"),
+    feishuUsers: allowlist.feishuUsers.join("\n"),
+    weixinUsers: allowlist.weixinUsers.join("\n"),
+    qqGroups: allowlist.qqGroups.join("\n"),
+    feishuGroups: allowlist.feishuGroups.join("\n"),
+    weixinGroups: allowlist.weixinGroups.join("\n"),
+  };
+}
+
+function parseBotListInput(value: string): string[] {
+  return uniqueStrings(value
+    .split(/[\n,，]+/)
+    .map((entry) => entry.trim())
+    .filter(Boolean));
+}
+
+// Memoized model chips for ProviderEditor — prevents re-render when typing
+// in name/key/baseUrl fields.
+const ModelChips = memo(function ModelChips({ modelNames }: { modelNames: string[] }) {
+  const t = useT();
+  if (modelNames.length === 0) return null;
+  return (
+    <div className="provider-model-chips">
+      {modelNames.slice(0, 8).map((model) => (
+        <span className="provider-model-chip" key={model}>{model}</span>
+      ))}
+      {modelNames.length > 8 && (
+        <span className="provider-model-chip provider-model-chip--more">{t("settings.moreModels", { n: modelNames.length - 8 })}</span>
+      )}
+    </div>
+  );
+});
+
+function ProviderEditor({
+  initial,
+  kinds,
+  busy,
+  onCancel,
+  onSave,
+  onSaveKey,
+  onClearKey,
+}: {
+  initial?: ProviderView;
+  kinds: string[];
+  busy: boolean;
+  onCancel: () => void;
+  onSave: (p: ProviderView) => void;
+  onSaveKey?: (apiKeyEnv: string, value: string) => Promise<void>;
+  onClearKey?: (apiKeyEnv: string) => Promise<void>;
+}) {
+  const t = useT();
+  const [name, setName] = useState(initial?.name ?? "");
+  const [kind, setKind] = useState(initial?.kind ?? kinds[0] ?? "openai");
+  const [baseUrl, setBaseUrl] = useState(initial?.baseUrl ?? "");
+  const [models, setModels] = useState((initial?.models ?? []).join(", "));
+  const [visionModels, setVisionModels] = useState((initial?.visionModels ?? []).join(", "));
+  const [visionModelsConfigured, setVisionModelsConfigured] = useState(
+    Boolean(initial?.visionModelsConfigured ?? ((initial?.visionModels ?? []).length > 0)),
+  );
+  const [modelsUrl] = useState(initial?.modelsUrl ?? "");
+  const [apiKeyEnv, setApiKeyEnv] = useState(initial?.apiKeyEnv ?? "");
+  const [keyDraft, setKeyDraft] = useState("");
+  const [balanceUrl, setBalanceUrl] = useState(initial?.balanceUrl ?? "");
+  // Empty when unset so the placeholder (and its "0 = default" hint) reads instead
+  // of a bare "0"; saved back as 0.
+  const [ctx, setCtx] = useState(initial?.contextWindow ? String(initial.contextWindow) : "");
+  const [reasoningProtocol, setReasoningProtocol] = useState(normalizeReasoningProtocol(initial?.reasoningProtocol));
+  const [supportedEfforts, setSupportedEfforts] = useState<string[]>(initial?.supportedEfforts ?? []);
+  const [customEffortDraft, setCustomEffortDraft] = useState("");
+  const [defaultEffort, setDefaultEffort] = useState(initial?.defaultEffort ?? "");
+  const [fetchingModels, setFetchingModels] = useState(false);
+  const [fetchStatus, setFetchStatus] = useState<string | null>(null);
+  const [fetchErr, setFetchErr] = useState<string | null>(null);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const builtIn = initial?.builtIn ?? false;
+  const isNewCustomProvider = !initial;
+
+  // Offer the kinds the kernel actually registered; if the stored kind is a
+  // legacy/unknown one, keep it as an option so editing doesn't silently change it.
+  const kindOptions = kind && !kinds.includes(kind) ? [kind, ...kinds] : kinds;
+
+  // Split supportedEfforts into the 5 canonical presets (for checkbox UI) and
+  // any user-added custom names (rendered as removable chips). The preset order
+  // is fixed; custom names keep insertion order.
+  const presetEfforts = supportedEfforts.filter((e) => EFFORT_PRESETS.includes(e));
+  const customEfforts = supportedEfforts.filter((e) => !EFFORT_PRESETS.includes(e));
+
+  const togglePreset = (level: string) => {
+    const has = presetEfforts.includes(level);
+    const nextPresets = has ? presetEfforts.filter((e) => e !== level) : [...presetEfforts, level];
+    setSupportedEfforts([...nextPresets, ...customEfforts]);
+    // If the removed preset was the default, fall back to "auto" (empty string).
+    if (has && defaultEffort === level) setDefaultEffort("");
+  };
+
+  const addCustomEffort = () => {
+    const v = customEffortDraft.trim().toLowerCase();
+    if (!v || supportedEfforts.includes(v)) {
+      setCustomEffortDraft("");
+      return;
+    }
+    setSupportedEfforts([...presetEfforts, ...customEfforts, v]);
+    setCustomEffortDraft("");
+  };
+
+  const removeCustomEffort = (level: string) => {
+    setSupportedEfforts(supportedEfforts.filter((e) => e !== level));
+    if (defaultEffort === level) setDefaultEffort("");
+  };
+
+  const fetchModels = async () => {
+    setFetchingModels(true);
+    setFetchStatus(null);
+    setFetchErr(null);
+    try {
+      const effectiveApiKeyEnv = providerApiKeyEnvForSave(name, apiKeyEnv, keyDraft);
+      if (!apiKeyEnv.trim()) setApiKeyEnv(effectiveApiKeyEnv);
+      if (keyDraft.trim()) await app.SetProviderKey(effectiveApiKeyEnv, keyDraft.trim());
+      const fetched = await app.FetchProviderModels({
+        name: name.trim() || t("settings.newProviderDraftName"),
+        builtIn: initial?.builtIn ?? false,
+        added: initial?.added ?? true,
+        kind: kind.trim() || kinds[0] || "openai",
+        baseUrl: baseUrl.trim(),
+        modelsUrl,
+        models: [],
+        visionModels: [],
+        visionModelsConfigured: false,
+        default: "",
+        apiKeyEnv: effectiveApiKeyEnv,
+        keySet: Boolean(keyDraft.trim()) || (initial?.keySet ?? false),
+        balanceUrl: balanceUrl.trim(),
+        contextWindow: Number(ctx) || 0,
+        reasoningProtocol,
+        supportedEfforts,
+        defaultEffort,
+      });
+      if (fetched.length === 0) throw new Error(t("settings.fetchModelsEmpty"));
+      setModels(fetched.join(", "));
+      setVisionModels((current) => {
+        const existing = parseProviderListInput(current).filter((model) => fetched.includes(model));
+        return uniqueStrings([...existing, ...inferredVisionModels(fetched)]).filter((model) => fetched.includes(model)).join(", ");
+      });
+      setVisionModelsConfigured(true);
+      if (keyDraft.trim()) setKeyDraft("");
+      setDefaultEffort((v) => v);
+      setFetchStatus(t("settings.fetchModelsSuccess", { n: fetched.length }));
+    } catch (e) {
+      setFetchErr(String((e as Error)?.message ?? e));
+    } finally {
+      setFetchingModels(false);
+    }
+  };
+
+  const save = async () => {
+    const ms = parseProviderListInput(models);
+    const vms = parseProviderListInput(visionModels).filter((model) => ms.includes(model));
+    const effectiveApiKeyEnv = providerApiKeyEnvForSave(name, apiKeyEnv, keyDraft);
+    if (keyDraft.trim()) await app.SetProviderKey(effectiveApiKeyEnv, keyDraft.trim());
+    onSave({
+      name: name.trim(),
+      builtIn: initial?.builtIn ?? false,
+      added: initial?.added ?? true,
+      kind: kind.trim() || kinds[0] || "openai",
+      baseUrl: baseUrl.trim(),
+      models: ms,
+      visionModels: vms,
+      visionModelsConfigured: visionModelsConfigured || vms.length > 0,
+      default: ms[0] ?? "",
+      apiKeyEnv: effectiveApiKeyEnv,
+      modelsUrl,
+      keySet: Boolean(keyDraft.trim()) || (initial?.keySet ?? false),
+      balanceUrl: balanceUrl.trim(),
+      contextWindow: Number(ctx) || 0,
+      reasoningProtocol,
+      supportedEfforts,
+      // Clear the stored default if no levels are selected; the backend's
+      // NormalizeEffort would otherwise silently ignore an unsupported value.
+      defaultEffort: supportedEfforts.length > 0 ? defaultEffort : "",
+    });
+  };
+
+  if (builtIn) {
+    const keyEnv = initial?.apiKeyEnv.trim() ?? "";
+    return (
+      <div className="provider-editor provider-editor--builtin provider-editor--key-only">
+        {initial && onSaveKey && keyEnv && (
+          <>
+            <div className="provider-key-status provider-key-status--managed provider-key-status--compact">
+              <span title={initial.keySourcePath || undefined}>
+                {initial.keySet ? t("settings.configuredKey", { env: keyEnv }) : t("settings.notConfiguredKey", { env: keyEnv })}
+                {initial.keySource ? ` · ${t("settings.keySource", { source: initial.keySource })}` : ""}
+              </span>
+              {initial.keySet && onClearKey && (
+                <InlineConfirmButton
+                  label={t("settings.clearKey")}
+                  confirmLabel={t("settings.confirmClearKey")}
+                  cancelLabel={t("common.cancel")}
+                  disabled={busy}
+                  danger
+                  onConfirm={() => onClearKey(keyEnv)}
+                />
+              )}
+            </div>
+            <KeyField
+              apiKeyEnv={keyEnv}
+              busy={busy}
+              keySet={initial.keySet}
+              onSet={(env, value) => onSaveKey(env, value)}
+            />
+          </>
+        )}
+      </div>
+    );
+  }
+
+  const modelNames = useMemo(
+    () => models.split(",").map((m) => m.trim()).filter(Boolean),
+    [models],
+  );
+  const canFetch = Boolean(name.trim() && baseUrl.trim());
+
+  const protocolField = initial ? (
+    <select className="mem-select" value={kind} onChange={(e) => setKind(e.target.value)}>
+      {kindOptions.map((k) => (
+        <option key={k} value={k}>
+          {k === "openai" ? t("settings.providerProtocolOpenAI") : k}
+        </option>
+      ))}
+    </select>
+  ) : (
+    <div className="provider-readonly-field provider-readonly-field--stacked" aria-readonly="true">
+      <strong>{t("settings.providerProtocolOpenAI")}</strong>
+      <span>{t("settings.providerProtocolOpenAIHint")}</span>
+    </div>
+  );
+
+  const advancedFields = (
+    <details className="provider-editor-advanced" open={advancedOpen} onToggle={(e) => setAdvancedOpen(e.currentTarget.open)}>
+      <summary>{t("settings.providerAdvancedSettings")}</summary>
+      <div className="provider-editor-advanced__body">
+        <label className="set-label">{t("settings.providerApiKeyEnv")}</label>
+        <input
+          className="mem-input"
+          placeholder={apiKeyEnvFromProviderName(name)}
+          value={apiKeyEnv}
+          onChange={(e) => setApiKeyEnv(e.target.value)}
+        />
+        <div className="mem-hint">{t("settings.providerApiKeyEnvHint")}</div>
+        <label className="set-label">{t("settings.providerBalanceUrl")}</label>
+        <input className="mem-input" placeholder={t("settings.balanceUrlPlaceholder")} value={balanceUrl} onChange={(e) => setBalanceUrl(e.target.value)} />
+        <div className="mem-hint">{t("settings.balanceUrlHint")}</div>
+        <label className="set-label">{t("settings.providerContextWindow")}</label>
+        <input className="mem-input" placeholder={t("settings.contextWindowPlaceholder")} value={ctx} onChange={(e) => setCtx(e.target.value)} inputMode="numeric" />
+        <div className="mem-hint">{t("settings.contextWindowHint")}</div>
+        <label className="set-label">{t("settings.visionModels")}</label>
+        <input
+          className="mem-input"
+          placeholder={t("settings.providerModels")}
+          value={visionModels}
+          onChange={(e) => {
+            setVisionModelsConfigured(true);
+            setVisionModels(e.target.value);
+          }}
+        />
+        <div className="mem-hint">{t("settings.visionModelsHint")}</div>
+        <label className="set-label">{t("settings.reasoningProtocol")}</label>
+        <select className="mem-select" value={reasoningProtocol} onChange={(e) => setReasoningProtocol(e.target.value)}>
+          {REASONING_PROTOCOLS.map((protocol) => (
+            <option key={protocol || "auto"} value={protocol}>
+              {reasoningProtocolLabel(protocol, t)}
+            </option>
+          ))}
+        </select>
+        <div className="mem-hint">{t("settings.reasoningProtocolHint")}</div>
+        <label className="set-label">{t("settings.supportedEfforts")}</label>
+        {EFFORT_PRESETS.map((level) => (
+          <label key={level} className="set-check">
+            <input
+              type="checkbox"
+              checked={presetEfforts.includes(level)}
+              onChange={() => togglePreset(level)}
+            />
+            {level}
+          </label>
+        ))}
+        <div className="set-row">
+          <input
+            className="mem-input set-grow"
+            placeholder={t("settings.supportedEffortsCustomPlaceholder")}
+            value={customEffortDraft}
+            onChange={(e) => setCustomEffortDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                addCustomEffort();
+              }
+            }}
+          />
+          <button
+            type="button"
+            className="btn btn--small"
+            disabled={
+              !customEffortDraft.trim() || supportedEfforts.includes(customEffortDraft.trim().toLowerCase())
+            }
+            onClick={addCustomEffort}
+          >
+            {t("common.add")}
+          </button>
+        </div>
+        {customEfforts.length > 0 && (
+          <div className="set-rules__chips">
+            {customEfforts.map((level) => (
+              <span className="set-rule" key={level}>
+                {level}
+                <Tooltip label={t("common.delete")}>
+                  <button
+                    type="button"
+                    className="set-rule__x"
+                    disabled={busy}
+                    onClick={() => removeCustomEffort(level)}
+                  >
+                    ×
+                  </button>
+                </Tooltip>
+              </span>
+            ))}
+          </div>
+        )}
+        <div className="mem-hint">{t("settings.supportedEffortsHint")}</div>
+        <label className="set-label">{t("settings.defaultEffort")}</label>
+        {supportedEfforts.length > 0 ? (
+          <select
+            className="mem-select"
+            value={defaultEffort}
+            onChange={(e) => setDefaultEffort(e.target.value)}
+          >
+            <option value="">{t("settings.defaultEffortAuto")}</option>
+            {supportedEfforts.map((level) => (
+              <option key={level} value={level}>
+                {level}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <select className="mem-select" value="" disabled>
+            <option value="">{t("settings.defaultEffortAuto")}</option>
+          </select>
+        )}
+        <div className="mem-hint">{t("settings.defaultEffortHint")}</div>
+      </div>
+    </details>
+  );
+
+  return (
+    <div className={`provider-editor${isNewCustomProvider ? " provider-editor--wizard" : ""}`}>
+      <label className="set-label">{t("settings.customProviderName")}</label>
+      <input className="mem-input" placeholder={t("settings.customProviderNamePlaceholder")} value={name} onChange={(e) => setName(e.target.value)} disabled={!!initial} />
+      <label className="set-label">{t("settings.providerProtocol")}</label>
+      {protocolField}
+      <label className="set-label">{t("settings.providerBaseUrlLabel")}</label>
+      <input className="mem-input" placeholder={t("settings.providerBaseUrl")} value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} />
+      {!initial && (
+        <>
+          <label className="set-label">{t("settings.providerKey")}</label>
+          <input
+            className="mem-input"
+            type="password"
+            placeholder={t("settings.providerKeyPlaceholder")}
+            value={keyDraft}
+            onChange={(e) => setKeyDraft(e.target.value)}
+          />
+        </>
+      )}
+      {initial && onSaveKey && apiKeyEnv.trim() && (
+        <>
+          <label className="set-label">{t("settings.providerKey")}</label>
+          {initial.keySource && (
+            <div className="mem-hint" title={initial.keySourcePath || undefined}>
+              {t("settings.keySource", { source: initial.keySource })}
+            </div>
+          )}
+          <KeyField
+            apiKeyEnv={apiKeyEnv.trim()}
+            busy={busy || fetchingModels}
+            keySet={initial.keySet}
+            onSet={(env, value) => onSaveKey(env, value)}
+          />
+        </>
+      )}
+      <div className="provider-model-fetch-row">
+        <button
+          type="button"
+          className="btn btn--small"
+          disabled={busy || fetchingModels || !canFetch}
+          onClick={() => void fetchModels()}
+        >
+          {fetchingModels ? t("settings.fetchingModels") : t("settings.testFetchModels")}
+        </button>
+        <span>{t("settings.testFetchModelsHint")}</span>
+      </div>
+      {fetchStatus && <div className="provider-fetch-status provider-fetch-status--ok">{fetchStatus}</div>}
+      {fetchErr && <div className="provider-fetch-status provider-fetch-status--error">{fetchErr}</div>}
+      {modelNames.length > 0 && (
+        <div className="provider-card-block">
+          <div className="provider-card-block__label">{t("settings.availableModels")}</div>
+          <ModelChips modelNames={modelNames} />
+        </div>
+      )}
+      <label className="set-label">{t("settings.manualModels")}</label>
+      <input className="mem-input" placeholder={t("settings.providerModels")} value={models} onChange={(e) => setModels(e.target.value)} />
+      <div className="mem-hint">{t("settings.manualModelsHint")}</div>
+      {advancedFields}
+      <div className="prov-card__actions">
+        <button className="btn btn--small" onClick={onCancel} disabled={busy}>
+          {t("common.cancel")}
+        </button>
+        <button className="btn btn--primary btn--small" onClick={() => void save()} disabled={busy || !name.trim() || !baseUrl.trim() || !models.trim()}>
+          {t("common.save")}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function KeyField({
+  apiKeyEnv,
+  busy,
+  keySet = false,
+  onSet,
+}: {
+  apiKeyEnv: string;
+  busy: boolean;
+  keySet?: boolean;
+  onSet: (apiKeyEnv: string, value: string) => Promise<void>;
+}) {
+  const t = useT();
+  const [val, setVal] = useState("");
+  if (!apiKeyEnv) return null;
+  return (
+    <div className="set-key">
+      <input
+        className="mem-input"
+        type="password"
+        placeholder={t(keySet ? "settings.updateKey" : "settings.setKey", { env: apiKeyEnv })}
+        value={val}
+        onChange={(e) => setVal(e.target.value)}
+      />
+      <button
+        className="btn btn--small"
+        disabled={busy || !val.trim()}
+        onClick={() => {
+          void onSet(apiKeyEnv, val.trim());
+          setVal("");
+        }}
+      >
+        {t(keySet ? "settings.updateKeyAction" : "settings.saveKey")}
+      </button>
+    </div>
+  );
+}
+
+>>>>>>> upstream/main-v2
 function PermissionsSection({ s, busy, apply }: SectionProps) {
   const t = useT();
   return (

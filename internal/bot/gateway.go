@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"reasonix/internal/agent"
 	"reasonix/internal/boot"
 	"reasonix/internal/config"
 	"reasonix/internal/control"
@@ -153,6 +152,8 @@ type botController interface {
 type sessionState struct {
 	ctrl             botController
 	sink             *sessionEventSink
+	platform         Platform
+	connectionID     string
 	cancel           context.CancelFunc
 	platform         Platform
 	workspaceRoot    string // used by pool.Release on eviction
@@ -458,6 +459,17 @@ func (gw *BotGateway) handleMessage(ctx context.Context, binding AdapterBinding,
 		return
 	}
 
+<<<<<<< HEAD
+=======
+	// Run the turn on its own goroutine so the dispatch loop stays free to read
+	// the next inbound message. A turn that hits interactive approval/ask blocks
+	// inside RunTurn waiting for ctrl.Approve/AnswerQuestion — and the ONLY path
+	// that calls those is handleSlashCommand on this same dispatch goroutine. Run
+	// it inline and the loop can never deliver the /approve (or card) reply that
+	// would unblock it: the session wedges until restart (#4701, #4863, #4402).
+	// Per-session serialization is still held by the session lock (active[key]),
+	// which the deferred Release inside runTurn clears.
+>>>>>>> upstream/main-v2
 	go gw.runTurn(ctx, binding.Adapter, key, msg)
 }
 
@@ -993,6 +1005,9 @@ func (gw *BotGateway) runTurn(ctx context.Context, adapter Adapter, key string, 
 			gw.mu.Unlock()
 		},
 	)
+	// Finish initializing the sink before publishing it as the live target: once
+	// setTarget runs, other goroutines can reach this sink via state.sink.Emit.
+	sink.ctrl = state.ctrl
 	state.sink.setTarget(sink)
 	defer state.sink.setTarget(nil)
 
@@ -1006,7 +1021,6 @@ func (gw *BotGateway) runTurn(ctx context.Context, adapter Adapter, key string, 
 	gw.mu.Unlock()
 
 	// 运行一轮对话
-	sink.ctrl = state.ctrl
 	err := state.ctrl.RunTurn(turnCtx, input)
 	sink.Emit(event.Event{Kind: event.TurnDone, Err: err})
 	if err != nil {
@@ -1019,6 +1033,12 @@ func (gw *BotGateway) runTurn(ctx context.Context, adapter Adapter, key string, 
 func (gw *BotGateway) getOrCreateSession(ctx context.Context, key string, msg InboundMessage) *sessionState {
 	gw.mu.Lock()
 	if state, ok := gw.controllers[key]; ok {
+		if state.connectionID == "" {
+			state.connectionID = strings.TrimSpace(msg.ConnectionID)
+		}
+		if state.platform == "" {
+			state.platform = msg.Platform
+		}
 		state.lastActive = time.Now()
 		gw.mu.Unlock()
 		gw.logger.Info("bot session reused", "platform", msg.Platform, "chat_type", msg.ChatType, "chat", hashID(msg.ChatID), "session", key[:8])
@@ -1048,7 +1068,7 @@ func (gw *BotGateway) getOrCreateSession(ctx context.Context, key string, msg In
 	}
 	ctrl.EnableInteractiveApproval()
 	ctrl.SetToolApprovalMode(toolApprovalMode)
-	ensureControllerSessionPath(ctrl)
+	ctrl.EnsureSessionPath()
 
 	gw.mu.Lock()
 	// Re-check under the lock: while we were off-lock in boot.Build, a second
@@ -1065,6 +1085,7 @@ func (gw *BotGateway) getOrCreateSession(ctx context.Context, key string, msg In
 		return existing
 	}
 	state := &sessionState{
+<<<<<<< HEAD
 		ctrl:          ctrl,
 		sink:          sessionSink,
 		platform:      msg.Platform,
@@ -1072,19 +1093,21 @@ func (gw *BotGateway) getOrCreateSession(ctx context.Context, key string, msg In
 		pendingAsks:   make(map[string][]event.AskQuestion),
 		createdAt:     time.Now(),
 		lastActive:    time.Now(),
+=======
+		ctrl:         ctrl,
+		sink:         sessionSink,
+		platform:     msg.Platform,
+		connectionID: strings.TrimSpace(msg.ConnectionID),
+		pendingAsks:  make(map[string][]event.AskQuestion),
+		createdAt:    time.Now(),
+		lastActive:   time.Now(),
+>>>>>>> upstream/main-v2
 	}
 	gw.controllers[key] = state
 	gw.mu.Unlock()
 
 	gw.logger.Info("bot session created", "platform", msg.Platform, "chat_type", msg.ChatType, "chat", hashID(msg.ChatID), "session", key[:8])
 	return state
-}
-
-func ensureControllerSessionPath(ctrl botController) {
-	if ctrl == nil || ctrl.SessionPath() != "" || ctrl.SessionDir() == "" {
-		return
-	}
-	ctrl.SetSessionPath(agent.NewSessionPath(ctrl.SessionDir(), ctrl.Label()))
 }
 
 // defaultBotApprovalTimeout caps how long a bot session waits for a remote
@@ -1265,6 +1288,7 @@ func normalizeAskSelection(q event.AskQuestion, raw string) []string {
 	return out
 }
 
+<<<<<<< HEAD
 // evictLoop periodically scans for idle sessions and cleans them up.
 func (gw *BotGateway) evictLoop() {
 	ticker := time.NewTicker(5 * time.Minute)
@@ -1299,5 +1323,47 @@ func (gw *BotGateway) evictIdleSessions() {
 			gw.pool.Release(state.workspaceRoot)
 			delete(gw.controllers, key)
 		}
+=======
+// UpdateConnectionToolApprovalMode updates the in-memory tool approval mode for
+// a single bot connection without restarting the gateway. Empty mode clears the
+// connection override, so existing sessions inherit the current gateway default.
+func (gw *BotGateway) UpdateConnectionToolApprovalMode(connID, mode string) {
+	connID = strings.TrimSpace(connID)
+	if connID == "" {
+		return
+	}
+	mode = normalizeOptionalBotToolApprovalMode(mode)
+	type controllerMode struct {
+		ctrl botController
+		mode string
+	}
+	var updates []controllerMode
+
+	gw.mu.Lock()
+	if gw.cfg.ConnectionChannels == nil {
+		gw.cfg.ConnectionChannels = make(map[string]ChannelConfig)
+	}
+	ch := gw.cfg.ConnectionChannels[connID]
+	ch.ToolApprovalMode = mode
+	gw.cfg.ConnectionChannels[connID] = ch
+	// Update every active session that belongs to this connection.
+	for _, state := range gw.controllers {
+		if state == nil || state.ctrl == nil || strings.TrimSpace(state.connectionID) != connID {
+			continue
+		}
+		effectiveMode := mode
+		if effectiveMode == "" {
+			_, _, effectiveMode = gw.sessionOptionsForMessage(InboundMessage{
+				Platform:     state.platform,
+				ConnectionID: state.connectionID,
+			})
+		}
+		updates = append(updates, controllerMode{ctrl: state.ctrl, mode: effectiveMode})
+	}
+	gw.mu.Unlock()
+
+	for _, update := range updates {
+		update.ctrl.SetToolApprovalMode(update.mode)
+>>>>>>> upstream/main-v2
 	}
 }
