@@ -34,7 +34,21 @@ function flushPromises(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
+<<<<<<< HEAD
 function baseSettings(displayMode: 'standard' | 'compact' = 'standard'): SettingsView {
+=======
+async function waitFor(label: string, predicate: () => boolean) {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    await act(async () => {
+      await flushPromises();
+    });
+    if (predicate()) return;
+  }
+  throw new Error(`timed out waiting for ${label}`);
+}
+
+function baseSettings(displayMode: "standard" | "compact" = "standard"): SettingsView {
+>>>>>>> upstream/main-v2
   return {
     defaultModel: '',
     plannerModel: '',
@@ -84,12 +98,23 @@ function baseSettings(displayMode: 'standard' | 'compact' = 'standard'): Setting
     desktopThemeStyle: 'graphite',
     closeBehavior: 'background',
     displayMode,
+<<<<<<< HEAD
     statusBarStyle: 'text',
     statusBarItems: ['model', 'workspace', 'git_branch', 'cache', 'balance'],
     checkUpdates: true,
     telemetry: true,
     metrics: true,
     configPath: '/tmp/reasonix/config.toml',
+=======
+    statusBarStyle: "text",
+    statusBarItems: ["model", "workspace", "git_branch", "cache", "balance"],
+    defaultToolApprovalMode: "ask",
+    checkUpdates: true,
+    telemetry: true,
+    metrics: true,
+    memoryCompilerEnabled: true,
+    configPath: "/tmp/reasonix/config.toml",
+>>>>>>> upstream/main-v2
     providerKinds: [],
     autoApproveTools: false,
     bypass: false,
@@ -173,6 +198,55 @@ ok(
 
 await act(async () => {
   root.unmount();
+});
+
+const retryRootEl = document.createElement("div");
+document.body.appendChild(retryRootEl);
+const retryRoot = createRoot(retryRootEl);
+let failingSettingsCalls = 0;
+window.go = {
+  main: {
+    App: {
+      Settings: async () => {
+        failingSettingsCalls += 1;
+        if (failingSettingsCalls === 1) throw new Error("/Users/example/.reasonix/settings.toml: permission denied");
+        return baseSettings("standard");
+      },
+    } as Partial<AppBindings> as AppBindings,
+  },
+};
+
+await act(async () => {
+  retryRoot.render(
+    <LocaleProvider>
+      <SettingsPanel
+        initialTab="general"
+        onClose={() => {}}
+        onChanged={() => {}}
+      />
+    </LocaleProvider>,
+  );
+  await flushPromises();
+});
+await waitFor("settings load failure", () => Boolean(document.querySelector(".banner--error")));
+
+ok(document.body.textContent?.includes("Settings could not be loaded.") === true, "failed initial settings load shows a visible error");
+ok(document.body.textContent?.includes("Loading…") === false, "failed initial settings load stops showing the loading state");
+
+const retryButton = Array.from(document.querySelectorAll("button")).find((button) => button.textContent?.trim() === "Retry") as HTMLButtonElement | undefined;
+if (!retryButton) throw new Error("settings retry button did not render");
+
+await act(async () => {
+  retryButton.click();
+  await flushPromises();
+});
+await waitFor("settings retry success", () => Boolean(Array.from(document.querySelectorAll("button")).find((button) => button.textContent?.trim() === "Compact")));
+
+eq(failingSettingsCalls, 2, "settings retry calls Settings again");
+ok(document.body.textContent?.includes("Settings could not be loaded.") === false, "settings retry clears the load error");
+
+await act(async () => {
+  retryRoot.unmount();
 });
 dom.window.close();
 

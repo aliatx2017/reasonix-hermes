@@ -106,6 +106,9 @@ The terminal chat UI has been enhanced:
   two models together (executor + planner) in separate, cache-stable sessions.
 - **Plugin-driven.** External tools run as subprocesses over stdio JSON-RPC
   (MCP-compatible). Built-in tools self-register at compile time.
+- **Cache-aware context maintenance.** Startup injects a small stable environment
+  summary, stale tool output is snipped/pruned before summary compaction, and the
+  built-in tool schema contract is documented for regression review.
 - **Zero-friction distribution.** `CGO_ENABLED=0` single binary; cross-compile
   to six targets with one command. The only dependency is a TOML parser.
 
@@ -248,6 +251,7 @@ commands, `@` references, and two-model setup are all in the
 
 ## Documentation
 
+<<<<<<< HEAD
 | Doc | What |
 |-----|------|
 | **[Guide](./docs/GUIDE.md)** | Configuration, permissions & sandbox, plugins (MCP), slash commands, two-model collaboration |
@@ -281,6 +285,20 @@ commands, `@` references, and two-model setup are all in the
 | **[推理语言 (中文)](./docs/REASONING_LANGUAGE.zh-CN.md)** | 强制模型以指定语言进行推理 |
 | **[Goal 执行 (中文)](./docs/GOAL_ENFORCEMENT.zh-CN.md)** | OMO 风格目标执行功能 |
 | **[Architecture Decisions](./docs/adr/)** | Recorded architectural decisions — cache-first prefix, controller seam |
+=======
+- **[Guide](./docs/GUIDE.md)** — configuration, permissions & sandbox, plugins
+  (MCP), slash commands, `@` references, two-model collaboration.
+- **[Bot guide](./docs/BOT_GUIDE.md)** — connect Feishu, Lark, and WeChat bots
+  from the desktop app, then use approvals, YOLO, and commands from IM.
+- **[Spec](./docs/SPEC.md)** — engineering contract: architecture, registries,
+  data types, and roadmap.
+- **[Tool contract](./docs/TOOL_CONTRACT.md)** — provider-visible built-in tool
+  names, read-only flags, and schema snapshot guard.
+- **[Migrating from 0.x](./docs/MIGRATING.md)** — moving from the legacy
+  TypeScript releases to the 1.0 Go rewrite.
+- **[Checkpoints & rewind](./docs/CHECKPOINTS.md)** — the snapshot-based edit
+  safety net (Esc-Esc / `/rewind`).
+>>>>>>> upstream/main-v2
 
 <br/>
 

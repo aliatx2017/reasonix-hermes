@@ -5,8 +5,14 @@ import {
   defaultExpandedProjectTreeKeys,
   activeSessionAncestorKeys,
   projectTreeTopicOpenRequest,
+<<<<<<< HEAD
 } from '../components/ProjectTree';
 import type { ProjectNode } from '../lib/types';
+=======
+  projectTreeShouldSuppressOpenForRename,
+} from "../components/ProjectTree";
+import type { ProjectNode } from "../lib/types";
+>>>>>>> upstream/main-v2
 
 let passed = 0;
 let failed = 0;
@@ -103,6 +109,33 @@ eq(
   }),
   { scope: 'project', workspaceRoot: '/repo', topicId: 'topic-project', sessionPath: undefined },
   'regular project topic still opens by topic',
+);
+
+eq(
+  projectTreeShouldSuppressOpenForRename(
+    { rowKey: "topic-a", canRename: true },
+    { rowKey: "topic-a", canRename: true },
+  ),
+  true,
+  "second click on the same renameable topic suppresses open for inline rename",
+);
+
+eq(
+  projectTreeShouldSuppressOpenForRename(
+    { rowKey: "session-a", canRename: false },
+    { rowKey: "session-a", canRename: false },
+  ),
+  false,
+  "runtime session double-click still allows the session row to open",
+);
+
+eq(
+  projectTreeShouldSuppressOpenForRename(
+    { rowKey: "topic-a", canRename: true },
+    { rowKey: "topic-b", canRename: true },
+  ),
+  false,
+  "quickly clicking a different topic still opens the new target",
 );
 
 eq(

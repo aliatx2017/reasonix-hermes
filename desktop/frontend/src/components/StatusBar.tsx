@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   Activity,
@@ -32,6 +33,15 @@ import {
   type ToolApprovalMode,
   type WireUsage,
 } from '../lib/types';
+=======
+import { type ReactNode } from "react";
+import { Activity, CircleDollarSign, CircleGauge, Database, Folder, GitBranch, Layers, Percent, RefreshCw, Wallet, Zap } from "lucide-react";
+import { Tooltip } from "./Tooltip";
+import { useI18n, type Translator } from "../lib/i18n";
+import { formatMoneyLocalized } from "../lib/money";
+import { normalizeStatusBarItems, type StatusBarItemId } from "../lib/statusBarItems";
+import { type BalanceInfo, type ContextInfo, type WireUsage } from "../lib/types";
+>>>>>>> upstream/main-v2
 
 interface DashboardPayload {
   bot?: BotLiveStatusView;
@@ -41,6 +51,7 @@ interface DashboardPayload {
 
 type StatusBarLabelStyle = 'icon' | 'text';
 
+<<<<<<< HEAD
 // JobsChip is the status-bar background-jobs indicator: a count that opens an
 // upward popover listing the running jobs (id · label · status), mirroring the
 // ModelSwitcher's click-to-open pattern. With no jobs it stays hidden so the
@@ -87,6 +98,8 @@ function JobsChip({ jobs }: { jobs: JobView[] }) {
   );
 }
 
+=======
+>>>>>>> upstream/main-v2
 function formatRate(hit: number, denom: number): string | null {
   if (denom <= 0) return null;
   return ((hit / denom) * 100).toFixed(2);
@@ -109,6 +122,15 @@ function avgRate(u?: WireUsage): string | null {
   if (!u) return null;
   const denom = u.sessionCacheHitTokens + u.sessionCacheMissTokens;
   return formatRate(u.sessionCacheHitTokens, denom);
+}
+
+// contextAvgRate computes the session-aggregate cache-hit % from ContextInfo
+// cache tokens (loaded from persisted telemetry on session resume). Used as a
+// fallback when no live WireUsage is available yet.
+function contextAvgRate(ctx: ContextInfo): string | null {
+  const hit = ctx.cacheHitTokens ?? 0;
+  const miss = ctx.cacheMissTokens ?? 0;
+  return formatRate(hit, hit + miss);
 }
 
 function rateValueClass(rate: string | null): string {
@@ -187,10 +209,7 @@ export function StatusBar({
   context,
   usage,
   balance,
-  jobs,
   running,
-  collaborationMode,
-  toolApprovalMode,
   sessionTurns,
   sessionTokens,
   turnTokens,
@@ -203,15 +222,11 @@ export function StatusBar({
   workspacePath,
   workspaceName,
   gitBranch,
-  hydrationLabel,
 }: {
   context: ContextInfo;
   usage?: WireUsage;
   balance?: BalanceInfo;
-  jobs?: JobView[];
   running: boolean;
-  collaborationMode: CollaborationMode;
-  toolApprovalMode: ToolApprovalMode;
   sessionTurns?: number;
   sessionTokens?: number;
   turnTokens?: number;
@@ -224,7 +239,6 @@ export function StatusBar({
   workspacePath?: string;
   workspaceName?: string;
   gitBranch?: string;
-  hydrationLabel?: string;
 }) {
   const { locale, t } = useI18n();
   const pct = context.window
@@ -234,8 +248,7 @@ export function StatusBar({
   const compactNear = pct !== null && compactPct !== null && pct >= Math.max(0, compactPct - 10);
   const compactReached = pct !== null && compactPct !== null && pct >= compactPct;
   const nowPct = nowRate(usage);
-  const avgPct = avgRate(usage);
-  const jobsList = jobs ?? [];
+  const avgPct = avgRate(usage) ?? contextAvgRate(context);
   const turnCostLabel = formatMoneyLocalized(turnCost, currency, { locale });
   const costLabel = formatMoneyLocalized(cost, currency, { locale });
   const displayWorkspacePath = (workspacePath || workspaceName || '').trim();
@@ -247,10 +260,15 @@ export function StatusBar({
   const turnLabel = formatTurnCount(sessionTurns, t);
   const tokenLabel = formatTokenCount(sessionTokens);
   const turnTokenLabel = formatTokenCount(turnTokens);
+<<<<<<< HEAD
   const balanceLabel = balance?.available && balance.display ? balance.display : '-';
   const planMode = collaborationMode === 'plan';
   const goalMode = collaborationMode === 'goal';
   const metricLabelStyle = labelStyle === 'text' ? 'text' : 'icon';
+=======
+  const balanceLabel = balance?.available && balance.display ? balance.display : "-";
+  const metricLabelStyle = labelStyle === "text" ? "text" : "icon";
+>>>>>>> upstream/main-v2
   const visibleItems = normalizeStatusBarItems(items);
   const itemRenderers: Record<StatusBarItemId, ReactNode> = {
     model: (
@@ -455,6 +473,7 @@ export function StatusBar({
   const renderedItems = visibleItems
     .map((id) => ({ id, node: itemRenderers[id] }))
     .filter(({ node }) => node !== null && node !== undefined && node !== false);
+<<<<<<< HEAD
   const modeIndicators = [
     planMode ? (
       <span className="statusbar__plan" key="plan">
@@ -478,16 +497,10 @@ export function StatusBar({
     ) : null,
   ].filter(Boolean);
 
+=======
+>>>>>>> upstream/main-v2
   return (
     <div className={`statusbar statusbar--${metricLabelStyle}`}>
-      {hydrationLabel && (
-        <div className="statusbar__group statusbar__group--hydrate">
-          <span className="stat statusbar__hydrate" role="status">
-            <RefreshCw size={12} />
-            <span>{hydrationLabel}</span>
-          </span>
-        </div>
-      )}
       <div className="statusbar__group statusbar__group--items">
         {renderedItems.map(({ id, node }) => (
           <span className="statusbar__item" data-statusbar-item={id} key={id}>
@@ -495,6 +508,7 @@ export function StatusBar({
           </span>
         ))}
       </div>
+<<<<<<< HEAD
       {modeIndicators.length > 0 && (
         <div className="statusbar__group statusbar__group--modes">{modeIndicators}</div>
       )}
@@ -512,6 +526,8 @@ export function StatusBar({
         <CompressGaugeCompact />
         <HeadroomGaugeCompact />
       </div>
+=======
+>>>>>>> upstream/main-v2
     </div>
   );
 }

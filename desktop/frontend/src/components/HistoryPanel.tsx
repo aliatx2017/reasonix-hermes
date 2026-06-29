@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { Archive, Pencil, RotateCcw, Search, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { MouseEvent as ReactMouseEvent } from 'react';
@@ -14,6 +15,19 @@ import {
 } from './ContextMenu';
 import { ModalCloseButton } from './ModalCloseButton';
 import { Transcript } from './Transcript';
+=======
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { MouseEvent as ReactMouseEvent } from "react";
+import { Archive, Pencil, Search, Trash2, RotateCcw } from "lucide-react";
+import { t, useT } from "../lib/i18n";
+import { historySessionDisplayTitle, sessionActivityTime } from "../lib/session";
+import type { HistoryMessage, SessionMeta } from "../lib/types";
+import { historyMessagesToItems, type Item } from "../lib/useController";
+import { Transcript } from "./Transcript";
+import { ContextMenu, contextMenuPointFromEvent, type ContextMenuItem, type ContextMenuPoint } from "./ContextMenu";
+import { useDeferredClose } from "../lib/useMountTransition";
+import { ModalCloseButton } from "./ModalCloseButton";
+>>>>>>> upstream/main-v2
 
 type HistoryScopeFilter = 'all' | 'project' | 'global';
 type HistoryStatusFilter = 'all' | 'current' | 'open';
@@ -88,7 +102,11 @@ export function HistoryPanel({
       setEditing(null);
       setPreview({
         path: s.path,
+<<<<<<< HEAD
         title: sessionDisplayTitle(s, tr('history.emptySession')),
+=======
+        title: historySessionDisplayTitle(s, tr("history.emptySession")),
+>>>>>>> upstream/main-v2
         meta: sessionMetaLine(s, tr, isTrash),
         messages: [],
         loading: true,
@@ -395,6 +413,77 @@ export function HistoryPanel({
               <div className="management-modal__summary history-modal__summary">
                 {tr('history.readOnlyHint')}
               </div>
+<<<<<<< HEAD
+=======
+            ) : filteredSessions.length === 0 ? (
+              <div className="mem-empty">{tr("history.noResults")}</div>
+            ) : (
+              groups.map((g) => (
+                <section className="mem-section" key={g.label}>
+                  <div className="mem-section__title hist-group__title">
+                    <span>{g.label}</span>
+                    <span className="hist-group__count">{g.items.length}</span>
+                  </div>
+                  {g.items.map((s) => {
+                    const selected = preview?.path === s.path;
+                    return (
+                      <div
+                        className={`hist-item${s.current ? " hist-item--current" : ""}${selected ? " hist-item--selected" : ""}`}
+                        key={s.path}
+                        onContextMenu={(event) => openSessionMenu(event, s)}
+                      >
+                        {editing === s.path ? (
+                          <input
+                            className="hist-item__rename"
+                            autoFocus
+                            value={draft}
+                            onChange={(e) => setDraft(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") commitRename(s.path);
+                              if (e.key === "Escape") setEditing(null);
+                            }}
+                            onBlur={() => commitRename(s.path)}
+                            placeholder={tr("history.namePlaceholder")}
+                          />
+                        ) : (
+                          <button
+                            className="hist-item__main"
+                            aria-pressed={selected}
+                            onClick={() => {
+                              setMenuConfirmTarget(null);
+                              void loadPreview(s);
+                            }}
+                            onDoubleClick={() => {
+                              if (!isTrash && !running) onResume(s);
+                            }}
+                          >
+                            <div className="hist-item__preview">{historySessionDisplayTitle(s, tr("history.emptySession"))}</div>
+                            <div className="hist-item__meta">
+                              {!isTrash && isChannelSession(s) && <span className="hist-item__badge hist-item__badge--open">{tr("history.channel")}</span>}
+                              {!isTrash && s.current && <span className="hist-item__badge hist-item__badge--current">{tr("history.current")}</span>}
+                              {!isTrash && !s.current && s.open && <span className="hist-item__badge hist-item__badge--open">{tr("history.open")}</span>}
+                              {isTrash && <span className="hist-item__badge hist-item__badge--deleted">{tr("history.deleted")}</span>}
+                              {sessionLocation(s, tr) && <span className="hist-item__scope">{sessionLocation(s, tr)}</span>}
+                              <span className="hist-item__metaspacer" />
+                              <span className="hist-item__stat">{tr(s.turns === 1 ? "history.turnOne" : "history.turnOther", { n: s.turns })}</span>
+                              <span className="hist-item__dot">·</span>
+                              <span className="hist-item__stat">{timeLabel(isTrash ? s.deletedAt || sessionActivityTime(s) : sessionActivityTime(s))}</span>
+                              {!isTrash && running && (
+                                <>
+                                  <span className="hist-item__dot">·</span>
+                                  <span className="hist-item__stat">{tr("history.preview")}</span>
+                                </>
+                              )}
+                            </div>
+                          </button>
+                        )}
+
+                      </div>
+                    );
+                  })}
+                </section>
+              ))
+>>>>>>> upstream/main-v2
             )}
           </div>
           <div className="management-modal__actions history-modal__actions">
@@ -699,16 +788,18 @@ function sessionScope(s: SessionMeta): 'project' | 'global' {
 }
 
 function sessionLocation(s: SessionMeta, tr: ReturnType<typeof useT>): string {
+<<<<<<< HEAD
   if (s.topicTitle) return s.topicTitle;
+=======
+  if (isChannelSession(s)) {
+    return [s.channelLabel || s.channel || tr("history.channel"), s.remoteId].filter(Boolean).join(" · ");
+  }
+>>>>>>> upstream/main-v2
   if (s.workspaceRoot) {
     const parts = s.workspaceRoot.split(/[\\/]/).filter(Boolean);
     return parts[parts.length - 1] || s.workspaceRoot;
   }
   return sessionScope(s) === 'project' ? tr('history.filterProject') : tr('history.filterGlobal');
-}
-
-function sessionDisplayTitle(s: SessionMeta, fallback: string): string {
-  return s.title || s.preview || fallback;
 }
 
 function sessionMetaLine(s: SessionMeta, tr: ReturnType<typeof useT>, isTrash = false): string {
