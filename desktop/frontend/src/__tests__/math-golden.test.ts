@@ -210,6 +210,7 @@ check('$\\frac{a}{b}$', () => isLikelyInlineMath('\\frac{a}{b}') === true);
 check('$f(x)$', () => isLikelyInlineMath('f(x)') === true);
 check('$x+1$', () => isLikelyInlineMath('x+1') === true);
 
+<<<<<<< HEAD
 console.log('\nisLikelyInlineMath — currency/link (NOT math)');
 check('$5', () => isLikelyInlineMath('5') === false);
 check('$10', () => isLikelyInlineMath('10') === false);
@@ -232,6 +233,78 @@ check(
 );
 check('uppercase $A$ → NOT math', () => isLikelyInlineMath('A') === false);
 check('uppercase $V$ → NOT math', () => isLikelyInlineMath('V') === false);
+=======
+console.log("\nisLikelyInlineMath — classifier gaps from PR #4543");
+check("$\\tfrac12$", () => isLikelyInlineMath("\\tfrac12") === true);
+check("$\\sqrt2$", () => isLikelyInlineMath("\\sqrt2") === true);
+check("$SO(3,1)$", () => isLikelyInlineMath("SO(3,1)") === true);
+check("$SU(2)$", () => isLikelyInlineMath("SU(2)") === true);
+check("$GL(n)$", () => isLikelyInlineMath("GL(n)") === true);
+check("$K = -iJ$", () => isLikelyInlineMath("K = -iJ") === true);
+check("$p = +\\alpha$", () => isLikelyInlineMath("p = +\\alpha") === true);
+check("$+$", () => isLikelyInlineMath("+") === true);
+check("$=$", () => isLikelyInlineMath("=") === true);
+
+console.log("\nisLikelyInlineMath — currency/link (NOT math)");
+check("$5", () => isLikelyInlineMath("5") === false);
+check("$10", () => isLikelyInlineMath("10") === false);
+check("$10.50", () => isLikelyInlineMath("10.50") === false);
+check("$100%", () => isLikelyInlineMath("100%") === false);
+check("URL", () => isLikelyInlineMath("https://example.com") === false);
+check("prose text", () => isLikelyInlineMath("hello world today") === false);
+check("prose $x y z$ (spaces)", () => isLikelyInlineMath("x y z") === false);
+check("$PATH$ env token", () => isLikelyInlineMath("PATH") === false);
+check("$TODO$ word token", () => isLikelyInlineMath("TODO") === false);
+check("$OK$ word token", () => isLikelyInlineMath("OK") === false);
+check("$v1$ version token", () => isLikelyInlineMath("v1") === false);
+check("$foo$ plain word", () => isLikelyInlineMath("foo") === false);
+
+console.log("\nisLikelyInlineMath — single-letter regression");
+check("lowercase $x$ → math", () => isLikelyInlineMath("x") === true);
+check("uppercase $I$ → math (math name in non-English prose)", () => isLikelyInlineMath("I") === true);
+check("uppercase $A$ → math", () => isLikelyInlineMath("A") === true);
+check("uppercase $V$ → math", () => isLikelyInlineMath("V") === true);
+
+console.log("\nisLikelyInlineMath — primed letters and bracketed labels");
+check("$S'$ → math (primed letter)", () => isLikelyInlineMath("S'") === true);
+check("$y''$ → math (double prime)", () => isLikelyInlineMath("y''") === true);
+check("$f'(x)$ → math (primed function)", () => isLikelyInlineMath("f'(x)") === true);
+check("$\\psi'$ → math (Greek with prime)", () => isLikelyInlineMath("\\psi'") === true);
+check("$[56]$ → math (irrep label)", () => isLikelyInlineMath("[56]") === true);
+check("$[56,0^+]$ → math", () => isLikelyInlineMath("[56,0^+]") === true);
+check("$[\\mathbf{56}]$ → math", () => isLikelyInlineMath("[\\mathbf{56}]") === true);
+
+console.log("\nisLikelyInlineMath — minimal LaTeX patterns (regression)");
+// LLMs frequently emit minimal LaTeX in math contexts that the older
+// classifier rejected as currency / word tokens. These tests pin down the
+// deliberately-permissive rules for common math patterns while keeping pure
+// numeric dollar pairs literal because they are common in prose prices.
+check("single-digit $1$, $2$, $5$ → NOT math (currency-shaped)", () => isLikelyInlineMath("1") === false);
+check("multi-digit $42$ → NOT math (currency-shaped)", () => isLikelyInlineMath("42") === false);
+check("$2.5x$ is math (number with variable)", () => isLikelyInlineMath("2.5x") === true);
+check("$10\%$ is math (percentage with LaTeX)", () => isLikelyInlineMath("10\\%") === true);
+check("$2.5x dollars$ → NOT math (prefix-only numeric variable)", () => isLikelyInlineMath("2.5x dollars") === false);
+check("$10\\% off$ → NOT math (prefix-only escaped percentage)", () => isLikelyInlineMath("10\\% off") === false);
+check("$5\\cdot3$ is math (number with LaTeX command)", () => isLikelyInlineMath("5\\cdot3") === true);
+
+check("comma-separated $A, B$ → math (ordered pair)", () => isLikelyInlineMath("A, B") === true);
+check("comma-separated $1, 2, 3$ → math (sequence)", () => isLikelyInlineMath("1, 2, 3") === true);
+check("comma-separated $\\alpha, \\beta$ → math (Greek pair)", () => isLikelyInlineMath("\\alpha, \\beta") === true);
+check("parens-wrapped $(A, B)$ inner → math", () => isLikelyInlineMath("(A, B)") === true);
+check("cycle notation $(12)$ → math", () => isLikelyInlineMath("(12)") === true);
+check("cycle notation $(12)(34)$ → math", () => isLikelyInlineMath("(12)(34)") === true);
+check("$S$ (set name) → math", () => isLikelyInlineMath("S") === true);
+check("$S$ with surrounding prose (regression)", () => {
+  return normalizeMath("$S$ 非空\n$S$ 有上界") === "$S$ 非空\n$S$ 有上界";
+});
+check("one-sided comparison $< B$ → math", () => isLikelyInlineMath("< B") === true);
+check("one-sided comparison $<= 0$ → math", () => isLikelyInlineMath("<= 0") === true);
+check("one-sided comparison $> 5$ → math", () => isLikelyInlineMath("> 5") === true);
+check("one-sided comparison $A <$ → math", () => isLikelyInlineMath("A <") === true);
+check("$< B$ with surrounding prose", () => {
+  return normalizeMath("A 的每个元素 $< B$ 的每个元素") === "A 的每个元素 $< B$ 的每个元素";
+});
+>>>>>>> upstream/main-v2
 
 // ── KaTeX end-to-end rendering ────────────────────────────────────────────────
 
@@ -268,10 +341,17 @@ check('\\|x\\| renders as double bars', () => {
 // ── normalizeMath pre-pass (LLM delimiters + classifier) ───────────────────────
 // These exercise the *production* normalizeMath, not a copy of it.
 
+<<<<<<< HEAD
 console.log('\nnormalizeMath — LLM delimiter conversion');
 eq(normalizeMath('\\(x^2\\)'), '$x^2$', '\\(…\\) → $…$');
 eq(normalizeMath('\\[E=mc^2\\]'), '$$E=mc^2$$', '\\[…\\] → $$…$$');
 eq(normalizeMath('\\\\[4pt]'), '\\\\[4pt]', '\\\\[ line-break spacing protected');
+=======
+console.log("\nnormalizeMath — LLM delimiter conversion");
+eq(normalizeMath("\\(x^2\\)"), "$x^2$", "\\(…\\) → $…$");
+eq(normalizeMath("\\[E=mc^2\\]"), "$$\nE=mc^2\n$$", "\\[…\\] → $$…$$");
+eq(normalizeMath("\\\\[4pt]"), "\\\\[4pt]", "\\\\[ line-break spacing protected");
+>>>>>>> upstream/main-v2
 
 // ── normalizeMath — \slashed conversion (regression) ──────────────────────────
 // KaTeX has no \slashed (Feynman slash notation); it is rewritten to \not.
@@ -293,6 +373,7 @@ eq(
 );
 eq(normalizeMath('$\\slashed a$'), '$\\not a$', '\\slashed a → \\not a (unbraced letter)');
 
+<<<<<<< HEAD
 console.log('\nnormalizeMath — non-math dollar filtering');
 eq(normalizeMath('costs $5$ today'), 'costs &#36;5&#36; today', '$5$ not math');
 eq(normalizeMath('env $PATH$ here'), 'env &#36;PATH&#36; here', '$PATH$ not math');
@@ -308,6 +389,63 @@ eq(
   normalizeMath('it costs $5 and $10 total'),
   'it costs &#36;5 and &#36;10 total',
   'multiple prose $ stays literal',
+=======
+console.log("\nnormalizeMath — inline $$ glued to prose (regression)");
+// User-reported: "…decomposes as$$\n\mathbf{6}…" — block math glued to prose.
+// Without a blank line, remark-math parses the opening $$ as an empty math node
+// and the formula leaks out as literal text. normalizeMath must insert a blank
+// line before any $$ preceded by a letter/closing bracket/etc.
+check("inline $$ after prose", () => {
+  const out = normalizeMath("decomposes as$$\n\\mathbf{6}.$$");
+  return /^decomposes as\n\$\$/.test(out) && out.includes("\\mathbf{6}");
+});
+check("inline $$ after closing bracket", () => {
+  const out = normalizeMath("(octet)$$ \\mathbf{56}.$$");
+  return out.startsWith("(octet)\n$$");
+});
+check("inline $$ after closing brace (\\end{...}$$)", () => {
+  // A display equation ending with }$$ must be extracted as a unit.
+  // The closing $$ must not be split off, or the equation body is emptied.
+  const out = normalizeMath("$$\\begin{pmatrix}a&b\\\\c&d\\end{pmatrix}$$");
+  return out.includes("\\end{pmatrix},\n$$") || out.includes("\\end{pmatrix}\n$$");
+});
+check("inline $$ after comma on same line as content", () => {
+  // User-reported (2026-06-12, soft-pion chat): the model wrote the
+  // closing $$ of a display block on the same line as the trailing
+  // comma of the equation content, like
+  //   …D(q^2),$$
+  //   with $P=…$
+  // Without a blank line before the closing $$, micromark-extension-math
+  // does not recognise the closing fence (it only checks for $$ at
+  // the start of a new line) and consumes the rest of the document
+  // as math, which then fails to render with "Can't use function '$'
+  // in math mode" on the stray $ inside the equation body.
+  const out = normalizeMath("…D(q^2),$$\nwith $P=…$");
+  return out.includes("D(q^2),\n$$");
+});
+check("well-formed $$ already on own line is normalised consistently", () => {
+  // Whether the model writes `decomposes as$$\n\mathbf{6}.$$` or
+  // `decomposes as\n\n$$\n\mathbf{6}.$$`, both must produce valid
+  // remark-math-parseable form: opening $$ on its own line, body, closing
+  // $$ on its own line.
+  const inline = normalizeMath("decomposes as$$\n\\mathbf{6}.$$");
+  const block = normalizeMath("decomposes as\n\n$$\n\\mathbf{6}.$$");
+  const valid = (s: string) => /\n\$\$\n/.test(s) && /\n\$\$/.test(s) && s.includes("\\mathbf{6}");
+  return valid(inline) && valid(block);
+});
+check("\\[…\\] → $$…$$ still works (no spurious blank line)", () => {
+  return normalizeMath("\\[E=mc^2\\]") === "$$\nE=mc^2\n$$";
+});
+check("digit before $$ is NOT a prose boundary (preserves c^2$$)", () => {
+  const out = normalizeMath("c^2$$ x $$");
+  return out === "c^2$$ x $$";
+});
+eq(normalizeMath("intro$$x+1"), "intro\n$$\nx+1", "orphan opening $$ is not duplicated");
+eq(
+  normalizeMath("first$$a$$ middle $$b$$ end"),
+  "first\n$$\na\n$$\n middle \n$$\nb\n$$\n end",
+  "multiple display blocks on one line are all normalised",
+>>>>>>> upstream/main-v2
 );
 
 console.log('\nnormalizeMath — Markdown code regions stay literal');
@@ -397,6 +535,7 @@ function katexOf(normalized: string, display: boolean): boolean {
 }
 
 const e2e: Array<[string, string]> = [
+<<<<<<< HEAD
   ['$\\text{cost is $5}$', 'text mode with literal $'],
   ['$\\text{baryon #}$', 'text mode with #'],
   ['$\\text{a & b}$', 'text mode with &'],
@@ -422,6 +561,38 @@ const e2e: Array<[string, string]> = [
     '\\[\\boxed{\\begin{aligned}\nx &= 1 \\\\\ny &= 2\n\\end{aligned}}\\]',
     'LLM-native boxed aligned',
   ],
+=======
+  ["$\\text{cost is $5}$", "text mode with literal $"],
+  ["$\\text{baryon #}$", "text mode with #"],
+  ["$\\text{a & b}$", "text mode with &"],
+  ["$\\|x\\|$", "norm"],
+  ["$|x+1|$", "abs value"],
+  ["$x=1$", "simple equation"],
+  ["$\\frac{a}{b}$", "fraction"],
+  ["$\\alpha + \\beta$", "greek letters"],
+  ["$ \\sqrt{x} $", "sqrt with surrounding spaces"],
+  ["$$E=mc^2$$", "display equation"],
+  ["\\(\\alpha\\)", "LLM-native inline delimiter"],
+  ["\\[\\sum_{i=1}^n i\\]", "LLM-native display delimiter"],
+  ["$$ |a| = |b| $$", "display with absolute values"],
+  ["$$\\boxed{\\begin{aligned}\nr_A E_\\pi(k;0) &= B(k^2) \\\\\nF_R(k;0) + 2r_A F_\\pi(k;0) &= A(k^2)\n\\end{aligned}}$$", "boxed aligned (no \\tag)"],
+  ["$$\\boxed{\\begin{aligned}\nr_A E_\\pi(k;0) &= B(k^2) \\tag{10}\\\\\nF_R(k;0) + 2r_A F_\\pi(k;0) &= A(k^2) \\tag{11}\n\\end{aligned}}$$", "boxed aligned with \\tag → align (no error)"],
+  ["\\[\\boxed{\\begin{aligned}\nx &= 1 \\\\\ny &= 2\n\\end{aligned}}\\]", "LLM-native boxed aligned"],
+  // Array with column-spec pipe — regression: |→\vert used to corrupt {c|c}
+  // into {c\vert c} (KaTeX: "Unknown column alignment"). Must render cleanly.
+  ["$$\\begin{array}{c|c} a & b \\\\ c & d \\end{array}$$", "array with c|c column spec"],
+  ["$$\\begin{array}{cc|c} a & b & c \\\\ d & e & f \\end{array}$$", "array with cc|c column spec"],
+  ["$$\\begin{array}{|c|c|} a & b \\\\ c & d \\end{array}$$", "array with |c|c| column spec"],
+  // Ket with \| delimiter (common in GFM tables where | must be escaped)
+  ["$\\|\\psi\\rangle$", "ket with \\| → single bar (regression)"],
+  ["$\\frac{1}{\\sqrt{2}}\\|uud\\rangle$", "ket in fraction with \\|"],
+  ["$\\|x\\|$", "norm \\|x\\| → double bar (regression)"],
+  ["$\\langle\\psi\\|$", "bra closer \\| → single bar (regression)"],
+  ["$S'$", "primed letter S'"],
+  ["$f'(x)$", "primed function call"],
+  ["$[56]$", "bracketed irrep label"],
+  ["$[56,0^+]$", "bracketed irrep label with charge"],
+>>>>>>> upstream/main-v2
 ];
 for (const [src, label] of e2e) {
   check(`${label}: ${src}`, () => katexOf(normalizeMath(src), false));
@@ -446,6 +617,221 @@ for (const { src, expected, label } of passthrough) {
   check(`${label}: ${src}`, () => normalizeMath(src) === expected);
 }
 
+<<<<<<< HEAD
+=======
+// ── remark-math render boundary ────────────────────────────────────────────────
+// A literal $…$ in normalizeMath output is NOT enough to keep a non-math token
+// out of KaTeX: remark-math parses any $…$ it sees, so the classifier's reject
+// verdict only holds when the $ is hidden as a &#36; entity. These render through
+// the real react-markdown + remark-math + rehype-katex path; the normalizeMath-only
+// golden cases above never cross the prose→parser boundary.
+
+console.log("\nnormalizeMath → remark-math render boundary");
+
+function renderHtml(src: string): string {
+  return renderToStaticMarkup(
+    createElement(ReactMarkdown, {
+      remarkPlugins: [remarkGfm, remarkMath],
+      rehypePlugins: [rehypeKatex],
+      children: normalizeMath(src),
+    }),
+  );
+}
+
+check("currency '$5 and $6' renders as literal dollars, not math", () => {
+  const html = renderHtml("These two apples cost $5 and $6");
+  return !html.includes("katex") && html.includes("$5") && html.includes("$6");
+});
+check("env var $PATH$ renders as literal, not math", () => {
+  const html = renderHtml("env $PATH$ here");
+  return !html.includes("katex") && html.includes("$PATH$");
+});
+check("real inline math $x^2$ still renders as KaTeX", () => {
+  const html = renderHtml("the value $x^2$ here");
+  return html.includes("katex");
+});
+check("blockquote display math does not swallow following inline math", () => {
+  const html = renderHtml("> theorem\n> $$E=mc^2$$\n> after $x$");
+  return html.includes("katex-display")
+    && !html.includes("katex-error")
+    && html.includes(">x</mi>");
+});
+check("multi-line blockquote display math strips quote markers from the formula", () => {
+  const html = renderHtml("> theorem\n> $$\n> E=mc^2\n> $$\n> after $x$");
+  return html.includes("katex-display")
+    && !html.includes("katex-error")
+    && !html.includes("&gt; E")
+    && html.includes(">x</mi>");
+});
+
+// ── Young diagram / tableau macros ─────────────────────────────────────────────
+// `\yng` (ytableau) and `\young` (youngtab) are common in physics —
+// SU(N) irreps, tensor decompositions, character tables — but KaTeX
+// doesn't bundle either macro package. The pre-pass translates them
+// to KaTeX-compatible `\boxed{array}` forms inside the math body so
+// the diagram renders as a grid of boxes.
+
+console.log("\nnormalizeMath — Young diagram macros");
+
+check("\\yng(2,1) renders as (2,1) Young diagram", () => {
+  const html = renderHtml("$$\\yng(2,1)$$");
+  return html.includes("katex-display") && !html.includes("katex-error");
+});
+check("\\yng(2,1) in prose (no $ delimiters) gets wrapped and rendered", () => {
+  // A model that writes "the partition \\yng(2,1) corresponds to the
+  // (2,1) irrep" doesn't usually put $$ around the macro. The
+  // translator wraps bare \\yng in `$…$` so remark-math sees it as
+  // inline math and katex renders the diagram.
+  const html = renderHtml("The partition \\yng(2,1) is symmetric.");
+  return html.includes("katex") && !html.includes("katex-error") && !html.includes("\\yng");
+});
+check("\\yng inside \\(...\\) does not get double-wrapped", () => {
+  const out = normalizeMath("\\(\\yng(2,1)\\)");
+  return out === "$\\begin{array}{l}\\square \\! \\square \\\\[-0.525em] \\square\\end{array}$";
+});
+check("\\yng inside \\[...\\] stays display math without triple dollars", () => {
+  const out = normalizeMath("\\[\\yng(2,1)\\]");
+  return out.startsWith("$$\n\\begin{array}{l}")
+    && out.endsWith("$$")
+    && !out.includes("$$$");
+});
+check("escaped dollar before bare \\yng does not suppress wrapping", () => {
+  const src = String.raw`Price is \$5; shape \yng(2,1)`;
+  const expected = String.raw`Price is \$5; shape $\begin{array}{l}\square \! \square \\[-0.525em] \square\end{array}$`;
+  return normalizeMath(src) === expected;
+});
+check("digit-starting inline math with \\yng does not get nested wrappers", () => {
+  const out = normalizeMath("$3\\,\\yng(2,1)$");
+  return out === "$3\\,\\begin{array}{l}\\square \\! \\square \\\\[-0.525em] \\square\\end{array}$";
+});
+check("digit-starting inline math with \\young does not get nested wrappers", () => {
+  const out = normalizeMath("$2 + \\young(ab,c)$");
+  return out === "$2 + \\begin{array}{l}\\boxed{a} \\! \\boxed{b} \\\\[-0.525em] \\boxed{c}\\end{array}$";
+});
+check("display math ending in digit closes before following bare \\yng", () => {
+  const out = normalizeMath("$$x^2$$ \\yng(1)");
+  return out === "$$\nx^2\n$$\n $\\begin{array}{l}\\square\\end{array}$";
+});
+check("bare \\yng after inline math is separated from adjacent dollars", () => {
+  const out = normalizeMath("$x$\\yng(1)");
+  return out === "$x$ $\\begin{array}{l}\\square\\end{array}$";
+});
+check("bare \\yng before inline math is separated from adjacent dollars", () => {
+  const out = normalizeMath("\\yng(1)$x$");
+  return out === "$\\begin{array}{l}\\square\\end{array}$ $x$";
+});
+check("\\yng (2,1) with a space before parens gets wrapped and rendered", () => {
+  const html = renderHtml("The partition \\yng (2,1) is symmetric.");
+  return html.includes("katex") && !html.includes("katex-error") && !html.includes("\\yng");
+});
+check("\\yng(3,2,1) renders as (3,2,1) Young diagram", () => {
+  const html = renderHtml("$$\\yng(3,2,1)$$");
+  return html.includes("katex-display") && !html.includes("katex-error");
+});
+check("\\yng(2,1){a&b\\\\c\\\\d&e} renders filled Young tableau", () => {
+  const html = renderHtml("$$\\yng(2,1){a&b\\\\c\\\\d&e}$$");
+  return html.includes("katex-display") && !html.includes("katex-error");
+});
+check("\\young(2 1) compatibility shorthand renders as (2,1) diagram", () => {
+  const html = renderHtml("$$\\young(2 1)$$");
+  return html.includes("katex-display") && !html.includes("katex-error");
+});
+check("\\young(ab,c) labelled youngtab syntax renders labels", () => {
+  const html = renderHtml("$$\\young(ab,c)$$");
+  return html.includes("katex-display")
+    && !html.includes("katex-error")
+    && !html.includes("\\young")
+    && ["a", "b", "c"].every((label) => html.includes(label));
+});
+check("\\young(ab,c) labelled cells keep boxes", () => {
+  const out = expandYoungDiagrams("\\young(ab,c)");
+  return out.includes("\\boxed{a}")
+    && out.includes("\\boxed{b}")
+    && out.includes("\\boxed{c}");
+});
+check("\\young(abcd,:cd,:c) skew placeholders are invisible offsets", () => {
+  const out = expandYoungDiagrams("\\young(abcd,:cd,:c)");
+  return out.includes("\\hphantom{\\boxed{x}}")
+    && !out.includes("\\boxed{:}");
+});
+check("\\yng(4,3,2,1) renders as (4,3,2,1) Young diagram", () => {
+  const html = renderHtml("$$\\yng(4,3,2,1)$$");
+  return html.includes("katex-display") && !html.includes("katex-error");
+});
+check("\\yng(3,2,1) uses left-aligned array (rows start at same x)", () => {
+  // A Young diagram's shorter rows must start at the same x-position
+  // as the longest row's first cell — `{l}` (left) instead of `{c}`
+  // (centered) gives that layout. Without this, the diagram looks
+  // like each row is independently centred, which isn't a Young
+  // diagram.
+  const out = expandYoungDiagrams("\\yng(3,2,1)");
+  return out.includes("\\begin{array}{l}")
+    && !out.includes("\\begin{array}{c}");
+});
+check("expandYoungDiagrams uses flush cells (\\! cancels \\,) ", () => {
+  // Adjacent \square boxes should be flush — the convention for Young
+  // diagrams. The translator uses `\!` (negative thin space, -0.1667em)
+  // which exactly cancels `\,` so cells touch without visible gap.
+  // `\,` (positive thin space) would leave a gap.
+  const out = expandYoungDiagrams("\\yng(3)");
+  return out.includes("\\!") && !out.includes("\\, ");
+});
+check("expandYoungDiagrams uses flush rows (\\[-0.525em] closes the math-axis gap)", () => {
+  // The math axis positions a \square glyph centred on the row
+  // baseline, which leaves a visible ~0.4em gap between the bottom of
+  // one row's box and the top of the next row's box when the default
+  // 1.2em baseline-to-baseline spacing is used. Using `\\[-0.4em]`
+  // between rows pulls each subsequent row up by the math-axis offset,
+  // so consecutive rows touch. (Earlier versions tried wrapping each
+  // cell in `\raisebox{-0.35em}` which does NOT close the gap —
+  // uniform translation can't change the relative distance between
+  // row baselines.)
+  const out = expandYoungDiagrams("\\yng(2,1)");
+  return out.includes("\\\\[-0.525em]");
+});
+check("expandYoungDiagrams substitutes correct array form", () => {
+  // Direct unit test on the translator — no need to go through the
+  // full pipeline for this assertion.
+  const out = expandYoungDiagrams("\\yng(2,1)");
+  return out.includes("\\begin{array}{l}")
+    && out.includes("\\square")
+    && out.includes(" \\\\[-0.525em] ");
+});
+check("expandYoungDiagrams handles \\yng with content", () => {
+  // Bare \yng in prose gets wrapped in `$…$` so remark-math sees it as
+  // math; macros already inside a `$…$` block just substitute the inner
+  // form (the surrounding delimiters are preserved).
+  // Cells are joined with `\!` (negative thin space) so adjacent
+  // boxes are flush. Row separators use `\\[-0.525em]` (per-row
+  // negative spacing) so consecutive rows touch — the visible
+  // glyph height of `\square` is 0.675em (measured from katex's
+  // single-glyph strut), and the default 1.2em baseline spacing
+  // leaves 0.525em of gap. `\\[-0.525em]` subtracts exactly that.
+  const out = expandYoungDiagrams("\\yng(2,1){a&b\\\\c}");
+  return out === "$\\begin{array}{l}\\boxed{a} \\! \\boxed{b} \\\\[-0.525em] \\boxed{c}\\end{array}$";
+});
+check("expandYoungDiagrams handles labelled \\young rows", () => {
+  const out = expandYoungDiagrams("\\young(ab,c)");
+  return out === "$\\begin{array}{l}\\boxed{a} \\! \\boxed{b} \\\\[-0.525em] \\boxed{c}\\end{array}$";
+});
+check("expandYoungDiagrams treats comma-separated numeric \\young as labels, not a 12-cell row", () => {
+  const out = expandYoungDiagrams("\\young(12,3)");
+  return out === "$\\begin{array}{l}\\boxed{1} \\! \\boxed{2} \\\\[-0.525em] \\boxed{3}\\end{array}$";
+});
+check("expandYoungDiagrams leaves invalid negative \\yng shape alone", () => {
+  const out = expandYoungDiagrams("\\yng(-1)");
+  return out === "\\yng(-1)";
+});
+check("expandYoungDiagrams leaves oversized \\yng shape alone", () => {
+  const out = expandYoungDiagrams("\\yng(513)");
+  return out === "\\yng(513)";
+});
+check("expandYoungDiagrams leaves non-Young macros alone", () => {
+  const out = expandYoungDiagrams("\\frac{a}{b}");
+  return out === "\\frac{a}{b}";
+});
+
+>>>>>>> upstream/main-v2
 // ── Summary ───────────────────────────────────────────────────────────────────
 
 console.log(`\n${passed} passed, ${failed} failed, ${passed + failed} total`);

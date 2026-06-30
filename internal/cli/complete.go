@@ -64,6 +64,7 @@ func (m *chatTUI) slashItems() []compItem {
 		{label: "/compact", insert: "/compact ", hint: i18n.M.CmdCompact},
 		{label: "/new", insert: "/new ", hint: i18n.M.CmdNew},
 		{label: "/clear", insert: "/clear", hint: i18n.M.CmdClear},
+		{label: "/cls", insert: "/cls", hint: i18n.M.CmdCls},
 		{label: "/resume", insert: "/resume ", hint: i18n.M.CmdResume},
 		{label: "/rename", insert: "/rename ", hint: i18n.M.CmdRename},
 		{label: "/rewind", insert: "/rewind", hint: i18n.M.CmdRewind},
@@ -84,6 +85,7 @@ func (m *chatTUI) slashItems() []compItem {
 		{label: "/effort", insert: "/effort ", hint: i18n.M.CmdEffort, descend: true},
 		{label: "/auto-plan", insert: "/auto-plan ", hint: i18n.M.CmdAutoPlan, descend: true},
 		{label: "/reasoning-language", insert: "/reasoning-language ", hint: i18n.M.CmdReasonLang, descend: true},
+		{label: "/memory-v5", insert: "/memory-v5 ", hint: i18n.M.CmdMemoryV5, descend: true},
 		{label: "/theme", insert: "/theme ", hint: i18n.M.CmdTheme, descend: true},
 		{label: "/language", insert: "/language ", hint: i18n.M.CmdLanguage, descend: true},
 		{label: "/help", insert: "/help ", hint: i18n.M.CmdHelp},
@@ -93,6 +95,7 @@ func (m *chatTUI) slashItems() []compItem {
 		{label: "/remember", insert: "/remember ", hint: i18n.M.CmdRemember},
 		{label: "/forget", insert: "/forget ", hint: i18n.M.CmdForget},
 		{label: "/quit", insert: "/quit", hint: i18n.M.CmdQuit},
+<<<<<<< HEAD
 		{label: "/write", insert: "/write ", hint: i18n.M.CmdWrite},
 		{label: "/stats", insert: "/stats", hint: "toggle session statistics panel"},
 		{label: "/cost", insert: "/cost", hint: "show session cost breakdown"},
@@ -104,6 +107,10 @@ func (m *chatTUI) slashItems() []compItem {
 		{label: "/chain", insert: "/chain ", hint: "run analyze-then-implement"},
 		{label: "/pair", insert: "/pair ", hint: "run review + implement + merge"},
 		{label: "/ci-fix", insert: "/ci-fix ", hint: "run tests and auto-fix failures"},
+=======
+		{label: "/copy", insert: "/copy", hint: i18n.M.CmdCopy},
+		{label: "/export", insert: "/export", hint: i18n.M.CmdExport},
+>>>>>>> upstream/main-v2
 	}
 	for _, c := range m.commands {
 		items = append(items, compItem{label: "/" + c.Name, insert: "/" + c.Name + " ", hint: c.Description})

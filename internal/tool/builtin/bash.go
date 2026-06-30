@@ -114,13 +114,20 @@ func (b bash) resolved() sandbox.Shell {
 }
 
 func (bash) Schema() json.RawMessage {
-	return json.RawMessage(`{"type":"object","properties":{"command":{"type":"string","description":"Shell command to execute"},"run_in_background":{"type":"boolean","description":"Run detached: returns a job id immediately and keeps running across turns (no foreground timeout). Read new output with bash_output, wait with wait, stop it with kill_shell. Use for long-running commands like servers, watchers, or builds you don't need to block on."},"preserve_background_processes":{"type":"boolean","description":"After the shell command exits normally, keep any process-group members it intentionally left behind. Use only for deliberate daemonization, such as nohup/disown/setsid; cancellation and timeouts still kill the process group."}},"required":["command"]}`)
+	return json.RawMessage(`{"type":"object","properties":{"command":{"type":"string","description":"Shell command to execute"},"run_in_background":{"type":"boolean","description":"Run detached: returns a job id immediately and keeps running across turns (no foreground timeout). Read new output with bash_output, wait with wait, stop it with kill_shell. Use for long-running commands like servers, watchers, or builds you don't need to block on."},"preserve_background_processes":{"type":"boolean","description":"After the shell command exits normally, keep any process-group members it intentionally left behind. Use only for deliberate daemonization, browser/GUI/session launchers such as playwright-cli open, or nohup/disown/setsid; cancellation and timeouts still kill the process group."}},"required":["command"]}`)
 }
 
 // ReadOnly is false: bash's effect cannot be inferred from args (rm, curl,
 // git commit, etc. are all reachable). Conservative even when a particular
 // command happens to be read-only — the agent batch decision can't tell.
 func (bash) ReadOnly() bool { return false }
+
+// SnipHint keeps both ends of command output equally: a build/test run's
+// failure usually sits at the tail while the command and early context sit at
+// the head, so neither end can be favored.
+func (bash) SnipHint() tool.SnipHint {
+	return tool.SnipHint{Head: 40, Tail: 40, HeadChars: 8000, TailChars: 8000}
+}
 
 func (b bash) Execute(ctx context.Context, args json.RawMessage) (string, error) {
 	var p struct {
@@ -182,15 +189,14 @@ func (b bash) Execute(ctx context.Context, args json.RawMessage) (string, error)
 			cmd := exec.CommandContext(jobCtx, argv[0], argv[1:]...)
 			cmd.Dir = workDir
 			cmd.Env = cmdEnv
-			setKillTree(cmd)
 			cmd.WaitDelay = bashWaitDelay
 			cmd.Stdout = out
 			cmd.Stderr = out
-			runErr := cmd.Run()
+			tracked, runErr := runShellProcess(cmd, shouldTrackShellProcess(sh, p.Command, p.PreserveBackgroundProcesses))
 			if shouldReapAfterRun(jobCtx, sh, p.Command, p.PreserveBackgroundProcesses) {
-				reapTree(cmd) // reap process-group stragglers the job left running (#3702)
+				reapShellProcess(cmd, tracked) // reap process-group stragglers the job left running (#3702)
 			}
-			return "", runErr
+			return "", normalizeBashRunError(jobCtx, runErr, p.PreserveBackgroundProcesses)
 		})
 		return fmt.Sprintf("Started background job %q. It keeps running across turns; read new output with bash_output(job_id=%q), wait for it with wait, or stop it with kill_shell(job_id=%q).", job.ID, job.ID, job.ID), nil
 	}
@@ -206,7 +212,6 @@ func (b bash) Execute(ctx context.Context, args json.RawMessage) (string, error)
 	cmd := exec.CommandContext(runCtx, argv[0], argv[1:]...)
 	cmd.Dir = b.workDir // "" lets exec use the process working directory
 	cmd.Env = cmdEnv
-	setKillTree(cmd)
 	cmd.WaitDelay = bashWaitDelay
 	var buf bytes.Buffer
 	w := io.Writer(&buf)
@@ -215,14 +220,15 @@ func (b bash) Execute(ctx context.Context, args json.RawMessage) (string, error)
 	}
 	cmd.Stdout = w
 	cmd.Stderr = w
-	err := cmd.Run()
+	tracked, err := runShellProcess(cmd, shouldTrackShellProcess(sh, p.Command, p.PreserveBackgroundProcesses))
 	// A foreground command that spawned a lingering child (e.g. `bazel run`'s
 	// server) leaves it in the process group; Wait only reaped the shell leader.
 	// Kill the group so those don't accumulate into an OOM (#3702). On cancel/
-	// timeout setKillTree's Cancel already did this; this covers normal exit.
+	// timeout the command's Cancel path already did this; this covers normal exit.
 	if shouldReapAfterRun(runCtx, sh, p.Command, p.PreserveBackgroundProcesses) {
-		reapTree(cmd)
+		reapShellProcess(cmd, tracked)
 	}
+	err = normalizeBashRunError(runCtx, err, p.PreserveBackgroundProcesses)
 	out := buf.String()
 
 	if errors.Is(context.Cause(runCtx), errBashTimeout) {
@@ -233,6 +239,13 @@ func (b bash) Execute(ctx context.Context, args json.RawMessage) (string, error)
 		return out, fmt.Errorf("command exited: %w", err)
 	}
 	return out, nil
+}
+
+func normalizeBashRunError(ctx context.Context, err error, preserveBackgroundProcesses bool) error {
+	if preserveBackgroundProcesses && ctx.Err() == nil && errors.Is(err, exec.ErrWaitDelay) {
+		return nil
+	}
+	return err
 }
 
 func shouldReapAfterRun(ctx context.Context, sh sandbox.Shell, command string, preserveBackgroundProcesses bool) bool {
@@ -263,6 +276,78 @@ func (b bash) foregroundTimeout() time.Duration {
 		return 0
 	}
 	return b.timeout
+}
+
+type trackedShellProcess struct {
+	cmd    *exec.Cmd
+	mu     sync.Mutex
+	job    uintptr
+	killed bool
+}
+
+func shouldTrackShellProcess(sh sandbox.Shell, command string, preserveBackgroundProcesses bool) bool {
+	if preserveBackgroundProcesses {
+		return false
+	}
+	return sh.Kind != sandbox.ShellBash || !hasExplicitBackgroundKeepalive(command)
+}
+
+func runShellProcess(cmd *exec.Cmd, track bool) (*trackedShellProcess, error) {
+	if !track {
+		setKillTree(cmd)
+		return nil, cmd.Run()
+	}
+	tracked := &trackedShellProcess{cmd: cmd}
+	proc.HideWindow(cmd)
+	cmd.Cancel = func() error {
+		tracked.kill()
+		return context.Canceled
+	}
+	job, err := proc.StartTracked(cmd)
+	if err != nil {
+		return tracked, err
+	}
+	tracked.setJob(job)
+	return tracked, cmd.Wait()
+}
+
+func reapShellProcess(cmd *exec.Cmd, tracked *trackedShellProcess) {
+	if tracked != nil {
+		tracked.kill()
+		return
+	}
+	reapTree(cmd)
+}
+
+func (p *trackedShellProcess) setJob(job uintptr) {
+	if p == nil || job == 0 {
+		return
+	}
+	p.mu.Lock()
+	killed := p.killed
+	if !killed {
+		p.job = job
+	}
+	p.mu.Unlock()
+	if killed {
+		proc.KillTracked(p.cmd, job)
+	}
+}
+
+func (p *trackedShellProcess) kill() {
+	if p == nil {
+		return
+	}
+	p.mu.Lock()
+	if p.killed {
+		p.mu.Unlock()
+		return
+	}
+	p.killed = true
+	job := p.job
+	p.job = 0
+	p.mu.Unlock()
+	proc.KillTracked(p.cmd, job)
 }
 
 // progressWriter forwards each chunk the command writes to a tool.ProgressFunc,

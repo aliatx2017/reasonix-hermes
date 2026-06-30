@@ -62,6 +62,8 @@ func New(cfg provider.Config) (provider.Provider, error) {
 	}
 	protocol, _ := cfg.Extra["reasoning_protocol"].(string)
 	protocol = normalizeReasoningProtocol(protocol)
+	chatURL, _ := cfg.Extra["chat_url"].(string)
+	chatURL = normalizeChatURL(cfg.BaseURL, chatURL)
 	vision, _ := cfg.Extra["vision"].(bool)
 	visionDetail, _ := cfg.Extra["vision_detail"].(string)
 	visionDetail = strings.ToLower(strings.TrimSpace(visionDetail))
@@ -117,6 +119,7 @@ func New(cfg provider.Config) (provider.Provider, error) {
 		keyEnv:       keyEnv,
 		keySource:    keySource,
 		baseURL:      strings.TrimRight(cfg.BaseURL, "/"),
+		chatURL:      chatURL,
 		model:        cfg.Model,
 		deepseek:     deepseek,
 		minimax:      minimax,
@@ -145,6 +148,7 @@ type client struct {
 	keyEnv       string // api_key_env name, surfaced in auth errors
 	keySource    string // source of keyEnv, surfaced in auth errors
 	baseURL      string
+	chatURL      string
 	model        string
 	http         *http.Client
 	deepseek     bool
@@ -178,6 +182,13 @@ func normalizeReasoningProtocol(raw string) string {
 	}
 }
 
+func normalizeChatURL(baseURL, chatURL string) string {
+	if trimmed := strings.TrimRight(strings.TrimSpace(chatURL), "/"); trimmed != "" {
+		return trimmed
+	}
+	return strings.TrimRight(strings.TrimSpace(baseURL), "/") + "/chat/completions"
+}
+
 // bufPool reuses byte buffers for JSON-marshalled request bodies. Each turn
 // allocates a buffer, marshals the request, and sends it — pooling avoids the
 // GC churn from repeated alloc/free of ~10-100KB buffers. The pool is
@@ -198,7 +209,7 @@ func (c *client) Stream(ctx context.Context, req provider.Request) (<-chan provi
 	bufPool.Put(buf)
 
 	newReq := func(ctx context.Context) (*http.Request, error) {
-		httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/chat/completions", bytes.NewReader(body))
+		httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.chatURL, bytes.NewReader(body))
 		if err != nil {
 			return nil, err
 		}
@@ -237,23 +248,37 @@ func (c *client) streamWithReconnect(ctx context.Context, resp *http.Response, n
 			return
 		}
 		if !provider.IsConnReset(err) {
-			out <- provider.Chunk{Type: provider.ChunkError, Err: err}
+			sendChunk(ctx, out, provider.Chunk{Type: provider.ChunkError, Err: err})
 			return
 		}
 		if emitted {
-			out <- provider.Chunk{Type: provider.ChunkError, Err: &provider.StreamInterruptedError{Err: err}}
+			sendChunk(ctx, out, provider.Chunk{Type: provider.ChunkError, Err: &provider.StreamInterruptedError{Err: err}})
 			return
 		}
 		if attempt >= maxStreamReconnects {
-			out <- provider.Chunk{Type: provider.ChunkError, Err: err}
+			sendChunk(ctx, out, provider.Chunk{Type: provider.ChunkError, Err: err})
 			return
 		}
 		next, rerr := provider.SendWithRetry(ctx, c.http, c.sendOpts(), newReq)
 		if rerr != nil {
-			out <- provider.Chunk{Type: provider.ChunkError, Err: rerr}
+			sendChunk(ctx, out, provider.Chunk{Type: provider.ChunkError, Err: rerr})
 			return
 		}
 		resp = next
+	}
+}
+
+func sendChunk(ctx context.Context, out chan<- provider.Chunk, chunk provider.Chunk) bool {
+	select {
+	case out <- chunk:
+		return true
+	default:
+	}
+	select {
+	case <-ctx.Done():
+		return false
+	case out <- chunk:
+		return true
 	}
 }
 
@@ -414,7 +439,9 @@ func (c *client) readStream(ctx context.Context, resp *http.Response, out chan<-
 			u := normaliseUsage(sr.Usage)
 			u.FinishReason = lastFinishReason
 			emitted = true
-			out <- provider.Chunk{Type: provider.ChunkUsage, Usage: u}
+			if !sendChunk(ctx, out, provider.Chunk{Type: provider.ChunkUsage, Usage: u}) {
+				return emitted, ctx.Err()
+			}
 		}
 		if len(sr.Choices) == 0 {
 			continue
@@ -427,17 +454,27 @@ func (c *client) readStream(ctx context.Context, resp *http.Response, out chan<-
 		}
 		if rc != "" {
 			emitted = true
+<<<<<<< HEAD
 			out <- provider.Chunk{Type: provider.ChunkReasoning, Text: rc}
+=======
+			if !sendChunk(ctx, out, provider.Chunk{Type: provider.ChunkReasoning, Text: delta.ReasoningContent}) {
+				return emitted, ctx.Err()
+			}
+>>>>>>> upstream/main-v2
 		}
 		if delta.Content != "" {
 			r, txt := think.push(delta.Content)
 			if r != "" {
 				emitted = true
-				out <- provider.Chunk{Type: provider.ChunkReasoning, Text: r}
+				if !sendChunk(ctx, out, provider.Chunk{Type: provider.ChunkReasoning, Text: r}) {
+					return emitted, ctx.Err()
+				}
 			}
 			if txt != "" {
 				emitted = true
-				out <- provider.Chunk{Type: provider.ChunkText, Text: txt}
+				if !sendChunk(ctx, out, provider.Chunk{Type: provider.ChunkText, Text: txt}) {
+					return emitted, ctx.Err()
+				}
 			}
 		}
 		for _, tc := range delta.ToolCalls {
@@ -460,7 +497,9 @@ func (c *client) readStream(ctx context.Context, resp *http.Response, out chan<-
 			if !started[tc.Index] && cur.Name != "" {
 				started[tc.Index] = true
 				emitted = true
-				out <- provider.Chunk{Type: provider.ChunkToolCallStart, ToolCall: &provider.ToolCall{ID: cur.ID, Name: cur.Name}}
+				if !sendChunk(ctx, out, provider.Chunk{Type: provider.ChunkToolCallStart, ToolCall: &provider.ToolCall{ID: cur.ID, Name: cur.Name}}) {
+					return emitted, ctx.Err()
+				}
 			}
 		}
 	}
@@ -483,10 +522,14 @@ func (c *client) readStream(ctx context.Context, resp *http.Response, out chan<-
 
 	if r, txt := think.flush(); r != "" || txt != "" {
 		if r != "" {
-			out <- provider.Chunk{Type: provider.ChunkReasoning, Text: r}
+			if !sendChunk(ctx, out, provider.Chunk{Type: provider.ChunkReasoning, Text: r}) {
+				return emitted, ctx.Err()
+			}
 		}
 		if txt != "" {
-			out <- provider.Chunk{Type: provider.ChunkText, Text: txt}
+			if !sendChunk(ctx, out, provider.Chunk{Type: provider.ChunkText, Text: txt}) {
+				return emitted, ctx.Err()
+			}
 		}
 	}
 
@@ -499,9 +542,13 @@ func (c *client) readStream(ctx context.Context, resp *http.Response, out chan<-
 			// an empty tool_call_id collapses multi-tool turns downstream.
 			tc.ID = fmt.Sprintf("call_%d", idx)
 		}
-		out <- provider.Chunk{Type: provider.ChunkToolCall, ToolCall: tc}
+		if !sendChunk(ctx, out, provider.Chunk{Type: provider.ChunkToolCall, ToolCall: tc}) {
+			return emitted, ctx.Err()
+		}
 	}
-	out <- provider.Chunk{Type: provider.ChunkDone}
+	if !sendChunk(ctx, out, provider.Chunk{Type: provider.ChunkDone}) {
+		return emitted, ctx.Err()
+	}
 	return emitted, nil
 }
 

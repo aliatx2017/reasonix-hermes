@@ -5,7 +5,7 @@ import React, { act } from "react";
 import { createRoot } from "react-dom/client";
 import type { AppBindings } from "../lib/bridge";
 import { useController } from "../lib/useController";
-import type { BalanceInfo, CheckpointMeta, ContextInfo, EffortInfo, HistoryMessage, JobView, Meta, TabMeta } from "../lib/types";
+import type { BalanceInfo, CheckpointMeta, ContextInfo, EffortInfo, HistoryMessage, JobView, Meta, TabMeta, WireEvent } from "../lib/types";
 
 let passed = 0;
 let failed = 0;
@@ -63,6 +63,7 @@ function tabMeta(id: string, overrides: Partial<TabMeta> = {}): TabMeta {
     gitBranch: "main",
     topicId: `topic-${id}`,
     topicTitle: id,
+    sessionPath: `${workspaceRoot}/sessions/${id}.jsonl`,
     label: `model-${id}`,
     ready: true,
     running: false,
@@ -128,21 +129,32 @@ const checkpoints: CheckpointMeta[] = [];
 const tabA = tabMeta("tab-a", { active: true });
 const tabB = tabMeta("tab-b");
 const tabC = tabMeta("tab-c");
+const tabD = tabMeta("tab-d");
 let backendActiveId = "tab-a";
 const historyB = deferred<HistoryMessage[]>();
+const historyD = deferred<HistoryMessage[]>();
+const contextDGate = deferred<ContextInfo>();
 const setActiveBGate = deferred<void>();
 const historyCalls: string[] = [];
+let contextDCalls = 0;
+let holdNextContextForD = false;
 let setActiveCalls = 0;
 let newSessionCalls = 0;
 const runningTabs = new Set<string>();
-const tabsById = new Map([tabA, tabB, tabC].map((tab) => [tab.id, tab]));
+const tabsById = new Map([tabA, tabB, tabC, tabD].map((tab) => [tab.id, tab]));
+const eventHandlers: Array<(e: WireEvent) => void> = [];
+const readyHandlers: Array<(tabId?: string) => void> = [];
 
 function currentTabs(): TabMeta[] {
-  return [tabA, tabB, tabC].map((tab) => ({ ...tab, active: tab.id === backendActiveId, running: runningTabs.has(tab.id) }));
+  return [tabA, tabB, tabC, tabD].map((tab) => ({ ...tab, active: tab.id === backendActiveId, running: runningTabs.has(tab.id) }));
 }
 
 window.runtime = {
-  EventsOn: () => () => {},
+  EventsOn: (name: string, cb: (...data: unknown[]) => void) => {
+    if (name === "agent:event") eventHandlers.push(cb as (e: WireEvent) => void);
+    if (name === "agent:ready") readyHandlers.push(cb as (tabId?: string) => void);
+    return () => {};
+  },
   BrowserOpenURL: () => {},
 };
 window.go = {
@@ -150,7 +162,15 @@ window.go = {
     App: {
       ListTabs: async () => currentTabs(),
       MetaForTab: async (tabID: string) => metaFor(tabsById.get(tabID) ?? tabA),
-      ContextUsageForTab: async () => context,
+      ContextUsageForTab: async (tabID: string) => {
+        if (tabID === "tab-d" && holdNextContextForD) {
+          contextDCalls += 1;
+          holdNextContextForD = false;
+          return contextDGate.promise;
+        }
+        if (tabID === "tab-d") contextDCalls += 1;
+        return context;
+      },
       EffortForTab: async () => effort,
       BalanceForTab: async () => balance,
       JobsForTab: async () => jobs,
@@ -158,7 +178,17 @@ window.go = {
       HistoryForTab: async (tabID: string) => {
         historyCalls.push(tabID);
         if (tabID === "tab-b") return historyB.promise;
+        if (tabID === "tab-d") return historyD.promise;
         return [userMessage("cached A")];
+      },
+      HistoryPageForTab: async (tabID: string) => {
+        const messages = await window.go.main.App.HistoryForTab(tabID);
+        return { messages, startTurn: 0, endTurn: messages.filter((message) => message.role === "user").length, totalTurns: messages.filter((message) => message.role === "user").length, hasOlder: false };
+      },
+      HistoryCheckpointTurnsForTab: async () => [],
+      OpenProjectTab: async () => {
+        backendActiveId = "tab-d";
+        return { ...(tabsById.get("tab-d") ?? tabD), active: true };
       },
       NewSession: async () => {
         newSessionCalls += 1;
@@ -227,11 +257,13 @@ await act(async () => {
 eq(newSessionCalls, 1, "newSession runs after the selected tab is active in the backend");
 await waitFor("tab-b history request", () => historyCalls.includes("tab-b"));
 
+const historyCallsBeforeReturnToA = historyCalls.length;
 await act(async () => {
   await controller?.switchTab("tab-a", tabA);
   await flushPromises();
 });
 await waitFor("tab-a restored", () => controller?.activeTabId === "tab-a" && controller.state.items.some((item) => item.kind === "user" && item.text === "cached A"));
+eq(historyCalls.length, historyCallsBeforeReturnToA, "cached idle tab skips history hydration when reselected");
 
 await act(async () => {
   historyB.resolve([userMessage("late B")]);
@@ -244,6 +276,24 @@ ok(controller?.state.items.some((item) => item.kind === "user" && item.text === 
 ok(!(controller?.state.items.some((item) => item.kind === "user" && item.text === "late B") ?? false), "late history stays scoped to its tab state");
 
 await act(async () => {
+  for (const handler of eventHandlers) handler({ kind: "phase", text: "Planner is thinking", tabId: "tab-a" });
+  for (const handler of eventHandlers) handler({ kind: "message", text: "Planner kept", reasoning: "Planner notes", tabId: "tab-a" });
+  await flushPromises();
+});
+await waitFor("cached planner transcript", () =>
+  controller?.state.items.some((item) => item.kind === "assistant" && item.text === "Planner kept" && item.reasoning === "Planner notes") ?? false
+);
+const historyCallsBeforeReady = historyCalls.length;
+await act(async () => {
+  for (const handler of readyHandlers) handler();
+  await flushPromises();
+});
+await waitFor("ready hydration settled", () => controller?.state.hydrating === false);
+eq(historyCalls.length, historyCallsBeforeReady, "agent ready with cached transcript skips executor-only history hydration");
+ok(controller?.state.items.some((item) => item.kind === "phase" && item.text === "Planner is thinking") ?? false, "agent ready keeps cached planner phase");
+ok(controller?.state.items.some((item) => item.kind === "assistant" && item.text === "Planner kept" && item.reasoning === "Planner notes") ?? false, "agent ready keeps cached planner answer");
+
+await act(async () => {
   controller?.sendToTab("tab-c", "streaming C");
   await flushPromises();
 });
@@ -254,6 +304,71 @@ await act(async () => {
 eq(controller?.activeTabId, "tab-c", "switching to a cached running tab still updates the active tab");
 ok(controller?.state.items.some((item) => item.kind === "user" && item.text === "streaming C") ?? false, "cached running tab keeps its optimistic transcript");
 ok(!historyCalls.includes("tab-c"), "cached running tab skips history hydration");
+
+holdNextContextForD = true;
+await act(async () => {
+  await controller?.openProjectTab(tabD.workspaceRoot, tabD.topicId || "");
+  await flushPromises();
+});
+eq(controller?.activeTabId, "tab-d", "openProjectTab activates the opened tab");
+eq(controller?.state.items.length, 0, "open topic keeps the new tab transcript empty while hydrating");
+ok(controller?.state.hydratePlaceholderItems?.some((item) => item.kind === "user" && item.text === "streaming C") ?? false, "open topic stores previous transcript only as a hydration placeholder");
+
+await act(async () => {
+  historyD.resolve([userMessage("history D")]);
+  await historyD.promise;
+  await flushPromises();
+});
+eq(controller?.state.hydrating, false, "topic history clears visible hydration before ancillary phase 2 settles");
+await waitFor("open topic phase 2 started", () => contextDCalls === 1);
+const contextCallsBeforeReadyD = contextDCalls;
+const historyCallsBeforeReadyD = historyCalls.length;
+await act(async () => {
+  for (const handler of readyHandlers) {
+    handler("tab-b");
+    handler("tab-d");
+    handler();
+  }
+  await flushPromises();
+});
+eq(contextDCalls, contextCallsBeforeReadyD, "agent ready reuses in-flight open-topic hydration for the active tab");
+eq(historyCalls.length, historyCallsBeforeReadyD, "background ready events do not hydrate the active tab");
+await act(async () => {
+  contextDGate.resolve(context);
+  await contextDGate.promise;
+  await flushPromises();
+});
+ok(controller?.state.items.some((item) => item.kind === "user" && item.text === "history D") ?? false, "topic history replaces the hydration placeholder");
+eq(controller?.state.hydratePlaceholderItems?.length ?? 0, 0, "topic history clears the hydration placeholder");
+
+const historyCallsBeforeReopenD = historyCalls.length;
+await act(async () => {
+  await controller?.openProjectTab(tabD.workspaceRoot, tabD.topicId || "");
+  await flushPromises();
+});
+eq(controller?.activeTabId, "tab-d", "reopening an already hydrated topic keeps it active");
+ok(controller?.state.items.some((item) => item.kind === "user" && item.text === "history D") ?? false, "reopened cached topic keeps its transcript");
+eq(historyCalls.length, historyCallsBeforeReopenD, "reopening an already hydrated topic skips history hydration");
+
+const contextCallsBeforeInactiveD = contextDCalls;
+await act(async () => {
+  await controller?.openProjectTab(tabD.workspaceRoot, tabD.topicId || "");
+  await controller?.switchTab("tab-a", tabA);
+  await flushPromises();
+});
+await act(async () => {
+  await flushPromises();
+  await flushPromises();
+});
+eq(contextDCalls, contextCallsBeforeInactiveD, "inactive topic skips ancillary hydration after quick tab switch");
+
+tabsById.set("tab-d", { ...tabD, sessionPath: `${tabD.workspaceRoot}/sessions/next-tab-d.jsonl` });
+const historyCallsBeforeReboundD = historyCalls.length;
+await act(async () => {
+  await controller?.openProjectTab(tabD.workspaceRoot, tabD.topicId || "");
+  await flushPromises();
+});
+eq(historyCalls.length, historyCallsBeforeReboundD + 1, "rebound topic reloads history when session path changes");
 
 await act(async () => {
   root.unmount();

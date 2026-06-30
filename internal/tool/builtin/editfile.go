@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"reasonix/internal/tool"
 )
@@ -58,6 +57,7 @@ func (e editFile) Execute(ctx context.Context, args json.RawMessage) (string, er
 		return "", fmt.Errorf("read %s: %w", p.Path, err)
 	}
 
+<<<<<<< HEAD
 	// Hash-anchored edit: if the caller provided a content_hash (from a prior
 	// read_file call), verify the file hasn't changed since. This catches the
 	// race where another process — or another agent — modified the file between
@@ -74,14 +74,23 @@ func (e editFile) Execute(ctx context.Context, args json.RawMessage) (string, er
 	case 0:
 		return "", fmt.Errorf("old_string not found in %s", p.Path)
 	case 1:
+=======
+	applied := applyOldStringEdit(content, p.OldString, p.NewString, false)
+	switch {
+	case applied.applied == 1:
+>>>>>>> upstream/main-v2
 		// ok
+	case applied.matches == 0:
+		return "", oldStringNotFoundError(p.Path, p.OldString, content)
 	default:
-		return "", fmt.Errorf("old_string is not unique in %s; add more surrounding context", p.Path)
+		return "", oldStringNotUniqueError(p.Path, applied.matches, false)
 	}
 
-	updated := strings.Replace(content, old, newStr, 1)
-	if err := writeFileEncoded(p.Path, updated, enc); err != nil {
+	if err := writeFileEncoded(p.Path, applied.updated, enc); err != nil {
 		return "", fmt.Errorf("write %s: %w", p.Path, err)
+	}
+	if applied.fuzzy {
+		return fmt.Sprintf("edited %s (fuzzy match)", p.Path), nil
 	}
 	return fmt.Sprintf("edited %s", p.Path), nil
 }

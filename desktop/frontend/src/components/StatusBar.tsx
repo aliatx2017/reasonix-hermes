@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   Activity,
@@ -32,6 +33,15 @@ import {
   type ToolApprovalMode,
   type WireUsage,
 } from '../lib/types';
+=======
+import { type ReactNode } from "react";
+import { Activity, CircleDollarSign, CircleGauge, Database, Folder, GitBranch, Layers, Percent, RefreshCw, Wallet, Zap } from "lucide-react";
+import { Tooltip } from "./Tooltip";
+import { useI18n, type Translator } from "../lib/i18n";
+import { formatMoneyLocalized } from "../lib/money";
+import { normalizeStatusBarItems, type StatusBarItemId } from "../lib/statusBarItems";
+import { type BalanceInfo, type ContextInfo, type UsageSourceStats, type WireUsage } from "../lib/types";
+>>>>>>> upstream/main-v2
 
 interface DashboardPayload {
   bot?: BotLiveStatusView;
@@ -41,6 +51,7 @@ interface DashboardPayload {
 
 type StatusBarLabelStyle = 'icon' | 'text';
 
+<<<<<<< HEAD
 // JobsChip is the status-bar background-jobs indicator: a count that opens an
 // upward popover listing the running jobs (id · label · status), mirroring the
 // ModelSwitcher's click-to-open pattern. With no jobs it stays hidden so the
@@ -87,6 +98,8 @@ function JobsChip({ jobs }: { jobs: JobView[] }) {
   );
 }
 
+=======
+>>>>>>> upstream/main-v2
 function formatRate(hit: number, denom: number): string | null {
   if (denom <= 0) return null;
   return ((hit / denom) * 100).toFixed(2);
@@ -96,8 +109,7 @@ function formatRate(hit: number, denom: number): string | null {
 // steeper number on a non-compacting DeepSeek session. null when nothing yet.
 function nowRate(u?: WireUsage): string | null {
   if (!u) return null;
-  let denom = u.cacheHitTokens + u.cacheMissTokens;
-  if (denom === 0) denom = u.promptTokens;
+  const denom = u.cacheHitTokens + u.cacheMissTokens;
   return formatRate(u.cacheHitTokens, denom);
 }
 
@@ -109,6 +121,15 @@ function avgRate(u?: WireUsage): string | null {
   if (!u) return null;
   const denom = u.sessionCacheHitTokens + u.sessionCacheMissTokens;
   return formatRate(u.sessionCacheHitTokens, denom);
+}
+
+// contextAvgRate computes the session-aggregate cache-hit % from ContextInfo
+// cache tokens (loaded from persisted telemetry on session resume). Used as a
+// fallback when no live WireUsage is available yet.
+function contextAvgRate(ctx: ContextInfo): string | null {
+  const hit = ctx.cacheHitTokens ?? 0;
+  const miss = ctx.cacheMissTokens ?? 0;
+  return formatRate(hit, hit + miss);
 }
 
 function rateValueClass(rate: string | null): string {
@@ -130,11 +151,68 @@ function formatTurnCount(turns: number | undefined, t: Translator): string {
   return t(turns === 1 ? 'history.turnOne' : 'history.turnOther', { n: turns });
 }
 
+<<<<<<< HEAD
 function MetricLabel({
   style,
   icon,
   label,
 }: { style: StatusBarLabelStyle; icon: ReactNode; label: string }) {
+=======
+const STATUS_SOURCE_ORDER = ["executor", "planner", "subagent", "compaction", "classifier", "title"];
+
+function sourceLabel(source: string, t: Translator): string {
+  switch (source) {
+    case "executor": return t("context.sourceExecutor");
+    case "planner": return t("context.sourcePlanner");
+    case "subagent": return t("context.sourceSubagent");
+    case "compaction": return t("context.sourceCompaction");
+    case "classifier": return t("context.sourceClassifier");
+    case "title": return t("context.sourceTitle");
+    default: return source;
+  }
+}
+
+function sourceRows(sources?: Record<string, UsageSourceStats>): Array<{ source: string; stats: UsageSourceStats }> {
+  return Object.entries(sources ?? {})
+    .filter(([, stats]) =>
+      (stats.requestCount ?? 0) > 0 ||
+      (stats.promptTokens ?? 0) > 0 ||
+      (stats.completionTokens ?? 0) > 0 ||
+      (stats.cacheHitTokens ?? 0) > 0 ||
+      (stats.cacheMissTokens ?? 0) > 0
+    )
+    .sort(([a], [b]) => {
+      const ia = STATUS_SOURCE_ORDER.indexOf(a);
+      const ib = STATUS_SOURCE_ORDER.indexOf(b);
+      if (ia >= 0 || ib >= 0) return (ia >= 0 ? ia : STATUS_SOURCE_ORDER.length) - (ib >= 0 ? ib : STATUS_SOURCE_ORDER.length);
+      return a.localeCompare(b);
+    })
+    .map(([source, stats]) => ({ source, stats }));
+}
+
+function sourceCacheTooltip(t: Translator, title: string, context: ContextInfo): ReactNode {
+  const rows = sourceRows(context.sources);
+  if (rows.length === 0) return title;
+  return (
+    <span className="statusbar__tooltip-stack">
+      <span>{title}</span>
+      {rows.map(({ source, stats }) => {
+        const denom = stats.cacheHitTokens + stats.cacheMissTokens;
+        const rate = denom > 0 ? `${formatRate(stats.cacheHitTokens, denom)}%` : t("context.cacheNotReported");
+        return (
+          <span key={source}>
+            {sourceLabel(source, t)}: {rate} · {t("context.sourceInput")} {formatTokenCount(stats.promptTokens)}
+            {" · "}{t("context.sourceOutput")} {formatTokenCount(stats.completionTokens)}
+            {" · "}{t("context.sourceRequests", { count: stats.requestCount ?? 0 })}
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
+function MetricLabel({ style, icon, label }: { style: StatusBarLabelStyle; icon: ReactNode; label: string }) {
+>>>>>>> upstream/main-v2
   return (
     <span
       className={`stat__label stat__label--${style}`}
@@ -187,10 +265,7 @@ export function StatusBar({
   context,
   usage,
   balance,
-  jobs,
   running,
-  collaborationMode,
-  toolApprovalMode,
   sessionTurns,
   sessionTokens,
   turnTokens,
@@ -203,15 +278,11 @@ export function StatusBar({
   workspacePath,
   workspaceName,
   gitBranch,
-  hydrationLabel,
 }: {
   context: ContextInfo;
   usage?: WireUsage;
   balance?: BalanceInfo;
-  jobs?: JobView[];
   running: boolean;
-  collaborationMode: CollaborationMode;
-  toolApprovalMode: ToolApprovalMode;
   sessionTurns?: number;
   sessionTokens?: number;
   turnTokens?: number;
@@ -224,7 +295,6 @@ export function StatusBar({
   workspacePath?: string;
   workspaceName?: string;
   gitBranch?: string;
-  hydrationLabel?: string;
 }) {
   const { locale, t } = useI18n();
   const pct = context.window
@@ -234,8 +304,7 @@ export function StatusBar({
   const compactNear = pct !== null && compactPct !== null && pct >= Math.max(0, compactPct - 10);
   const compactReached = pct !== null && compactPct !== null && pct >= compactPct;
   const nowPct = nowRate(usage);
-  const avgPct = avgRate(usage);
-  const jobsList = jobs ?? [];
+  const avgPct = avgRate(usage) ?? contextAvgRate(context);
   const turnCostLabel = formatMoneyLocalized(turnCost, currency, { locale });
   const costLabel = formatMoneyLocalized(cost, currency, { locale });
   const displayWorkspacePath = (workspacePath || workspaceName || '').trim();
@@ -247,11 +316,18 @@ export function StatusBar({
   const turnLabel = formatTurnCount(sessionTurns, t);
   const tokenLabel = formatTokenCount(sessionTokens);
   const turnTokenLabel = formatTokenCount(turnTokens);
+<<<<<<< HEAD
   const balanceLabel = balance?.available && balance.display ? balance.display : '-';
   const planMode = collaborationMode === 'plan';
   const goalMode = collaborationMode === 'goal';
   const metricLabelStyle = labelStyle === 'text' ? 'text' : 'icon';
+=======
+  const balanceLabel = balance?.available && balance.display ? balance.display : "-";
+  const metricLabelStyle = labelStyle === "text" ? "text" : "icon";
+>>>>>>> upstream/main-v2
   const visibleItems = normalizeStatusBarItems(items);
+  const cacheTooltip = sourceCacheTooltip(t, t("status.cacheTitle"), context);
+  const avgCacheTooltip = sourceCacheTooltip(t, t("status.cacheAvgTitle"), context);
   const itemRenderers: Record<StatusBarItemId, ReactNode> = {
     model: (
       <Tooltip label={t('status.modelTitle')}>
@@ -285,10 +361,14 @@ export function StatusBar({
       </Tooltip>
     ) : null,
     cache: (
+<<<<<<< HEAD
       <Tooltip
         label={t('status.cacheTitle')}
         className="statusbar__metric statusbar__metric--cache"
       >
+=======
+      <Tooltip label={cacheTooltip} className="statusbar__metric statusbar__metric--cache">
+>>>>>>> upstream/main-v2
         <span className="stat statusbar__cache">
           <MetricLabel
             style={metricLabelStyle}
@@ -302,10 +382,14 @@ export function StatusBar({
       </Tooltip>
     ),
     cache_avg: (
+<<<<<<< HEAD
       <Tooltip
         label={t('status.cacheAvgTitle')}
         className="statusbar__metric statusbar__metric--avg"
       >
+=======
+      <Tooltip label={avgCacheTooltip} className="statusbar__metric statusbar__metric--avg">
+>>>>>>> upstream/main-v2
         <span className="stat statusbar__avg">
           <MetricLabel
             style={metricLabelStyle}
@@ -455,6 +539,7 @@ export function StatusBar({
   const renderedItems = visibleItems
     .map((id) => ({ id, node: itemRenderers[id] }))
     .filter(({ node }) => node !== null && node !== undefined && node !== false);
+<<<<<<< HEAD
   const modeIndicators = [
     planMode ? (
       <span className="statusbar__plan" key="plan">
@@ -478,16 +563,10 @@ export function StatusBar({
     ) : null,
   ].filter(Boolean);
 
+=======
+>>>>>>> upstream/main-v2
   return (
     <div className={`statusbar statusbar--${metricLabelStyle}`}>
-      {hydrationLabel && (
-        <div className="statusbar__group statusbar__group--hydrate">
-          <span className="stat statusbar__hydrate" role="status">
-            <RefreshCw size={12} />
-            <span>{hydrationLabel}</span>
-          </span>
-        </div>
-      )}
       <div className="statusbar__group statusbar__group--items">
         {renderedItems.map(({ id, node }) => (
           <span className="statusbar__item" data-statusbar-item={id} key={id}>
@@ -495,6 +574,7 @@ export function StatusBar({
           </span>
         ))}
       </div>
+<<<<<<< HEAD
       {modeIndicators.length > 0 && (
         <div className="statusbar__group statusbar__group--modes">{modeIndicators}</div>
       )}
@@ -512,6 +592,8 @@ export function StatusBar({
         <CompressGaugeCompact />
         <HeadroomGaugeCompact />
       </div>
+=======
+>>>>>>> upstream/main-v2
     </div>
   );
 }

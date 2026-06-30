@@ -1,5 +1,6 @@
 // Run: tsx src/__tests__/use-controller-meta.test.ts
 
+<<<<<<< HEAD
 import {
   foregroundRunningFromRuntimeMeta,
   initialState,
@@ -8,6 +9,12 @@ import {
   shouldReconcileStaleTurn,
 } from '../lib/useController';
 import type { Meta, WireUsage } from '../lib/types';
+=======
+import { foregroundRunningFromRuntimeMeta, initialState, metaFromTab, reducer, sameMeta, shouldReconcileStaleTurn } from "../lib/useController";
+import type { Meta, TabMeta, WireUsage } from "../lib/types";
+
+type LooseTabMeta = Omit<TabMeta, "toolApprovalMode"> & { toolApprovalMode?: TabMeta["toolApprovalMode"] | "" };
+>>>>>>> upstream/main-v2
 
 let passed = 0;
 let failed = 0;
@@ -28,12 +35,22 @@ function meta(overrides: Partial<Meta> = {}): Meta {
   return {
     label: 'DeepSeek-R1',
     ready: true,
+<<<<<<< HEAD
     eventChannel: 'events',
     cwd: '/repo',
     workspaceRoot: '/repo',
     workspaceName: 'repo',
     workspacePath: '/repo',
     gitBranch: 'main',
+=======
+    eventChannel: "events",
+    cwd: "/repo",
+    workspaceRoot: "/repo",
+    workspaceName: "repo",
+    workspacePath: "/repo",
+    gitBranch: "main",
+    imageInputEnabled: true,
+>>>>>>> upstream/main-v2
     autoApproveTools: false,
     bypass: false,
     collaborationMode: 'normal',
@@ -43,6 +60,31 @@ function meta(overrides: Partial<Meta> = {}): Meta {
     goalStatus: 'stopped',
     ...overrides,
   };
+}
+
+function tab(overrides: Partial<LooseTabMeta> = {}): TabMeta {
+  return {
+    id: "tab-1",
+    scope: "project",
+    workspaceRoot: "/repo",
+    workspaceName: "repo",
+    workspacePath: "/repo",
+    gitBranch: "main",
+    topicId: "topic-1",
+    topicTitle: "Topic",
+    label: "DeepSeek-R1",
+    ready: true,
+    running: false,
+    mode: "normal",
+    collaborationMode: "normal",
+    toolApprovalMode: "ask",
+    tokenMode: "full",
+    goal: "",
+    goalStatus: "stopped",
+    active: true,
+    cwd: "/repo",
+    ...overrides,
+  } as TabMeta;
 }
 
 function usage(source: string): WireUsage {
@@ -63,6 +105,7 @@ function usage(source: string): WireUsage {
 console.log('\nuse controller meta');
 
 {
+<<<<<<< HEAD
   eq(sameMeta(meta(), meta()), true, 'identical meta is unchanged');
   eq(
     sameMeta(meta({ collaborationMode: 'normal' }), meta({ collaborationMode: 'plan' })),
@@ -79,6 +122,19 @@ console.log('\nuse controller meta');
     false,
     'git branch changes invalidate meta equality',
   );
+=======
+  eq(sameMeta(meta(), meta()), true, "identical meta is unchanged");
+  eq(sameMeta(meta({ collaborationMode: "normal" }), meta({ collaborationMode: "plan" })), false, "collaboration mode changes invalidate meta equality");
+  eq(sameMeta(meta({ workspacePath: "/repo" }), meta({ workspacePath: "/other" })), false, "workspace path changes invalidate meta equality");
+  eq(sameMeta(meta({ gitBranch: "main" }), meta({ gitBranch: "feature" })), false, "git branch changes invalidate meta equality");
+  eq(sameMeta(meta({ imageInputEnabled: true }), meta({ imageInputEnabled: false })), false, "image input capability changes invalidate meta equality");
+}
+
+{
+  const preserved = metaFromTab(tab({ toolApprovalMode: "" }), meta({ toolApprovalMode: "auto", autoApproveTools: false }));
+  eq(preserved.toolApprovalMode, "auto", "blank tab snapshot preserves explicit auto approval mode");
+  eq(preserved.autoApproveTools, false, "blank tab snapshot does not silently resurrect yolo approval");
+>>>>>>> upstream/main-v2
 }
 
 {
@@ -175,6 +231,31 @@ console.log('\nuse controller meta');
 }
 
 {
+  const restoredContext = reducer(initialState, {
+    type: "context",
+    context: {
+      used: 42,
+      window: 200,
+      sessionTokens: 120,
+      compactRatio: 0.5,
+      sessionCost: 0.012,
+      sessionCurrency: "$",
+      cacheHitTokens: 80,
+      cacheMissTokens: 20,
+    },
+  });
+  const reset = reducer(restoredContext, { type: "reset" });
+  eq(reset.context.used, 0, "reset clears context used tokens");
+  eq(reset.context.window, 200, "reset preserves context window");
+  eq(reset.context.sessionTokens, 0, "reset clears context session tokens");
+  eq(reset.context.cacheHitTokens, undefined, "reset clears restored cache hit tokens");
+  eq(reset.context.cacheMissTokens, undefined, "reset clears restored cache miss tokens");
+  eq(reset.context.sessionCost, undefined, "reset clears restored context session cost");
+  eq(reset.sessionCost, 0, "reset clears restored session cost state");
+  eq(reset.sessionCurrency, "¥", "reset restores default session currency");
+}
+
+{
   const idleExecutor = reducer(
     { ...initialState, context: { used: 0, window: 200, sessionTokens: 0 } },
     { type: 'event', e: { kind: 'usage', usage: usage('executor') } },
@@ -217,6 +298,7 @@ console.log('\nuse controller meta');
     'classifier usage while send is running does not refresh context used tokens',
   );
 
+<<<<<<< HEAD
   const active = reducer(initialState, { type: 'event', e: { kind: 'turn_started' } });
   const activeHelper = reducer(active, {
     type: 'event',
@@ -232,6 +314,84 @@ console.log('\nuse controller meta');
     0.001,
     'helper usage inside a turn still counts toward session cost',
   );
+=======
+  const active = reducer(initialState, { type: "event", e: { kind: "turn_started" } });
+  const activeHelper = reducer(active, { type: "event", e: { kind: "usage", usage: usage("subagent") } });
+  eq(activeHelper.sessionTokens, 120, "helper usage inside a turn still counts toward session tokens");
+  eq(activeHelper.sessionCost, 0.001, "helper usage inside a turn still counts toward session cost");
+  eq(activeHelper.usage, undefined, "helper usage inside a turn does not become displayed latest usage");
+
+  const plannerFirst = reducer(active, { type: "event", e: { kind: "usage", usage: usage("planner") } });
+  eq(plannerFirst.sessionTokens, 120, "planner usage inside a turn still counts toward session tokens");
+  eq(plannerFirst.usage, undefined, "planner usage does not fill the single displayed usage slot");
+
+  const activeExecutor = reducer(active, { type: "event", e: { kind: "usage", usage: usage("executor") } });
+  const afterCompaction = reducer(activeExecutor, { type: "event", e: { kind: "usage", usage: usage("compaction") } });
+  eq(afterCompaction.usage?.source, "executor", "compaction usage does not overwrite displayed executor usage");
+  eq(afterCompaction.sessionTokens, 240, "compaction usage still contributes to session token totals");
+}
+
+{
+  let s = reducer(initialState, { type: "user", text: "first", seq: 0 });
+  s = reducer(s, { type: "event", e: { kind: "turn_started" } });
+  s = reducer(s, { type: "event", e: { kind: "notice", level: "info", text: "runtime notice" } });
+  s = reducer(s, { type: "event", e: { kind: "turn_done" } });
+  const merged = reducer(s, {
+    type: "history_checkpoint_turns",
+    turns: [0],
+  });
+  const user = merged.items.find((item) => item.kind === "user");
+  const notice = merged.items.find((item) => item.kind === "notice" && item.text === "runtime notice");
+  eq(user?.kind === "user" && user.checkpointTurn, 0, "turn_done checkpoint merge stamps user turn zero");
+  eq(Boolean(notice), true, "turn_done checkpoint merge preserves runtime notices");
+}
+
+{
+  let s = reducer(initialState, {
+    type: "history_page",
+    mode: "replace",
+    page: {
+      messages: [
+        { role: "user", content: "recent prompt" },
+        { role: "assistant", content: "recent answer" },
+      ],
+      startTurn: 60,
+      endTurn: 61,
+      totalTurns: 61,
+      hasOlder: true,
+    },
+  });
+  eq(s.items.some((item) => item.kind === "user" && item.text === "recent prompt"), true, "history page replace renders the latest window");
+  eq(s.historyStartTurn, 60, "history page stores the older cursor");
+  eq(s.historyHasOlder, true, "history page records older availability");
+  const checkpointed = reducer(s, {
+    type: "history_checkpoint_turns",
+    turns: Array.from({ length: 61 }, (_, index) => index + 1000),
+  });
+  const recentUser = checkpointed.items.find((item) => item.kind === "user" && item.text === "recent prompt");
+  eq(recentUser?.kind === "user" && recentUser.checkpointTurn, 1060, "paged checkpoint merge uses the window start turn");
+  s = reducer(s, { type: "history_older_start" });
+  eq(s.historyOlderLoading, true, "older history request marks loading");
+  s = reducer(s, {
+    type: "history_page",
+    mode: "prepend",
+    page: {
+      messages: [
+        { role: "user", content: "older prompt" },
+        { role: "assistant", content: "older answer" },
+      ],
+      startTurn: 0,
+      endTurn: 1,
+      totalTurns: 61,
+      hasOlder: false,
+    },
+  });
+  const users = s.items.filter((item) => item.kind === "user");
+  eq(users[0]?.kind === "user" && users[0].text, "older prompt", "older history prepends before the current window");
+  eq(users[1]?.kind === "user" && users[1].text, "recent prompt", "older history keeps the current window");
+  eq(s.historyHasOlder, false, "older history clears hasOlder when all pages are loaded");
+  eq(s.historyOlderLoading, false, "older history clears loading");
+>>>>>>> upstream/main-v2
 }
 
 console.log(`\n${passed} passed, ${failed} failed, ${passed + failed} total`);

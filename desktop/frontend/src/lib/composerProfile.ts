@@ -29,6 +29,7 @@ export interface ComposerProfile {
 }
 
 export type ComposerProfilesByTab = Record<string, ComposerProfile>;
+export type UserPlanModeIntents = Record<string, true>;
 
 const profileFields: ComposerProfileField[] = [
   'collaborationMode',
@@ -60,7 +61,12 @@ function profileWithPending(
   return { ...profile, pending };
 }
 
-export function composerProfileFromTab(tab?: TabMeta | null): ComposerProfile {
+function fallbackToolApprovalMode(rawMode: string | undefined, fallback?: ToolApprovalMode | null): ToolApprovalMode | undefined {
+  if ((rawMode ?? "").trim() !== "") return undefined;
+  return fallback === "auto" ? "auto" : undefined;
+}
+
+export function composerProfileFromTab(tab?: TabMeta | null, fallback?: ToolApprovalMode | null): ComposerProfile {
   if (!tab) return { ...defaultComposerProfile, pending: {} };
   const legacyMode = normalizeMode(tab.mode);
   const goal = activeGoal(tab.goal, tab.goalStatus);
@@ -70,14 +76,19 @@ export function composerProfileFromTab(tab?: TabMeta | null): ComposerProfile {
     toolApprovalMode: normalizeToolApprovalMode(
       tab.toolApprovalMode,
       legacyMode,
+<<<<<<< HEAD
       tab.toolApprovalMode === 'yolo',
+=======
+      tab.toolApprovalMode === "yolo",
+      fallbackToolApprovalMode(tab.toolApprovalMode, fallback),
+>>>>>>> upstream/main-v2
     ),
     tokenMode: normalizeTokenMode(tab.tokenMode),
     goal,
   });
 }
 
-export function composerProfileFromMeta(meta?: Meta | null, legacyMode?: Mode): ComposerProfile {
+export function composerProfileFromMeta(meta?: Meta | null, legacyMode?: Mode, fallback?: ToolApprovalMode | null): ComposerProfile {
   if (!meta) return { ...defaultComposerProfile, pending: {} };
   const fallbackMode = normalizeMode(legacyMode);
   const goal = activeGoal(meta.goal, meta.goalStatus);
@@ -85,6 +96,10 @@ export function composerProfileFromMeta(meta?: Meta | null, legacyMode?: Mode): 
     meta.toolApprovalMode,
     fallbackMode,
     meta.autoApproveTools ?? meta.bypass,
+<<<<<<< HEAD
+=======
+    fallbackToolApprovalMode(meta.toolApprovalMode, fallback),
+>>>>>>> upstream/main-v2
   );
   return profileWithPending({
     collaborationMode: normalizeCollaborationMode(meta.collaborationMode, goal, fallbackMode),
@@ -162,7 +177,7 @@ export function hydrateComposerProfilesFromTabs(
   let changed = false;
 
   for (const tab of tabs) {
-    const profile = reconcileComposerProfile(current[tab.id], composerProfileFromTab(tab));
+    const profile = reconcileComposerProfile(current[tab.id], composerProfileFromTab(tab, current[tab.id]?.toolApprovalMode));
     next[tab.id] = profile;
     if (!profilesEqual(current[tab.id], profile)) changed = true;
   }
@@ -183,6 +198,10 @@ export function hydrateComposerProfileFromMeta(
   const backend = composerProfileFromMeta(
     meta,
     previous ? composerProfileMode(previous) : undefined,
+<<<<<<< HEAD
+=======
+    previous?.toolApprovalMode,
+>>>>>>> upstream/main-v2
   );
   const profile = reconcileComposerProfile(previous, backend);
   if (profilesEqual(previous, profile)) return current;
@@ -236,4 +255,49 @@ export function composerProfileWithMode(mode: Mode): Partial<Omit<ComposerProfil
     toolApprovalMode: modeHasAutoApproveTools(mode) ? 'yolo' : 'ask',
     goal: '',
   };
+}
+
+export function updateUserPlanModeIntent(
+  current: UserPlanModeIntents,
+  tabId: string | null | undefined,
+  enabled: boolean,
+): UserPlanModeIntents {
+  if (!tabId) return current;
+  if (enabled) {
+    return current[tabId] ? current : { ...current, [tabId]: true };
+  }
+  if (!current[tabId]) return current;
+  const next = { ...current };
+  delete next[tabId];
+  return next;
+}
+
+export function pruneUserPlanModeIntents(current: UserPlanModeIntents, tabIds: Iterable<string>): UserPlanModeIntents {
+  const live = new Set(tabIds);
+  let changed = false;
+  const next: UserPlanModeIntents = {};
+  for (const tabId of Object.keys(current)) {
+    if (live.has(tabId)) {
+      next[tabId] = true;
+    } else {
+      changed = true;
+    }
+  }
+  return changed ? next : current;
+}
+
+export function shouldRestoreUserPlanMode(current: UserPlanModeIntents, tabId: string | null | undefined): boolean {
+  return Boolean(tabId && current[tabId]);
+}
+
+export function resolvePlanRestoreTabId(eventTabId: string | null | undefined, activeTabId: string | null | undefined): string | null {
+  return eventTabId || activeTabId || null;
+}
+
+export function shouldRestoreUserPlanModeForProfile(
+  current: UserPlanModeIntents,
+  tabId: string | null | undefined,
+  profile?: Pick<ComposerProfile, "goal"> | null,
+): boolean {
+  return shouldRestoreUserPlanMode(current, tabId) && !profile?.goal.trim();
 }

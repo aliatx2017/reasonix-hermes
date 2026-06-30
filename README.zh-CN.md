@@ -51,6 +51,8 @@ Hermes 保留上游核心 —— agent 循环、provider、工具、权限、插
   端点都只是一条配置。可选让两个模型协同（执行器 + 规划器），各自独立、缓存稳定的 session。
 - **插件驱动**：外部工具以子进程形式运行，通过 stdio JSON-RPC 通信（MCP 兼容）；
   内置工具在编译期自注册。
+- **缓存友好的上下文维护**：启动时注入稳定的环境摘要；旧工具输出会先 snip/prune，
+  再进入摘要 compaction；内置工具 schema 合约有文档和回归测试保护。
 - **零摩擦分发**：`CGO_ENABLED=0` 单二进制；一条命令交叉编译到六个目标平台。
   唯一依赖是一个 TOML 解析库。
 
@@ -149,6 +151,7 @@ provider key 的运行时 fallback，但仍会作为当前 workspace 范围内�
 
 ## 文档
 
+<<<<<<< HEAD
 | 文档 | 内容 |
 |------|------|
 | **[指南](./docs/GUIDE.zh-CN.md)** | 配置、权限与沙盒、插件(MCP)、斜杠命令、双模型协同 |
@@ -184,6 +187,18 @@ git merge upstream/main-v2
 
 上游完整功能集（桌面应用、bot gateway（飞书/微信/QQ）、ACP session、PDF 提取、
 可切换主题工作区）详见 [上游仓库](https://github.com/esengine/deepseek-reasonix)。
+=======
+- **[指南](./docs/GUIDE.zh-CN.md)** —— 配置、权限与沙盒、插件(MCP)、斜杠命令、
+  `@` 引用、双模型协同。
+- **[机器人使用指南](./docs/BOT_GUIDE.zh-CN.md)** —— 桌面端连接飞书、Lark、微信
+  Bot，以及 IM 里的审批、YOLO 和命令交互。
+- **[规格](./docs/SPEC.md)** —— 工程契约:架构、registry、数据类型与路线图。
+- **[工具合约](./docs/TOOL_CONTRACT.zh-CN.md)** —— provider 可见的内置工具名、
+  read-only 标记和 schema 快照保护。
+- **[从 0.x 迁移](./docs/MIGRATING.md)** —— 从 legacy TypeScript 版本迁到 1.0 Go 重写版。
+- **[Checkpoints 与 rewind](./docs/CHECKPOINTS.md)** —— 基于快照的编辑安全网
+  (Esc-Esc / `/rewind`)。
+>>>>>>> upstream/main-v2
 
 <br/>
 

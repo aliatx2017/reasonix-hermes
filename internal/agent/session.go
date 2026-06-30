@@ -114,6 +114,7 @@ func (s *Session) HasContent() bool {
 	return false
 }
 
+<<<<<<< HEAD
 // SetMeta copies aggregate session statistics from the caller into the Session,
 // typically from Agent atomics before saving. Call once before SaveMeta to
 // record the current cumulative totals.
@@ -195,4 +196,14 @@ func LoadMeta(path string) (SessionMeta, error) {
 		return SessionMeta{}, fmt.Errorf("decode stats %s: %w", statsPath(path), err)
 	}
 	return meta, nil
+=======
+// HasSystemMessage reports whether the session starts with a system message,
+// which carries the agent's stable identity and behavioural contract. Sessions
+// without one are not safe to persist: when reloaded the model has no identity
+// context and falls back to its training-data defaults.
+func (s *Session) HasSystemMessage() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return len(s.Messages) > 0 && s.Messages[0].Role == provider.RoleSystem
+>>>>>>> upstream/main-v2
 }

@@ -2,6 +2,8 @@ package builtin
 
 import (
 	"context"
+	"errors"
+	"os/exec"
 	"strings"
 	"testing"
 	"time"
@@ -56,6 +58,21 @@ func TestWorkspacePassesBashTimeout(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "timed out") {
 		t.Fatalf("error = %v, want timeout", err)
+	}
+}
+
+func TestNormalizeBashRunErrorAllowsPreservedWaitDelay(t *testing.T) {
+	if err := normalizeBashRunError(context.Background(), exec.ErrWaitDelay, true); err != nil {
+		t.Fatalf("preserved post-exit WaitDelay should be ignored, got %v", err)
+	}
+	if err := normalizeBashRunError(context.Background(), exec.ErrWaitDelay, false); !errors.Is(err, exec.ErrWaitDelay) {
+		t.Fatalf("ordinary WaitDelay should remain visible, got %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := normalizeBashRunError(ctx, exec.ErrWaitDelay, true); !errors.Is(err, exec.ErrWaitDelay) {
+		t.Fatalf("cancelled WaitDelay should remain visible, got %v", err)
 	}
 }
 

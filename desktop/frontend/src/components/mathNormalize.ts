@@ -58,10 +58,31 @@ function normalizeMathText(s: string): string {
     .replace(/\\\)/g, () => '$');
   r = r.replace(new RegExp(LB, 'g'), '\\\\[');
 
+<<<<<<< HEAD
   // Step 3: $$…$$ → display placeholders. The KaTeX-specific normalisation
   // runs here so |→\vert (with \| protected) and \text{} escapes both apply
   // to display math.
   r = r.replace(/\$\$([\s\S]*?)\$\$/g, (_m, m) => `${DM}${latexNormalizeForKatex(m)}${DM}`);
+=======
+  // Step 2.5: expand \yng/\young macros to KaTeX-compatible \boxed{array}
+  // forms after LLM-native delimiters have been converted, so macros inside
+  // \(...\) or \[...\] are correctly recognised as already being in math.
+  r = expandYoungDiagrams(r);
+
+  // Escaped dollars are literal prose dollars, not math delimiters. Hide them
+  // before the $...$ classifier passes so they cannot pair with inserted Young
+  // macro wrappers.
+  const escapedDollarToken = unusedEscapedDollarToken(r);
+  r = r.split("\\$").join(escapedDollarToken);
+
+  // Step 3+4: normalise display $$ blocks and run KaTeX-specific
+  // normalisation on each recognised display source. remark-math requires
+  // opening and closing $$ to sit on their own lines; LLMs often emit
+  // single-line displays, opening fences glued to prose, and adjacent display
+  // blocks separated by prose. A line parser avoids the old cross-block regex
+  // capture that swallowed prose between two display blocks.
+  r = normaliseDisplayBlocks(r);
+>>>>>>> upstream/main-v2
 
   // Step 4: $\cmd{...}$ pairs where the body may contain a stray $ (e.g.
   // $\text{price is $5}$). We recognise these first so the stray $ doesn't
@@ -198,4 +219,96 @@ function inlineCodeEnd(s: string, start: number): number {
 function lineEnd(s: string, start: number): number {
   const end = s.indexOf('\n', start);
   return end < 0 ? s.length : end;
+}
+
+function normaliseDisplayBlocks(s: string): string {
+  const lines = s.split("\n");
+  const out: string[] = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+    const $$idx = line.indexOf("$$");
+
+    if ($$idx >= 0 && line.indexOf("$$", $$idx + 2) >= 0
+        && !($$idx > 0 && /\d/.test(line[$$idx - 1]))) {
+      const m = line.match(/^(.*?)\$\$([^\n]*?)\$\$(.*)$/);
+      if (m) {
+        const quote = blockquotePrefix(m[1]);
+        pushDisplayBefore(out, m[1]);
+        out.push(DM);
+        out.push(latexNormalizeForKatex(m[2]));
+        out.push(DM);
+        if (m[3]) out.push(normaliseDisplayBlocks(quote ? quote + m[3].trimStart() : m[3]));
+        i += 1;
+        continue;
+      }
+    }
+
+    if ($$idx >= 0 && line.indexOf("$$", $$idx + 2) < 0
+        && !($$idx > 0 && /\d/.test(line[$$idx - 1]))) {
+      const before = line.slice(0, $$idx);
+      const afterOpen = line.slice($$idx + 2);
+      const quote = blockquotePrefix(before);
+
+      const formulaLines: string[] = [];
+      if (afterOpen) formulaLines.push(afterOpen);
+
+      let j = i + 1;
+      let found = false;
+      while (j < lines.length) {
+        const rawLine = lines[j];
+        const fLine = quote ? stripBlockquotePrefix(rawLine, quote) : rawLine;
+        const closeIdx = fLine.indexOf("$$");
+        if (closeIdx >= 0 && fLine.indexOf("$$", closeIdx + 2) < 0) {
+          const formulaPart = fLine.slice(0, closeIdx);
+          const afterClose = fLine.slice(closeIdx + 2);
+          pushDisplayBefore(out, before);
+          if (formulaPart) formulaLines.push(formulaPart);
+          const formula = formulaLines.join("\n");
+          out.push(DM);
+          out.push(latexNormalizeForKatex(formula));
+          out.push(DM);
+          if (afterClose) out.push(quote ? quote + afterClose.trimStart() : afterClose);
+          i = j + 1;
+          found = true;
+          break;
+        }
+        formulaLines.push(fLine);
+        j += 1;
+      }
+
+      if (found) continue;
+      pushDisplayBefore(out, before);
+      out.push("$$");
+      if (afterOpen) out.push(afterOpen);
+      i += 1;
+      continue;
+    }
+
+    out.push(line);
+    i += 1;
+  }
+
+  return out.join("\n");
+}
+
+function pushDisplayBefore(out: string[], before: string): void {
+  if (!before.trim()) return;
+  out.push(before);
+}
+
+function blockquotePrefix(before: string): string | null {
+  const m = before.match(/^(\s*>\s*)/);
+  return m ? m[1] : null;
+}
+
+function stripBlockquotePrefix(line: string, prefix: string): string {
+  if (line.startsWith(prefix)) return line.slice(prefix.length);
+  const marker = prefix.trimEnd();
+  if (marker && line.startsWith(marker)) {
+    const rest = line.slice(marker.length);
+    return rest.startsWith(" ") ? rest.slice(1) : rest;
+  }
+  return line;
 }

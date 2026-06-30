@@ -6,16 +6,27 @@
 &nbsp;·&nbsp;
 <a href="./GUIDE.zh-CN.md">通用指南</a>
 
+<<<<<<< HEAD
 > 面向桌面端用户。本文说明如何连接 Discord、QQ、飞书、Lark、微信、Telegram、LINE 和 Slack 机器人，如何在 IM
+=======
+> 面向桌面端用户。本文说明如何连接飞书、Lark、微信和 QQ 机器人，如何在 IM
+>>>>>>> upstream/main-v2
 > 里使用 Reasonix，以及审批、问答、YOLO 和常用命令的交互方式。
 
 ## 目录
 
 - [能做什么](#能做什么)
+<<<<<<< HEAD
 - [连接渠道](#连接渠道)
 - [无界面运行 Bot](#无界面运行-bot)
 - [使用流程](#使用流程)
 - [各渠道的交互差异](#各渠道的交互差异)
+=======
+- [连接四个渠道](#连接四个渠道)
+- [无界面运行 Bot](#无界面运行-bot)
+- [使用流程](#使用流程)
+- [四种渠道的交互差异](#四种渠道的交互差异)
+>>>>>>> upstream/main-v2
 - [命令速查](#命令速查)
 - [审批与 YOLO](#审批与-yolo)
 - [升级后是否需要重新绑定](#升级后是否需要重新绑定)
@@ -34,7 +45,11 @@ Reasonix 在本机执行同一套模型、工具、权限与沙盒逻辑。
 - 对临时测试任务开启 YOLO，跳过普通工具审批。
 - 打开桌面端对应 IM 会话，继续查看上下文、成本、tokens 和工具轨迹。
 
+<<<<<<< HEAD
 ## 连接渠道
+=======
+## 连接四个渠道
+>>>>>>> upstream/main-v2
 
 打开桌面端 Reasonix，进入 **设置 -> 机器人**。在 **添加 IM Bot** 区域选择
 渠道并扫码。
@@ -51,6 +66,7 @@ flowchart LR
   D --> E["飞书扫码创建 PersonalAgent"]
   D --> F["Lark 扫码创建 PersonalAgent"]
   D --> G["微信扫码登录 Bot 助手"]
+<<<<<<< HEAD
   D1 --> H["连接保存到本机"]
   D2 --> H
   D3 --> H
@@ -60,6 +76,15 @@ flowchart LR
   G --> H
   H --> I["在 IM 中发送第一条消息"]
   I --> J["桌面端创建对应会话"]
+=======
+  D --> H["QQ 手动配置 Bot 助手"]
+  E --> I["连接保存到本机"]
+  F --> I
+  G --> I
+  H --> I
+  I --> J["在 IM 中发送第一条消息"]
+  J --> K["桌面端创建对应会话"]
+>>>>>>> upstream/main-v2
 ```
 
 ### 飞书
@@ -94,12 +119,26 @@ flowchart LR
 ### QQ
 
 1. 在 **设置 -> 机器人 -> 添加 IM Bot** 里选择 **QQ**。
+<<<<<<< HEAD
 2. 点击生成二维码。
 3. 用 QQ 扫码登录 Bot 助手。
 4. 等待页面显示已连接。
 5. 给 QQ Bot 发送消息。
 
 QQ 使用与微信相同的扫码绑定流程。审批和问答通过文字命令完成。
+=======
+2. 填写 **App ID** 和 **App Secret**（或设置环境变量 `QQ_BOT_APP_SECRET`）。
+3. 点击 **保存** 存储凭据。
+4. 等待页面显示已连接。
+5. 给 QQ Bot 发送消息。
+
+QQ Bot 使用官方 QQ Bot 平台 API。它支持内联键盘按钮来完成审批。
+Ask 问答会以文字形式发送；单选题可以直接回复选项编号，也可以用
+`/answer <id> <选项>`。当按钮过期或平台提示操作失败时，可以直接
+复制卡片里的 ID，用文字命令继续。
+
+QQ 不支持扫码连接，必须手动配置 App ID 和 App Secret。
+>>>>>>> upstream/main-v2
 
 ## 无界面运行 Bot
 
@@ -139,7 +178,11 @@ Bot。Hermes 扩展的平台可通过 `discord`、`telegram`、`line`、`slack` 
 ```mermaid
 sequenceDiagram
   participant U as "用户"
+<<<<<<< HEAD
   participant IM as "Discord / QQ / 飞书 / Lark / 微信 / Telegram / LINE / Slack"
+=======
+  participant IM as "飞书 / Lark / 微信 / QQ"
+>>>>>>> upstream/main-v2
   participant R as "Reasonix 桌面端"
   participant T as "本机工具与模型"
 
@@ -164,7 +207,11 @@ sequenceDiagram
 桌面端左侧的 **机器人** 入口会显示已连接 Bot。收到第一条 IM 消息后，可以
 从这里打开对应本地会话，查看上下文、工具轨迹、成本和运行指标。
 
+<<<<<<< HEAD
 ## 各渠道的交互差异
+=======
+## 四种渠道的交互差异
+>>>>>>> upstream/main-v2
 
 下面三张图是虚构内容的交互示意，用来帮助理解真实软件里的操作形态。
 
@@ -173,6 +220,8 @@ sequenceDiagram
 ![Lark 开启 YOLO 示意](./assets/bot-lark-yolo.svg)
 
 ![微信文字命令示意](./assets/bot-weixin-text-commands.svg)
+
+![QQ 审批卡片示意](./assets/bot-qq-approval.svg)
 
 | 渠道 | 连接方式 | 审批方式 | Ask 问答 | 适合场景 |
 | --- | --- | --- | --- | --- |
@@ -183,14 +232,20 @@ sequenceDiagram
 | 飞书 | 扫码创建 PersonalAgent | 交互卡片按钮，也可用命令 | 交互卡片按钮，也可用命令 | 国内飞书工作流、群聊或个人助手 |
 | Lark | 扫码创建 PersonalAgent | 交互卡片按钮，也可用命令 | 交互卡片按钮，也可用命令 | 国际版 Lark 工作流 |
 | 微信 | 微信扫码登录 | 回复 `1` / `2` 或命令 | 单选可直接回复编号，也可用命令 | 微信个人测试、轻量移动触发 |
+| QQ | 手动配置（App ID + App Secret） | 内联键盘按钮、数字回复或命令 | 单选可直接回复编号，也可用命令 | QQ 群聊、个人会话和官方 QQ Bot 平台 |
 
 飞书和 Lark 的卡片按钮会在后台转换为命令，例如 `/approve <id>`、
-`/deny <id>` 或 `/answer <id> <选项>`。如果按钮过期或平台提示操作失败，
-可以直接复制卡片里的 ID，用文字命令继续。
+`/deny <id>` 或 `/answer <id> <选项>`。QQ 的审批按钮也是如此。
+如果按钮过期或平台提示操作失败，可以直接复制卡片里的 ID，用文字
+命令继续。
 
 ## 命令速查
 
+<<<<<<< HEAD
 这些命令在所有渠道中通用。
+=======
+这些命令在飞书、Lark、微信和 QQ 中通用。
+>>>>>>> upstream/main-v2
 
 | 命令 | 作用 | 示例 |
 | --- | --- | --- |
@@ -282,23 +337,28 @@ Reasonix-Hermes 在上游三个平台之外增加了四个机器人平台：
 - 飞书和 Lark 的密钥保存在 CLI 与桌面端共用的 Reasonix 全局
   `<Reasonix home>/.env`。
 - 微信扫码后的账号 token 保存在 Reasonix 的用户数据目录。
+- QQ 的 App ID 保存在用户配置文件；App Secret 通过配置的环境变量
+  （默认 `QQ_BOT_APP_SECRET`）保存在 Reasonix 全局凭据文件中。
 
-需要重新扫码的情况：
+需要重新扫码或重新配置的情况：
 
 - 删除了 Reasonix 用户配置目录。
 - 换了 macOS 用户或换了机器。
 - 平台侧撤销授权。
 - 微信 token 失效。
 - 飞书或 Lark 应用密钥被清除。
+- QQ 的 App ID 或 App Secret 失效或被更改。
 
 ## 排障
 
 | 现象 | 可以检查 |
 | --- | --- |
-| 扫码提示链接失效 | 回到设置页重新生成二维码；二维码有有效期。 |
+| 扫码提示链接失效 | 回到设置页重新生成二维码；二维码有有效期（飞书、Lark、微信；QQ 不使用扫码，请检查手动配置）。 |
 | 已连接但没有回复 | 确认桌面端 Reasonix 正在运行，Bot 连接已开启，用户 ID 在白名单内或允许所有人。 |
 | 飞书或 Lark 按钮提示失败 | 直接发送卡片里的命令，例如 `/approve <id>` 或 `/deny <id>`。 |
+| QQ 按钮提示失败 | 与飞书/Lark 相同 —— 直接发送卡片里的命令，例如 `/approve <id>` 或 `/deny <id>`。 |
 | 微信回复 `1` 没反应 | 只有存在待审批或单选 Ask 时数字快捷回复才生效；也可以使用完整命令。 |
+| QQ 回复 `1` 没反应 | 与微信相同 —— 只有存在待审批或单选 Ask 时数字快捷回复才生效；也可以使用完整命令。 |
 | 想确认当前模式 | 发送 `/status` 或 `/yolo status`。 |
 | 想重新开始上下文 | 发送 `/new` 或 `/reset`。 |
 | 想停止当前任务 | 发送 `/stop`。 |

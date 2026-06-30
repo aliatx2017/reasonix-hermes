@@ -1,9 +1,9 @@
 // ContextPanel shows the active tab's context gauge and token usage.
 // All visible text is routed through the i18n dictionary.
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { asArray } from "../lib/array";
 import { app } from "../lib/bridge";
-import { useI18n, type Translator } from "../lib/i18n";
+import { useI18n, type Locale, type Translator } from "../lib/i18n";
 import { formatMoneyLocalized } from "../lib/money";
 import type { DictKey } from "../locales/en";
 import type { BalanceInfo, ContextInfo, ContextPanelInfo, UsageSourceStats, WireUsage } from "../lib/types";
@@ -42,6 +42,26 @@ function fmtOptionalTokens(tokens?: number): string {
   return tokens.toLocaleString();
 }
 
+interface MetricTokenDisplay {
+  display: string;
+  exact: string;
+}
+
+function numberLocale(locale: Locale | string): string {
+  if (locale === "zh") return "zh-CN";
+  if (locale === "zh-TW") return "zh-TW";
+  return "en";
+}
+
+export function formatMetricTokens(tokens: number | undefined, locale: Locale | string): MetricTokenDisplay {
+  if (typeof tokens !== "number" || tokens <= 0) {
+    return { display: "-", exact: "-" };
+  }
+  const tag = numberLocale(locale);
+  const exact = tokens.toLocaleString(tag);
+  return { display: exact, exact };
+}
+
 function fmtTurns(turns: number | undefined, t: Translator): string {
   if (typeof turns !== "number" || turns < 0) return "-";
   return t(turns === 1 ? "history.turnOne" : "history.turnOther", { n: turns });
@@ -49,16 +69,9 @@ function fmtTurns(turns: number | undefined, t: Translator): string {
 
 function fmtUsageCacheRate(usage?: WireUsage): string {
   if (!usage) return "-";
-  const denom = usage.cacheHitTokens + usage.cacheMissTokens || usage.promptTokens;
+  const denom = usage.cacheHitTokens + usage.cacheMissTokens;
   if (denom <= 0) return "-";
   return `${((usage.cacheHitTokens / denom) * 100).toFixed(2)}%`;
-}
-
-function fmtSessionCacheRate(usage?: WireUsage): string {
-  if (!usage) return "-";
-  const denom = usage.sessionCacheHitTokens + usage.sessionCacheMissTokens;
-  if (denom <= 0) return "-";
-  return `${((usage.sessionCacheHitTokens / denom) * 100).toFixed(2)}%`;
 }
 
 export function formatCacheHitRate(hitTokens: number, missTokens: number): string {
@@ -189,6 +202,18 @@ function contextHealth(usagePct: number, cachePct: number, readCount: number): H
 
 const SOURCE_ORDER = ["executor", "planner", "subagent", "compaction", "classifier", "title"];
 
+function sourceTone(source: string): string {
+  switch (source) {
+    case "executor": return "teal";
+    case "planner": return "blue";
+    case "subagent": return "amber";
+    case "compaction": return "slate";
+    case "classifier": return "violet";
+    case "title": return "rose";
+    default: return "default";
+  }
+}
+
 function sourceLabel(source: string, t: Translator): string {
   switch (source) {
     case "executor": return t("context.sourceExecutor");
@@ -205,11 +230,35 @@ function sourceCost(stats: UsageSourceStats): number {
   return stats.sessionCost && stats.sessionCost > 0 ? stats.sessionCost : stats.sessionCostUsd ?? 0;
 }
 
-function sourceRows(info: ContextPanelInfo | null, sessionCurrency?: string): Array<{ source: string; label: string; cost: number; currency?: string; requests: number }> {
+function sourceTokenTotal(row: Pick<ContextSourceRow, "promptTokens" | "completionTokens" | "totalTokens">): number {
+  return row.totalTokens > 0 ? row.totalTokens : row.promptTokens + row.completionTokens;
+}
+
+export interface ContextSourceRow {
+  source: string;
+  label: string;
+  promptTokens: number;
+  completionTokens: number;
+  cacheHitTokens: number;
+  cacheMissTokens: number;
+  totalTokens: number;
+  cost: number;
+  currency?: string;
+  requests: number;
+}
+
+export function contextSourceRows(info: ContextPanelInfo | null, sessionCurrency?: string): ContextSourceRow[] {
   const entries = Object.entries(info?.sources ?? {});
   if (entries.length === 0) return [];
   return entries
-    .filter(([, stats]) => (stats.requestCount ?? 0) > 0 || sourceCost(stats) > 0)
+    .filter(([, stats]) =>
+      (stats.requestCount ?? 0) > 0 ||
+      (stats.promptTokens ?? 0) > 0 ||
+      (stats.completionTokens ?? 0) > 0 ||
+      (stats.cacheHitTokens ?? 0) > 0 ||
+      (stats.cacheMissTokens ?? 0) > 0 ||
+      sourceCost(stats) > 0
+    )
     .sort(([a], [b]) => {
       const ia = SOURCE_ORDER.indexOf(a);
       const ib = SOURCE_ORDER.indexOf(b);
@@ -219,6 +268,11 @@ function sourceRows(info: ContextPanelInfo | null, sessionCurrency?: string): Ar
     .map(([source, stats]) => ({
       source,
       label: source,
+      promptTokens: stats.promptTokens ?? 0,
+      completionTokens: stats.completionTokens ?? 0,
+      cacheHitTokens: stats.cacheHitTokens ?? 0,
+      cacheMissTokens: stats.cacheMissTokens ?? 0,
+      totalTokens: stats.totalTokens ?? 0,
       cost: sourceCost(stats),
       currency: stats.sessionCurrency || sessionCurrency || info?.sessionCurrency,
       requests: stats.requestCount ?? 0,
@@ -248,16 +302,13 @@ export function ContextPanel({
     const seq = ++refreshSeq.current;
     try {
       const next = await app.ContextPanel(tabId);
-      if (refreshSeq.current === seq) setInfo(next);
+      if (refreshSeq.current === seq) {
+        setInfo(next);
+      }
     } catch {
       /* bridge unavailable */
     }
   }, [tabId]);
-
-  useEffect(() => {
-    const id = window.setInterval(() => void refresh(), 2000);
-    return () => window.clearInterval(id);
-  }, [refresh]);
 
   useEffect(() => {
     refreshSeq.current += 1;
@@ -292,9 +343,18 @@ export function ContextPanel({
   const reasoningTokens = hasPanelUsage ? info?.reasoningTokens ?? 0 : usage?.reasoningTokens ?? 0;
   const cacheHitTokens = hasPanelUsage ? info?.cacheHitTokens ?? 0 : usage?.cacheHitTokens ?? 0;
   const cacheMissTokens = hasPanelUsage ? info?.cacheMissTokens ?? 0 : usage?.cacheMissTokens ?? 0;
+  // Session-cumulative values for the metrics cards (方案A: 纯前端改数据源)
+  const sessionCacheHit = info?.sessionCacheHitTokens ?? usage?.sessionCacheHitTokens ?? context?.cacheHitTokens ?? 0;
+  const sessionCacheMiss = info?.sessionCacheMissTokens ?? usage?.sessionCacheMissTokens ?? context?.cacheMissTokens ?? 0;
+  const sessionCompletion = info?.sessionCompletionTokens ?? 0;
+  const sessionCacheHitMetric = formatMetricTokens(sessionCacheHit, locale);
+  const sessionCacheMissMetric = formatMetricTokens(sessionCacheMiss, locale);
+  const sessionCompletionMetric = formatMetricTokens(sessionCompletion, locale);
+  const totalTokensMetric = formatMetricTokens(totalTokens, locale);
   const cost = contextCostDisplay({ info, sessionCost, sessionCurrency, usage });
-  const costSources = sourceRows(info, sessionCurrency);
-  const showCostSources = costSources.some((row) => row.source !== "executor") || costSources.length > 1;
+  const sourceUsageRows = contextSourceRows(info, sessionCurrency);
+  const showSourceUsageRows = sourceUsageRows.length > 0;
+  const sourceTotalTokens = sourceUsageRows.reduce((sum, row) => sum + sourceTokenTotal(row), 0);
   const readFiles = asArray(info?.readFiles);
   const changedFiles = asArray(info?.changedFiles);
 
@@ -346,7 +406,7 @@ export function ContextPanel({
             </div>
             <div className="context-panel__summary-rows">
               <MiniStat label={t("status.compactLabel")} value={compactPct > 0 ? `${compactPct}%` : "-"} />
-              <MiniStat label={t("status.cacheAvgLabel")} value={fmtSessionCacheRate(usage)} />
+              <MiniStat label={t("status.cacheAvgLabel")} value={formatCacheHitRate(sessionCacheHit, sessionCacheMiss)} />
               <MiniStat label={t("context.sessionCost")} value={sessionCostLabel} />
               <MiniStat label={t("status.sessionTurnsLabel")} value={fmtTurns(sessionTurns, t)} />
             </div>
@@ -371,10 +431,30 @@ export function ContextPanel({
           </section>
           <section className="context-panel__section">
             <SectionHeading title={t("context.runtimeMetrics")} />
-            <div className="context-panel__stats">
-              <MetricCard label={t("context.time")} value={fmtDuration(elapsed, t)} />
-              <MetricCard label={t("context.requests")} value={requestCount > 0 ? String(requestCount) : "-"} />
-              <MetricCard label={t("context.sessionTokens")} value={totalTokens > 0 ? totalTokens.toLocaleString() : "-"} wide />
+            <div className="context-panel__runtime-card">
+              <div className="context-panel__runtime-summary">
+                <RuntimeMetric label={t("context.time")} value={fmtDuration(elapsed, t)} />
+                <RuntimeMetric label={t("context.requests")} value={requestCount > 0 ? String(requestCount) : "-"} />
+                <RuntimeMetric label={t("context.outputTokens")} value={sessionCompletionMetric.display} title={sessionCompletionMetric.exact} />
+                <RuntimeMetric label={t("context.sessionTokens")} value={totalTokensMetric.display} title={totalTokensMetric.exact} />
+              </div>
+              <div className="context-panel__runtime-cache">
+                <div className="context-panel__runtime-cache-head">
+                  <span>{t("context.inputCache")}</span>
+                  <strong>{formatCacheHitRate(sessionCacheHit, sessionCacheMiss)}</strong>
+                </div>
+                <SourceSplitBar
+                  label={`${t("context.sourceCacheHit")}/${t("context.sourceCacheMiss")}`}
+                  segments={[
+                    { label: t("context.sourceCacheHit"), value: sessionCacheHit, tone: "hit" },
+                    { label: t("context.sourceCacheMiss"), value: sessionCacheMiss, tone: "miss" },
+                  ]}
+                />
+                <div className="context-panel__runtime-cache-values">
+                  <SourceMetric label={t("context.sourceCacheHit")} value={sessionCacheHitMetric.display} title={sessionCacheHitMetric.exact} />
+                  <SourceMetric label={t("context.sourceCacheMiss")} value={sessionCacheMissMetric.display} title={sessionCacheMissMetric.exact} />
+                </div>
+              </div>
             </div>
           </section>
           <section className="context-panel__section">
@@ -383,15 +463,92 @@ export function ContextPanel({
               <MetricCard label={t("context.cacheHit")} value={cachePctDisplay} tone="accent" />
               <MetricCard label={t("context.sessionCost")} value={formatMoneyLocalized(cost.amount, cost.currency, { locale, empty: "dash" })} />
             </div>
-            {showCostSources && (
-              <div className="context-panel__source-list" aria-label={t("context.costBreakdown")}>
-                {costSources.map((row) => (
-                  <div className="context-panel__source-row" key={row.source}>
-                    <span>{sourceLabel(row.label, t)}</span>
-                    <strong>{formatMoneyLocalized(row.cost, row.currency, { locale, empty: "dash" })}</strong>
-                    <em>{t("context.sourceRequests", { count: row.requests })}</em>
+            {showSourceUsageRows && (
+              <div className="context-panel__source-list" aria-label={t("context.sourceBreakdown")}>
+                <div className="context-panel__source-overview">
+                  <div className="context-panel__source-overview-head">
+                    <strong>{t("context.sourceBreakdown")}</strong>
+                    <span>{t("context.sourceShareTokens")}</span>
                   </div>
-                ))}
+                  <div className="context-panel__source-sharebar" aria-hidden="true">
+                    {sourceUsageRows.map((row) => {
+                      const sharePct = sourceTotalTokens > 0 ? (sourceTokenTotal(row) / sourceTotalTokens) * 100 : 0;
+                      if (sharePct <= 0) return null;
+                      return (
+                        <span
+                          className={`context-panel__source-share context-panel__source-tone--${sourceTone(row.source)}`}
+                          key={row.source}
+                          style={{ width: `${sharePct}%` }}
+                        />
+                      );
+                    })}
+                  </div>
+                  <div className="context-panel__source-legend">
+                    {sourceUsageRows.map((row) => {
+                      const sharePct = sourceTotalTokens > 0 ? (sourceTokenTotal(row) / sourceTotalTokens) * 100 : 0;
+                      return (
+                        <span key={row.source}>
+                          <i className={`context-panel__source-dot context-panel__source-tone--${sourceTone(row.source)}`} aria-hidden="true" />
+                          {sourceLabel(row.label, t)} {sharePct > 0 ? `${sharePct.toFixed(0)}%` : "-"}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+                {sourceUsageRows.map((row) => {
+                  const inputMetric = formatMetricTokens(row.promptTokens, locale);
+                  const outputMetric = formatMetricTokens(row.completionTokens, locale);
+                  const hitMetric = formatMetricTokens(row.cacheHitTokens, locale);
+                  const missMetric = formatMetricTokens(row.cacheMissTokens, locale);
+                  const totalMetric = formatMetricTokens(sourceTokenTotal(row), locale);
+                  const cacheReported = row.cacheHitTokens + row.cacheMissTokens > 0;
+                  const cacheRate = cacheReported ? formatCacheHitRate(row.cacheHitTokens, row.cacheMissTokens) : t("context.cacheNotReported");
+                  const costLabel = formatMoneyLocalized(row.cost, row.currency, { locale, empty: "dash" });
+                  return (
+                    <div className="context-panel__source-row" key={row.source}>
+                      <div className="context-panel__source-head">
+                        <span>
+                          <i className={`context-panel__source-dot context-panel__source-tone--${sourceTone(row.source)}`} aria-hidden="true" />
+                          {sourceLabel(row.label, t)}
+                        </span>
+                        <em>{t("context.sourceRequests", { count: row.requests })}</em>
+                      </div>
+                      <div className="context-panel__source-summary">
+                        <SourceMetric label={t("context.total")} value={totalMetric.display} title={totalMetric.exact} />
+                        <SourceMetric label={t("context.sourceCacheRate")} value={cacheRate} />
+                        <SourceMetric label={t("context.sourceCost")} value={costLabel} />
+                      </div>
+                      <SourceSplitBar
+                        label={`${t("context.sourceInput")}/${t("context.sourceOutput")}`}
+                        segments={[
+                          { label: t("context.sourceInput"), value: row.promptTokens, tone: "input" },
+                          { label: t("context.sourceOutput"), value: row.completionTokens, tone: "output" },
+                        ]}
+                      />
+                      {cacheReported ? (
+                        <SourceSplitBar
+                          label={`${t("context.sourceCacheHit")}/${t("context.sourceCacheMiss")}`}
+                          segments={[
+                            { label: t("context.sourceCacheHit"), value: row.cacheHitTokens, tone: "hit" },
+                            { label: t("context.sourceCacheMiss"), value: row.cacheMissTokens, tone: "miss" },
+                          ]}
+                          compact
+                        />
+                      ) : (
+                        <SourceSplitBar label={`${t("context.sourceCacheHit")}/${t("context.sourceCacheMiss")}`} segments={[]} compact />
+                      )}
+                      <details className="context-panel__source-details">
+                        <summary>{t("context.sourceDetails")}</summary>
+                        <div className="context-panel__source-metrics">
+                          <SourceMetric label={t("context.sourceInput")} value={inputMetric.display} title={inputMetric.exact} />
+                          <SourceMetric label={t("context.sourceOutput")} value={outputMetric.display} title={outputMetric.exact} />
+                          <SourceMetric label={t("context.sourceCacheHit")} value={hitMetric.display} title={hitMetric.exact} />
+                          <SourceMetric label={t("context.sourceCacheMiss")} value={missMetric.display} title={missMetric.exact} />
+                        </div>
+                      </details>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </section>
@@ -409,11 +566,12 @@ export function ContextPanel({
   );
 }
 
-function SectionHeading({ title, meta }: { title: string; meta?: string }) {
+function SectionHeading({ title, meta, children }: { title: string; meta?: string; children?: ReactNode }) {
   return (
     <header className="context-panel__section-head">
       <h3>{title}</h3>
       {meta && <span>{meta}</span>}
+      {children}
     </header>
   );
 }
@@ -437,13 +595,66 @@ function MiniStat({ label, value }: { label: string; value: string }) {
   );
 }
 
-function MetricCard({ label, value, tone, wide }: { label: string; value: string; tone?: "accent" | "good" | "notice" | "warn"; wide?: boolean }) {
+function MetricCard({ label, value, valueTitle, tone, wide }: { label: string; value: string; valueTitle?: string; tone?: "accent" | "good" | "notice" | "warn"; wide?: boolean }) {
   const toneClass = tone ? ` context-panel__metric--${tone}` : "";
   const wideClass = wide ? " context-panel__metric--wide" : "";
+  const exactTitle = valueTitle && valueTitle !== value ? valueTitle : undefined;
   return (
-    <div className={`context-panel__metric${toneClass}${wideClass}`}>
+    <div className={`context-panel__metric${toneClass}${wideClass}`} aria-label={exactTitle ? `${label}: ${exactTitle}` : undefined}>
       <span>{label}</span>
-      <strong>{value}</strong>
+      <strong title={exactTitle}>{value}</strong>
+    </div>
+  );
+}
+
+function RuntimeMetric({ label, value, title }: { label: string; value: string; title?: string }) {
+  const exactTitle = title && title !== value ? title : undefined;
+  return (
+    <div className="context-panel__runtime-metric" aria-label={exactTitle ? `${label}: ${exactTitle}` : undefined}>
+      <span>{label}</span>
+      <strong title={exactTitle}>{value}</strong>
+    </div>
+  );
+}
+
+function SourceMetric({ label, value, title }: { label: string; value: string; title?: string }) {
+  const exactTitle = title && title !== value ? title : undefined;
+  return (
+    <div className="context-panel__source-metric" aria-label={exactTitle ? `${label}: ${exactTitle}` : undefined}>
+      <span>{label}</span>
+      <strong title={exactTitle}>{value}</strong>
+    </div>
+  );
+}
+
+function SourceSplitBar({ label, segments, compact }: { label: string; segments: Array<{ label: string; value: number; tone: string }>; compact?: boolean }) {
+  const total = segments.reduce((sum, segment) => sum + Math.max(0, segment.value), 0);
+  const visible = segments.filter((segment) => segment.value > 0);
+  const compactClass = compact ? " context-panel__source-bar--compact" : "";
+  if (total <= 0 || visible.length === 0) {
+    return (
+      <div className="context-panel__source-bar-row">
+        <span>{label}</span>
+        <div className={`context-panel__source-bar context-panel__source-bar--empty${compactClass}`} aria-hidden="true" />
+      </div>
+    );
+  }
+  return (
+    <div className="context-panel__source-bar-row">
+      <span>{label}</span>
+      <div className={`context-panel__source-bar${compactClass}`}>
+        {visible.map((segment) => {
+          const width = (segment.value / total) * 100;
+          return (
+            <span
+              className={`context-panel__source-bar-segment context-panel__source-bar-segment--${segment.tone}`}
+              key={segment.tone}
+              style={{ width: `${width}%` }}
+              title={`${segment.label}: ${segment.value.toLocaleString()}`}
+            />
+          );
+        })}
+      </div>
     </div>
   );
 }

@@ -15,10 +15,11 @@ import (
 )
 
 const (
-	maxGoalAutoTurns  = 50
-	maxGoalIdleTurns  = 2
-	goalContinueTurn  = "Continue pursuing the active goal. If it is complete, provide the concise final result and end with [goal:complete]. If it is truly blocked on a user-owned decision after trying sensible defaults, end with [goal:blocked:<short reason>]. Otherwise do the next useful work and end with [goal:continue]."
-	goalSelfCheckTurn = "The agent signaled goal completion and all tasks are marked done. Before finalizing, perform a brief quality self-check:\n1. Verify any changed files compile or parse correctly\n2. Run the relevant tests if applicable\n3. Confirm the original requirements are met\nIf everything checks out, signal [goal:complete]. If issues are found, fix them and signal [goal:complete] when done."
+	maxGoalAutoTurns   = 50
+	maxGoalIdleTurns   = 2
+	goalContinueTurn   = "Continue pursuing the active goal. If it is complete, provide the concise final result and end with [goal:complete]. If it is truly blocked on a user-owned decision after trying sensible defaults, end with [goal:blocked:<short reason>]. Otherwise do the next useful work and end with [goal:continue]."
+	goalSelfCheckTurn  = "The agent signaled goal completion and all tasks are marked done. Before finalizing, perform a brief quality self-check:\n1. Verify any changed files compile or parse correctly\n2. Run the relevant tests if applicable\n3. Confirm the original requirements are met\nIf everything checks out, signal [goal:complete]. If issues are found, fix them and signal [goal:complete] when done."
+	goalCompleteNotice = "goal complete"
 )
 
 // goalMachine owns the active goal's finite-state machine and its persistence.
@@ -31,18 +32,19 @@ const (
 type goalMachine struct {
 	// mu guards the FSM fields below; every critical section under it is short
 	// and non-blocking (no disk I/O, no executor calls).
-	mu            sync.Mutex
-	goal          string
-	status        string
-	researchMode  GoalResearchMode
-	turns         int
-	blocks        int
-	block         string
-	interceptMsg  string
-	intercepts    int
-	strict        bool
-	selfCheckDone bool
-	idleTurns     int
+	mu                 sync.Mutex
+	goal               string
+	status             string
+	researchMode       GoalResearchMode
+	autoResearchTaskID string
+	turns              int
+	blocks             int
+	block              string
+	interceptMsg       string
+	intercepts         int
+	strict             bool
+	selfCheckDone      bool
+	idleTurns          int
 
 	// statePath is the persisted goal-state sidecar; empty disables persistence.
 	statePath string
@@ -53,14 +55,15 @@ type goalMachine struct {
 
 // goalState is the serializable form of a running goal.
 type goalState struct {
-	Goal         string              `json:"goal,omitempty"`
-	Status       string              `json:"status,omitempty"`
-	ResearchMode GoalResearchMode    `json:"researchMode,omitempty"`
-	Turns        int                 `json:"turns,omitempty"`
-	Blocks       int                 `json:"blocks,omitempty"`
-	Block        string              `json:"block,omitempty"`
-	Strict       bool                `json:"strict,omitempty"`
-	Todos        []evidence.TodoItem `json:"todos,omitempty"`
+	Goal               string              `json:"goal,omitempty"`
+	Status             string              `json:"status,omitempty"`
+	ResearchMode       GoalResearchMode    `json:"researchMode,omitempty"`
+	AutoResearchTaskID string              `json:"autoResearchTaskID,omitempty"`
+	Turns              int                 `json:"turns,omitempty"`
+	Blocks             int                 `json:"blocks,omitempty"`
+	Block              string              `json:"block,omitempty"`
+	Strict             bool                `json:"strict,omitempty"`
+	Todos              []evidence.TodoItem `json:"todos,omitempty"`
 }
 
 // goalAdvanceInput carries everything the FSM needs for one continuation step,
@@ -96,16 +99,25 @@ func (g *goalMachine) setStatePath(path string) {
 }
 
 // snapshot returns the fields Compose injects into outgoing turns.
-func (g *goalMachine) snapshot() (goal, status string, mode GoalResearchMode) {
+func (g *goalMachine) snapshot() (goal, status string, mode GoalResearchMode, autoResearchTaskID string) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	return g.goal, g.status, g.researchMode
+	return g.goal, g.status, g.researchMode, g.autoResearchTaskID
 }
 
 func (g *goalMachine) goalText() string {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	return g.goal
+}
+
+func (g *goalMachine) currentAutoResearchTaskID() string {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if strings.TrimSpace(g.goal) == "" || g.status != GoalStatusRunning {
+		return ""
+	}
+	return g.autoResearchTaskID
 }
 
 // active reports whether a goal is currently running.
@@ -142,20 +154,20 @@ func (g *goalMachine) statusForDisplay() string {
 // set installs a session-scoped goal (or clears it when goal is empty), resets
 // the per-goal counters, and returns the state to persist. ok is false (no
 // persistence) when the goal is unchanged or no state path is configured.
-func (g *goalMachine) set(goal string, mode GoalResearchMode, todos []evidence.TodoItem) (string, []byte, bool) {
+func (g *goalMachine) set(goal string, mode GoalResearchMode, autoResearchTaskID string, todos []evidence.TodoItem) (string, []byte, bool) {
 	goal = strings.TrimSpace(goal)
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	if goal != "" && g.goal == goal && g.status == GoalStatusRunning && g.researchMode == mode {
+	if goal != "" && g.goal == goal && g.status == GoalStatusRunning && g.researchMode == mode && g.autoResearchTaskID == autoResearchTaskID {
 		return "", nil, false
 	}
 	g.turns, g.blocks, g.block = 0, 0, ""
 	g.interceptMsg, g.intercepts = "", 0
 	g.selfCheckDone, g.idleTurns, g.strict = false, 0, false
 	if goal == "" {
-		g.goal, g.status, g.researchMode = "", GoalStatusStopped, GoalResearchAuto
+		g.goal, g.status, g.researchMode, g.autoResearchTaskID = "", GoalStatusStopped, GoalResearchAuto, ""
 	} else {
-		g.goal, g.status, g.researchMode = goal, GoalStatusRunning, mode
+		g.goal, g.status, g.researchMode, g.autoResearchTaskID = goal, GoalStatusRunning, mode, autoResearchTaskID
 	}
 	return g.buildStateLocked(todos)
 }
@@ -230,7 +242,7 @@ func (g *goalMachine) advance(in goalAdvanceInput) goalAdvanceResult {
 		g.blocks = 0
 		g.block = ""
 		g.interceptMsg = ""
-		notice = "goal complete"
+		notice = goalCompleteNotice
 	case GoalStatusBlocked:
 		reason := cleanGoalBlockReason(in.reason)
 		if reason == "" {
@@ -292,14 +304,15 @@ func (g *goalMachine) buildStateLocked(todos []evidence.TodoItem) (path string, 
 		return "", nil, false
 	}
 	state := goalState{
-		Goal:         g.goal,
-		Status:       g.status,
-		ResearchMode: g.researchMode,
-		Turns:        g.turns,
-		Blocks:       g.blocks,
-		Block:        g.block,
-		Strict:       g.strict,
-		Todos:        todos,
+		Goal:               g.goal,
+		Status:             g.status,
+		ResearchMode:       g.researchMode,
+		AutoResearchTaskID: g.autoResearchTaskID,
+		Turns:              g.turns,
+		Blocks:             g.blocks,
+		Block:              g.block,
+		Strict:             g.strict,
+		Todos:              todos,
 	}
 	b, err := json.Marshal(state)
 	if err != nil {
@@ -325,6 +338,87 @@ func (g *goalMachine) writeState(path string, data []byte) {
 	if err := os.WriteFile(path, data, 0o644); err != nil {
 		slog.Warn("controller: write goal state", "err", err)
 	}
+}
+
+// persistWithTodos re-persists goal state with the given todos, without
+// changing any in-memory goal fields. Used after force-completing todos on
+// goal completion so a session reload does not revert to the old incomplete
+// todo state.
+func (g *goalMachine) persistWithTodos(todos []evidence.TodoItem) {
+	g.mu.Lock()
+	path, data, ok := g.buildStateLocked(todos)
+	g.mu.Unlock()
+	if ok {
+		g.writeState(path, data)
+	}
+}
+
+// terminalTodosFromState reads the persisted goal-state sidecar and returns its
+// todo snapshot only after the goal has reached a terminal state. Running goal
+// state is not refreshed on every todo_write, so its todos may be older than the
+// transcript rebuilt by Agent.SetSession.
+func (g *goalMachine) terminalTodosFromState(sessionPath string) ([]evidence.TodoItem, bool) {
+	if strings.TrimSpace(sessionPath) == "" {
+		return nil, false
+	}
+	data, err := os.ReadFile(goalStatePath(sessionPath))
+	if err != nil {
+		if !os.IsNotExist(err) {
+			slog.Warn("controller: read goal state", "err", err)
+		}
+		return nil, false
+	}
+	var state goalState
+	if err := json.Unmarshal(data, &state); err != nil {
+		slog.Warn("controller: parse goal state", "err", err)
+		return nil, false
+	}
+	switch state.Status {
+	case GoalStatusComplete, GoalStatusBlocked, GoalStatusStopped:
+	default:
+		return nil, false
+	}
+	if len(state.Todos) == 0 {
+		return nil, false
+	}
+	return append([]evidence.TodoItem(nil), state.Todos...), true
+}
+
+// restoreRunningFromState reloads the active running goal from the persisted
+// sidecar during cold resume. Terminal sidecar data is intentionally ignored:
+// terminal todo repair is handled by terminalTodosFromState without reviving the
+// goal loop.
+func (g *goalMachine) restoreRunningFromState(sessionPath string) {
+	if strings.TrimSpace(sessionPath) == "" {
+		return
+	}
+	data, err := os.ReadFile(goalStatePath(sessionPath))
+	if err != nil {
+		if !os.IsNotExist(err) {
+			slog.Warn("controller: read goal state", "err", err)
+		}
+		return
+	}
+	var state goalState
+	if err := json.Unmarshal(data, &state); err != nil {
+		slog.Warn("controller: parse goal state", "err", err)
+		return
+	}
+	if state.Status != GoalStatusRunning || strings.TrimSpace(state.Goal) == "" {
+		return
+	}
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.goal = strings.TrimSpace(state.Goal)
+	g.status = GoalStatusRunning
+	g.researchMode = state.ResearchMode
+	g.autoResearchTaskID = strings.TrimSpace(state.AutoResearchTaskID)
+	g.turns = state.Turns
+	g.blocks = state.Blocks
+	g.block = state.Block
+	g.strict = state.Strict
+	g.interceptMsg, g.intercepts = "", 0
+	g.selfCheckDone, g.idleTurns = false, 0
 }
 
 // formatIncompleteTodos renders the reminder shown when [goal:complete] arrives
@@ -437,4 +531,15 @@ func (c *Controller) persistGoalState(path string, data []byte, ok bool) {
 		return
 	}
 	c.goals.writeState(path, data)
+}
+
+func (c *Controller) restoreTerminalGoalTodos(sessionPath string) {
+	if c.executor == nil {
+		return
+	}
+	todos, ok := c.goals.terminalTodosFromState(sessionPath)
+	if !ok {
+		return
+	}
+	c.executor.ReplaceTodoState(todos)
 }

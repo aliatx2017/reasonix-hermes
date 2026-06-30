@@ -256,8 +256,19 @@ func TestCommandNonDarwin(t *testing.T) {
 	}
 	spec := Spec{Mode: "enforce", WriteRoots: []string{"/tmp"}}
 	cmd, wrapped := Command(spec, Shell{Kind: ShellBash, Path: "sh"}, "echo hi")
+<<<<<<< HEAD
 	if !Available() && wrapped {
 		t.Error("enforce without bwrap should NOT wrap, fall back to unconfined")
+=======
+	if Available() {
+		if !wrapped || cmd[0] == "sh" {
+			t.Fatalf("non-darwin enforce with available sandbox should wrap: %v wrapped=%v", cmd, wrapped)
+		}
+		return
+	}
+	if wrapped {
+		t.Error("non-darwin without sandbox should not wrap")
+>>>>>>> upstream/main-v2
 	}
 	if !Available() {
 		if len(cmd) != 3 || cmd[0] != "sh" || cmd[1] != "-c" || cmd[2] != "echo hi" {
@@ -303,6 +314,7 @@ func TestAvailableNonDarwin(t *testing.T) {
 	if runtime.GOOS == "darwin" {
 		t.Skip("testing non-darwin path")
 	}
+<<<<<<< HEAD
 	// Linux: Available iff bwrap is on PATH. Other platforms: always false.
 	// On this test machine, bwrap may or may not be installed.
 	_ = Available() // just verify it doesn't panic
@@ -326,6 +338,11 @@ func TestRemote(t *testing.T) {
 		if got := s.remote(); got != c.want {
 			t.Errorf("Spec{%q}.remote() = %v, want %v", c.mode, got, c.want)
 		}
+=======
+	_, err := exec.LookPath("bwrap")
+	if Available() != (err == nil) {
+		t.Errorf("Available() = %v, bwrap err = %v", Available(), err)
+>>>>>>> upstream/main-v2
 	}
 }
 

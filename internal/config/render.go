@@ -81,6 +81,11 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 		} else {
 			b.WriteString("# shortcut_layout = \"desktop\"   # classic|desktop; compatibility setting; Shift+Tab toggles Plan, Ctrl+Y toggles YOLO\n")
 		}
+		if strings.TrimSpace(c.UI.CursorShape) != "" {
+			fmt.Fprintf(&b, "cursor_shape = %q   # block|underline|bar; text input cursor shape\n", c.UICursorShape())
+		} else {
+			b.WriteString("# cursor_shape = \"underline\"   # block|underline|bar; text input cursor shape\n")
+		}
 		if strings.TrimSpace(c.UI.CloseBehavior) != "" && scope == RenderScopeProject {
 			fmt.Fprintf(&b, "close_behavior = %q   # legacy desktop close behavior; prefer [desktop].close_behavior in user config\n", c.DesktopCloseBehavior())
 		}
@@ -109,6 +114,7 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 		fmt.Fprintf(&b, "close_behavior = %q   # desktop: quit|background when the window close button is clicked\n", c.DesktopCloseBehavior())
 		fmt.Fprintf(&b, "status_bar_style = %q   # desktop: icon|text metric labels in the bottom status bar\n", c.DesktopStatusBarStyle())
 		fmt.Fprintf(&b, "status_bar_items = %s   # desktop: ordered visible bottom status bar items\n", renderStringArray(c.DesktopStatusBarItems()))
+		fmt.Fprintf(&b, "default_tool_approval_mode = %q   # desktop: Ask/Auto/YOLO default for newly-created sessions\n", c.DesktopDefaultToolApprovalMode())
 		fmt.Fprintf(&b, "check_updates = %v   # desktop: check for new versions on startup\n", c.DesktopCheckUpdates())
 		fmt.Fprintf(&b, "telemetry = %v   # desktop: anonymous launch ping (install id + version + OS); never content\n", c.DesktopTelemetry())
 		fmt.Fprintf(&b, "metrics = %v   # desktop: aggregate desktop metrics (anonymous signal/bucket counts); never content\n", c.DesktopMetrics())
@@ -181,6 +187,9 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 		}
 		b.WriteString("\n")
 	}
+	if shouldRenderEnvironment(c, defaults, scope) {
+		renderEnvironmentConfig(&b, c.Environment)
+	}
 
 	b.WriteString("[agent]\n")
 	if shouldRenderSystemPrompt(c, defaults, scope) {
@@ -217,6 +226,7 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 			autoPlan = "off"
 		}
 		fmt.Fprintf(&b, "auto_plan   = %q   # user-level only: off|on; off keeps plan mode manual\n", autoPlan)
+		fmt.Fprintf(&b, "memory_compiler = { enabled = %v, verbosity = %q }   # user-level only: observe|compact\n", c.MemoryCompilerEnabled(), c.MemoryCompilerVerbosity())
 	}
 	if lang := c.ReasoningLanguage(); lang != "auto" {
 		fmt.Fprintf(&b, "reasoning_language = %q   # visible reasoning language: auto|zh|en\n", lang)
@@ -229,6 +239,7 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 		b.WriteString("# auto_plan_classifier = \"deepseek-flash\"   # optional; only used for borderline tasks\n")
 	}
 	fmt.Fprintf(&b, "soft_compact_ratio  = %s   # notice only; keeps cache-first prefix intact\n", formatFloat(c.Agent.SoftCompactRatio))
+	fmt.Fprintf(&b, "tool_result_snip_ratio = %s   # snip stale tool results at this fraction before summary compaction\n", formatFloat(c.Agent.ToolResultSnipRatio))
 	fmt.Fprintf(&b, "compact_ratio       = %s   # try compacting when prompt reaches this fraction\n", formatFloat(c.Agent.CompactRatio))
 	fmt.Fprintf(&b, "compact_force_ratio = %s   # force compacting at this high-water mark\n", formatFloat(c.Agent.CompactForceRatio))
 	if c.Agent.Keep != nil {
@@ -242,6 +253,11 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 		b.WriteString("# recent_keep         = 2   # minimum recent messages kept verbatim\n")
 	}
 	fmt.Fprintf(&b, "cold_resume_prune   = %v   # elide stale tool results when reopening a session past the provider cache window\n", c.ColdResumePruneEnabled())
+	if len(c.Agent.PlanModeAllowedTools) > 0 {
+		fmt.Fprintf(&b, "plan_mode_allowed_tools = %s   # extra read-only declarations for custom tools; cannot unlock known blocked tools or unsafe bash\n", renderStringArray(c.Agent.PlanModeAllowedTools))
+	} else {
+		b.WriteString("# plan_mode_allowed_tools = [\"custom_reader\"]   # extra read-only declarations; cannot unlock known blocked tools or unsafe bash\n")
+	}
 	if c.Agent.PlannerModel != "" {
 		fmt.Fprintf(&b, "planner_model = %q   # low-frequency planner (two-model collaboration)\n", c.Agent.PlannerModel)
 	} else {
@@ -303,6 +319,9 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 			fmt.Fprintf(&b, "name        = %q\n", p.Name)
 			fmt.Fprintf(&b, "kind        = %q\n", p.Kind)
 			fmt.Fprintf(&b, "base_url    = %q\n", p.BaseURL)
+			if p.ChatURL != "" {
+				fmt.Fprintf(&b, "chat_url    = %q   # optional full chat completions URL; disables automatic /chat/completions suffix\n", p.ChatURL)
+			}
 			if len(p.Models) > 0 {
 				fmt.Fprintf(&b, "models      = %s\n", renderStringArray(p.Models))
 				if p.Default != "" {
@@ -371,10 +390,23 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 		}
 		b.WriteString("]\n")
 	}
-	fmt.Fprintf(&b, "bash_timeout_seconds = %d   # foreground safety cap; set 0 for no tool-local cap\n\n", c.BashTimeoutSeconds())
+	fmt.Fprintf(&b, "bash_timeout_seconds = %d   # foreground safety cap; set 0 for no tool-local cap\n", c.BashTimeoutSeconds())
+	fmt.Fprintf(&b, "mcp_call_timeout_seconds = %d   # default MCP call safety cap; per-plugin/tool overrides may raise it\n\n", c.MCPCallTimeoutSeconds())
 
 	b.WriteString("[tools.background_jobs]\n")
 	fmt.Fprintf(&b, "stalled_warning_seconds = %d   # warn once per background job after this many quiet seconds; 0 disables\n\n", c.BackgroundJobStalledWarningSeconds())
+
+	b.WriteString("[tools.shell]\n")
+	if c.Tools.Shell.Prefer != "" {
+		fmt.Fprintf(&b, "prefer = %q   # auto|bash|powershell|pwsh; empty/default = auto-detect\n", c.Tools.Shell.Prefer)
+	} else {
+		b.WriteString("# prefer = \"auto\"   # auto|bash|powershell|pwsh; empty/default = auto-detect\n")
+	}
+	if c.Tools.Shell.Path != "" {
+		fmt.Fprintf(&b, "path   = %q   # absolute path to the shell executable; empty = PATH lookup\n\n", c.Tools.Shell.Path)
+	} else {
+		b.WriteString("# path   = \"/opt/homebrew/bin/bash\"   # absolute path to the shell executable; empty = PATH lookup\n\n")
+	}
 
 	renderLSPConfig(&b, c.LSP)
 
@@ -428,6 +460,11 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 		fmt.Fprintf(&b, "allow_write = %s\n", renderStringArray(c.Sandbox.AllowWrite))
 	} else {
 		b.WriteString("# allow_write = [\"/tmp\"]          # extra dirs writers may also modify\n")
+	}
+	if len(c.Sandbox.ForbidRead) > 0 {
+		fmt.Fprintf(&b, "forbid_read = %s\n", renderStringArray(c.Sandbox.ForbidRead))
+	} else {
+		b.WriteString("# forbid_read = []                  # dirs the agent cannot read or list\n")
 	}
 	fmt.Fprintf(&b, "bash    = %q\n", c.BashMode())
 	fmt.Fprintf(&b, "network = %v\n", c.Sandbox.Network)
@@ -720,6 +757,9 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 		b.WriteString("# [[plugins]]\n")
 		b.WriteString("# name    = \"example\"\n")
 		b.WriteString("# command = \"reasonix-plugin-example\"\n")
+		b.WriteString("# call_timeout_seconds = 600       # optional per-server MCP call timeout\n")
+		b.WriteString("# tool_timeout_seconds = { \"generate_video\" = 1800 }   # raw MCP tool names\n")
+		b.WriteString("# trusted_read_only_tools = [\"search\"]   # optional pre-seeded MCP read-only trust\n")
 		b.WriteString("# [[plugins]]                                  # a remote server over Streamable HTTP\n")
 		b.WriteString("# name    = \"stripe\"\n")
 		b.WriteString("# type    = \"http\"\n")
@@ -746,6 +786,18 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 			}
 			if len(pl.Env) > 0 {
 				fmt.Fprintf(&b, "env     = %s\n", renderStringMap(pl.Env))
+			}
+			if pl.CallTimeoutSeconds > 0 {
+				b.WriteString("# Per-server MCP call timeout; 0 keeps the global/default cap.\n")
+				fmt.Fprintf(&b, "call_timeout_seconds = %d\n", pl.CallTimeoutSeconds)
+			}
+			if hasPositiveIntMap(pl.ToolTimeoutSeconds) {
+				b.WriteString("# Raw MCP tool names with per-tool call timeouts.\n")
+				fmt.Fprintf(&b, "tool_timeout_seconds = %s\n", renderIntMap(pl.ToolTimeoutSeconds))
+			}
+			if len(pl.TrustedReadOnlyTools) > 0 {
+				b.WriteString("# optional pre-seeded MCP read-only trust; the approval prompt can also remember this\n")
+				fmt.Fprintf(&b, "trusted_read_only_tools = %s\n", renderStringArray(pl.TrustedReadOnlyTools))
 			}
 			if pl.AutoStart != nil {
 				fmt.Fprintf(&b, "auto_start = %v\n", *pl.AutoStart)
@@ -789,6 +841,9 @@ func RenderTOMLProjectDelta(c *Config) string {
 		}
 		if l := c.UIShortcutLayout(); l != "classic" {
 			fmt.Fprintf(&b, "shortcut_layout = %q\n", l)
+		}
+		if strings.TrimSpace(c.UI.CursorShape) != "" {
+			fmt.Fprintf(&b, "cursor_shape = %q\n", c.UICursorShape())
 		}
 		if c.UI.CloseBehavior != d.UI.CloseBehavior {
 			fmt.Fprintf(&b, "close_behavior = %q\n", c.DesktopCloseBehavior())
@@ -866,6 +921,10 @@ func RenderTOMLProjectDelta(c *Config) string {
 		fmt.Fprintf(&agentBuf, "soft_compact_ratio = %s\n", formatFloat(c.Agent.SoftCompactRatio))
 		anyAgent = true
 	}
+	if c.Agent.ToolResultSnipRatio != d.Agent.ToolResultSnipRatio {
+		fmt.Fprintf(&agentBuf, "tool_result_snip_ratio = %s\n", formatFloat(c.Agent.ToolResultSnipRatio))
+		anyAgent = true
+	}
 	if c.Agent.CompactRatio != d.Agent.CompactRatio {
 		fmt.Fprintf(&agentBuf, "compact_ratio = %s\n", formatFloat(c.Agent.CompactRatio))
 		anyAgent = true
@@ -884,6 +943,10 @@ func RenderTOMLProjectDelta(c *Config) string {
 	}
 	if c.Agent.ColdResumePrune != d.Agent.ColdResumePrune {
 		fmt.Fprintf(&agentBuf, "cold_resume_prune = %v\n", c.ColdResumePruneEnabled())
+		anyAgent = true
+	}
+	if len(c.Agent.PlanModeAllowedTools) > 0 && !reflect.DeepEqual(c.Agent.PlanModeAllowedTools, d.Agent.PlanModeAllowedTools) {
+		fmt.Fprintf(&agentBuf, "plan_mode_allowed_tools = %s\n", renderStringArray(c.Agent.PlanModeAllowedTools))
 		anyAgent = true
 	}
 	if c.Agent.PlannerModel != "" && c.Agent.PlannerModel != d.Agent.PlannerModel {
@@ -925,6 +988,9 @@ func RenderTOMLProjectDelta(c *Config) string {
 			fmt.Fprintf(&b, "name        = %q\n", p.Name)
 			fmt.Fprintf(&b, "kind        = %q\n", p.Kind)
 			fmt.Fprintf(&b, "base_url    = %q\n", p.BaseURL)
+			if p.ChatURL != "" {
+				fmt.Fprintf(&b, "chat_url    = %q\n", p.ChatURL)
+			}
 			if len(p.Models) > 0 {
 				fmt.Fprintf(&b, "models      = %s\n", renderStringArray(p.Models))
 				if p.Default != "" {
@@ -981,13 +1047,18 @@ func RenderTOMLProjectDelta(c *Config) string {
 	}
 
 	// [tools]
-	if !reflect.DeepEqual(c.Tools, d.Tools) {
+	if len(c.Tools.Enabled) > 0 ||
+		(c.Tools.BashTimeoutSeconds != nil && *c.Tools.BashTimeoutSeconds != 0) ||
+		(c.Tools.MCPCallTimeoutSeconds != nil && *c.Tools.MCPCallTimeoutSeconds > 0) {
 		b.WriteString("[tools]\n")
 		if len(c.Tools.Enabled) > 0 {
 			fmt.Fprintf(&b, "enabled = %s\n", renderStringArray(c.Tools.Enabled))
 		}
 		if c.Tools.BashTimeoutSeconds != nil && *c.Tools.BashTimeoutSeconds != 0 {
 			fmt.Fprintf(&b, "bash_timeout_seconds = %d\n", *c.Tools.BashTimeoutSeconds)
+		}
+		if c.Tools.MCPCallTimeoutSeconds != nil && *c.Tools.MCPCallTimeoutSeconds > 0 {
+			fmt.Fprintf(&b, "mcp_call_timeout_seconds = %d\n", *c.Tools.MCPCallTimeoutSeconds)
 		}
 		b.WriteString("\n")
 	}
@@ -999,6 +1070,18 @@ func RenderTOMLProjectDelta(c *Config) string {
 			fmt.Fprintf(&b, "stalled_warning_seconds = %d\n", *c.Tools.BackgroundJobs.StalledWarningSeconds)
 			b.WriteString("\n")
 		}
+	}
+
+	// [tools.shell]
+	if !reflect.DeepEqual(c.Tools.Shell, d.Tools.Shell) {
+		b.WriteString("[tools.shell]\n")
+		if c.Tools.Shell.Prefer != d.Tools.Shell.Prefer {
+			fmt.Fprintf(&b, "prefer = %q\n", c.Tools.Shell.Prefer)
+		}
+		if c.Tools.Shell.Path != d.Tools.Shell.Path {
+			fmt.Fprintf(&b, "path = %q\n", c.Tools.Shell.Path)
+		}
+		b.WriteString("\n")
 	}
 
 	// [lsp]
@@ -1094,6 +1177,18 @@ func RenderTOMLProjectDelta(c *Config) string {
 		if len(pl.Env) > 0 {
 			fmt.Fprintf(&b, "env     = %s\n", renderStringMap(pl.Env))
 		}
+		if pl.CallTimeoutSeconds > 0 {
+			b.WriteString("# Per-server MCP call timeout; 0 keeps the global/default cap.\n")
+			fmt.Fprintf(&b, "call_timeout_seconds = %d\n", pl.CallTimeoutSeconds)
+		}
+		if hasPositiveIntMap(pl.ToolTimeoutSeconds) {
+			b.WriteString("# Raw MCP tool names with per-tool call timeouts.\n")
+			fmt.Fprintf(&b, "tool_timeout_seconds = %s\n", renderIntMap(pl.ToolTimeoutSeconds))
+		}
+		if len(pl.TrustedReadOnlyTools) > 0 {
+			b.WriteString("# optional pre-seeded MCP read-only trust; the approval prompt can also remember this\n")
+			fmt.Fprintf(&b, "trusted_read_only_tools = %s\n", renderStringArray(pl.TrustedReadOnlyTools))
+		}
 		if pl.AutoStart != nil {
 			fmt.Fprintf(&b, "auto_start = %v\n", *pl.AutoStart)
 		}
@@ -1156,6 +1251,37 @@ func shouldRenderNetwork(c, defaults *Config, scope RenderScope) bool {
 		return true
 	}
 	return !reflect.DeepEqual(c.Network, defaults.Network)
+}
+
+func shouldRenderEnvironment(c, defaults *Config, scope RenderScope) bool {
+	if scope != RenderScopeProject {
+		return true
+	}
+	return !reflect.DeepEqual(c.Environment, defaults.Environment)
+}
+
+func renderEnvironmentConfig(b *strings.Builder, cfg EnvironmentConfig) {
+	b.WriteString("[environment]\n")
+	enabled := true
+	if cfg.Enabled != nil {
+		enabled = *cfg.Enabled
+	}
+	fmt.Fprintf(b, "enabled = %v   # inject a stable startup environment summary into the model prompt\n", enabled)
+	if len(cfg.Tools) == 0 {
+		b.WriteString("# [environment.tools]\n")
+		b.WriteString("# go = \"/opt/homebrew/bin/go\"   # trusted executable path; workspace-local paths are not auto-executed\n\n")
+		return
+	}
+	b.WriteString("\n[environment.tools]\n")
+	names := make([]string, 0, len(cfg.Tools))
+	for name := range cfg.Tools {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		fmt.Fprintf(b, "%s = %q\n", renderTOMLKeyPart(name), cfg.Tools[name])
+	}
+	b.WriteString("\n")
 }
 
 func shouldRenderProviders(c, defaults *Config, scope RenderScope) bool {
@@ -1286,6 +1412,37 @@ func renderStringMap(m map[string]string) string {
 			b.WriteString(", ")
 		}
 		fmt.Fprintf(&b, "%s = %q", k, m[k])
+	}
+	b.WriteString(" }")
+	return b.String()
+}
+
+func hasPositiveIntMap(m map[string]int) bool {
+	for k, v := range m {
+		if strings.TrimSpace(k) != "" && v > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// renderIntMap renders a map[string]int as a TOML inline table with positive
+// values only, preserving deterministic key order.
+func renderIntMap(m map[string]int) string {
+	keys := make([]string, 0, len(m))
+	for k, v := range m {
+		if strings.TrimSpace(k) != "" && v > 0 {
+			keys = append(keys, k)
+		}
+	}
+	sort.Strings(keys)
+	var b strings.Builder
+	b.WriteString("{ ")
+	for i, k := range keys {
+		if i > 0 {
+			b.WriteString(", ")
+		}
+		fmt.Fprintf(&b, "%q = %d", k, m[k])
 	}
 	b.WriteString(" }")
 	return b.String()

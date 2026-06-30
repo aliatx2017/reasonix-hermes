@@ -74,8 +74,15 @@ func TestWorkspaceTabAggregatesSessionUsageTelemetry(t *testing.T) {
 	}
 
 	app := &App{tabs: map[string]*WorkspaceTab{"tab": tab}}
-	if context := app.ContextUsageForTab("tab"); context.SessionTokens != 140 {
+	context := app.ContextUsageForTab("tab")
+	if context.SessionTokens != 140 {
 		t.Fatalf("context usage session tokens = %d, want 140", context.SessionTokens)
+	}
+	if context.SessionCost <= 0 || context.SessionCurrency != "¥" {
+		t.Fatalf("context usage cost = %f %q, want positive ¥", context.SessionCost, context.SessionCurrency)
+	}
+	if context.CacheHitTokens != 70 || context.CacheMissTokens != 30 {
+		t.Fatalf("context usage cache tokens = hit %d miss %d, want 70/30", context.CacheHitTokens, context.CacheMissTokens)
 	}
 	if panel := app.ContextPanel("tab"); panel.TotalTokens != 140 {
 		t.Fatalf("context panel total tokens = %d, want 140", panel.TotalTokens)
@@ -107,8 +114,38 @@ func TestWorkspaceTabSubagentUsageDoesNotOverwriteExecutorSessionCache(t *testin
 	if got.CacheHitTokens != 805 || got.CacheMissTokens != 410 {
 		t.Fatalf("cache tokens = hit %d miss %d, want executor deltas plus subagent delta 805/410", got.CacheHitTokens, got.CacheMissTokens)
 	}
+	if got.Sources[event.UsageSourceExecutor].CacheHitTokens != 800 || got.Sources[event.UsageSourceExecutor].CacheMissTokens != 400 {
+		t.Fatalf("executor cache source = %+v, want session deltas 800/400", got.Sources[event.UsageSourceExecutor])
+	}
 	if got.Sources[event.UsageSourceSubagent].CacheHitTokens != 5 || got.Sources[event.UsageSourceSubagent].CacheMissTokens != 10 {
 		t.Fatalf("subagent cache source = %+v, want usage delta 5/10", got.Sources[event.UsageSourceSubagent])
+	}
+}
+
+func TestWorkspaceTabTracksPlannerAndExecutorCacheBySource(t *testing.T) {
+	tab := &WorkspaceTab{}
+	tab.recordUsage(event.Event{
+		Usage:       &provider.Usage{PromptTokens: 120, CompletionTokens: 15, TotalTokens: 135},
+		UsageSource: event.UsageSourcePlanner,
+		SessionHit:  60,
+		SessionMiss: 40,
+	})
+	tab.recordUsage(event.Event{
+		Usage:       &provider.Usage{PromptTokens: 300, CompletionTokens: 40, TotalTokens: 340},
+		UsageSource: event.UsageSourceExecutor,
+		SessionHit:  210,
+		SessionMiss: 90,
+	})
+
+	got := tab.telemetrySnapshot().Usage
+	if got.CacheHitTokens != 270 || got.CacheMissTokens != 130 {
+		t.Fatalf("aggregate cache tokens = hit %d miss %d, want planner+executor 270/130", got.CacheHitTokens, got.CacheMissTokens)
+	}
+	if got.Sources[event.UsageSourcePlanner].CacheHitTokens != 60 || got.Sources[event.UsageSourcePlanner].CacheMissTokens != 40 {
+		t.Fatalf("planner source = %+v, want 60/40", got.Sources[event.UsageSourcePlanner])
+	}
+	if got.Sources[event.UsageSourceExecutor].CacheHitTokens != 210 || got.Sources[event.UsageSourceExecutor].CacheMissTokens != 90 {
+		t.Fatalf("executor source = %+v, want 210/90", got.Sources[event.UsageSourceExecutor])
 	}
 }
 
