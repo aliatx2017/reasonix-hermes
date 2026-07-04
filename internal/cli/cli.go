@@ -6,7 +6,7 @@ package cli
 import (
 	"bufio"
 	"context"
-	"crypto/sha1"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"flag"
@@ -1282,7 +1282,7 @@ func providerSlug(kind, baseURL string) string {
 		host = u.Host
 	}
 	if host == "" {
-		sum := sha1.Sum([]byte(baseURL))
+		sum := sha256.Sum256([]byte(baseURL))
 		return kind + "-" + hex.EncodeToString(sum[:4])
 	}
 	host = strings.ToLower(strings.TrimPrefix(host, "www."))

@@ -13,10 +13,16 @@ import (
 )
 
 func main() {
+	if err := run(); err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
 	root := findProjectRoot()
 	if err := os.Chdir(root); err != nil {
-		fmt.Fprintf(os.Stderr, "chdir: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("chdir: %w", err)
 	}
 
 	ctrl, err := boot.Build(context.Background(), boot.Options{
@@ -24,15 +30,13 @@ func main() {
 		Stderr:        io.Discard,
 	})
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "boot.Build: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("boot.Build: %w", err)
 	}
 	defer ctrl.Close()
 
 	lr := ctrl.Learner()
 	if lr == nil {
-		fmt.Fprintln(os.Stderr, "FAIL: learner not configured")
-		os.Exit(1)
+		return fmt.Errorf("learner not configured")
 	}
 
 	turns := []string{
@@ -46,8 +50,7 @@ func main() {
 	for i, prompt := range turns {
 		fmt.Printf("Turn %d...\n", i+1)
 		if err := ctrl.SendCtx(context.Background(), prompt); err != nil {
-			fmt.Fprintf(os.Stderr, "turn %d error: %v\n", i+1, err)
-			os.Exit(1)
+			return fmt.Errorf("turn %d error: %w", i+1, err)
 		}
 		for ctrl.Running() {
 			time.Sleep(200 * time.Millisecond)
@@ -84,6 +87,7 @@ func main() {
 	}
 
 	os.Remove("/tmp/learner-live.txt")
+	return nil
 }
 
 func findProjectRoot() string {

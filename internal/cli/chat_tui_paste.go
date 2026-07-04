@@ -124,7 +124,7 @@ func pasteClipboard() tea.Cmd {
 			return clipboardPasteMsg{text: text}
 		}
 		if textErr != nil {
-			return clipboardPasteMsg{err: fmt.Errorf("%v; text paste failed: %w", imageErr, textErr)}
+			return clipboardPasteMsg{err: fmt.Errorf("%w; text paste failed: %w", imageErr, textErr)}
 		}
 		return clipboardPasteMsg{err: imageErr}
 	}

@@ -243,8 +243,11 @@ func utf16Encode(runes []rune) []uint16 {
 		if r >= 0x10000 && r <= 0x10FFFF {
 			r -= 0x10000
 			out = append(out, uint16(0xD800+(r>>10)), uint16(0xDC00+(r&0x3FF)))
-		} else {
+		} else if r >= 0 && r <= 0xFFFF {
 			out = append(out, uint16(r))
+		} else {
+			// Invalid or out-of-range rune — emit replacement character U+FFFD
+			out = append(out, 0xFFFD)
 		}
 	}
 	return out

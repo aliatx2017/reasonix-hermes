@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math"
+	"net"
 	"net/http"
 	_ "net/http/pprof" // registers pprof handlers on DefaultServeMux; activated via --pprof
 	"os"
@@ -699,6 +700,9 @@ func main() {
 	store.Tidy() // clean up expired entries on startup
 
 	if pprofAddr != "" {
+		if !isLoopbackAddr(pprofAddr) {
+			logger.Warn("pprof bound to non-loopback address — exposing goroutine/heap dumps to network", "addr", pprofAddr)
+		}
 		go func() {
 			logger.Info("pprof server listening", "addr", pprofAddr)
 			if err := http.ListenAndServe(pprofAddr, nil); err != nil { //nolint:gosec
@@ -756,6 +760,7 @@ func main() {
 		select {
 		case err := <-errCh:
 			logger.Error("http server error", "err", err)
+			cancel()
 			os.Exit(1)
 		case sig := <-sigCh:
 			logger.Info("shutting down", "signal", sig)
@@ -768,4 +773,19 @@ func main() {
 		logger.Error("stdio serve error", "err", err)
 		os.Exit(1)
 	}
+}
+
+// isLoopbackAddr checks whether the given listen address binds to a loopback
+// interface only. Returns false for 0.0.0.0, non-loopback IPs, or empty host.
+func isLoopbackAddr(addr string) bool {
+	host := addr
+	if h, _, err := net.SplitHostPort(addr); err == nil {
+		host = h
+	}
+	host = strings.Trim(host, "[]")
+	if host == "" || strings.EqualFold(host, "localhost") {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }

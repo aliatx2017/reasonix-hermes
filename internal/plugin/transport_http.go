@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 )
 
 // maxHTTPBody caps how much of a JSON / SSE response body we read, so a
@@ -45,7 +46,7 @@ func newHTTPTransport(s Spec) (*httpTransport, error) {
 		name:    s.Name,
 		url:     s.URL,
 		headers: s.Headers,
-		client:  &http.Client{},
+		client:  &http.Client{Timeout: 30 * time.Second},
 	}, nil
 }
 

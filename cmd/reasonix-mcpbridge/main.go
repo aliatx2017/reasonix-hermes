@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	_ "net/http/pprof" // registers pprof handlers on DefaultServeMux; activated via --pprof
 	"os"
@@ -235,8 +236,10 @@ func (b *Bridge) doctorCheck() (string, error) {
 }
 
 func (b *Bridge) planTask(objective string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
 	systemPrompt := "You are a task planning assistant. Given an objective, produce a structured execution plan with numbered steps. Each step should have: step number, description, files to modify (if any), and dependencies on other steps. Be concise and actionable."
-	plan, err := b.callDeepSeek(context.Background(), systemPrompt, objective)
+	plan, err := b.callDeepSeek(ctx, systemPrompt, objective)
 	if err != nil {
 		return "", fmt.Errorf("plan generation failed: %w", err)
 	}
@@ -569,6 +572,9 @@ func main() {
 	}
 
 	if pprofAddr != "" {
+		if !isLoopbackAddr(pprofAddr) {
+			slog.Warn("pprof bound to non-loopback address — exposing goroutine/heap dumps to network", "addr", pprofAddr)
+		}
 		go func() {
 			slog.Info("pprof server listening", "addr", pprofAddr)
 			if err := http.ListenAndServe(pprofAddr, nil); err != nil { //nolint:gosec
@@ -608,4 +614,19 @@ func main() {
 		slog.Error("stdio server exited", "err", err)
 		os.Exit(1)
 	}
+}
+
+// isLoopbackAddr checks whether the given listen address binds to a loopback
+// interface only. Returns false for 0.0.0.0, non-loopback IPs, or empty host.
+func isLoopbackAddr(addr string) bool {
+	host := addr
+	if h, _, err := net.SplitHostPort(addr); err == nil {
+		host = h
+	}
+	host = strings.Trim(host, "[]")
+	if host == "" || strings.EqualFold(host, "localhost") {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }

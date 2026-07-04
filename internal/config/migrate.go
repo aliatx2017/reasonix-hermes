@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
@@ -226,7 +227,11 @@ func migrateMCPToUserConfig(projectRoots []string) (*MCPGlobalMigrationResult, e
 		}
 		result.Sources++
 		for _, entry := range entries {
-			entry, _ = NormalizePluginCommandLine(entry)
+			var nerr bool
+		entry, nerr = NormalizePluginCommandLine(entry)
+		if !nerr {
+			slog.Warn("config migration: plugin command normalization failed", "plugin", entry.Name, "command", entry.Command)
+		}
 			name := strings.TrimSpace(entry.Name)
 			if name == "" || have[name] || validatePlugin(entry) != nil {
 				continue
@@ -293,7 +298,10 @@ func loadPluginEntriesFromTOML(path string) []PluginEntry {
 	}
 	out := make([]PluginEntry, 0, len(cfg.Plugins))
 	for _, p := range cfg.Plugins {
-		p, _ = NormalizePluginCommandLine(p)
+		p, ok := NormalizePluginCommandLine(p)
+		if !ok {
+			slog.Warn("config migration: plugin command normalization failed", "plugin", p.Name, "command", p.Command)
+		}
 		out = append(out, p)
 	}
 	return out
@@ -508,7 +516,10 @@ func legacyPlugins(legacy legacyConfig) []PluginEntry {
 			v := false
 			pe.AutoStart = &v
 		}
-		pe, _ = NormalizePluginCommandLine(pe)
+		pe, ok := NormalizePluginCommandLine(pe)
+		if !ok {
+			slog.Warn("config migration: plugin command normalization failed", "plugin", pe.Name, "command", pe.Command)
+		}
 		if j, dup := index[pe.Name]; dup {
 			out[j] = pe // mcpServers overrides the `mcp` list on a name collision, matching v0.x
 			return

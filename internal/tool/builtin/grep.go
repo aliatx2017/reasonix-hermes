@@ -150,7 +150,7 @@ func (g grepTool) Execute(ctx context.Context, args json.RawMessage) (string, er
 		if enc == fileenc.UTF16LE || enc == fileenc.UTF16BE {
 			// UTF-16 needs full-file decode (multi-byte units span the
 			// whole stream). These files are rare in grep targets.
-			rest, err := io.ReadAll(f)
+			rest, err := io.ReadAll(io.LimitReader(f, 64<<20))
 			if err != nil {
 				return nil
 			}

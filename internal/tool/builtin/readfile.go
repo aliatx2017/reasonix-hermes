@@ -101,7 +101,7 @@ func (r readFile) Execute(ctx context.Context, args json.RawMessage) (string, er
 	case fileenc.UTF16LE, fileenc.UTF16BE:
 		// UTF-16 is not self-synchronising and can't be streamed line-by-line, so
 		// buffer it fully (these files are rare and usually small).
-		rest, rerr := io.ReadAll(f)
+		rest, rerr := io.ReadAll(io.LimitReader(f, 64<<20))
 		if rerr != nil {
 			return "", fmt.Errorf("read %s: %w", p.Path, rerr)
 		}
@@ -121,7 +121,7 @@ func (r readFile) Execute(ctx context.Context, args json.RawMessage) (string, er
 	// no BOM, so it reaches here; recognise it by its NUL pattern and decode it
 	// rather than rejecting it as binary.
 	if k, ok := fileenc.DetectUTF16NoBOM(peek); ok {
-		rest, rerr := io.ReadAll(f)
+		rest, rerr := io.ReadAll(io.LimitReader(f, 64<<20))
 		if rerr != nil {
 			return "", fmt.Errorf("read %s: %w", p.Path, rerr)
 		}
