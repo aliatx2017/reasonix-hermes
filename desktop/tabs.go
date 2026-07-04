@@ -8,8 +8,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"sort"
 	"strings"
 	"sync"
@@ -4268,7 +4270,8 @@ func (a *App) ListProjectTree() []ProjectNode {
 		go func() {
 			result := sessionDirLoadResult{dir: dir}
 			defer func() {
-				if recover() != nil {
+				if r := recover(); r != nil {
+					slog.Error("panic in session dir load", "dir", dir, "panic", r, "stack", string(debug.Stack()))
 					result.ok = false
 				}
 				results <- result

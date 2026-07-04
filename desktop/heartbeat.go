@@ -49,7 +49,7 @@ type heartbeatConfig struct {
 // HeartbeatEngine runs scheduled task execution in a background goroutine.
 // It is owned by App and started during App.startup.
 type HeartbeatEngine struct {
-	mu      sync.Mutex
+	mu      sync.RWMutex
 	tasks   []HeartbeatTask
 	done    chan struct{}
 	wg      sync.WaitGroup
@@ -158,9 +158,9 @@ func (e *HeartbeatEngine) loop() {
 // It merges results (topicId, lastRunAt) rather than replacing the full list,
 // so concurrent HeartbeatSaveTasks edits are not lost.
 func (e *HeartbeatEngine) tick() {
-	e.mu.Lock()
+	e.mu.RLock()
 	tasks := append([]HeartbeatTask(nil), e.tasks...)
-	e.mu.Unlock()
+	e.mu.RUnlock()
 
 	now := time.Now()
 	updates := make(map[string]HeartbeatTask)
@@ -252,8 +252,8 @@ func (e *HeartbeatEngine) executeTask(t HeartbeatTask) HeartbeatTask {
 
 // ListTasks returns a copy of the current tasks (in-memory).
 func (e *HeartbeatEngine) ListTasks() []HeartbeatTask {
-	e.mu.Lock()
-	defer e.mu.Unlock()
+	e.mu.RLock()
+	defer e.mu.RUnlock()
 	out := make([]HeartbeatTask, len(e.tasks))
 	copy(out, e.tasks)
 	return out
@@ -279,9 +279,9 @@ func (e *HeartbeatEngine) ReplaceTasks(tasks []HeartbeatTask) error {
 
 // TriggerNow runs a single task immediately by ID.
 func (e *HeartbeatEngine) TriggerNow(id string) {
-	e.mu.Lock()
+	e.mu.RLock()
 	tasks := append([]HeartbeatTask(nil), e.tasks...)
-	e.mu.Unlock()
+	e.mu.RUnlock()
 	updates := make(map[string]HeartbeatTask, 1)
 	for i, t := range tasks {
 		if t.ID == id {
@@ -319,7 +319,9 @@ func (e *HeartbeatEngine) mergeRunUpdatesLocked(updates map[string]HeartbeatTask
 		}
 	}
 	e.tasks = tasks
-	_ = e.saveTasks(tasks)
+	if err := e.saveTasks(tasks); err != nil {
+		slog.Warn("heartbeat: failed to persist tasks after merge", "err", err)
+	}
 }
 
 // parseInterval converts a string like "5m", "1h", "30s" to time.Duration.

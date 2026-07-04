@@ -91,6 +91,6 @@ func postStartupPing(ctx context.Context, c *http.Client, endpoint string, p sta
 	if err != nil {
 		return err
 	}
-	resp.Body.Close()
+	defer resp.Body.Close()
 	return nil
 }

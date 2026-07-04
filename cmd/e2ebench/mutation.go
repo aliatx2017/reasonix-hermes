@@ -71,15 +71,7 @@ func runMutation(repo, base string, srcFiles []string, refs []testRef) mutationR
 			cmd.Dir = repo
 			cmd.WaitDelay = 2 * time.Minute // bound the wait for a mutant that wedges a test
 			// Restore source even on panic; a file left mutated would corrupt the next mutant.
-			restored := false
-			defer func() {
-				if !restored {
-					_ = os.WriteFile(abs, srcB, 0o644)
-				}
-			}()
-			caught := cmd.Run() != nil
-			_ = os.WriteFile(abs, srcB, 0o644)
-			restored = true
+			caught := runMutationTest(cmd, abs, srcB)
 			if caught {
 				res.caught++
 			} else {
@@ -140,4 +132,16 @@ func printType(fset *token.FileSet, e ast.Expr) string {
 	var b strings.Builder
 	_ = printer.Fprint(&b, fset, e)
 	return b.String()
+}
+
+// runMutationTest runs a mutation test command and restores the source file
+// on return, even if the command panics. Extracted from the loop body to
+// avoid defer-in-loop resource accumulation.
+func runMutationTest(cmd *exec.Cmd, abs string, srcB []byte) (caught bool) {
+	defer func() {
+		_ = os.WriteFile(abs, srcB, 0o644)
+	}()
+	caught = cmd.Run() != nil
+	_ = os.WriteFile(abs, srcB, 0o644)
+	return caught
 }

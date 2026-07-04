@@ -29,6 +29,13 @@ import (
 )
 
 func main() {
+	if err := run(); err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
 	token := flag.String("token", "", "Discord bot token (overrides DISCORD_BOT_TOKEN env)")
 	serverID := flag.String("server", "", "Target server/guild ID")
 	channelID := flag.String("channel", "", "Restrict to single channel (empty = all)")
@@ -40,8 +47,7 @@ func main() {
 	// Resolve token
 	botToken := resolveToken(*token)
 	if botToken == "" {
-		fmt.Fprintln(os.Stderr, "error: DISCORD_BOT_TOKEN is required. Set it via environment variable or --token flag.")
-		os.Exit(1)
+		return fmt.Errorf("DISCORD_BOT_TOKEN is required. Set it via environment variable or --token flag")
 	}
 	os.Setenv("DISCORD_BOT_TOKEN", botToken)
 
@@ -101,11 +107,12 @@ func main() {
 	fmt.Fprintf(os.Stderr, "reasonix discord bot starting (model: %s)...\n", modelName)
 
 	if err := gw.Start(ctx); err != nil {
-		fmt.Fprintf(os.Stderr, "error: start gateway: %v\n", err)
-		os.Exit(1)
+		cancel()
+		return fmt.Errorf("start gateway: %w", err)
 	}
 
 	<-ctx.Done()
+	return nil
 }
 
 // resolveToken returns the Discord bot token. flagToken takes precedence;

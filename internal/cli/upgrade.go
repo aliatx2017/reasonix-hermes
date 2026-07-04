@@ -378,7 +378,7 @@ func commitWindows(target, newPath, base, dir string) error {
 	if err := os.Rename(newPath, target); err != nil {
 		// Rollback: try to restore the old binary.
 		if rerr := os.Rename(oldPath, target); rerr != nil {
-			return fmt.Errorf("replace failed (%v); rollback also failed: %w", err, rerr)
+			return fmt.Errorf("replace failed: %w; rollback also failed: %w", err, rerr)
 		}
 		return fmt.Errorf("rename new binary: %w", err)
 	}

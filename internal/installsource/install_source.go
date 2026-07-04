@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"reasonix/internal/config"
 	"reasonix/internal/skill"
@@ -97,7 +98,7 @@ func NewTool(opts Options) tool.Tool {
 	}
 	client := opts.HTTPClient
 	if client == nil {
-		client = &http.Client{}
+		client = &http.Client{Timeout: 30 * time.Second}
 	}
 	// install_source fetches untrusted URLs (SKILL.md, .mcp.json, GitHub
 	// manifests); guard the dial against SSRF the same way web_fetch does, so a

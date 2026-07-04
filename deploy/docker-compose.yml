@@ -2,8 +2,6 @@
 # Start: docker-compose up -d
 # Stop:  docker-compose down
 
-version: "3.8"
-
 services:
   mcpbridge:
     image: ghcr.io/aliatx2017/reasonix-hermes:latest

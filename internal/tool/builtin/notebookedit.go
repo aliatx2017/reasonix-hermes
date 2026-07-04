@@ -148,7 +148,9 @@ func parseNotebookArgs(raw json.RawMessage) (notebookArgs, error) {
 			Source    string `json:"source"`
 			NewString string `json:"new_string"`
 		}
-		_ = json.Unmarshal(raw, &alias)
+		if err := json.Unmarshal(raw, &alias); err != nil {
+			return a, fmt.Errorf("invalid args: %w", err)
+		}
 		switch {
 		case alias.Content != "":
 			a.NewSource = alias.Content
@@ -302,7 +304,9 @@ func normalizeOutputs(cell map[string]json.RawMessage, cellType string) {
 
 func cellTypeOf(cell map[string]json.RawMessage) string {
 	var t string
-	_ = json.Unmarshal(cell["cell_type"], &t)
+	if err := json.Unmarshal(cell["cell_type"], &t); err != nil {
+		return ""
+	}
 	return t
 }
 
@@ -312,7 +316,9 @@ func cellID(cell map[string]json.RawMessage) string {
 		return ""
 	}
 	var id string
-	_ = json.Unmarshal(raw, &id)
+	if err := json.Unmarshal(raw, &id); err != nil {
+		return ""
+	}
 	return id
 }
 

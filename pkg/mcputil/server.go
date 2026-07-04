@@ -214,13 +214,19 @@ func (s *Server) handleCallTool(req Request) []byte {
 
 // SuccessResponse builds a JSON-RPC success response.
 func (s *Server) SuccessResponse(id json.RawMessage, result any) []byte {
-	r, _ := json.Marshal(result)
+	r, err := json.Marshal(result)
+	if err != nil {
+		return s.ErrorResponse(id, -32603, "marshal failed: "+err.Error())
+	}
 	resp := Response{
 		JSONRPC: "2.0",
 		ID:      id,
 		Result:  r,
 	}
-	data, _ := json.Marshal(resp)
+	data, err := json.Marshal(resp)
+	if err != nil {
+		return s.ErrorResponse(id, -32603, "marshal failed: "+err.Error())
+	}
 	return data
 }
 
@@ -231,6 +237,9 @@ func (s *Server) ErrorResponse(id json.RawMessage, code int, message string) []b
 		ID:      id,
 		Error:   &RPCError{Code: code, Message: message},
 	}
-	data, _ := json.Marshal(resp)
+	data, err := json.Marshal(resp)
+	if err != nil {
+		return []byte(`{"jsonrpc":"2.0","error":{"code":-32603,"message":"marshal failed"}}`)
+	}
 	return data
 }

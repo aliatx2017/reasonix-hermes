@@ -454,7 +454,7 @@ func httpGet(ctx context.Context, client *http.Client, url string) ([]byte, erro
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("GET %s: %s", url, resp.Status)
 	}
-	return io.ReadAll(resp.Body)
+	return io.ReadAll(io.LimitReader(resp.Body, 64<<20))
 }
 
 // sha256For returns the hex checksum recorded for name in a SHA256SUMS body
