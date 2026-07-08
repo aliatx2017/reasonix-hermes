@@ -5,9 +5,9 @@ go 1.25.0
 toolchain go1.26.4
 
 require (
-	charm.land/bubbles/v2 v2.1.0
-	charm.land/bubbletea/v2 v2.0.7
-	charm.land/lipgloss/v2 v2.0.4
+	charm.land/bubbles/v2 v2.1.1
+	charm.land/bubbletea/v2 v2.0.8
+	charm.land/lipgloss/v2 v2.0.5
 	github.com/BurntSushi/toml v1.6.0
 	github.com/alecthomas/chroma/v2 v2.27.0
 	github.com/atotto/clipboard v0.1.4
@@ -15,8 +15,8 @@ require (
 	github.com/charmbracelet/x/ansi v0.11.7
 	github.com/go-telegram-bot-api/telegram-bot-api/v5 v5.5.1
 	github.com/gorilla/websocket v1.5.3
-	github.com/larksuite/oapi-sdk-go/v3 v3.9.7
-	github.com/line/line-bot-sdk-go/v8 v8.20.1
+	github.com/larksuite/oapi-sdk-go/v3 v3.9.8
+	github.com/line/line-bot-sdk-go/v8 v8.22.0
 	github.com/mattn/go-runewidth v0.0.24
 	github.com/sabhiram/go-gitignore v0.0.0-20210923224102-525f6e181f06
 	github.com/slack-go/slack v0.27.0
@@ -29,13 +29,13 @@ require (
 	golang.org/x/net v0.56.0
 	golang.org/x/sys v0.46.0
 	golang.org/x/term v0.44.0
-	golang.org/x/text v0.38.0
+	golang.org/x/text v0.39.0
 	modernc.org/sqlite v1.53.0
 )
 
 require (
 	github.com/charmbracelet/colorprofile v0.4.3 // indirect
-	github.com/charmbracelet/ultraviolet v0.0.0-20260601155805-6cf7526a1b3f // indirect
+	github.com/charmbracelet/ultraviolet v0.0.0-20260703014108-f5a850f9c2b7 // indirect
 	github.com/charmbracelet/x/term v0.2.2 // indirect
 	github.com/charmbracelet/x/termios v0.1.1 // indirect
 	github.com/charmbracelet/x/windows v0.2.2 // indirect
