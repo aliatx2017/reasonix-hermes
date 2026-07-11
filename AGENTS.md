@@ -186,6 +186,12 @@ skills-hub/            17-skill community registry + static catalog site
   - **Diamond Wing logo**: `◆` replaces `⚚` caduceus in pinned header + session banner, gold accent preserved.
   - **Savings stats in status bar**: `aux↓N` (tokens saved via auxiliary providers) + `sqz↓N` (bytes saved by compressor). Atomic counters in compressor, exposed through agent → controller → TUI.
   - **Total**: 6 files changed, +91/-12 lines. Committed f0ba51b.
+- **2026-07-11 session** (Dependabot PR batch merge):
+  - **Merged 4 open Dependabot PRs into main**: astro 7.0.4→7.0.6 (`/site`), Go root module 6 updates (charm bubbles/bubbletea/lipgloss, larksuite oapi-sdk-go, line-bot-sdk-go, golang.org/x/text), Go `/desktop` module 2 updates (wails + deps), desktop frontend npm 7 updates (React 19.2.7, vite 8.1.3, typescript 6.0.3, biome 2.5.2, codemirror, katex, gsap, etc.).
+  - Verified via `go build`/`go vet`/`go test` (root + desktop modules), `npm run build` (site/astro), `pnpm build`/`pnpm test` (desktop frontend) — all green; confirmed the handful of failures present (theme-auto-background, bundle-contract, send-failed, settings-refresh-snapshot, app-chrome-tabs frontend suites + `TestFeishuMarkdownPostContent` in `internal/bot/feishu`) are pre-existing on unmodified `main`, unrelated to the bumps.
+  - `go mod tidy` fixup for `desktop/go.mod`/`go.sum` post-bump (small indirect-dep drift).
+  - PRs #22–#25 closed as merged on GitHub; local + remote `main` fast-forwarded to `0b304434`.
+  - **Total**: 5 commits, 8 files changed (+273/-438 lines).
 
 ## roach-code Multi-Provider Research
 
