@@ -37,12 +37,12 @@ require (
 	github.com/jchv/go-winloader v0.0.0-20250406163304-c1995be93bd1 // indirect
 	github.com/labstack/echo/v4 v4.15.2 // indirect
 	github.com/labstack/gommon v0.5.0 // indirect
-	github.com/larksuite/oapi-sdk-go/v3 v3.9.7 // indirect
+	github.com/larksuite/oapi-sdk-go/v3 v3.9.8 // indirect
 	github.com/leaanthony/go-ansi-parser v1.6.1 // indirect
 	github.com/leaanthony/gosod v1.0.4 // indirect
 	github.com/leaanthony/slicer v1.6.0 // indirect
 	github.com/leaanthony/u v1.1.1 // indirect
-	github.com/line/line-bot-sdk-go/v8 v8.20.1 // indirect
+	github.com/line/line-bot-sdk-go/v8 v8.22.0 // indirect
 	github.com/mattn/go-colorable v0.1.15 // indirect
 	github.com/mattn/go-isatty v0.0.22 // indirect
 	github.com/mattn/go-runewidth v0.0.24 // indirect

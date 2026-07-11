@@ -42,8 +42,8 @@ github.com/labstack/echo/v4 v4.15.2 h1:nnh2sCzGCVYnU+wCisMPiYapEg/QVo/gcI9ePKg5/
 github.com/labstack/echo/v4 v4.15.2/go.mod h1:Xzp1Ns1RA2c9fY7nSgUJkpkUZGNbEIVHZbtbOMPktBI=
 github.com/labstack/gommon v0.5.0 h1:6VSQ2NOzsnEJ5W6+84E0RbcaDDmgB6NIAzWCczTEe6c=
 github.com/labstack/gommon v0.5.0/go.mod h1:Rzlg7HHy1maLfzBYGg9NZcVuz1sA68HHhLjhcEllYE0=
-github.com/larksuite/oapi-sdk-go/v3 v3.9.7 h1:0AlevGG8zJ5uLhDuxgG4N1ULc6s7GEenV7ZRfER2R+Y=
-github.com/larksuite/oapi-sdk-go/v3 v3.9.7/go.mod h1:ZEplY+kwuIrj/nqw5uSCINNATcH3KdxSN7y+UxYY5fI=
+github.com/larksuite/oapi-sdk-go/v3 v3.9.8 h1:l9Pijmb/ZMUv6zjMwdN2tP9RB4k/y25HjwZxgBZK0gQ=
+github.com/larksuite/oapi-sdk-go/v3 v3.9.8/go.mod h1:ZEplY+kwuIrj/nqw5uSCINNATcH3KdxSN7y+UxYY5fI=
 github.com/leaanthony/debme v1.2.1 h1:9Tgwf+kjcrbMQ4WnPcEIUcQuIZYqdWftzZkBr+i/oOc=
 github.com/leaanthony/debme v1.2.1/go.mod h1:3V+sCm5tYAgQymvSOfYQ5Xx2JCr+OXiD9Jkw3otUjiA=
 github.com/leaanthony/go-ansi-parser v1.6.1 h1:xd8bzARK3dErqkPFtoF9F3/HgN8UQk0ed1YDKpEz01A=
@@ -54,8 +54,8 @@ github.com/leaanthony/slicer v1.6.0 h1:1RFP5uiPJvT93TAHi+ipd3NACobkW53yUiBqZheE/
 github.com/leaanthony/slicer v1.6.0/go.mod h1:o/Iz29g7LN0GqH3aMjWAe90381nyZlDNquK+mtH2Fj8=
 github.com/leaanthony/u v1.1.1 h1:TUFjwDGlNX+WuwVEzDqQwC2lOv0P4uhTQw7CMFdiK7M=
 github.com/leaanthony/u v1.1.1/go.mod h1:9+o6hejoRljvZ3BzdYlVL0JYCwtnAsVuN9pVTQcaRfI=
-github.com/line/line-bot-sdk-go/v8 v8.20.1 h1:OE7qwJbuZPz9MGOHHNI0E6rQNtIU7ENHyFXpvbVLwII=
-github.com/line/line-bot-sdk-go/v8 v8.20.1/go.mod h1:QMXJwPka2ysSeVQKWXkBp8DzBFs+CFAXFNo75KJtWho=
+github.com/line/line-bot-sdk-go/v8 v8.22.0 h1:jkxX5Ds8zlPSxUYil63P/Xg52SJ+kN/Xa7A4t/ItlDw=
+github.com/line/line-bot-sdk-go/v8 v8.22.0/go.mod h1:QMXJwPka2ysSeVQKWXkBp8DzBFs+CFAXFNo75KJtWho=
 github.com/matryer/is v1.4.0/go.mod h1:8I/i5uYgLzgsgEloJE1U6xx5HkBQpAZvepWuujKwMRU=
 github.com/matryer/is v1.4.1 h1:55ehd8zaGABKLXQUe2awZ99BD/PTc2ls+KV/dXphgEQ=
 github.com/matryer/is v1.4.1/go.mod h1:8I/i5uYgLzgsgEloJE1U6xx5HkBQpAZvepWuujKwMRU=
