@@ -2,6 +2,13 @@
 
 Key milestones in the Hermes fork since June 2026.
 
+## v1.12.0 (July 2026)
+
+### Session 2026-07-21 — npm release catch-up
+
+- **npm release**: `hermes-npm-v1.12.0` tag cut and pushed to publish the 163 commits accumulated since `hermes-npm-v1.11.0` (2026-06-21) — h58-h61 security/concurrency audit fixes, boot refactor, bot session pooling, coverage/fuzz hardening, an upstream merge (v1.11.1, 9c27591e), and 4 dependency-update batches (Go root + desktop modules, desktop frontend npm, site astro). No `v1.x` (CLI/Homebrew) or `desktop-v1.x` tags cut this session — npm only.
+- **Upstream sync policy change**: the daily `sync-upstream.yml` automation has been failing since 2026-06-23 (28 consecutive runs) because the default `GITHUB_TOKEN` lacks the `workflows` permission needed to push a conflict-resolution branch that touches `.github/workflows/*.yml`. Per decision, the fork is intentionally diverging from upstream going forward — syncing is no longer a goal, so this is noted here rather than fixed.
+
 ## v1.10.x (June 2026)
 
 ### Session 2026-06-26 (h60) — Deferred P2 items: boot refactor, bot pooling, coverage, fuzz

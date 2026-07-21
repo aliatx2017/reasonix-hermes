@@ -347,6 +347,12 @@ func TestWebSocketDispatcherHandlesCardActionTrigger(t *testing.T) {
 	}
 }
 
+// TestFeishuMarkdownPostContent covers github.com/larksuite/oapi-sdk-go/v3's
+// SimpleMarkdownToPost. As of v3.9.5+ (bumped from v3.9.4 on 2026-07-11) that
+// helper no longer manually parses markdown links into separate text/a post
+// elements — it wraps the raw markdown string in a single "md" tag block and
+// lets the Feishu client render it. This test previously asserted the old
+// (removed) link-splitting behavior and had been failing since that bump.
 func TestFeishuMarkdownPostContent(t *testing.T) {
 	content, err := feishuMarkdownPostContent("hello [docs](https://example.com)")
 	if err != nil {
@@ -364,13 +370,10 @@ func TestFeishuMarkdownPostContent(t *testing.T) {
 	if err := json.Unmarshal([]byte(content), &payload); err != nil {
 		t.Fatalf("post content should be valid json: %v", err)
 	}
-	if len(payload.ZhCn.Content) != 1 || len(payload.ZhCn.Content[0]) != 2 {
-		t.Fatalf("content blocks = %#v, want one paragraph with text and link", payload.ZhCn.Content)
+	if len(payload.ZhCn.Content) != 1 || len(payload.ZhCn.Content[0]) != 1 {
+		t.Fatalf("content blocks = %#v, want one paragraph with a single md element", payload.ZhCn.Content)
 	}
-	if payload.ZhCn.Content[0][0].Tag != "text" || payload.ZhCn.Content[0][0].Text != "hello " {
-		t.Fatalf("first element = %#v, want text hello", payload.ZhCn.Content[0][0])
-	}
-	if payload.ZhCn.Content[0][1].Tag != "a" || payload.ZhCn.Content[0][1].Text != "docs" || payload.ZhCn.Content[0][1].Href != "https://example.com" {
-		t.Fatalf("second element = %#v, want link", payload.ZhCn.Content[0][1])
+	if payload.ZhCn.Content[0][0].Tag != "md" || payload.ZhCn.Content[0][0].Text != "hello [docs](https://example.com)" {
+		t.Fatalf("first element = %#v, want raw markdown wrapped in md tag", payload.ZhCn.Content[0][0])
 	}
 }
