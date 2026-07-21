@@ -2,7 +2,7 @@
 
 > A DeepSeek-native AI coding agent — forked and extended for the community.
 
-**Reasonix Hermes** is an extended fork of [esengine/deepseek-reasonix](https://github.com/esengine/deepseek-reasonix) (synced to v1.11.x). We build on upstream's config-driven, plugin-driven Go core and add cross-agent connectivity, persistent memory, multi-platform bot adapters, and community tooling.
+**Reasonix Hermes** is an extended fork of [esengine/deepseek-reasonix](https://github.com/esengine/deepseek-reasonix) (last synced to v1.11.x; intentionally diverging since 2026-07-21 — see [Upstream sync](#upstream-sync)). We build on upstream's config-driven, plugin-driven Go core and add cross-agent connectivity, persistent memory, multi-platform bot adapters, and community tooling.
 
 - **Repo**: <https://github.com/aliatx2017/reasonix-hermes>
 - **Upstream**: <https://github.com/esengine/deepseek-reasonix> (branch `main-v2`)
@@ -157,9 +157,13 @@ See the [Desktop Guide](./DESKTOP.md) for full details.
 
 ## Upstream sync
 
-Hermes tracks [esengine/deepseek-reasonix](https://github.com/esengine/deepseek-reasonix) (branch `main-v2`). Automated sync via `.github/workflows/sync-upstream.yml` runs daily at 20:00 UTC — clean merge → build+test → push. On conflict, opens a PR for manual resolution.
+**Discontinued as of 2026-07-21** — Hermes has intentionally diverged from [esengine/deepseek-reasonix](https://github.com/esengine/deepseek-reasonix) (branch `main-v2`). The daily `sync-upstream.yml` automation is disabled (schedule removed, `workflow_dispatch` kept for optional manual use).
 
-**Current upstream target**: v1.11.1 (commit 9c27591e, 2026-06-23).
+It had, in fact, been silently failing every scheduled run since 2026-06-23 (28 consecutive failures) — the default `GITHUB_TOKEN` lacks the `workflows` permission needed to push a conflict-resolution branch that touches `.github/workflows/*.yml`, so the automated "open a PR for manual resolution" fallback never actually succeeded. By the time this was noticed, `main` had drifted 1,796 commits behind `upstream/main-v2`.
+
+**Last synced upstream commit**: v1.11.1 (9c27591e, 2026-06-23) — 34 syncs total, none since.
+
+Manual merge is still possible if ever wanted, but is no longer routine:
 
 ```sh
 git fetch upstream

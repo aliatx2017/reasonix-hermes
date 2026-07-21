@@ -14,11 +14,11 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 - Cache-first: the system-prompt prefix (base prompt + tools + memory) must stay
   byte-stable across turns so DeepSeek's automatic prefix cache stays warm. Never
   mutate it mid-session — ride the turn tail instead (see `control.Compose`).
-- **Upstream sync every session wrap-up**: at the end of every session, fetch
-  upstream (`git fetch upstream`) and merge the latest `upstream/main-v2` into
-  `main`. Resolve conflicts, rebuild all binaries, run `go build ./... && go vet ./...`,
-  and update REASONIX.md with the new sync point. Never leave a session without
-  checking whether upstream has new commits.
+- **Upstream sync discontinued (2026-07-21)**: Hermes has intentionally
+  diverged from `upstream/main-v2`. Do NOT fetch/merge upstream at session
+  wrap-up anymore — this superseded the old "sync every session" rule below.
+  `sync-upstream.yml`'s schedule is disabled. Only merge upstream if the user
+  explicitly asks for it.
 - **"Build all binaries" means 9 binaries**: When the user says "build all binaries",
   rebuild all 8 CLI binaries (`go build -o bin/...`) AND the desktop (`cd desktop &&
   wails build -o ../bin/reasonix-desktop`). The user runs `./bin/reasonix chat` from the
@@ -36,7 +36,8 @@ agent. It is the Reasonix analog of Claude Code's CLAUDE.md.
 
 ## Notes
 
-- **Upstream synced**: `v1.11.1` (commit 9c27591e, 2026-06-23). 34 syncs total — upstream unchanged since h57.
+- **Upstream sync discontinued**: last synced `v1.11.1` (commit 9c27591e, 2026-06-23), 34 syncs total. As of 2026-07-21, syncing is no longer routine — see the standing instruction above. (`sync-upstream.yml` had in fact been failing every scheduled run since 2026-06-23 — `GITHUB_TOKEN` lacks `workflows` permission to push a conflict branch touching `.github/workflows/*.yml` — so this had already silently stopped working before the policy change made it official.)
+- **Commit**: session 2026-07-21 — npm release catch-up + upstream sync discontinued. Cut/published `hermes-npm-v1.12.0` (163 commits since `hermes-npm-v1.11.0`). Fixed `TestFeishuMarkdownPostContent` (mis-diagnosed on 2026-07-11 as "pre-existing/unrelated" — actually caused by the `larksuite/oapi-sdk-go` v3.9.4→v3.9.5 bump dropping manual markdown link-parsing in favor of a single `md` tag). Disabled `sync-upstream.yml` schedule. Updated README/AGENTS.md/PROJECT.md/CHANGELOG-HERMES.md for the sync policy change.
 - **Commit**: session 2026-06-23 (h57) — upstream merge v1.11.1 (52 commits) + doc-sweep (9 stale claims). **Upstream**: merged 9c27591e (52 commits — serve auth/mobile/goal mode, desktop zustand overlay+layout stores, bot connloop primitives, command palette fix, single-surface tab pruning, credential hardening, session switch race guards, skillSet/memoryManager/mcpManager/checkpointManager extractions, frontend hydration state machine). 16 conflicts resolved — zero Hermes features lost. Post-merge fixes: pluginCtx→PluginCtx (field/method conflict), c.cp→c.checkpoints, c.connectMCPSpec→c.mcp.connectSpec, fileSnaps method on checkpointManager, duplicate CredentialsStore removal, currency test ¥→$. RightDockMode "none" restored in store/layout.ts (upstream moved type there without it). Fingerprint guards updated for new file locations (34/34 pass). **Doc-sweep**: 9 stale claims fixed across 6 files (v1.10→v1.11, 56/70→72 packages, v1.8.1→v1.11.0). eventwire/ added to SPEC.md. **Build**: All 9 binaries rebuilt. go build+vet+test all pass (85 packages). Desktop tests + tsc clean.
 
 - **Commit**: session 2026-06-23 (h58) — test coverage + benchmarks + doc-sweep. **Coverage**: 4 packages boosted — scheduler 56.8→97.5% (27 tests, DOW 7 cron bug fixed), billing 66.1→95.2% (8 tests + httptest injection hooks), eval 69.4→98.6% (18 tests), proc 56.2→100% (8 tests). **Refactor**: t.Parallel() added to 19 billing tests, t.Helper() verified on helpers. **Benchmarks**: 30 total — compress (16: CompressDisabled 2ns, cache-hit 4.9µs, error-detect 255ns, SHA256), agent (5: hasImages, successfulToolCallIDs, withReasoningLanguage 11ns), provider (9: message marshal/unmarshal, ParseImageDataURL 8ns). **Doc-sweep**: 7 fixes across 5 files — CONTRIBUTING.md missing e2ebench/learner-live-test binaries + agentlog/billing/e2e table entries + orphaned section; LobeHub agent count 800→850 (verified: live API JWT auth → totalCount 850); updated MARKETPLACE.md, HERMES-GUIDE, README.md, AGENTS.md. **Files**: 11 changed, 6 new test files. **Build**: go build+vet+test all pass. tsc + fingerprint guards clean. Upstream unchanged (9c27591e).

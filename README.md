@@ -14,7 +14,8 @@
 
 > **Reasonix Hermes** is an extended fork of
 > [esengine/deepseek-reasonix](https://github.com/esengine/deepseek-reasonix)
-> (synced to v1.11.x), the DeepSeek-native AI coding agent. We build on
+> (last synced to v1.11.x; intentionally diverging since 2026-07-21), the
+> DeepSeek-native AI coding agent. We build on
 > upstream's config-driven, plugin-driven Go core and add a Discord bot,
 > MCP bridge server, Hindsight memory server, curated skill registry,
 > native hook runner, and portable mode — everything an agent ecosystem
@@ -286,9 +287,12 @@ commands, `@` references, and two-model setup are all in the
 
 ## Relationship to upstream
 
-Hermes tracks [esengine/deepseek-reasonix](https://github.com/esengine/deepseek-reasonix)
-(`main-v2` branch) as its upstream. We merge upstream releases into our `main`
-branch and layer our additions on top:
+Hermes was built as a fork of [esengine/deepseek-reasonix](https://github.com/esengine/deepseek-reasonix)
+(`main-v2` branch) and merged upstream releases into `main` through 34 syncs,
+most recently v1.11.1 (2026-06-23). **As of 2026-07-21, Hermes has
+intentionally diverged** — upstream syncing is no longer routine, so the two
+projects will grow apart over time. A manual merge is still possible if ever
+wanted:
 
 ```sh
 git fetch upstream

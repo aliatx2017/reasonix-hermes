@@ -1,10 +1,14 @@
 name: Sync Upstream
 
+# Discontinued 2026-07-21: Hermes has intentionally diverged from upstream,
+# so the daily schedule is disabled. It had also been silently failing every
+# run since 2026-06-23 — the default GITHUB_TOKEN lacks the `workflows`
+# permission needed to push a conflict-resolution branch that touches
+# .github/workflows/*.yml, so the "open a PR for manual resolution" fallback
+# never actually succeeded. Kept as workflow_dispatch only, in case a manual
+# upstream pull is ever wanted again.
 on:
-  schedule:
-    # Daily at 20:00 UTC = 04:00 CST (upstream devs are asleep)
-    - cron: '0 20 * * *'
-  workflow_dispatch:  # manual trigger from GitHub UI
+  workflow_dispatch:  # manual trigger from GitHub UI only — no schedule
 
 permissions:
   contents: write

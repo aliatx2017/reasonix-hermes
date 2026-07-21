@@ -4,9 +4,16 @@ Customized Reasonix AI coding agent based on upstream [esengine/deepseek-reasoni
 
 ## Syncing with Upstream
 
-Automated: `.github/workflows/sync-upstream.yml` runs daily at 20:00 UTC (04:00 CST, when upstream devs are asleep). It fetches upstream `main-v2`, merges cleanly, runs `go build ./...` + `go test ./...`, and pushes. On conflict, it opens a PR for manual resolution.
+**Discontinued as of 2026-07-21.** Hermes has intentionally diverged from
+upstream — syncing is no longer a goal. The daily `sync-upstream.yml`
+automation is disabled (schedule trigger removed, `workflow_dispatch` kept
+for optional one-off use). It had in fact been silently failing every run
+since 2026-06-23 (28 consecutive failures, `main` ~1,796 commits behind
+`upstream/main-v2` by the time this was noticed) because the default
+`GITHUB_TOKEN` lacks the `workflows` permission needed to push a
+conflict-resolution branch that touches `.github/workflows/*.yml`.
 
-Manual (if needed):
+Manual (only if you ever want to pull specific upstream fixes again):
 
 ```bash
 git fetch upstream
@@ -148,10 +155,10 @@ skills-hub/            17-skill community registry + static catalog site
 
 ## Notes
 
-- Upstream remote: `https://github.com/esengine/deepseek-reasonix.git` (branch `main-v2`)
-- **Upstream target**: v1.11.1 (June 2026) — ✅ synced (9c27591e). 34 syncs total.
+- Upstream remote: `https://github.com/esengine/deepseek-reasonix.git` (branch `main-v2`) — kept for reference only
+- **Upstream sync**: discontinued 2026-07-21. Last successful merge: v1.11.1 (9c27591e, 2026-06-23), 34 syncs total. Intentionally diverging going forward; `sync-upstream.yml` schedule disabled.
 - Our fork: `https://github.com/aliatx2017/reasonix-hermes.git` (branch `main`)
-- To pull upstream updates: `git fetch upstream && git merge upstream/main-v2`
+- To pull upstream updates (opt-in, not routine): `git fetch upstream && git merge upstream/main-v2`
 - `reasonix.toml` is gitignored (upstream convention) — never commit secrets
 - Discord bot uses `github.com/bwmarrin/discordgo` (added to go.mod)
 - Discord bot must use `control.Controller` like every other frontend — not inline chat history
@@ -188,10 +195,18 @@ skills-hub/            17-skill community registry + static catalog site
   - **Total**: 6 files changed, +91/-12 lines. Committed f0ba51b.
 - **2026-07-11 session** (Dependabot PR batch merge):
   - **Merged 4 open Dependabot PRs into main**: astro 7.0.4→7.0.6 (`/site`), Go root module 6 updates (charm bubbles/bubbletea/lipgloss, larksuite oapi-sdk-go, line-bot-sdk-go, golang.org/x/text), Go `/desktop` module 2 updates (wails + deps), desktop frontend npm 7 updates (React 19.2.7, vite 8.1.3, typescript 6.0.3, biome 2.5.2, codemirror, katex, gsap, etc.).
-  - Verified via `go build`/`go vet`/`go test` (root + desktop modules), `npm run build` (site/astro), `pnpm build`/`pnpm test` (desktop frontend) — all green; confirmed the handful of failures present (theme-auto-background, bundle-contract, send-failed, settings-refresh-snapshot, app-chrome-tabs frontend suites + `TestFeishuMarkdownPostContent` in `internal/bot/feishu`) are pre-existing on unmodified `main`, unrelated to the bumps.
+  - Verified via `go build`/`go vet`/`go test` (root + desktop modules), `npm run build` (site/astro), `pnpm build`/`pnpm test` (desktop frontend) — all green; confirmed the handful of failures present (theme-auto-background, bundle-contract, send-failed, settings-refresh-snapshot, app-chrome-tabs frontend suites + `TestFeishuMarkdownPostContent` in `internal/bot/feishu`) are pre-existing on unmodified `main`, unrelated to the bumps. **Correction (2026-07-21): this was wrong for `TestFeishuMarkdownPostContent` — see below.**
   - `go mod tidy` fixup for `desktop/go.mod`/`go.sum` post-bump (small indirect-dep drift).
   - PRs #22–#25 closed as merged on GitHub; local + remote `main` fast-forwarded to `0b304434`.
   - **Total**: 5 commits, 8 files changed (+273/-438 lines).
+- **2026-07-21 session** (npm release catch-up + upstream sync policy decision):
+  - **Research**: full repo/docs/codebase audit. Found `main` had drifted 1,796 commits behind `upstream/main-v2` because `sync-upstream.yml` had been failing every single scheduled run since 2026-06-23 (28/28) — the default `GITHUB_TOKEN` lacks the `workflows` permission needed to push a conflict-resolution branch touching `.github/workflows/*.yml`, so the "open a PR for manual resolution" fallback silently never worked.
+  - **Decision**: stop tracking upstream. Disabled `sync-upstream.yml`'s cron schedule (kept `workflow_dispatch` for optional manual use) instead of fixing the permission — divergence is now intentional. See "Syncing with Upstream" section above.
+  - **npm release**: cut and published `hermes-npm-v1.12.0` — 163 commits since the last npm publish (`hermes-npm-v1.11.0`, 2026-06-21: upstream v1.11.1 merge, h58–h61 audit hardening, boot refactor + bot pooling, coverage/fuzz, 4 dependency-update batches). Verified locally (staged 6-platform cross-compile via `node npm/build-hermes.mjs`) before tagging; verified live after (`npm view`, fresh `npm install reasonix-hermes` smoke test — reports `hermes-npm-v1.12.0`). No `v1.x`/`desktop-v1.x` tags cut — npm only.
+  - **Bug fix — `TestFeishuMarkdownPostContent`**: this was NOT pre-existing/unrelated to the 2026-07-11 dependency bump as previously logged (see correction above). Root cause: `github.com/larksuite/oapi-sdk-go/v3`'s `SimpleMarkdownToPost` dropped its manual regex link-parsing (text+`a` elements) somewhere between v3.9.4→v3.9.5 in favor of wrapping raw markdown in a single `md` tag. Updated the test to assert the current SDK behavior. Fixed in `7bbd3b0e`, shipped in `1.12.0`.
+  - **Bug fix — local pre-commit date gate**: `.reasonix/verify-session.sh` (gitignored, local-only) hardcoded `'2026-07'` as "the future" — true when written in June, permanently broken (blocks every commit) once the calendar reached July. Rewired to compute the threshold from `date +%Y-%m` instead. Not committed (file is gitignored by design) — noted here for anyone else running the same local hook setup.
+  - Spot-checked ~8 findings from the historical `AUDIT-2026-07-15.md`/`docs/ACTION-PLAN.md` (WebSocket `CheckOrigin`, memory-server `SearchDense` lock, Feishu token timing-safety, `internal/memory` path traversal, hooks `session`/`session_id` mismatch) — all already fixed in current code; those docs are self-marked historical/stale.
+  - **Total**: 2 commits (`7bbd3b0e` fix + changelog, tag `hermes-npm-v1.12.0`), 1 npm release (7 packages).
 
 ## roach-code Multi-Provider Research
 
