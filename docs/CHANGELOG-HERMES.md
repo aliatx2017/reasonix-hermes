@@ -2,6 +2,20 @@
 
 Key milestones in the Hermes fork since June 2026.
 
+## v1.12.1 (August 2026)
+
+### Session 2026-08-07 — harness audit: scheduler race, cache-guard gate, compressor + memory-server fixes
+
+- **Repo audit (token-saving/caching focus)**: full read of the cache-first docs and code paths — the compressor, `cache_shape.go` miss diagnostics, `prune`, `compact`, provider cache accounting, tool-schema assembly, and the coordinator. Confirmed the prefix KV cache is the dominant cost lever and is well-executed (sorted + canonicalized tool schemas, turn-tail memory injection, separate planner/executor sessions to protect each prefix). The in-process compressor measures ~0.5% and overlaps the Headroom proxy.
+- **fix(scheduler) `46083879`**: `fireDue` read `s.config.Tasks`/`s.nextRun` with no lock held while the desktop-reachable `AddTask`/`RemoveTask` mutate them under `s.mu` — a concurrent map read+write (a fatal Go panic) plus a torn slice, and `RemoveTask`'s reslice could shift a live `*Task` pointer. Snapshot due tasks by value under the lock and run them outside it; `runTask` takes `Task` by value; locked `Tasks()` and the startup count log. Added a `-race` regression test.
+- **ci(cache-guard) `d48e18c5`**: `TestReleaseCacheHitGuard` already ran in CI and the release scripts, but nothing ever set `REASONIX_CACHE_GUARD_STRICT`, so it could only emit a warning annotation — never fail a build or block a release. Set STRICT in `ci.yml` (test + race jobs) and `scripts/cache-guard.sh` so a real prefix-cache regression now fails CI and blocks the release jobs that `needs: cache-guard`. Current margin is comfortable (92–95% vs 90% threshold, 0 low cases).
+- **fix(compress) `32e45de7`**: the SHA-256 dedup replaced repeats with a `[content unchanged since turn N]` pointer, but `PruneStaleToolResults`/compaction can later elide/fold turn N → a dangling reference to content no longer in the window. Now emits a self-contained marker (`identical to earlier tool output this session … re-run the tool`) carrying a first-line summary; added a no-bloat guard (small repeats return verbatim); and fixed silent stats — the JSON path now increments `jsonFieldsStripped` + `BytesSaved`, and a cache hit counts `len(raw)-len(marker)` rather than the full raw length.
+- **fix(memoryserver) `849cd693`**: `Retain` held `ms.mu` across the blocking `embedOne` HTTP call (bounded only by the 120s client timeout), freezing every concurrent Recall/Retain/SearchDense/Reflect. Compute the dense vector before taking the lock (matching `SearchDense`). Replaced the hand-rolled `sqrt`/`sqrtFallback` (Newton seeded at `z=x`, ~30% error on large norm-squared values) with `math.Sqrt` in `denseCosine`.
+- **style `ca50e5c2`**: `gofmt -w` on 41 root-module files that were already gofmt-dirty on `HEAD` (the `ci.yml` gofmt gate was therefore red on `main`); whitespace only, no semantic changes.
+- **npm release**: `hermes-npm-v1.12.1` cut and pushed → `release-hermes-npm.yml` published all 7 packages (`reasonix-hermes@1.12.1`, `dist-tags.latest`). Verified the 6-platform cross-compile locally (staged, no publish) before tagging, and verified live after (`npm view` → 1.12.1 on main + sub-package). Patch bump: everything since v1.12.0 is bug-fixes/CI/style/docs.
+- **Also surfaced (from a custom-subsystem bug-sweep; NOT yet fixed)**: collab `h.sessions` grows unbounded (empty peer-sets never removed) + no WS read-limit/keepalive; scheduled tasks are dropped-but-reported-success when a turn is already running (`SendCtx` ignores its 10-min ctx); the SQLite memory backend rewrites the whole table on every write; mcpbridge `orchestrate_task` spawns unbounded goroutines from model output; `learn.Load` ignores its `maxObs` cap.
+- **Total**: 5 commits (`46083879`, `d48e18c5`, `32e45de7`, `849cd693`, `ca50e5c2`), 1 npm release (7 packages, v1.12.1).
+
 ## v1.12.0 (July 2026)
 
 ### Session 2026-07-21 — npm release catch-up + upstream sync discontinued
