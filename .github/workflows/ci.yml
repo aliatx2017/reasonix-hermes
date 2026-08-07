@@ -51,8 +51,11 @@ jobs:
         env:
           # Run the prompt-cache prefix-stability guard (TestCacheHit*) in CI: a
           # regression there silently tanks the cache hit rate the project is
-          # built around.
+          # built around. STRICT turns it into a hard gate — a real regression
+          # (more than the tolerated number of scenarios below threshold) fails
+          # the build instead of only emitting a warning annotation.
           REASONIX_RELEASE_CACHE_GUARD: "1"
+          REASONIX_CACHE_GUARD_STRICT: "1"
         run: go test ./...
 
   race:
@@ -71,6 +74,7 @@ jobs:
       - name: test -race
         env:
           REASONIX_RELEASE_CACHE_GUARD: "1"
+          REASONIX_CACHE_GUARD_STRICT: "1"
         run: go test -race ./...
 
   desktop:
