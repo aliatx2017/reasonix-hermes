@@ -2,9 +2,74 @@ package scheduler
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 )
+
+// safeSender is a concurrency-safe Sender for the race test below.
+type safeSender struct {
+	mu    sync.Mutex
+	calls int
+}
+
+func (s *safeSender) Send(_ context.Context, _ string) error {
+	s.mu.Lock()
+	s.calls++
+	s.mu.Unlock()
+	return nil
+}
+
+// TestFireDueConcurrentWithMutation reproduces the crash-class data race between
+// the scheduler goroutine (fireDue) and the UI-driven AddTask/RemoveTask/Tasks
+// paths. Before fireDue snapshotted under the lock, running this under
+// `go test -race` reliably reported "concurrent map read and map write" (or a
+// torn slice). It must stay race-clean.
+func TestFireDueConcurrentWithMutation(t *testing.T) {
+	t.Parallel()
+	s := New(Config{
+		Tasks: []Task{{Name: "seed", Cron: "* * * * *", Prompt: "x"}},
+	}, &safeSender{}, nil)
+	if s == nil {
+		t.Fatal("nil scheduler")
+	}
+	s.parentCtx = context.Background()
+	s.recomputeAll()
+
+	now := time.Now().Add(time.Hour) // ensure due tasks fire
+	var readerWG, writerWG sync.WaitGroup
+	stop := make(chan struct{})
+
+	// Reader: the scheduler goroutine's hot path.
+	readerWG.Add(1)
+	go func() {
+		defer readerWG.Done()
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+				s.fireDue(now)
+				s.recomputeAll()
+				_ = s.Tasks()
+			}
+		}
+	}()
+
+	// Writer: the desktop UI's runtime task management.
+	writerWG.Add(1)
+	go func() {
+		defer writerWG.Done()
+		for i := 0; i < 2000; i++ {
+			s.AddTask(Task{Name: "dyn", Cron: "* * * * *", Prompt: "y"})
+			s.RemoveTask("dyn")
+		}
+	}()
+
+	writerWG.Wait()
+	close(stop)
+	readerWG.Wait()
+}
 
 func TestParseCronStar(t *testing.T) {
 	t.Parallel()
@@ -149,10 +214,10 @@ func TestParseCronRangeWithStep(t *testing.T) {
 func TestParseCronErrors(t *testing.T) {
 	t.Parallel()
 	tests := []string{
-		"* * *",          // too few fields
-		"* * * * * *",    // too many
-		"abc * * * *",     // non-numeric
-		"60 * * * *",      // out of range
+		"* * *",       // too few fields
+		"* * * * * *", // too many
+		"abc * * * *", // non-numeric
+		"60 * * * *",  // out of range
 		"* 24 * * *",
 		"* * 32 * *",
 		"* * * 13 *",
@@ -415,7 +480,7 @@ func TestRunTaskSuccess(t *testing.T) {
 	}
 	s.parentCtx = context.Background()
 
-	s.runTask(&s.config.Tasks[0])
+	s.runTask(s.config.Tasks[0])
 
 	if len(sender.calls) != 1 || sender.calls[0] != "do it" {
 		t.Errorf("expected Send(do it), got %v", sender.calls)
@@ -443,7 +508,7 @@ func TestRunTaskFailure(t *testing.T) {
 	}
 	s.parentCtx = context.Background()
 
-	s.runTask(&s.config.Tasks[0])
+	s.runTask(s.config.Tasks[0])
 
 	results := s.Results(1)
 	if len(results) != 1 {
@@ -467,7 +532,7 @@ func TestRunTaskNilParentCtx(t *testing.T) {
 		t.Fatal("nil scheduler")
 	}
 	// parentCtx is nil by default; runTask should fall back to context.Background.
-	s.runTask(&s.config.Tasks[0])
+	s.runTask(s.config.Tasks[0])
 
 	results := s.Results(1)
 	if len(results) != 1 {
@@ -491,7 +556,7 @@ func TestRunTaskResultTruncation(t *testing.T) {
 
 	// Fill results to >100 and verify truncation keeps latest 100.
 	for i := 0; i < 150; i++ {
-		s.runTask(&s.config.Tasks[0])
+		s.runTask(s.config.Tasks[0])
 	}
 
 	r := s.Results(200)
@@ -921,8 +986,6 @@ func TestNextAfterDOWSunday(t *testing.T) {
 		t.Errorf("next = %v, want %v (Sunday)", next, want)
 	}
 }
-
-
 
 func TestNextAfterMonthChange(t *testing.T) {
 	t.Parallel()

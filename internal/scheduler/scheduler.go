@@ -24,7 +24,7 @@ type Task struct {
 	Name    string `toml:"name"`
 	Cron    string `toml:"cron"`
 	Prompt  string `toml:"prompt"`
-	Model   string `toml:"model"`  // optional; empty = use default
+	Model   string `toml:"model"`   // optional; empty = use default
 	Enabled *bool  `toml:"enabled"` // nil or true = enabled
 }
 
@@ -40,12 +40,12 @@ type Config struct {
 
 // Result is the outcome of one scheduled run.
 type Result struct {
-	TaskName  string    `json:"taskName"`
-	RunAt     time.Time `json:"runAt"`
-	Duration  time.Duration `json:"duration"`
-	Success   bool      `json:"success"`
-	Summary   string    `json:"summary"`   // first 500 chars of response
-	Error     string    `json:"error,omitempty"`
+	TaskName string        `json:"taskName"`
+	RunAt    time.Time     `json:"runAt"`
+	Duration time.Duration `json:"duration"`
+	Success  bool          `json:"success"`
+	Summary  string        `json:"summary"` // first 500 chars of response
+	Error    string        `json:"error,omitempty"`
 }
 
 // Sender is the interface the scheduler uses to submit prompts to the agent.
@@ -97,7 +97,10 @@ func (s *Scheduler) Start(ctx context.Context) {
 	if s == nil {
 		return
 	}
-	s.logger.Info("scheduler: starting", "tasks", len(s.config.Tasks))
+	s.mu.Lock()
+	taskCount := len(s.config.Tasks)
+	s.mu.Unlock()
+	s.logger.Info("scheduler: starting", "tasks", taskCount)
 	s.parentCtx = ctx
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
@@ -117,27 +120,39 @@ func (s *Scheduler) Start(ctx context.Context) {
 	}
 }
 
-// fireDue runs every task whose next scheduled time has arrived.
+// fireDue runs every task whose next scheduled time has arrived. Due tasks are
+// snapshotted (by value) under s.mu so the concurrent AddTask/RemoveTask paths —
+// reachable at runtime from the desktop UI — can mutate s.config.Tasks and
+// s.nextRun without racing this read (a concurrent map read+write is a fatal Go
+// panic, and RemoveTask's reslice would otherwise shift a live *Task pointer).
+// runTask then executes outside the lock so a slow Send never blocks task
+// management or Results().
 func (s *Scheduler) fireDue(now time.Time) {
+	s.mu.Lock()
+	var due []Task
 	for i := range s.config.Tasks {
-		t := &s.config.Tasks[i]
+		t := s.config.Tasks[i]
 		if !t.isEnabled() {
 			continue
 		}
 		next, ok := s.nextRun[t.Name]
-		if !ok {
+		if !ok || now.Before(next) {
 			continue
 		}
-		if now.Before(next) {
-			continue
-		}
-		s.logger.Info("scheduler: firing task", "name", t.Name)
-		s.runTask(t)
+		due = append(due, t)
+	}
+	s.mu.Unlock()
+
+	for i := range due {
+		s.logger.Info("scheduler: firing task", "name", due[i].Name)
+		s.runTask(due[i])
 	}
 }
 
-// runTask executes one task and records the result.
-func (s *Scheduler) runTask(t *Task) {
+// runTask executes one task and records the result. It takes the task by value:
+// the caller snapshots under the lock, so a concurrent RemoveTask reslicing
+// s.config.Tasks can never move the backing element out from under this call.
+func (s *Scheduler) runTask(t Task) {
 	start := time.Now()
 	parent := s.parentCtx
 	if parent == nil {
@@ -241,7 +256,7 @@ func (s *Scheduler) recomputeAll() {
 // cronField holds the parsed values for one cron field (minute, hour, dom, month, dow).
 type cronField struct {
 	values map[int]bool // explicit set
-	star   bool          // true if * (any value)
+	star   bool         // true if * (any value)
 }
 
 // cronExpr is a parsed 5-field cron expression.
@@ -381,11 +396,14 @@ func (e *cronExpr) matches(t time.Time) bool {
 		dowMatch
 }
 
-// Tasks returns a copy of the configured task list for display.
+// Tasks returns a copy of the configured task list for display. It locks so the
+// snapshot never races a concurrent AddTask/RemoveTask mutating s.config.Tasks.
 func (s *Scheduler) Tasks() []Task {
 	if s == nil {
 		return nil
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	out := make([]Task, len(s.config.Tasks))
 	copy(out, s.config.Tasks)
 	return out
