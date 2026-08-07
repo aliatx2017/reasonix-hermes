@@ -271,9 +271,9 @@ func TestEvalBuildRecommendation(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name                          string
+		name                                 string
 		capTotal, regTotal, capPass, regPass int
-		want                          string
+		want                                 string
 	}{
 		{"all pass", 3, 2, 3, 2, "SHIP"},
 		{"cap pass, no reg", 3, 0, 3, 0, "SHIP (no regressions defined)"},

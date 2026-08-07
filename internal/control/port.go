@@ -16,9 +16,9 @@ import (
 	"reasonix/internal/jobs"
 	"reasonix/internal/learn"
 	"reasonix/internal/memory"
-	"reasonix/internal/scheduler"
 	"reasonix/internal/plugin"
 	"reasonix/internal/provider"
+	"reasonix/internal/scheduler"
 	"reasonix/internal/skill"
 )
 

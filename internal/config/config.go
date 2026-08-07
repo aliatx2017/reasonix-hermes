@@ -43,38 +43,38 @@ func SkillNameKey(name string) string {
 
 // Config is Reasonix's runtime configuration.
 type Config struct {
-	ConfigVersion int                 `toml:"config_version"`
-	DefaultModel  string              `toml:"default_model"`
-	Language      string              `toml:"language"` // ui/model language tag (e.g. "zh"); empty = auto-detect from $LANG / $REASONIX_LANG
-	UI            UIConfig            `toml:"ui"`
-	Desktop       DesktopConfig       `toml:"desktop"`
-        Notifications NotificationsConfig      `toml:"notifications"`
-        Agent         AgentConfig              `toml:"agent"`
-        Providers     []ProviderEntry          `toml:"providers"`
-        ActiveProfile string                   `toml:"active_profile"` // named profile from [profiles]; "" = none
-        Profiles      map[string]ProfileConfig `toml:"profiles"`
-	Tools         ToolsConfig         `toml:"tools"`
-	Permissions   PermissionsConfig   `toml:"permissions"`
-	Sandbox       SandboxConfig       `toml:"sandbox"`
-	Network       NetworkConfig       `toml:"network"`
-	Plugins       []PluginEntry       `toml:"plugins"`
-	Skills        SkillsConfig        `toml:"skills"`
-	Codegraph          CodegraphConfig          `toml:"codegraph"`
-	BuiltInMCP         BuiltInMCPConfig         `toml:"builtin_mcp"`
-	BuiltInMCPUpdates  BuiltInMCPUpdatesConfig   `toml:"builtin_mcp_updates"`
-	Statusline         StatuslineConfig          `toml:"statusline"`
-	LSP                LSPConfig                 `toml:"lsp"`
-	Bot                BotConfig                 `toml:"bot"`
-	Schedule           ScheduleConfig            `toml:"schedule"`
-	Learn              LearnConfig               `toml:"learn"`
-	Mesh               MeshConfig                `toml:"mesh"`
-	Collab             CollabConfig              `toml:"collab"`
-	Marketplace        MarketplaceConfig         `toml:"marketplace"`
-	Embedding          EmbeddingConfig           `toml:"embedding"`
-	Billing            BillingConfig             `toml:"billing"`
-	AgentLog           AgentLogConfig            `toml:"agentlog"`
-	CredentialsStore string              `toml:"credentials_store"`
-	Serve            ServeConfig         `toml:"serve"`
+	ConfigVersion     int                      `toml:"config_version"`
+	DefaultModel      string                   `toml:"default_model"`
+	Language          string                   `toml:"language"` // ui/model language tag (e.g. "zh"); empty = auto-detect from $LANG / $REASONIX_LANG
+	UI                UIConfig                 `toml:"ui"`
+	Desktop           DesktopConfig            `toml:"desktop"`
+	Notifications     NotificationsConfig      `toml:"notifications"`
+	Agent             AgentConfig              `toml:"agent"`
+	Providers         []ProviderEntry          `toml:"providers"`
+	ActiveProfile     string                   `toml:"active_profile"` // named profile from [profiles]; "" = none
+	Profiles          map[string]ProfileConfig `toml:"profiles"`
+	Tools             ToolsConfig              `toml:"tools"`
+	Permissions       PermissionsConfig        `toml:"permissions"`
+	Sandbox           SandboxConfig            `toml:"sandbox"`
+	Network           NetworkConfig            `toml:"network"`
+	Plugins           []PluginEntry            `toml:"plugins"`
+	Skills            SkillsConfig             `toml:"skills"`
+	Codegraph         CodegraphConfig          `toml:"codegraph"`
+	BuiltInMCP        BuiltInMCPConfig         `toml:"builtin_mcp"`
+	BuiltInMCPUpdates BuiltInMCPUpdatesConfig  `toml:"builtin_mcp_updates"`
+	Statusline        StatuslineConfig         `toml:"statusline"`
+	LSP               LSPConfig                `toml:"lsp"`
+	Bot               BotConfig                `toml:"bot"`
+	Schedule          ScheduleConfig           `toml:"schedule"`
+	Learn             LearnConfig              `toml:"learn"`
+	Mesh              MeshConfig               `toml:"mesh"`
+	Collab            CollabConfig             `toml:"collab"`
+	Marketplace       MarketplaceConfig        `toml:"marketplace"`
+	Embedding         EmbeddingConfig          `toml:"embedding"`
+	Billing           BillingConfig            `toml:"billing"`
+	AgentLog          AgentLogConfig           `toml:"agentlog"`
+	CredentialsStore  string                   `toml:"credentials_store"`
+	Serve             ServeConfig              `toml:"serve"`
 
 	providerSources          map[string]providerSourceScope
 	shadowedProjectProviders []ProviderEntry
@@ -102,20 +102,20 @@ type UIConfig struct {
 // separate from top-level language and [ui] so desktop choices do not affect CLI
 // language, terminal colours, or provider-visible prompt/request data.
 type DesktopConfig struct {
-	Language       string   `toml:"language"`         // auto|en|zh; empty/auto = browser/OS auto-detect
-	LayoutStyle    string   `toml:"layout_style"`     // classic|workbench|creation; desktop layout style
-	Theme          string   `toml:"theme"`            // auto|dark|light; empty resolves to auto
-	ThemeStyle     string   `toml:"theme_style"`      // graphite|aurora|slate|carbon|nocturne|amber and legacy aliases
-	CloseBehavior  string   `toml:"close_behavior"`   // quit|background; desktop window close behavior
-	DisplayMode    string   `toml:"display_mode"`     // standard|compact (legacy "minimal" maps to compact); transcript display mode
-	StatusBarStyle string   `toml:"status_bar_style"` // icon|text; desktop status bar metric labels
-	StatusBarItems []string `toml:"status_bar_items"` // ordered visible desktop status bar items
-	CheckUpdates   *bool    `toml:"check_updates"`    // startup update checks; nil keeps the default enabled
-	Telemetry      *bool    `toml:"telemetry"`        // anonymous launch ping (install id + version + OS); nil keeps the default enabled
-	Metrics        *bool    `toml:"metrics"`          // aggregate desktop metrics (anonymous signal/bucket counts; no content); nil keeps the default enabled
-	ProviderAccess []string `toml:"provider_access"`  // desktop-only list of provider entries shown in Settings > Model > Access
+	Language       string       `toml:"language"`         // auto|en|zh; empty/auto = browser/OS auto-detect
+	LayoutStyle    string       `toml:"layout_style"`     // classic|workbench|creation; desktop layout style
+	Theme          string       `toml:"theme"`            // auto|dark|light; empty resolves to auto
+	ThemeStyle     string       `toml:"theme_style"`      // graphite|aurora|slate|carbon|nocturne|amber and legacy aliases
+	CloseBehavior  string       `toml:"close_behavior"`   // quit|background; desktop window close behavior
+	DisplayMode    string       `toml:"display_mode"`     // standard|compact (legacy "minimal" maps to compact); transcript display mode
+	StatusBarStyle string       `toml:"status_bar_style"` // icon|text; desktop status bar metric labels
+	StatusBarItems []string     `toml:"status_bar_items"` // ordered visible desktop status bar items
+	CheckUpdates   *bool        `toml:"check_updates"`    // startup update checks; nil keeps the default enabled
+	Telemetry      *bool        `toml:"telemetry"`        // anonymous launch ping (install id + version + OS); nil keeps the default enabled
+	Metrics        *bool        `toml:"metrics"`          // aggregate desktop metrics (anonymous signal/bucket counts; no content); nil keeps the default enabled
+	ProviderAccess []string     `toml:"provider_access"`  // desktop-only list of provider entries shown in Settings > Model > Access
 	ExpandThinking bool         `toml:"expand_thinking"`  // true = show reasoning text expanded by default; false = collapsed
-	Hotbar         HotbarConfig `toml:"hotbar"`          // keyboard digit keys 1-7 → action mapping
+	Hotbar         HotbarConfig `toml:"hotbar"`           // keyboard digit keys 1-7 → action mapping
 }
 
 // HotbarConfig maps keyboard digit keys (1-7) to desktop actions.
@@ -565,8 +565,8 @@ type ScheduleTaskConfig struct {
 type LearnConfig struct {
 	Enabled         bool `toml:"enabled"`
 	MaxPatterns     int  `toml:"max_patterns"`     // max patterns to detect (default 20)
-	MinConfidence   int  `toml:"min_confidence"`    // observations before pattern forms (default 3)
-	MaxObservations int  `toml:"max_observations"`  // ring buffer cap (default 200)
+	MinConfidence   int  `toml:"min_confidence"`   // observations before pattern forms (default 3)
+	MaxObservations int  `toml:"max_observations"` // ring buffer cap (default 200)
 }
 
 // BillingConfig is the [billing] section.
@@ -583,8 +583,8 @@ type AgentLogConfig struct {
 
 // MeshConfig is the [mesh] section for agent-to-agent MCP delegation.
 type MeshConfig struct {
-	Enabled bool              `toml:"enabled"`
-	Peers   []MeshPeerConfig  `toml:"peers"`
+	Enabled bool             `toml:"enabled"`
+	Peers   []MeshPeerConfig `toml:"peers"`
 }
 
 // MeshPeerConfig is one entry in [[mesh.peers]].
@@ -609,24 +609,24 @@ type MarketplaceConfig struct {
 
 // LobeHubMarketplaceConfig is the [marketplace.lobehub] section.
 type LobeHubMarketplaceConfig struct {
-	Enabled        bool   `toml:"enabled"`         // when true, auto-register and sync on startup
-	ClientID       string `toml:"client_id"`       // persistent client ID (auto-registers if empty)
-	ClientSecret   string `toml:"client_secret"`   // persistent client secret
-	ClientName     string `toml:"client_name"`     // registration name, default "reasonix-hermes"
-	ClientType     string `toml:"client_type"`     // registration type, default "cli"
-	SyncOnStartup  bool   `toml:"sync_on_startup"` // run full sync on agent startup
-	Query          string `toml:"query"`           // optional search filter for synced skills
-	Sort           string `toml:"sort"`            // sort field, default "installCount"
-	Category       string `toml:"category"`        // optional category filter
+	Enabled       bool   `toml:"enabled"`         // when true, auto-register and sync on startup
+	ClientID      string `toml:"client_id"`       // persistent client ID (auto-registers if empty)
+	ClientSecret  string `toml:"client_secret"`   // persistent client secret
+	ClientName    string `toml:"client_name"`     // registration name, default "reasonix-hermes"
+	ClientType    string `toml:"client_type"`     // registration type, default "cli"
+	SyncOnStartup bool   `toml:"sync_on_startup"` // run full sync on agent startup
+	Query         string `toml:"query"`           // optional search filter for synced skills
+	Sort          string `toml:"sort"`            // sort field, default "installCount"
+	Category      string `toml:"category"`        // optional category filter
 }
 
 // BotAllowlist 控制哪些用户可以使用 bot。
 type BotAllowlist struct {
-	Enabled      bool     `toml:"enabled"`
-	AllowAll     bool     `toml:"allow_all"`
-	QQUsers      []string `toml:"qq_users"`
-	FeishuUsers  []string `toml:"feishu_users"`
-	WeixinUsers  []string `toml:"weixin_users"`
+	Enabled        bool     `toml:"enabled"`
+	AllowAll       bool     `toml:"allow_all"`
+	QQUsers        []string `toml:"qq_users"`
+	FeishuUsers    []string `toml:"feishu_users"`
+	WeixinUsers    []string `toml:"weixin_users"`
 	DiscordUsers   []string `toml:"discord_users"`
 	TelegramUsers  []string `toml:"telegram_users"`
 	LineUsers      []string `toml:"line_users"`
@@ -669,10 +669,10 @@ type WeixinBotConfig struct {
 // DiscordBotConfig configures a Discord bot.
 type DiscordBotConfig struct {
 	Enabled       bool   `toml:"enabled"`
-	TokenEnv      string `toml:"token_env"`      // env var name, e.g. DISCORD_BOT_TOKEN
-	ServerID      string `toml:"server_id"`      // target guild ID (optional)
-	ChannelID     string `toml:"channel_id"`     // restrict to single channel (optional; empty = all channels)
-	AllowDMs      bool   `toml:"allow_dms"`      // respond to DMs (default true)
+	TokenEnv      string `toml:"token_env"`       // env var name, e.g. DISCORD_BOT_TOKEN
+	ServerID      string `toml:"server_id"`       // target guild ID (optional)
+	ChannelID     string `toml:"channel_id"`      // restrict to single channel (optional; empty = all channels)
+	AllowDMs      bool   `toml:"allow_dms"`       // respond to DMs (default true)
 	WebhookURLEnv string `toml:"webhook_url_env"` // env var for notification webhook URL (optional; e.g. DISCORD_WEBHOOK_URL)
 }
 
@@ -685,10 +685,10 @@ type TelegramBotConfig struct {
 
 // LineBotConfig configures a LINE bot.
 type LineBotConfig struct {
-	Enabled  bool   `toml:"enabled"`
-	TokenEnv string `toml:"token_env"` // env var name, e.g. LINE_CHANNEL_TOKEN
+	Enabled   bool   `toml:"enabled"`
+	TokenEnv  string `toml:"token_env"`  // env var name, e.g. LINE_CHANNEL_TOKEN
 	SecretEnv string `toml:"secret_env"` // env var name, e.g. LINE_CHANNEL_SECRET
-	AllowDMs bool   `toml:"allow_dms"` // respond to DMs (default true)
+	AllowDMs  bool   `toml:"allow_dms"`  // respond to DMs (default true)
 }
 
 // SlackBotConfig configures a Slack bot via Socket Mode.
@@ -1060,9 +1060,9 @@ type AgentConfig struct {
 // web extraction at a fast cheap model (e.g. MiMo-V2-Flash or DeepSeek V4 Flash
 // via Ollama Cloud) keeps the main model's context budget for real reasoning.
 type AuxiliaryConfig struct {
-	Compression AuxModelRef `toml:"compression"`  // compaction summarizer
-	Vision      AuxModelRef `toml:"vision"`       // image/vision requests
-	WebExtract  AuxModelRef `toml:"web_extract"`  // web-page content extraction
+	Compression AuxModelRef `toml:"compression"` // compaction summarizer
+	Vision      AuxModelRef `toml:"vision"`      // image/vision requests
+	WebExtract  AuxModelRef `toml:"web_extract"` // web-page content extraction
 }
 
 // AuxModelRef names a configured [[providers]] instance to use for an auxiliary
@@ -1082,8 +1082,8 @@ func (r AuxModelRef) IsSet() bool {
 // using the configured provider/model, and hindsight_recall can use dense=true
 // for cosine-similarity semantic search alongside the existing TF-IDF sparse index.
 type EmbeddingConfig struct {
-	Provider  string `toml:"provider"`   // provider name (e.g. "deepseek" or an openai-compatible entry)
-	Model     string `toml:"model"`      // embedding model id (e.g. "text-embedding-3-small")
+	Provider  string `toml:"provider"`    // provider name (e.g. "deepseek" or an openai-compatible entry)
+	Model     string `toml:"model"`       // embedding model id (e.g. "text-embedding-3-small")
 	APIKeyEnv string `toml:"api_key_env"` // env var for the API key (falls back to the provider's key when empty)
 	BatchSize int    `toml:"batch_size"`  // max facts per embedding API call (default 20); set 0 to embed one-by-one
 }

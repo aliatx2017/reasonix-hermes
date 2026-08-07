@@ -98,13 +98,13 @@ func TurnCount(path string) (int, error) {
 
 // SessionStats holds aggregate statistics about a session.
 type SessionStats struct {
-	Path      string `json:"path"`
-	Turns     int    `json:"turns"`
-	Tools     int    `json:"tools"`
+	Path      string   `json:"path"`
+	Turns     int      `json:"turns"`
+	Tools     int      `json:"tools"`
 	ToolNames []string `json:"toolNames"`
-	Files     int    `json:"files"` // estimated — messages that mention file paths
-	TokensIn  int    `json:"tokensIn"`  // rough estimate from content length
-	TokensOut int    `json:"tokensOut"` // rough estimate from assistant content
+	Files     int      `json:"files"`     // estimated — messages that mention file paths
+	TokensIn  int      `json:"tokensIn"`  // rough estimate from content length
+	TokensOut int      `json:"tokensOut"` // rough estimate from assistant content
 }
 
 // Analyze reads a session file and returns aggregate statistics.

@@ -174,10 +174,10 @@ func TestStormBreakerResetsOnSuccess(t *testing.T) {
 	good := provider.ToolCall{Name: "read_file", Arguments: `{"path":"x"}`}
 	ctx := context.Background()
 
-	_, _ = a.executeBatch(ctx, []provider.ToolCall{fail})               // count 1
-	_, _ = a.executeBatch(ctx, []provider.ToolCall{fail})               // count 2
-	_, _ = a.executeBatch(ctx, []provider.ToolCall{good})               // success → reset
-	_, _ = a.executeBatch(ctx, []provider.ToolCall{fail})               // count 1
+	_, _ = a.executeBatch(ctx, []provider.ToolCall{fail}) // count 1
+	_, _ = a.executeBatch(ctx, []provider.ToolCall{fail}) // count 2
+	_, _ = a.executeBatch(ctx, []provider.ToolCall{good}) // success → reset
+	_, _ = a.executeBatch(ctx, []provider.ToolCall{fail}) // count 1
 	res, _ := a.executeBatch(ctx, []provider.ToolCall{fail})
 	last := res[0] // count 2 — still below threshold
 

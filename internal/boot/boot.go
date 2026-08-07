@@ -127,6 +127,7 @@ type Options struct {
 //  7. buildSubagents    — subagent transcript store
 //  8. buildToolSurface  — task, skill, memory, command, install-source tools
 //  9. buildExecutor     — agent executor, optional coordinator, classifier
+//
 // 10. buildLearner      — self-improving pattern detection
 // 11. assemble          — controller assembly, mesh wiring, learner wiring
 func Build(ctx context.Context, opts Options) (*control.Controller, error) {

@@ -22,10 +22,10 @@ const Dir = ".reasonix"
 // Doc is the parsed constitution document.
 type Doc struct {
 	Version     int            `json:"version"`
-	Conventions map[string]any  `json:"conventions,omitempty"` // key-value pairs like "language":"Go"
-	Rules       []Rule          `json:"rules,omitempty"`
-	Principles  []string        `json:"principles,omitempty"`   // high-level design principles
-	Constraints []string        `json:"constraints,omitempty"`  // hard constraints (must/must-not)
+	Conventions map[string]any `json:"conventions,omitempty"` // key-value pairs like "language":"Go"
+	Rules       []Rule         `json:"rules,omitempty"`
+	Principles  []string       `json:"principles,omitempty"`  // high-level design principles
+	Constraints []string       `json:"constraints,omitempty"` // hard constraints (must/must-not)
 }
 
 // Rule is one code-level invariant.

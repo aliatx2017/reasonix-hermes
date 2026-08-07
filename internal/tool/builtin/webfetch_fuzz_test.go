@@ -20,7 +20,7 @@ func FuzzBlockedFetchIP(f *testing.F) {
 	f.Add([]byte{8, 8, 8, 8})
 	f.Add([]byte{100, 64, 0, 1})
 	// IPv6 seeds (16 bytes)
-	f.Add([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}) // ::1
+	f.Add([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1})       // ::1
 	f.Add([]byte{0xfe, 0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}) // fe80::1
 
 	f.Fuzz(func(t *testing.T, ipBytes []byte) {

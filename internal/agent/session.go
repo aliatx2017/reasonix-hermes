@@ -33,13 +33,13 @@ type Session struct {
 	// Set via SetMeta before Save; loaded via LoadMeta after LoadSession.
 	// These are NOT reset on compaction (compaction reuses the same session
 	// and the aggregate is per-session, not per-message).
-	TokensIn   int     `json:"tokensIn"`
-	TokensOut  int     `json:"tokensOut"`
-	TurnCount  int     `json:"turnCount"`
-	CacheHit   int     `json:"cacheHit"`
-	CacheMiss  int     `json:"cacheMiss"`
-	Cost       float64 `json:"cost"`
-	Currency   string  `json:"currency"`
+	TokensIn  int     `json:"tokensIn"`
+	TokensOut int     `json:"tokensOut"`
+	TurnCount int     `json:"turnCount"`
+	CacheHit  int     `json:"cacheHit"`
+	CacheMiss int     `json:"cacheMiss"`
+	Cost      float64 `json:"cost"`
+	Currency  string  `json:"currency"`
 
 	// normalizedDirty is set when LoadSession repaired the history on the way in
 	// (empty tool-call names, dangling calls, truncated args, …). The repair
@@ -51,14 +51,14 @@ type Session struct {
 
 // SessionMeta is the on-disk format for the .meta sidecar file.
 type SessionMeta struct {
-	TokensIn   int     `json:"tokensIn"`
-	TokensOut  int     `json:"tokensOut"`
-	TurnCount  int     `json:"turnCount"`
-	CacheHit   int     `json:"cacheHit"`
-	CacheMiss  int     `json:"cacheMiss"`
-	Cost       float64 `json:"cost"`
-	Currency   string  `json:"currency"`
-	SavedAt    string  `json:"savedAt"`
+	TokensIn  int     `json:"tokensIn"`
+	TokensOut int     `json:"tokensOut"`
+	TurnCount int     `json:"turnCount"`
+	CacheHit  int     `json:"cacheHit"`
+	CacheMiss int     `json:"cacheMiss"`
+	Cost      float64 `json:"cost"`
+	Currency  string  `json:"currency"`
+	SavedAt   string  `json:"savedAt"`
 }
 
 // NewSession initializes a session with an optional system prompt.

@@ -460,9 +460,9 @@ type Usage struct {
 // is a display symbol or ISO-like code (default "¥"). toml tags let config decode it.
 // ExchangeRate converts native currency to display currency (default 1.0 = no conversion).
 type Pricing struct {
-	CacheHit     float64 `toml:"cache_hit"`     // per 1M cached prompt tokens
-	Input        float64 `toml:"input"`         // per 1M uncached prompt tokens
-	Output       float64 `toml:"output"`        // per 1M completion tokens
+	CacheHit     float64 `toml:"cache_hit"` // per 1M cached prompt tokens
+	Input        float64 `toml:"input"`     // per 1M uncached prompt tokens
+	Output       float64 `toml:"output"`    // per 1M completion tokens
 	Currency     string  `toml:"currency"`
 	ExchangeRate float64 `toml:"exchange_rate"` // multiply Cost by this (e.g. 0.14 for CNY→USD)
 }

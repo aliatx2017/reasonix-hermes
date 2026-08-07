@@ -1059,7 +1059,8 @@ func (m chatTUI) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.unsendPending() // server not yet replied — restore text, leave no trace
 				} else if m.cancelRequested() {
 					m.ctrl.Cancel()
-					m.cancelIfSet(); return m, tea.Quit
+					m.cancelIfSet()
+					return m, tea.Quit
 				} else {
 					m.ctrl.Cancel()
 				}
@@ -1088,13 +1089,15 @@ func (m chatTUI) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 			if !m.lastCtrlCAt.IsZero() && time.Since(m.lastCtrlCAt) < 1500*time.Millisecond {
-				m.cancelIfSet(); return m, tea.Quit
+				m.cancelIfSet()
+				return m, tea.Quit
 			}
 			m.lastCtrlCAt = time.Now()
 			m.notice(i18n.M.CtrlCQuitHint)
 			return m, finalize(m, nil)
 		case "ctrl+d":
-			m.cancelIfSet(); return m, tea.Quit
+			m.cancelIfSet()
+			return m, tea.Quit
 		case "ctrl+v", "ctrl+shift+v", "super+v", "meta+v":
 			if m.state == tuiRunning {
 				return m, nil
@@ -1148,7 +1151,8 @@ func (m chatTUI) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 			if line == "exit" || line == "quit" || line == ":q" {
-				m.cancelIfSet(); return m, tea.Quit
+				m.cancelIfSet()
+				return m, tea.Quit
 			}
 			m.rememberSubmittedInput(line)
 
@@ -2801,9 +2805,9 @@ func (m chatTUI) formatStatsPanel() string {
 		row++
 	}
 
-	addRow(accent("╠" + strings.Repeat("═", w-2) + "╣") + "\n")
+	addRow(accent("╠"+strings.Repeat("═", w-2)+"╣") + "\n")
 	addRow(accent("║") + " " + bold("⚚ SESSION STATS") + strings.Repeat(" ", w-2-1-lipgloss.Width("⚚ SESSION STATS")) + accent("║") + "\n")
-	addRow(accent("╠" + strings.Repeat("─", w-2) + "╣") + "\n")
+	addRow(accent("╠"+strings.Repeat("─", w-2)+"╣") + "\n")
 
 	msgs := m.ctrl.History()
 	rowf := func(label, value string) {
@@ -2851,7 +2855,7 @@ func (m chatTUI) formatStatsPanel() string {
 	}
 
 	if goal := m.ctrl.Goal(); goal != "" {
-		addRow(accent("╟" + strings.Repeat("─", w-2) + "╢") + "\n")
+		addRow(accent("╟"+strings.Repeat("─", w-2)+"╢") + "\n")
 		rowf("Goal", goal)
 		rowf("  Status", m.ctrl.GoalStatus())
 		rowf("  Turns", fmt.Sprintf("%d · %d blocks", m.ctrl.GoalTurns(), m.ctrl.GoalBlocks()))
@@ -2859,15 +2863,15 @@ func (m chatTUI) formatStatsPanel() string {
 
 	history := m.ctrl.TurnUsageHistory()
 	if len(history) > 0 {
-		addRow(accent("╟" + strings.Repeat("─", w-2) + "╢") + "\n")
+		addRow(accent("╟"+strings.Repeat("─", w-2)+"╢") + "\n")
 		spark := renderTokenSparkline(history, w-4)
 		addRow(accent("║") + " " + dim("tokens/turn") + " " + spark + " " + accent("║") + "\n")
 	}
 
 	compactions := m.ctrl.CompactionHistory()
 	if len(compactions) > 0 {
-		addRow(accent("╟" + strings.Repeat("─", w-2) + "╢") + "\n")
-		addRow(accent("║") + " " + dim("compactions (" + strconv.Itoa(len(compactions)) + ")") + strings.Repeat(" ", w-3-lipgloss.Width("compactions ("+strconv.Itoa(len(compactions))+")")) + accent("║") + "\n")
+		addRow(accent("╟"+strings.Repeat("─", w-2)+"╢") + "\n")
+		addRow(accent("║") + " " + dim("compactions ("+strconv.Itoa(len(compactions))+")") + strings.Repeat(" ", w-3-lipgloss.Width("compactions ("+strconv.Itoa(len(compactions))+")")) + accent("║") + "\n")
 		for _, c := range compactions {
 			trigger := c.Trigger
 			summary := c.Summary
@@ -2885,8 +2889,8 @@ func (m chatTUI) formatStatsPanel() string {
 	if mv := m.ctrl.Memory(); mv != nil {
 		facts := mv.Store.List()
 		if len(facts) > 0 {
-			addRow(accent("╟" + strings.Repeat("─", w-2) + "╢") + "\n")
-			addRow(accent("║") + " " + dim("memory facts (" + strconv.Itoa(len(facts)) + ")") + strings.Repeat(" ", w-3-lipgloss.Width("memory facts ("+strconv.Itoa(len(facts))+")")) + accent("║") + "\n")
+			addRow(accent("╟"+strings.Repeat("─", w-2)+"╢") + "\n")
+			addRow(accent("║") + " " + dim("memory facts ("+strconv.Itoa(len(facts))+")") + strings.Repeat(" ", w-3-lipgloss.Width("memory facts ("+strconv.Itoa(len(facts))+")")) + accent("║") + "\n")
 			for _, f := range facts {
 				line := fmt.Sprintf("  %s · %s", f.Name, f.Title)
 				if len(line) > w-3 {
@@ -3670,7 +3674,8 @@ func (m *chatTUI) runSlashCommand(input string) tea.Cmd {
 			m.notice("remembered → " + path)
 		}
 	case "/quit", "/exit":
-		m.cancelIfSet(); return tea.Quit
+		m.cancelIfSet()
+		return tea.Quit
 	case "/write":
 		m.echoLocalCommand(input)
 		m.openWriteMode(input)
@@ -4088,7 +4093,7 @@ func (m chatTUI) renderPinnedBanner() string {
 	if gap < 2 {
 		gap = 2
 	}
-	return accent("╔" + strings.Repeat("═", w-2) + "╗") + "\n" +
+	return accent("╔"+strings.Repeat("═", w-2)+"╗") + "\n" +
 		accent("║") + left + strings.Repeat(" ", gap) + dim(right) + accent("║")
 }
 
@@ -4104,7 +4109,7 @@ func renderHermesBanner(m *chatTUI, width int) string {
 
 	// Stats row
 	stats := m.renderStatsLine()
-	b.WriteString(accent("╔" + strings.Repeat("═", w-2) + "╗") + "\n")
+	b.WriteString(accent("╔"+strings.Repeat("═", w-2)+"╗") + "\n")
 	tip := i18n.M.ChatTip
 	tipPad := w - 3 - lipgloss.Width(tip)
 	if tipPad < 1 {
@@ -4115,7 +4120,7 @@ func renderHermesBanner(m *chatTUI, width int) string {
 		warnLine := "  ! " + m.missing
 		b.WriteString(accent("║") + wrapForViewport(warnLine, w-2, activeCLITheme.warn) + accent("║") + "\n")
 	}
-	b.WriteString(accent("╠" + strings.Repeat("═", w-2) + "╣") + "\n")
+	b.WriteString(accent("╠"+strings.Repeat("═", w-2)+"╣") + "\n")
 	statPad := (w - 2 - lipgloss.Width(stats)) / 2
 	if statPad < 0 {
 		statPad = 0
@@ -4125,7 +4130,7 @@ func renderHermesBanner(m *chatTUI, width int) string {
 		rightPad = 0
 	}
 	b.WriteString(accent("║") + strings.Repeat(" ", statPad) + stats + strings.Repeat(" ", rightPad) + accent("║") + "\n")
-	b.WriteString(accent("╚" + strings.Repeat("═", w-2) + "╝") + "\n")
+	b.WriteString(accent("╚"+strings.Repeat("═", w-2)+"╝") + "\n")
 
 	return b.String()
 }

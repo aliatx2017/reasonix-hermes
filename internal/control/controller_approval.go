@@ -5,14 +5,6 @@ import (
 	"reasonix/internal/config"
 )
 
-
-
-
-
-
-
-
-
 // ToggleSound turns the completion-sound setting on or off and persists the change
 // to the user config file. Returns true on success (setting changed and saved).
 func (c *Controller) ToggleSound(on bool) bool {

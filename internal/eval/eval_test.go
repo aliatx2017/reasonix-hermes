@@ -24,7 +24,9 @@ func TestSetDiff(t *testing.T) {
 
 func containsString(ss []string, s string) bool {
 	for _, x := range ss {
-		if x == s { return true }
+		if x == s {
+			return true
+		}
 	}
 	return false
 }
@@ -56,8 +58,8 @@ func TestCompareEmpty(t *testing.T) {
 func TestCompareIdentical(t *testing.T) {
 	t.Parallel()
 	a := &SessionSnapshot{
-		Path:  "a.json",
-		Tools: map[string]int{"read": 2, "write": 1},
+		Path:    "a.json",
+		Tools:   map[string]int{"read": 2, "write": 1},
 		ToolSeq: []string{"read", "read", "write"},
 		Turns: []TurnSnapshot{
 			{Index: 1, ToolCalls: []string{"read"}},
@@ -65,8 +67,8 @@ func TestCompareIdentical(t *testing.T) {
 		},
 	}
 	b := &SessionSnapshot{
-		Path:  "b.json",
-		Tools: map[string]int{"read": 2, "write": 1},
+		Path:    "b.json",
+		Tools:   map[string]int{"read": 2, "write": 1},
 		ToolSeq: []string{"read", "read", "write"},
 		Turns: []TurnSnapshot{
 			{Index: 1, ToolCalls: []string{"read"}},
@@ -87,16 +89,16 @@ func TestCompareIdentical(t *testing.T) {
 func TestCompareDifferent(t *testing.T) {
 	t.Parallel()
 	a := &SessionSnapshot{
-		Path:  "a.json",
-		Tools: map[string]int{"read": 3},
+		Path:    "a.json",
+		Tools:   map[string]int{"read": 3},
 		ToolSeq: []string{"read", "read", "read"},
 		Turns: []TurnSnapshot{
 			{Index: 1, ToolCalls: []string{"read"}},
 		},
 	}
 	b := &SessionSnapshot{
-		Path:  "b.json",
-		Tools: map[string]int{"read": 1, "write": 2},
+		Path:    "b.json",
+		Tools:   map[string]int{"read": 1, "write": 2},
 		ToolSeq: []string{"read", "write", "write"},
 		Turns: []TurnSnapshot{
 			{Index: 1, ToolCalls: []string{"read"}},

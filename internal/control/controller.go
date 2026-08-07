@@ -86,9 +86,9 @@ type Controller struct {
 	// save never stalls an approval or status poll. See memory.go.
 	memory            memoryManager
 	schedule          *scheduler.Scheduler // cron task scheduler (nil = disabled)
-	mesh              *mesh.Mesh          // agent-to-agent MCP delegation (nil = disabled)
-	learner           *learn.Learner      // self-improving pattern detection (nil = disabled)
-	learnerLoaded     bool                // true after loading from .learning sidecar
+	mesh              *mesh.Mesh           // agent-to-agent MCP delegation (nil = disabled)
+	learner           *learn.Learner       // self-improving pattern detection (nil = disabled)
+	learnerLoaded     bool                 // true after loading from .learning sidecar
 	cleanup           func()
 	autoPlan          string
 	reasoningLanguage string

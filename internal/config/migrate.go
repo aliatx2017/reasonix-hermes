@@ -228,10 +228,10 @@ func migrateMCPToUserConfig(projectRoots []string) (*MCPGlobalMigrationResult, e
 		result.Sources++
 		for _, entry := range entries {
 			var nerr bool
-		entry, nerr = NormalizePluginCommandLine(entry)
-		if !nerr {
-			slog.Warn("config migration: plugin command normalization failed", "plugin", entry.Name, "command", entry.Command)
-		}
+			entry, nerr = NormalizePluginCommandLine(entry)
+			if !nerr {
+				slog.Warn("config migration: plugin command normalization failed", "plugin", entry.Name, "command", entry.Command)
+			}
 			name := strings.TrimSpace(entry.Name)
 			if name == "" || have[name] || validatePlugin(entry) != nil {
 				continue

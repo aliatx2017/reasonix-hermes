@@ -189,10 +189,10 @@ func TestMergeFromLobeHub(t *testing.T) {
 	}
 
 	agents := []LobeHubAgentItem{
-		{Name: "existing-agent", Description: "duplicate"},                                // should be skipped
-		{Name: "new-agent", Description: "fresh from lobehub"},                            // should be added
-		{Name: "", Description: "no name"},                                                // should be skipped
-		{Name: "EXISTING-AGENT", Description: "case-insensitive duplicate"},              // should be skipped
+		{Name: "existing-agent", Description: "duplicate"},                  // should be skipped
+		{Name: "new-agent", Description: "fresh from lobehub"},              // should be added
+		{Name: "", Description: "no name"},                                  // should be skipped
+		{Name: "EXISTING-AGENT", Description: "case-insensitive duplicate"}, // should be skipped
 	}
 
 	added := reg.MergeFromLobeHub(agents)

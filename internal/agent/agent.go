@@ -224,11 +224,11 @@ type Agent struct {
 
 	// Auxiliary providers handle background jobs with cheaper models, leaving the
 	// main provider free for real reasoning. When nil the main provider is used.
-	compressionProv provider.Provider // compaction summarizer
-	visionProv      provider.Provider // image/vision requests
-	webExtractProv  provider.Provider // web-page extraction (placeholder)
-	usageSource          string
-	reasoningLanguage    atomic.Value // string: auto|zh|en
+	compressionProv   provider.Provider // compaction summarizer
+	visionProv        provider.Provider // image/vision requests
+	webExtractProv    provider.Provider // web-page extraction (placeholder)
+	usageSource       string
+	reasoningLanguage atomic.Value // string: auto|zh|en
 
 	// sink receives the turn's typed event stream (reasoning/text deltas, tool
 	// dispatch/results, usage, notices). The agent no longer formats output
@@ -1052,7 +1052,6 @@ type MaxStepsPause struct {
 func (e *MaxStepsPause) Error() string {
 	return fmt.Sprintf("paused after %d tool-call rounds (%s) — the work so far is saved; send another message to continue, or set %s higher or to 0 for no limit", e.Steps, e.Key, e.Key)
 }
-
 
 func (a *Agent) finalReadinessFailure() string {
 	return a.finalReadinessCheck().reason

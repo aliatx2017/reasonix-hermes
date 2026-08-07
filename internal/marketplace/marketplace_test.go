@@ -18,8 +18,8 @@ func TestSearch(t *testing.T) {
 	r := DefaultRegistry()
 
 	tests := []struct {
-		query    string
-		minHits  int
+		query   string
+		minHits int
 	}{
 		{"go", 2},
 		{"python", 3},

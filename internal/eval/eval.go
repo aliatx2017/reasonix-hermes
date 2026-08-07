@@ -18,48 +18,48 @@ import (
 // SessionSnapshot captures the comparable shape of a single agent session.
 // It is derived from a loaded session file and its .meta sidecar.
 type SessionSnapshot struct {
-	Path     string `json:"path"`
-	Meta     agent.SessionMeta
-	Turns    []TurnSnapshot  `json:"turns"`
+	Path  string `json:"path"`
+	Meta  agent.SessionMeta
+	Turns []TurnSnapshot `json:"turns"`
 	// Tools maps tool name → call count across all turns.
-	Tools   map[string]int `json:"tools"`
+	Tools map[string]int `json:"tools"`
 	// ToolSeq is the ordered sequence of tool calls across all turns.
 	ToolSeq []string `json:"toolSeq"`
 }
 
 // TurnSnapshot summarizes one agent turn.
 type TurnSnapshot struct {
-	Index       int      `json:"index"`
-	UserPrompt  string   `json:"userPrompt"`  // truncated
-	Assistant   string   `json:"assistant"`   // truncated, first 200 chars
-	ToolCalls   []string `json:"toolCalls"`   // tool names called this turn
+	Index      int      `json:"index"`
+	UserPrompt string   `json:"userPrompt"` // truncated
+	Assistant  string   `json:"assistant"`  // truncated, first 200 chars
+	ToolCalls  []string `json:"toolCalls"`  // tool names called this turn
 }
 
 // ComparisonResult holds the structured diff between two sessions.
 type ComparisonResult struct {
-	SessionA    string          `json:"sessionA"`
-	SessionB    string          `json:"sessionB"`
-	StatsDiff   StatsDiff       `json:"statsDiff"`
-	ToolDiffs   []ToolDiff      `json:"toolDiffs"`
-	TurnDiffs   []TurnDiff      `json:"turnDiffs"`
-	Similarity  float64         `json:"similarity"` // 0.0–1.0 structural similarity
+	SessionA   string     `json:"sessionA"`
+	SessionB   string     `json:"sessionB"`
+	StatsDiff  StatsDiff  `json:"statsDiff"`
+	ToolDiffs  []ToolDiff `json:"toolDiffs"`
+	TurnDiffs  []TurnDiff `json:"turnDiffs"`
+	Similarity float64    `json:"similarity"` // 0.0–1.0 structural similarity
 }
 
 // StatsDiff compares aggregate session metrics.
 type StatsDiff struct {
-	TokensIn   [2]int     `json:"tokensIn"`
-	TokensOut  [2]int     `json:"tokensOut"`
-	Turns      [2]int     `json:"turns"`
-	Cost       [2]float64 `json:"cost"`
-	Currency   [2]string  `json:"currency"`
+	TokensIn  [2]int     `json:"tokensIn"`
+	TokensOut [2]int     `json:"tokensOut"`
+	Turns     [2]int     `json:"turns"`
+	Cost      [2]float64 `json:"cost"`
+	Currency  [2]string  `json:"currency"`
 }
 
 // ToolDiff compares one tool's usage across two sessions.
 type ToolDiff struct {
-	Name    string `json:"name"`
-	CountA  int    `json:"countA"`
-	CountB  int    `json:"countB"`
-	Delta   int    `json:"delta"` // B - A
+	Name   string `json:"name"`
+	CountA int    `json:"countA"`
+	CountB int    `json:"countB"`
+	Delta  int    `json:"delta"` // B - A
 }
 
 // TurnDiff compares paired turns by index. Extra turns in the longer
@@ -151,8 +151,12 @@ func Compare(a, b *SessionSnapshot) *ComparisonResult {
 
 	// Tool diffs
 	allTools := make(map[string]struct{})
-	for t := range a.Tools { allTools[t] = struct{}{} }
-	for t := range b.Tools { allTools[t] = struct{}{} }
+	for t := range a.Tools {
+		allTools[t] = struct{}{}
+	}
+	for t := range b.Tools {
+		allTools[t] = struct{}{}
+	}
 	for t := range allTools {
 		r.ToolDiffs = append(r.ToolDiffs, ToolDiff{
 			Name:   t,
@@ -172,8 +176,12 @@ func Compare(a, b *SessionSnapshot) *ComparisonResult {
 	}
 	for i := 0; i < maxTurns; i++ {
 		td := TurnDiff{Index: i + 1}
-		if i < len(a.Turns) { td.ToolsA = a.Turns[i].ToolCalls }
-		if i < len(b.Turns) { td.ToolsB = b.Turns[i].ToolCalls }
+		if i < len(a.Turns) {
+			td.ToolsA = a.Turns[i].ToolCalls
+		}
+		if i < len(b.Turns) {
+			td.ToolsB = b.Turns[i].ToolCalls
+		}
 		td.Match = stringSlicesEqual(td.ToolsA, td.ToolsB)
 		td.MissingA, td.MissingB = setDiff(td.ToolsA, td.ToolsB)
 		r.TurnDiffs = append(r.TurnDiffs, td)
@@ -219,7 +227,9 @@ func (r *ComparisonResult) FormatText() string {
 	matchCount := 0
 	for _, td := range r.TurnDiffs {
 		status := "✓"
-		if !td.Match { status = "✗" }
+		if !td.Match {
+			status = "✗"
+		}
 		fmt.Fprintf(&b, "  Turn %2d %s\n", td.Index, status)
 		if !td.Match {
 			if len(td.MissingA) > 0 {
@@ -229,7 +239,9 @@ func (r *ComparisonResult) FormatText() string {
 				fmt.Fprintf(&b, "        only in B: %s\n", strings.Join(td.MissingB, ", "))
 			}
 		}
-		if td.Match { matchCount++ }
+		if td.Match {
+			matchCount++
+		}
 	}
 	fmt.Fprintf(&b, "\n  Matched: %d/%d turns\n", matchCount, len(r.TurnDiffs))
 
@@ -262,50 +274,76 @@ func shortPath(p string) string {
 }
 
 func stringSlicesEqual(a, b []string) bool {
-	if len(a) != len(b) { return false }
+	if len(a) != len(b) {
+		return false
+	}
 	for i := range a {
-		if a[i] != b[i] { return false }
+		if a[i] != b[i] {
+			return false
+		}
 	}
 	return true
 }
 
 func setDiff(a, b []string) (onlyA, onlyB []string) {
 	am := make(map[string]int)
-	for _, s := range a { am[s]++ }
+	for _, s := range a {
+		am[s]++
+	}
 	bm := make(map[string]int)
-	for _, s := range b { bm[s]++ }
+	for _, s := range b {
+		bm[s]++
+	}
 	for s, ca := range am {
 		if cb, ok := bm[s]; ok {
 			if ca > cb {
-				for i := 0; i < ca-cb; i++ { onlyA = append(onlyA, s) }
+				for i := 0; i < ca-cb; i++ {
+					onlyA = append(onlyA, s)
+				}
 			}
 		} else {
-			for i := 0; i < ca; i++ { onlyA = append(onlyA, s) }
+			for i := 0; i < ca; i++ {
+				onlyA = append(onlyA, s)
+			}
 		}
 	}
 	for s, cb := range bm {
 		if ca, ok := am[s]; ok {
 			if cb > ca {
-				for i := 0; i < cb-ca; i++ { onlyB = append(onlyB, s) }
+				for i := 0; i < cb-ca; i++ {
+					onlyB = append(onlyB, s)
+				}
 			}
 		} else {
-			for i := 0; i < cb; i++ { onlyB = append(onlyB, s) }
+			for i := 0; i < cb; i++ {
+				onlyB = append(onlyB, s)
+			}
 		}
 	}
 	return
 }
 
 func jaccard(a, b []string) float64 {
-	if len(a) == 0 && len(b) == 0 { return 1.0 }
+	if len(a) == 0 && len(b) == 0 {
+		return 1.0
+	}
 	am := make(map[string]struct{})
-	for _, s := range a { am[s] = struct{}{} }
+	for _, s := range a {
+		am[s] = struct{}{}
+	}
 	bm := make(map[string]struct{})
-	for _, s := range b { bm[s] = struct{}{} }
+	for _, s := range b {
+		bm[s] = struct{}{}
+	}
 	intersection := 0
 	for s := range am {
-		if _, ok := bm[s]; ok { intersection++ }
+		if _, ok := bm[s]; ok {
+			intersection++
+		}
 	}
 	union := len(am) + len(bm) - intersection
-	if union == 0 { return 1.0 }
+	if union == 0 {
+		return 1.0
+	}
 	return float64(intersection) / float64(union)
 }

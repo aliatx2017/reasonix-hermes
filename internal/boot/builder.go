@@ -24,8 +24,8 @@ import (
 	"reasonix/internal/event"
 	"reasonix/internal/history"
 	"reasonix/internal/hook"
-	"reasonix/internal/instruction"
 	"reasonix/internal/installsource"
+	"reasonix/internal/instruction"
 	"reasonix/internal/jobs"
 	"reasonix/internal/learn"
 	"reasonix/internal/lsp"
@@ -39,10 +39,10 @@ import (
 	"reasonix/internal/provider"
 	"reasonix/internal/sandbox"
 	"reasonix/internal/scheduler"
-	"reasonix/internal/tool/sessiontool"
 	"reasonix/internal/skill"
 	"reasonix/internal/tool"
 	"reasonix/internal/tool/builtin"
+	"reasonix/internal/tool/sessiontool"
 )
 
 // builder holds all intermediate state produced by sequential Build phases.
@@ -53,19 +53,19 @@ type builder struct {
 	opts Options
 
 	// ── loadConfig outputs ──────────────────────────────────────────────────
-	cfg          *config.Config
-	root         string
-	entry        *config.ProviderEntry
-	entryPrice   *provider.Pricing
-	modelRef     string
-	tokenEconomy bool
-	keepPolicy   agent.KeepPolicy
-	sink         event.Sink
-	proxySpec    netclient.ProxySpec
+	cfg           *config.Config
+	root          string
+	entry         *config.ProviderEntry
+	entryPrice    *provider.Pricing
+	modelRef      string
+	tokenEconomy  bool
+	keepPolicy    agent.KeepPolicy
+	sink          event.Sink
+	proxySpec     netclient.ProxySpec
 	balanceClient *http.Client
-	sessionDir   string
-	maxSteps     int
-	stderr       io.Writer
+	sessionDir    string
+	maxSteps      int
+	stderr        io.Writer
 
 	// ── buildProviders outputs ───────────────────────────────────────────────
 	execProv        provider.Provider
@@ -495,7 +495,6 @@ func (b *builder) buildPermissions() {
 
 	b.policy = permission.New(cfg.Permissions.Mode, cfg.Permissions.Allow, cfg.Permissions.Ask, cfg.Permissions.Deny)
 	b.headlessGate = permission.NewGate(b.policy, nil)
-
 
 	hooksTrusted := hook.IsTrusted(root, "")
 	b.hookRunner = hook.NewRunner(
@@ -1047,4 +1046,3 @@ func (b *builder) assemble() *control.Controller {
 
 	return ctrl
 }
-

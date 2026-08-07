@@ -10,16 +10,6 @@ import (
 	"reasonix/internal/config"
 )
 
-
-
-
-
-
-
-
-
-
-
 // ConnectCodegraphMCPServer connects the built-in CodeGraph server using an
 // already-resolved config. Desktop uses this after saving user-level settings so
 // a stale project config cannot override the just-applied choice.
@@ -62,7 +52,3 @@ func (c *Controller) connectCodegraphMCPServerForRoot(cfg *config.Config, root s
 	}
 	return c.mcp.connectSpec(codegraph.MCPSpec(bin, root))
 }
-
-
-
-

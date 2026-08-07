@@ -371,10 +371,10 @@ func TestCommandRemoteSuccess(t *testing.T) {
 	defer server.Close()
 
 	spec := Spec{
-		Mode:       "remote",
-		RemoteURL:  server.URL,
+		Mode:        "remote",
+		RemoteURL:   server.URL,
 		RemoteToken: "test-token",
-		Network:    true,
+		Network:     true,
 	}
 
 	out, err := commandRemote(spec, "echo 'hello world'")
@@ -482,10 +482,10 @@ func TestCommandRemoteRequestShape(t *testing.T) {
 	defer server.Close()
 
 	spec := Spec{
-		Mode:       "remote",
-		RemoteURL:  server.URL,
+		Mode:        "remote",
+		RemoteURL:   server.URL,
 		RemoteToken: "tok",
-		Network:    true,
+		Network:     true,
 	}
 
 	_, err := commandRemote(spec, "go test ./...")

@@ -30,12 +30,12 @@ type ToolCallInfo struct {
 
 // TurnObservation captures the key facts from one agent turn.
 type TurnObservation struct {
-	Turn       int            `json:"turn"`
-	Task       string         `json:"task"` // first 200 chars of task
-	ToolCalls  []ToolCallInfo `json:"toolCalls"`
-	SkillName  string         `json:"skillName,omitempty"`  // if a skill was invoked
-	SkillArgs  string         `json:"skillArgs,omitempty"`  // skill arguments
-	Compacted  bool           `json:"compacted,omitempty"`  // this turn triggered compaction
+	Turn      int            `json:"turn"`
+	Task      string         `json:"task"` // first 200 chars of task
+	ToolCalls []ToolCallInfo `json:"toolCalls"`
+	SkillName string         `json:"skillName,omitempty"` // if a skill was invoked
+	SkillArgs string         `json:"skillArgs,omitempty"` // skill arguments
+	Compacted bool           `json:"compacted,omitempty"` // this turn triggered compaction
 }
 
 // Pattern represents a detected repeated behaviour that could become a skill.
@@ -48,22 +48,22 @@ type Pattern struct {
 
 // Config controls the learner.
 type Config struct {
-	Enabled        bool `toml:"enabled"`
-	MaxPatterns    int  `toml:"max_patterns"`    // max patterns to detect (default 20)
-	MinConfidence  int  `toml:"min_confidence"`   // observations needed to form a pattern (default 3)
-	MaxObservations int `toml:"max_observations"` // ring buffer cap (default 200)
+	Enabled         bool `toml:"enabled"`
+	MaxPatterns     int  `toml:"max_patterns"`     // max patterns to detect (default 20)
+	MinConfidence   int  `toml:"min_confidence"`   // observations needed to form a pattern (default 3)
+	MaxObservations int  `toml:"max_observations"` // ring buffer cap (default 200)
 }
 
 // Learner collects turn observations and detects repeated behaviour patterns.
 // It is safe for concurrent use.
 type Learner struct {
-	mu             sync.Mutex
-	observations   []TurnObservation
-	patterns       []Pattern
-	enabled        bool
-	maxObs         int
-	minConfidence  int
-	nextTurn       int
+	mu            sync.Mutex
+	observations  []TurnObservation
+	patterns      []Pattern
+	enabled       bool
+	maxObs        int
+	minConfidence int
+	nextTurn      int
 }
 
 // New creates a Learner. Pass enabled=false to make Observe a no-op.
@@ -214,9 +214,9 @@ func (l *Learner) SuggestSkill(p Pattern) string {
 // MultiTurnTrajectory groups consecutive turns that share a tool sequence into a
 // higher-level pattern. It returns trajectory summaries useful for reflection.
 type MultiTurnTrajectory struct {
-	Label  string `json:"label"`  // e.g. "edit+test (3 turns)"
-	Turns  []int  `json:"turns"`  // turn numbers in this trajectory
-	Count  int    `json:"count"`  // number of turns
+	Label string `json:"label"` // e.g. "edit+test (3 turns)"
+	Turns []int  `json:"turns"` // turn numbers in this trajectory
+	Count int    `json:"count"` // number of turns
 }
 
 // Trajectories returns multi-turn sequences detected from observations.

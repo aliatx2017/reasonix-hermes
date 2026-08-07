@@ -148,7 +148,9 @@ func CIFix(ctx context.Context, runBash BashFunc, runTurn TurnFunc, ciCommand st
 
 	good := 0
 	for _, a := range r.Fixes {
-		if a.Success { good++ }
+		if a.Success {
+			good++
+		}
 	}
 	r.Summary = fmt.Sprintf("%d CI failures found. %d/%d fix turns completed.", r.FailuresFound, good, len(r.Fixes))
 	return r, nil

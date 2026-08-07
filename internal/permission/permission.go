@@ -402,7 +402,6 @@ func (g *Gate) Check(ctx context.Context, toolName string, args json.RawMessage,
 	}
 }
 
-
 // RememberRuleForScope builds the rule string persisted when the user chooses
 // an always-allow option. Bash commands prefer a safe prefix (go test:*) so
 // similar invocations (different search terms, different test packages) match;

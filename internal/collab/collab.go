@@ -8,9 +8,10 @@
 // a stream of session events and can send steer commands back.
 //
 // Transport is a simple JSON message protocol over WebSocket:
-//   → subscribe {sessionID, role: "watcher"|"owner"}
-//   → event {sessionID, kind: "message"|"turn"|"tool_call"|"tool_result"|"steer"}
-//   → steer {sessionID, text}
+//
+//	→ subscribe {sessionID, role: "watcher"|"owner"}
+//	→ event {sessionID, kind: "message"|"turn"|"tool_call"|"tool_result"|"steer"}
+//	→ steer {sessionID, text}
 //
 // Config is at [collab] in reasonix.toml.
 package collab

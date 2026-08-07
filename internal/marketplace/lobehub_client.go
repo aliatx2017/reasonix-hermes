@@ -27,7 +27,7 @@ import (
 )
 
 var (
-	lobeHubBaseURL   = "https://market.lobehub.com"
+	lobeHubBaseURL = "https://market.lobehub.com"
 )
 
 const lobeHubUserAgent = "reasonix-hermes/1.7.0"
@@ -261,23 +261,23 @@ type AgentListResponse struct {
 
 // LobeHubAgentItem is one agent returned by the LobeHub marketplace API.
 type LobeHubAgentItem struct {
-	Identifier   string   `json:"identifier"`
-	Name         string   `json:"name"`
-	Description  string   `json:"description"`
+	Identifier   string      `json:"identifier"`
+	Name         string      `json:"name"`
+	Description  string      `json:"description"`
 	Author       AgentAuthor `json:"author"`
-	Category     string   `json:"category"`
-	Tags         []string `json:"tags"`
-	InstallCount int      `json:"installCount"`
-	Version      string   `json:"versionName"`
-	URL          string   `json:"url"`
-	Avatar       string   `json:"avatar"`
-	IsFeatured   bool     `json:"isFeatured"`
-	IsOfficial   bool     `json:"isOfficial"`
-	IsValidated  bool     `json:"isValidated"`
-	Status       string   `json:"status"`
-	CreatedAt    string   `json:"createdAt"`
-	UpdatedAt    string   `json:"updatedAt"`
-	ForkCount    int      `json:"forkCount"`
+	Category     string      `json:"category"`
+	Tags         []string    `json:"tags"`
+	InstallCount int         `json:"installCount"`
+	Version      string      `json:"versionName"`
+	URL          string      `json:"url"`
+	Avatar       string      `json:"avatar"`
+	IsFeatured   bool        `json:"isFeatured"`
+	IsOfficial   bool        `json:"isOfficial"`
+	IsValidated  bool        `json:"isValidated"`
+	Status       string      `json:"status"`
+	CreatedAt    string      `json:"createdAt"`
+	UpdatedAt    string      `json:"updatedAt"`
+	ForkCount    int         `json:"forkCount"`
 }
 
 // AgentAuthor is the author metadata in an agent item.

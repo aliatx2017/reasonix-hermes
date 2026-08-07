@@ -41,7 +41,6 @@ const (
 	// colour. accent() uses the active CLI theme, but tests and legacy callers can
 	// still refer to this concrete escape sequence.
 	ansiAccent = "\033[38;5;173m"
-
 )
 
 func sgr(code, s string) string {
@@ -73,9 +72,9 @@ func logoGradient(s string) string {
 // logoBlend maps a 0..1 position to an RGB color in the logo cycle.
 func logoBlend(pos float64) (r, g, b int) {
 	type rgb struct{ r, g, b int }
-	indigo := rgb{99, 102, 241}  // #6366f1
-	cyan := rgb{6, 182, 212}     // #06b6d4
-	pink := rgb{217, 70, 239}    // #d946ef
+	indigo := rgb{99, 102, 241} // #6366f1
+	cyan := rgb{6, 182, 212}    // #06b6d4
+	pink := rgb{217, 70, 239}   // #d946ef
 
 	var a, c rgb
 	var t float64

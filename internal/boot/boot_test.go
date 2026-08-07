@@ -214,6 +214,7 @@ api_key_env = "REASONIX_TEST_KEY_UNSET"
 		t.Fatal("Learner() returned nil — learner not wired to controller")
 	}
 }
+
 // cache-first wiring: a project REASONIX.md is discovered at boot and folded
 // into the session's system message (the cached prefix), and the `remember`
 // tool is registered. It builds a real Controller from a throwaway project dir.

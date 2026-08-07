@@ -43,21 +43,21 @@ func installSourceCommand(args []string) int {
 
 func installSourceInstall(args []string) int {
 	var (
-		source      string
-		apply       bool
-		scope       string
-		kind        string
-		mode        string
-		name        string
-		transport   string
-		command     string
-		tier        string
-		envKeys     []string
-		envVals     []string
-		headerKeys  []string
-		headerVals  []string
-		replace     bool
-		strict      *bool
+		source     string
+		apply      bool
+		scope      string
+		kind       string
+		mode       string
+		name       string
+		transport  string
+		command    string
+		tier       string
+		envKeys    []string
+		envVals    []string
+		headerKeys []string
+		headerVals []string
+		replace    bool
+		strict     *bool
 	)
 
 	// Simple flag parsing — CLI is a thin wrapper, so we keep it light.

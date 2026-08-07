@@ -36,7 +36,7 @@ type PeerConfig struct {
 
 // Config is the [mesh] TOML section.
 type Config struct {
-	Enabled bool        `toml:"enabled"`
+	Enabled bool         `toml:"enabled"`
 	Peers   []PeerConfig `toml:"peers"`
 }
 
@@ -47,17 +47,17 @@ type Peer struct {
 	token  string
 	client *http.Client
 
-	initMu      sync.Mutex
-	initialized bool
+	initMu        sync.Mutex
+	initialized   bool
 	initializedAt time.Time
 }
 
 // DelegationResult is the result of a single delegate/broadcast operation.
 type DelegationResult struct {
-	Peer     string `json:"peer"`
-	Success  bool   `json:"success"`
-	Response string `json:"response"`
-	Error    string `json:"error,omitempty"`
+	Peer     string        `json:"peer"`
+	Success  bool          `json:"success"`
+	Response string        `json:"response"`
+	Error    string        `json:"error,omitempty"`
 	Duration time.Duration `json:"durationMs"`
 }
 

@@ -72,10 +72,10 @@ func run() error {
 	}
 
 	gwCfg := bot.GatewayConfig{
-		Model:          modelName,
-		MaxSteps:       cfg.Bot.MaxSteps,
-		WorkspaceRoot:  workspaceRoot,
-		Enabled:        map[bot.Platform]bool{bot.PlatformDiscord: true},
+		Model:         modelName,
+		MaxSteps:      cfg.Bot.MaxSteps,
+		WorkspaceRoot: workspaceRoot,
+		Enabled:       map[bot.Platform]bool{bot.PlatformDiscord: true},
 		Allowlist: bot.AllowlistConfig{
 			Enabled:  true,
 			AllowAll: *allowAll,

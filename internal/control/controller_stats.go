@@ -14,20 +14,14 @@ import (
 
 // HeadroomProxyStats holds a snapshot of headroom proxy metrics.
 type HeadroomProxyStats struct {
-	Running       bool    `json:"running"`
-	Requests      int     `json:"requests"`
-	TokensBefore  int     `json:"tokens_before"`
-	TokensSaved   int     `json:"tokens_saved"`
-	SavingsPct    float64 `json:"savings_pct"`
-	CostSavedUSD  float64 `json:"cost_saved_usd"`
-	Version       string  `json:"version"`
+	Running      bool    `json:"running"`
+	Requests     int     `json:"requests"`
+	TokensBefore int     `json:"tokens_before"`
+	TokensSaved  int     `json:"tokens_saved"`
+	SavingsPct   float64 `json:"savings_pct"`
+	CostSavedUSD float64 `json:"cost_saved_usd"`
+	Version      string  `json:"version"`
 }
-
-
-
-
-
-
 
 // SessionCost returns the estimated total spend this session.
 func (c *Controller) SessionCost() float64 {
@@ -197,6 +191,3 @@ func (c *Controller) HeadroomProxyStats() HeadroomProxyStats {
 		CostSavedUSD: raw.Summary.Cost.TotalSavedUSD,
 	}
 }
-
-
-

@@ -419,7 +419,6 @@ func newTestTaskTool(t *testing.T, prov provider.Provider, reg *tool.Registry, s
 		WithTranscripts(NewSubagentStore(t.TempDir()), t.TempDir(), "base-model", "base-effort")
 }
 
-
 // TestTaskToolBatchDispatch verifies that batch mode spawns multiple background
 // tasks and returns a summary with job IDs.
 func TestTaskToolBatchDispatch(t *testing.T) {
