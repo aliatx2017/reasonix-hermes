@@ -85,32 +85,41 @@ func TestCompressBashNoRepeats(t *testing.T) {
 func TestCompressCacheHitSameTurn(t *testing.T) {
 	c := New(true)
 	c.SetTurn(5)
-	raw := "exact same content repeated"
+	// Long enough that the dedup marker is smaller than the content (the marker
+	// embeds a ~100-char first-line summary, so short inputs stay verbatim).
+	raw := strings.Repeat("exact same content repeated ", 40)
 	first := c.Compress("read_file", raw)
 	if first != raw {
 		t.Fatalf("first call should return raw, got %q", first)
 	}
 	second := c.Compress("read_file", raw)
-	if !strings.Contains(second, "content unchanged") {
-		t.Errorf("second call should be cached, got: %s", second)
+	if !strings.Contains(second, "identical to earlier tool output") {
+		t.Errorf("second call should be deduped, got: %s", second)
 	}
-	if !strings.Contains(second, "this turn") {
-		t.Errorf("same-turn cache hit should mention 'this turn', got: %s", second)
+	if strings.Contains(second, "turn") {
+		t.Errorf("marker must be self-contained (no turn anchor that can dangle), got: %s", second)
 	}
 }
 
 func TestCompressCacheHitDifferentTurn(t *testing.T) {
 	c := New(true)
 	c.SetTurn(3)
-	raw := "some file content that gets read twice"
+	// Long enough that the dedup marker is smaller than the content (the marker
+	// embeds a ~100-char first-line summary, so short inputs stay verbatim).
+	raw := strings.Repeat("some file content that gets read twice ", 40)
 	c.Compress("read_file", raw)
 	c.SetTurn(7)
 	got := c.Compress("read_file", raw)
-	if !strings.Contains(got, "content unchanged since turn 3") {
-		t.Errorf("cross-turn cache should mention original turn, got: %s", got)
+	if !strings.Contains(got, "identical to earlier tool output this session") {
+		t.Errorf("cross-turn hit should emit the self-contained dedup marker, got: %s", got)
 	}
 	if !strings.Contains(got, "sha256:") {
 		t.Errorf("cache ref should include sha256 prefix, got: %s", got)
+	}
+	// The marker must NOT point at a specific turn: the original may have been
+	// pruned/compacted away, leaving a dangling reference.
+	if strings.Contains(got, "turn 3") {
+		t.Errorf("marker must not anchor to a turn number, got: %s", got)
 	}
 }
 
@@ -186,13 +195,13 @@ func TestIsErrorOutput(t *testing.T) {
 		input string
 		want  bool
 	}{
-		{"panic: runtime error\ngoroutine 1 [running]:", true},        // 2 markers: panic: + goroutine
-		{"panic: runtime error", false},                                 // 1 marker only — needs 2
-		{"--- FAIL\nerror: test", true},                          // 2 markers
-		{"diff --git a b\nerror: build", true},                   // 2 markers
+		{"panic: runtime error\ngoroutine 1 [running]:", true}, // 2 markers: panic: + goroutine
+		{"panic: runtime error", false},                        // 1 marker only — needs 2
+		{"--- FAIL\nerror: test", true},                        // 2 markers
+		{"diff --git a b\nerror: build", true},                 // 2 markers
 		{"hello world", false},
-		{"success: build complete", false},                       // "success:" not a marker
-		{"warning: deprecated", false},                           // "warning:" not a marker
+		{"success: build complete", false}, // "success:" not a marker
+		{"warning: deprecated", false},     // "warning:" not a marker
 	}
 	for _, tc := range tests {
 		got := isErrorOutput(tc.input)
@@ -313,6 +322,46 @@ func TestCompressNilSafe(t *testing.T) {
 		_ = c.Compress("read_file", strings.Repeat("\n", 1000))
 		_ = c.Compress("json", "null")
 	}()
+}
+
+func TestCompressCacheHitSmallOutputNotBloated(t *testing.T) {
+	c := New(true)
+	// A tiny repeated output: the dedup marker would be larger than the content,
+	// so the hit path must return it verbatim rather than growing the context.
+	raw := "ok"
+	if first := c.Compress("read_file", raw); first != raw {
+		t.Fatalf("first call should return raw, got %q", first)
+	}
+	second := c.Compress("read_file", raw)
+	if second != raw {
+		t.Errorf("small repeated output must not be replaced by a larger marker, got %q", second)
+	}
+	if s := c.Stats(); s.BytesSaved < 0 {
+		t.Errorf("BytesSaved must never go negative, got %d", s.BytesSaved)
+	}
+}
+
+func TestCompressJSONStatsCounted(t *testing.T) {
+	c := New(true)
+	raw := strings.Join([]string{
+		"{",
+		`  "name": "test",`,
+		`  "optional": null,`,
+		`  "value": 42,`,
+		`  "unused": null`,
+		"}",
+	}, "\n")
+	got := c.Compress("web_fetch", raw)
+	if strings.Contains(got, "null") {
+		t.Fatalf("null fields should be stripped, got: %s", got)
+	}
+	s := c.Stats()
+	if s.JSONFieldsStripped < 2 {
+		t.Errorf("JSONFieldsStripped should count the two null lines, got %d", s.JSONFieldsStripped)
+	}
+	if s.BytesSaved <= 0 {
+		t.Errorf("JSON minification should record BytesSaved, got %d", s.BytesSaved)
+	}
 }
 
 func TestCompressStatsAccumulate(t *testing.T) {

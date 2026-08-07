@@ -54,10 +54,10 @@ type cacheEntry struct {
 
 // Stats carries cumulative compression statistics for the dashboard.
 type Stats struct {
-	CacheHits         int `json:"cacheHits"`
-	LinesCollapsed    int `json:"linesCollapsed"`
+	CacheHits          int `json:"cacheHits"`
+	LinesCollapsed     int `json:"linesCollapsed"`
 	JSONFieldsStripped int `json:"jsonFieldsStripped"`
-	BytesSaved        int `json:"bytesSaved"`
+	BytesSaved         int `json:"bytesSaved"`
 }
 
 const maxCacheDefault = 512
@@ -81,10 +81,10 @@ func (c *Compressor) SetTurn(turn int) {
 // Stats returns a snapshot of compression statistics.
 func (c *Compressor) Stats() Stats {
 	return Stats{
-		CacheHits:         int(c.cacheHits.Load()),
-		LinesCollapsed:    int(c.linesCollapsed.Load()),
+		CacheHits:          int(c.cacheHits.Load()),
+		LinesCollapsed:     int(c.linesCollapsed.Load()),
 		JSONFieldsStripped: int(c.jsonFieldsStripped.Load()),
-		BytesSaved:        int(c.bytesSaved.Load()),
+		BytesSaved:         int(c.bytesSaved.Load()),
 	}
 }
 
@@ -112,13 +112,22 @@ func (c *Compressor) Compress(toolName, raw string) string {
 	entry, cached := c.cache[hash]
 	c.mu.RUnlock()
 	if cached {
-		c.cacheHits.Add(1)
-		c.bytesSaved.Add(int64(len(raw)))
-		currentTurn := int(c.turn.Load())
-		if entry.turn == currentTurn {
-			return fmt.Sprintf("[content unchanged — same as earlier this turn (sha256:%s…)]", hash[:12])
+		// A hit means this exact output already appeared earlier this session.
+		// Emit a SELF-CONTAINED marker that does not anchor to a turn number: the
+		// earlier copy may since have been elided by PruneStaleToolResults or
+		// folded by compaction, which would turn a "same as turn N" pointer into
+		// a dangling reference to content no longer in the window. Telling the
+		// model it's a duplicate and how to recover keeps the dedup saving
+		// without that correctness hazard.
+		marker := fmt.Sprintf("[identical to earlier tool output this session (sha256:%s…): %s — re-run the tool if you need the full content again]", hash[:12], entry.summary)
+		// Never let dedup grow the output: a small repeated result whose marker
+		// is as large as the content is returned verbatim (and not counted).
+		if len(marker) >= len(raw) {
+			return raw
 		}
-		return fmt.Sprintf("[content unchanged since turn %d (sha256:%s…): %s]", entry.turn, hash[:12], entry.summary)
+		c.cacheHits.Add(1)
+		c.bytesSaved.Add(int64(len(raw) - len(marker)))
+		return marker
 	}
 	// Store in cache, evicting the oldest entry when maxCache is reached.
 	c.mu.Lock()
@@ -316,6 +325,11 @@ func (c *Compressor) compressJSON(raw string) string {
 	if len(result) >= len(raw) {
 		return raw
 	}
+	// Record the savings: previously the JSON path stripped fields silently, so
+	// jsonFieldsStripped was always 0 in the dashboard and these bytes never
+	// counted toward BytesSaved.
+	c.jsonFieldsStripped.Add(int64(stripped))
+	c.bytesSaved.Add(int64(len(raw) - len(result)))
 	return result
 }
 
