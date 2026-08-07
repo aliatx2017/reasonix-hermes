@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"math"
 	"net/http"
 	"os"
 
@@ -128,27 +129,10 @@ func denseCosine(a, b []float64) float64 {
 	if na == 0 || nb == 0 {
 		return 0
 	}
-	return dot / (sqrt(na) * sqrt(nb))
-}
-
-func sqrt(x float64) float64 {
-	// Manual sqrt to avoid importing math for one call — memoryserver already
-	// imports math for min(), so we could use it. But this is fine.
-	// Use a simple Newton method or just call the platform sqrt.
-	// Since we already import math in main.go, we can just delegate.
-	return sqrtFallback(x)
-}
-
-func sqrtFallback(x float64) float64 {
-	// Simple Newton iteration — accurate enough for cosine similarity.
-	if x <= 0 {
-		return 0
-	}
-	z := x
-	for i := 0; i < 10; i++ {
-		z -= (z*z - x) / (2 * z)
-	}
-	return z
+	// math.Sqrt is exact; the previous hand-rolled Newton iteration seeded at
+	// z=x left ~30% error for large norm-squared values (e.g. un-normalized
+	// provider vectors), which mis-ranked and mis-thresholded dense search.
+	return dot / (math.Sqrt(na) * math.Sqrt(nb))
 }
 
 // newEmbeddingClientFromEnv reads embedding configuration from environment
@@ -177,4 +161,3 @@ func newEmbeddingClientFromEnv() *embeddingClient {
 	}
 	return newEmbeddingClient(baseURL, apiKey, model)
 }
-

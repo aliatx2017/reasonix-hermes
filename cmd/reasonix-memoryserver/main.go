@@ -49,18 +49,18 @@ const (
 
 // MemoryEntry is a single stored memory.
 type MemoryEntry struct {
-	ID          string    `json:"id"`
-	SessionID   string    `json:"session_id"`
-	Content     string    `json:"content"`
-	Tags        []string  `json:"tags,omitempty"`
-	CreatedAt   time.Time `json:"created_at"`
-	LastDecayAt time.Time `json:"last_decay_at"` // last time importance decay was applied
-	AccessCount int       `json:"access_count"`
-	TTL         time.Duration `json:"ttl_ns"`       // nanoseconds; 0 = use default
-	ExpiresAt   time.Time     `json:"expires_at"`   // computed as CreatedAt + TTL
-	Importance  float64        `json:"importance"`   // 0.0–1.0, bumped on recall
-	Vector      map[string]float64 `json:"vector,omitempty"` // TF vector for sparse semantic search
-	DenseVector []float64     `json:"dense_vector,omitempty"` // dense embedding vector from API
+	ID          string             `json:"id"`
+	SessionID   string             `json:"session_id"`
+	Content     string             `json:"content"`
+	Tags        []string           `json:"tags,omitempty"`
+	CreatedAt   time.Time          `json:"created_at"`
+	LastDecayAt time.Time          `json:"last_decay_at"` // last time importance decay was applied
+	AccessCount int                `json:"access_count"`
+	TTL         time.Duration      `json:"ttl_ns"`                 // nanoseconds; 0 = use default
+	ExpiresAt   time.Time          `json:"expires_at"`             // computed as CreatedAt + TTL
+	Importance  float64            `json:"importance"`             // 0.0–1.0, bumped on recall
+	Vector      map[string]float64 `json:"vector,omitempty"`       // TF vector for sparse semantic search
+	DenseVector []float64          `json:"dense_vector,omitempty"` // dense embedding vector from API
 }
 
 // Expired reports whether the entry has passed its expiry and should be
@@ -75,13 +75,13 @@ type Storage interface {
 
 // MemoryStore persists memories via a pluggable Storage backend.
 type MemoryStore struct {
-	mu      sync.RWMutex
-	storage Storage
-	dir     string // directory path (for diagnostics)
-	entries []MemoryEntry
-	nextID  atomic.Int64
-	embed   *embeddingClient // optional dense embedding API client
-	embedBatch int            // max facts per embedding API call
+	mu         sync.RWMutex
+	storage    Storage
+	dir        string // directory path (for diagnostics)
+	entries    []MemoryEntry
+	nextID     atomic.Int64
+	embed      *embeddingClient // optional dense embedding API client
+	embedBatch int              // max facts per embedding API call
 
 	// pendingBoosts holds IDs recalled since the last Tidy() pass.
 	// Boosts are applied lazily to avoid write amplification on every query.
@@ -335,6 +335,17 @@ func (ms *MemoryStore) Retain(sessionID, content string, tags []string) (*Memory
 		return nil, fmt.Errorf("content exceeds maximum length of %d bytes", maxContentLength)
 	}
 
+	// Compute the dense embedding BEFORE taking the lock: embedOne is a blocking
+	// network call bounded only by the shared client's 120s timeout. Holding
+	// ms.mu across it would freeze every concurrent Recall/Retain/SearchDense/
+	// Reflect for the duration of a slow or hung embeddings endpoint. The embed
+	// depends only on the local `content`, so it needs no lock. (SearchDense
+	// already follows this embed-then-lock ordering.)
+	var denseVec []float64
+	if ms.embed != nil {
+		denseVec = ms.embed.embedOne(content)
+	}
+
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
 
@@ -342,20 +353,16 @@ func (ms *MemoryStore) Retain(sessionID, content string, tags []string) (*Memory
 	now := time.Now()
 	ttl := defaultTTL
 	entry := MemoryEntry{
-		ID:         fmt.Sprintf("mem-%d-%d", id, now.Unix()),
-		SessionID:  sessionID,
-		Content:    content,
-		Tags:       tags,
-		CreatedAt:  now,
-		TTL:        ttl,
-		ExpiresAt:  now.Add(ttl),
-		Importance: 0.5, // start at medium importance
-		Vector:     vectorize(content),
-	}
-
-	// Auto-embed with dense vectors when the embedding client is configured.
-	if ms.embed != nil {
-		entry.DenseVector = ms.embed.embedOne(content)
+		ID:          fmt.Sprintf("mem-%d-%d", id, now.Unix()),
+		SessionID:   sessionID,
+		Content:     content,
+		Tags:        tags,
+		CreatedAt:   now,
+		TTL:         ttl,
+		ExpiresAt:   now.Add(ttl),
+		Importance:  0.5, // start at medium importance
+		Vector:      vectorize(content),
+		DenseVector: denseVec,
 	}
 
 	ms.entries = append(ms.entries, entry)
@@ -684,7 +691,7 @@ func main() {
 		ss, sErr = newSQLiteStorage(storeDir)
 		if sErr != nil {
 			logger.Error("failed to create sqlite storage", "err", sErr)
-		os.Exit(1)
+			os.Exit(1)
 		}
 		store, err = NewMemoryStoreWithStorage(ss, storeDir)
 	default:

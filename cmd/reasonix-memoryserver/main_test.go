@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"math"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -31,7 +30,6 @@ func newTestStore(t *testing.T) (*MemoryStore, string) {
 	}
 	return store, dir
 }
-
 
 // newTestMCPServer builds a mcputil.Server with the memory handler.
 func newTestMCPServer(store *MemoryStore) *mcputil.Server {
@@ -416,7 +414,7 @@ func TestHandleMessageToolsCallRetain(t *testing.T) {
 		"arguments": map[string]any{
 			"session_id": "test-session",
 			"content":    "Important discovery about Go",
-			"tags":        []any{"go", "discovery"},
+			"tags":       []any{"go", "discovery"},
 		},
 	}
 	data := callHandleMessage(t, srv, "tools/call", json.RawMessage(`3`), params)
@@ -458,7 +456,7 @@ func TestHandleMessageToolsCallRecall(t *testing.T) {
 		"arguments": map[string]any{
 			"session_id": "test-session",
 			"query":      "channels",
-			"limit":       float64(5),
+			"limit":      float64(5),
 		},
 	}
 	data := callHandleMessage(t, srv, "tools/call", json.RawMessage(`4`), params)
@@ -1650,8 +1648,8 @@ func TestDenseCosine(t *testing.T) {
 		{[]float64{1, 0}, []float64{0, 1}, 0.0},
 		{nil, []float64{1}, 0},
 		{[]float64{1}, nil, 0},
-		{[]float64{1, 2}, []float64{1}, 0},       // length mismatch
-		{[]float64{0, 0}, []float64{0, 0}, 0},    // zero vectors
+		{[]float64{1, 2}, []float64{1}, 0},    // length mismatch
+		{[]float64{0, 0}, []float64{0, 0}, 0}, // zero vectors
 	}
 	for _, tc := range tests {
 		got := denseCosine(tc.a, tc.b)
@@ -1662,22 +1660,6 @@ func TestDenseCosine(t *testing.T) {
 		if diff > 0.01 {
 			t.Errorf("denseCosine(%v, %v) = %.4f, want %.4f", tc.a, tc.b, got, tc.want)
 		}
-	}
-}
-
-func TestSqrtFallback(t *testing.T) {
-	t.Parallel()
-	cases := []float64{0, 1, 4, 9, 2}
-	for _, x := range cases {
-		got := sqrtFallback(x)
-		want := math.Sqrt(x)
-		if math.Abs(got-want) > 1e-6 {
-			t.Errorf("sqrtFallback(%v) = %v, want %v", x, got, want)
-		}
-	}
-	// Negative input
-	if sqrtFallback(-1) != 0 {
-		t.Error("sqrtFallback(-1) should return 0")
 	}
 }
 
