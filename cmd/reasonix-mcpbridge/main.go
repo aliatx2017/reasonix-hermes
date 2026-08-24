@@ -13,6 +13,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -34,6 +35,15 @@ import (
 
 // version is injected at build time via -ldflags "-X main.version=...".
 var version = "dev"
+
+const (
+	// maxOrchestrationSteps caps how many sub-tasks one orchestrate_task call
+	// will execute. The decomposition is model output, so without a cap the
+	// model chooses how many subprocesses we spawn and how long we run.
+	maxOrchestrationSteps = 10
+	// maxConcurrentSteps is how many steps run at once.
+	maxConcurrentSteps = 3
+)
 
 // Bridge holds state for tool execution.
 type Bridge struct {
@@ -125,7 +135,9 @@ func (b *Bridge) handle(name string, args map[string]any) (string, error) {
 		if workdir == "" {
 			workdir = b.workDir
 		}
-		return b.runReasonix(workdir, model, task)
+		// Direct invocation has no enclosing budget; the 5-minute step timeout
+		// inside runReasonix is the whole limit.
+		return b.runReasonix(context.Background(), workdir, model, task)
 
 	case "reasonix_doctor":
 		return b.doctorCheck()
@@ -159,7 +171,10 @@ func (b *Bridge) handle(name string, args map[string]any) (string, error) {
 	}
 }
 
-func (b *Bridge) runReasonix(workdir, model, task string) (string, error) {
+// runReasonix shells out to the reasonix CLI. The step timeout is derived from
+// parent so an enclosing budget (orchestration) actually bounds the step —
+// starting from context.Background() here would make that budget advisory.
+func (b *Bridge) runReasonix(parent context.Context, workdir, model, task string) (string, error) {
 	// Validate workdir: must be an existing directory.
 	if workdir == "" {
 		workdir = "."
@@ -179,7 +194,7 @@ func (b *Bridge) runReasonix(workdir, model, task string) (string, error) {
 		args = append(args, "--model", model)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	ctx, cancel := context.WithTimeout(parent, 5*time.Minute)
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, "reasonix", args...)
@@ -187,8 +202,11 @@ func (b *Bridge) runReasonix(workdir, model, task string) (string, error) {
 	cmd.Env = os.Environ()
 
 	out, err := cmd.CombinedOutput()
-	if ctx.Err() == context.DeadlineExceeded {
-		return "", fmt.Errorf("reasonix timed out after 5 minutes")
+	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		return "", fmt.Errorf("reasonix timed out (5 minute step limit, or the enclosing deadline elapsed)")
+	}
+	if errors.Is(ctx.Err(), context.Canceled) {
+		return "", fmt.Errorf("reasonix canceled before completion")
 	}
 	if err != nil {
 		return fmt.Sprintf("Reasonix execution error: %v\n%s", err, string(out)), nil
@@ -266,9 +284,8 @@ func (b *Bridge) orchestrateTask(task string) (string, error) {
 	if len(steps) == 0 {
 		steps = []string{task}
 	}
+	steps, dropped := capSteps(steps)
 
-	// Cap at 5 concurrent to prevent resource exhaustion
-	const maxConcurrent = 3
 	type stepResult struct {
 		index int
 		desc  string
@@ -277,25 +294,50 @@ func (b *Bridge) orchestrateTask(task string) (string, error) {
 	}
 
 	results := make([]stepResult, len(steps))
-	var wg sync.WaitGroup
-	sem := make(chan struct{}, maxConcurrent)
-
-	for i, step := range steps {
-		wg.Add(1)
-		go func(idx int, stepDesc string) {
-			defer wg.Done()
-			sem <- struct{}{}
-			defer func() { <-sem }()
-
-			out, err := b.runReasonix(b.workDir, "", stepDesc)
-			results[idx] = stepResult{index: idx, desc: stepDesc, out: out, err: err}
-		}(i, step)
+	for i := range steps {
+		results[i] = stepResult{
+			index: i,
+			desc:  steps[i],
+			err:   fmt.Errorf("not started: orchestration deadline elapsed"),
+		}
 	}
+
+	// A fixed worker pool rather than one goroutine per step, so concurrency is
+	// ours to decide and not the model's.
+	workers := min(maxConcurrentSteps, len(steps))
+	queue := make(chan int)
+	var wg sync.WaitGroup
+	for w := 0; w < workers; w++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for idx := range queue {
+				out, err := b.runReasonix(ctx, b.workDir, "", steps[idx])
+				results[idx] = stepResult{index: idx, desc: steps[idx], out: out, err: err}
+			}
+		}()
+	}
+
+feed:
+	for i := range steps {
+		select {
+		case queue <- i:
+		case <-ctx.Done():
+			// Stop handing out work once the budget is gone; unfed steps keep
+			// their pre-seeded "not started" result.
+			break feed
+		}
+	}
+	close(queue)
 	wg.Wait()
 
 	var sb strings.Builder
 	sb.WriteString("# Orchestration Results\n\n## Decomposition\n")
 	sb.WriteString(decomposition)
+	if dropped > 0 {
+		fmt.Fprintf(&sb, "\n\n_Note: %d additional step(s) were not run — the decomposition exceeded the %d-step limit._\n",
+			dropped, maxOrchestrationSteps)
+	}
 	sb.WriteString("\n\n## Execution Results\n")
 	for _, r := range results {
 		fmt.Fprintf(&sb, "### Step %d: %s\n", r.index+1, r.desc)
@@ -310,6 +352,17 @@ func (b *Bridge) orchestrateTask(task string) (string, error) {
 		sb.WriteString("\n")
 	}
 	return sb.String(), nil
+}
+
+// capSteps limits a decomposition to maxOrchestrationSteps and reports how many
+// steps were dropped. The step count comes straight out of model output, and
+// each step is a reasonix subprocess, so without a cap the model decides both
+// how many processes we spawn and how long the call runs.
+func capSteps(steps []string) (kept []string, dropped int) {
+	if len(steps) <= maxOrchestrationSteps {
+		return steps, 0
+	}
+	return steps[:maxOrchestrationSteps], len(steps) - maxOrchestrationSteps
 }
 
 func (b *Bridge) callDeepSeek(ctx context.Context, systemPrompt, userPrompt string) (string, error) {

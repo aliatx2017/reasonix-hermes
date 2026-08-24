@@ -967,3 +967,70 @@ func TestFindSkillFileRejectsTraversal(t *testing.T) {
 		}
 	}
 }
+
+func TestCapSteps(t *testing.T) {
+	t.Parallel()
+
+	var many []string
+	for i := 0; i < maxOrchestrationSteps*3; i++ {
+		many = append(many, fmt.Sprintf("step %d", i))
+	}
+
+	tests := []struct {
+		name        string
+		in          []string
+		wantKept    int
+		wantDropped int
+	}{
+		{"nil", nil, 0, 0},
+		{"under the cap", []string{"a", "b"}, 2, 0},
+		{"at the cap", many[:maxOrchestrationSteps], maxOrchestrationSteps, 0},
+		{"over the cap", many, maxOrchestrationSteps, maxOrchestrationSteps * 2},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			kept, dropped := capSteps(tt.in)
+			if len(kept) != tt.wantKept {
+				t.Errorf("kept = %d, want %d", len(kept), tt.wantKept)
+			}
+			if dropped != tt.wantDropped {
+				t.Errorf("dropped = %d, want %d", dropped, tt.wantDropped)
+			}
+		})
+	}
+}
+
+func TestRunReasonixHonorsCanceledParent(t *testing.T) {
+	t.Parallel()
+	b := &Bridge{workDir: t.TempDir()}
+
+	// A canceled enclosing budget must stop the step rather than start a fresh
+	// 5-minute one of its own.
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	out, err := b.runReasonix(ctx, b.workDir, "", "some task")
+	if err == nil {
+		t.Fatalf("expected an error for a canceled parent, got output %q", out)
+	}
+	if !strings.Contains(err.Error(), "canceled") {
+		t.Errorf("error = %v, want it to report cancellation", err)
+	}
+}
+
+func TestRunReasonixHonorsExpiredParentDeadline(t *testing.T) {
+	t.Parallel()
+	b := &Bridge{workDir: t.TempDir()}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Nanosecond)
+	defer cancel()
+	time.Sleep(2 * time.Millisecond)
+
+	out, err := b.runReasonix(ctx, b.workDir, "", "some task")
+	if err == nil {
+		t.Fatalf("expected an error for an expired parent deadline, got output %q", out)
+	}
+	if !strings.Contains(err.Error(), "timed out") {
+		t.Errorf("error = %v, want it to report the timeout", err)
+	}
+}
