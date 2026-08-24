@@ -39,6 +39,19 @@ type Config struct {
 	Token      string `toml:"token"`       // optional Bearer token; if set, clients must pass ?token=<value>
 }
 
+const (
+	// maxMessageBytes caps one inbound frame. Protocol messages are a subscribe
+	// handshake or a steer string, so a megabyte is already generous — without a
+	// limit any client can make the server allocate arbitrarily.
+	maxMessageBytes = 1 << 20
+	// writeWait bounds a single write to a peer.
+	writeWait = 5 * time.Second
+	// pongWaitDefault is how long a peer may go silent before its connection is
+	// torn down; pingPeriodDefault must stay comfortably below it.
+	pongWaitDefault   = 60 * time.Second
+	pingPeriodDefault = 30 * time.Second
+)
+
 // Role is the participant role.
 type Role string
 
@@ -90,6 +103,25 @@ type Hub struct {
 	logger   *slog.Logger
 	upgrader websocket.Upgrader
 	token    string // required query-param token (empty = no auth)
+
+	// Keepalive timings. Zero means use the package defaults; tests set short
+	// values to exercise a real ping/pong cycle without a global.
+	pongWait   time.Duration
+	pingPeriod time.Duration
+}
+
+func (h *Hub) readTimeout() time.Duration {
+	if h.pongWait > 0 {
+		return h.pongWait
+	}
+	return pongWaitDefault
+}
+
+func (h *Hub) pingInterval() time.Duration {
+	if h.pingPeriod > 0 {
+		return h.pingPeriod
+	}
+	return pingPeriodDefault
 }
 
 type peerSet struct {
@@ -191,7 +223,7 @@ func (h *Hub) Broadcast(sessionID string, ev Event) {
 	for _, p := range targets {
 		p.mu.Lock()
 		if p.conn != nil {
-			_ = p.conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
+			_ = p.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			_ = p.conn.WriteMessage(websocket.TextMessage, raw)
 		}
 		p.mu.Unlock()
@@ -244,6 +276,18 @@ func (h *Hub) handleWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Bound what a peer can make us allocate, and stop trusting it to close
+	// cleanly: without a read deadline a peer that vanished (killed process,
+	// dropped network) leaves ReadMessage blocked forever, pinning this
+	// goroutine and the connection for the lifetime of the process. Pongs
+	// refresh the deadline, so a live peer is never disconnected.
+	idle := h.readTimeout()
+	conn.SetReadLimit(maxMessageBytes)
+	_ = conn.SetReadDeadline(time.Now().Add(idle))
+	conn.SetPongHandler(func(string) error {
+		return conn.SetReadDeadline(time.Now().Add(idle))
+	})
+
 	peer := &Peer{
 		conn:     conn,
 		sessions: make(map[string]bool),
@@ -252,7 +296,11 @@ func (h *Hub) handleWS(w http.ResponseWriter, r *http.Request) {
 	h.peers[peer] = true
 	h.mu.Unlock()
 
+	closed := make(chan struct{})
+	go h.pingLoop(peer, closed)
+
 	defer func() {
+		close(closed)
 		h.removePeer(peer)
 		conn.Close()
 	}()
@@ -278,6 +326,32 @@ func (h *Hub) handleWS(w http.ResponseWriter, r *http.Request) {
 		case "steer":
 			if h.onSteer != nil {
 				h.onSteer(msg.SessionID, msg.Text)
+			}
+		}
+	}
+}
+
+// pingLoop pings the peer until the read loop signals it has finished. A peer
+// that stops answering lets its read deadline lapse, which unblocks
+// ReadMessage and tears the connection down. Writes take peer.mu because
+// Broadcast writes to the same connection and gorilla forbids concurrent writers.
+func (h *Hub) pingLoop(peer *Peer, closed <-chan struct{}) {
+	ticker := time.NewTicker(h.pingInterval())
+	defer ticker.Stop()
+	for {
+		select {
+		case <-closed:
+			return
+		case <-ticker.C:
+			peer.mu.Lock()
+			var err error
+			if peer.conn != nil {
+				_ = peer.conn.SetWriteDeadline(time.Now().Add(writeWait))
+				err = peer.conn.WriteMessage(websocket.PingMessage, nil)
+			}
+			peer.mu.Unlock()
+			if err != nil {
+				return
 			}
 		}
 	}
@@ -329,6 +403,7 @@ func EchoWSHandler() http.Handler {
 			return
 		}
 		defer conn.Close()
+		conn.SetReadLimit(maxMessageBytes)
 		for {
 			mt, raw, err := conn.ReadMessage()
 			if err != nil {

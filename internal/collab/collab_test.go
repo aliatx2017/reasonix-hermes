@@ -257,6 +257,122 @@ func TestEchoWSHandler(t *testing.T) {
 	}
 }
 
+// --- Read limit + keepalive ---
+
+func TestHandleWS_RejectsOversizedFrame(t *testing.T) {
+	t.Parallel()
+	h := &Hub{
+		peers:    make(map[*Peer]bool),
+		sessions: make(map[string]*peerSet),
+		upgrader: websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }},
+		logger:   slog.Default(),
+	}
+	srv := httptest.NewServer(http.HandlerFunc(h.handleWS))
+	defer srv.Close()
+
+	wsURL := "ws" + strings.TrimPrefix(srv.URL, "http") + "/ws"
+	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	defer conn.Close()
+
+	// One frame past the cap must be refused rather than allocated.
+	oversized := make([]byte, maxMessageBytes+1024)
+	for i := range oversized {
+		oversized[i] = 'a'
+	}
+	if err := conn.WriteMessage(websocket.TextMessage, oversized); err != nil {
+		t.Fatalf("write oversized: %v", err)
+	}
+
+	// Demand the specific 1009 close: without the read limit the server happily
+	// buffers the frame and merely fails to parse it, so asserting on "some
+	// error" would pass on the client's own read timeout instead.
+	conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+	_, _, err = conn.ReadMessage()
+	if !websocket.IsCloseError(err, websocket.CloseMessageTooBig) {
+		t.Fatalf("read after oversized frame = %v, want close 1009 (message too big)", err)
+	}
+}
+
+func TestHandleWS_DisconnectsIdlePeer(t *testing.T) {
+	t.Parallel()
+	h := &Hub{
+		peers:    make(map[*Peer]bool),
+		sessions: make(map[string]*peerSet),
+		upgrader: websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }},
+		logger:   slog.Default(),
+		pongWait: 150 * time.Millisecond,
+		// No pings, so nothing refreshes the deadline: this is the peer that
+		// vanished without closing, which used to block ReadMessage forever.
+		pingPeriod: time.Hour,
+	}
+	srv := httptest.NewServer(http.HandlerFunc(h.handleWS))
+	defer srv.Close()
+
+	wsURL := "ws" + strings.TrimPrefix(srv.URL, "http") + "/ws"
+	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	defer conn.Close()
+
+	conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+	if _, _, err := conn.ReadMessage(); err == nil {
+		t.Fatal("expected the server to drop an idle peer once pongWait elapsed")
+	}
+
+	// The peer must also be untracked, not just disconnected.
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		h.mu.RLock()
+		n := len(h.peers)
+		h.mu.RUnlock()
+		if n == 0 {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Error("idle peer was disconnected but never removed from the hub")
+}
+
+func TestHandleWS_KeepsResponsivePeerConnected(t *testing.T) {
+	t.Parallel()
+	h := &Hub{
+		peers:    make(map[*Peer]bool),
+		sessions: make(map[string]*peerSet),
+		upgrader: websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }},
+		logger:   slog.Default(),
+		// Ping well inside the idle window so pongs keep refreshing it.
+		pongWait:   400 * time.Millisecond,
+		pingPeriod: 40 * time.Millisecond,
+	}
+	srv := httptest.NewServer(http.HandlerFunc(h.handleWS))
+	defer srv.Close()
+
+	wsURL := "ws" + strings.TrimPrefix(srv.URL, "http") + "/ws"
+	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	defer conn.Close()
+
+	// gorilla answers pings from inside ReadMessage, so a client that is simply
+	// reading stays alive past several idle windows.
+	conn.SetReadDeadline(time.Now().Add(1200 * time.Millisecond))
+	_, _, err = conn.ReadMessage()
+	if err == nil {
+		t.Fatal("unexpected message from hub")
+	}
+	if websocket.IsUnexpectedCloseError(err) || websocket.IsCloseError(err,
+		websocket.CloseNormalClosure, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+		t.Fatalf("responsive peer was disconnected: %v", err)
+	}
+	// Reaching here means the read timed out client-side rather than the server
+	// closing us out — the connection survived ~3x pongWait.
+}
+
 // --- Token auth rejection ---
 
 func TestHandleWS_TokenRejected(t *testing.T) {
