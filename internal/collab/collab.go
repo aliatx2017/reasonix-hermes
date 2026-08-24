@@ -381,8 +381,14 @@ func (h *Hub) handleSubscribe(peer *Peer, msg Message) {
 func (h *Hub) removePeer(peer *Peer) {
 	h.mu.Lock()
 	delete(h.peers, peer)
-	for _, ps := range h.sessions {
+	for id, ps := range h.sessions {
 		delete(ps.peers, peer)
+		// Drop the session once its last peer leaves. Keeping the empty peerSet
+		// would leak one map entry per session ID ever subscribed, for the life
+		// of the process.
+		if len(ps.peers) == 0 {
+			delete(h.sessions, id)
+		}
 	}
 	h.mu.Unlock()
 }

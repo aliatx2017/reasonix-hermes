@@ -257,6 +257,59 @@ func TestEchoWSHandler(t *testing.T) {
 	}
 }
 
+// --- Session map hygiene ---
+
+func TestRemovePeer_DropsEmptySessions(t *testing.T) {
+	t.Parallel()
+	h := &Hub{
+		peers:    make(map[*Peer]bool),
+		sessions: make(map[string]*peerSet),
+		upgrader: websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }},
+		logger:   slog.Default(),
+	}
+	srv := httptest.NewServer(http.HandlerFunc(h.handleWS))
+	defer srv.Close()
+
+	wsURL := "ws" + strings.TrimPrefix(srv.URL, "http") + "/ws"
+
+	// Each connection subscribes to a distinct session, as a long-lived hub
+	// would see over time.
+	for _, sid := range []string{"s1", "s2", "s3"} {
+		conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+		if err != nil {
+			t.Fatalf("dial %s: %v", sid, err)
+		}
+		raw, _ := json.Marshal(Message{Type: "subscribe", SessionID: sid, Role: RoleWatcher})
+		if err := conn.WriteMessage(websocket.TextMessage, raw); err != nil {
+			t.Fatalf("subscribe %s: %v", sid, err)
+		}
+		// Wait for the hub to register before disconnecting.
+		deadline := time.Now().Add(2 * time.Second)
+		for time.Now().Before(deadline) && h.SessionWatchers(sid) == 0 {
+			time.Sleep(5 * time.Millisecond)
+		}
+		if h.SessionWatchers(sid) != 1 {
+			t.Fatalf("session %s watchers = %d, want 1", sid, h.SessionWatchers(sid))
+		}
+		conn.Close()
+	}
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		h.mu.RLock()
+		sessions, peers := len(h.sessions), len(h.peers)
+		h.mu.RUnlock()
+		if sessions == 0 && peers == 0 {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	h.mu.RLock()
+	sessions := len(h.sessions)
+	h.mu.RUnlock()
+	t.Errorf("hub retained %d session entries after every peer disconnected", sessions)
+}
+
 // --- Read limit + keepalive ---
 
 func TestHandleWS_RejectsOversizedFrame(t *testing.T) {
