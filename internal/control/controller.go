@@ -475,12 +475,27 @@ func (c *Controller) startGuarded(parent context.Context, body func(ctx context.
 		c.mu.Lock()
 		c.running = false
 		c.cancel = nil
+		c.runCtx = nil
 		c.canceling = false
 		c.mu.Unlock()
 		c.sink.Emit(event.Event{Kind: event.TurnDone, Err: err})
 		done <- err
 	}()
 	return done, nil
+}
+
+// turnContext returns the in-flight turn's context for work that should be
+// cancelled along with the turn, falling back to Background when idle. Callers
+// off the turn goroutine must go through here: c.runCtx is written under c.mu,
+// and a turn that has ended leaves nothing usable behind.
+func (c *Controller) turnContext() context.Context {
+	c.mu.Lock()
+	ctx := c.runCtx
+	c.mu.Unlock()
+	if ctx == nil {
+		return context.Background()
+	}
+	return ctx
 }
 
 // runGuarded starts a turn and does not wait for it — the path interactive
@@ -804,10 +819,7 @@ func (c *Controller) submitCommandOrTurn(trimmed, input, display string, scopedR
 	case trimmed == "/compact" || strings.HasPrefix(trimmed, "/compact "):
 		focus := strings.TrimSpace(strings.TrimPrefix(trimmed, "/compact"))
 		go func() {
-			ctx := c.runCtx
-			if ctx == nil {
-				ctx = context.Background()
-			}
+			ctx := c.turnContext()
 			if err := c.Compact(ctx, focus); err != nil {
 				c.notice("compaction failed: " + err.Error())
 			} else {
@@ -1649,11 +1661,7 @@ func (c *Controller) ClearSession() error {
 	c.mu.Lock()
 	c.startedOnce = true
 	c.mu.Unlock()
-	hookCtx := c.runCtx
-	if hookCtx == nil {
-		hookCtx = context.Background()
-	}
-	c.hooks.SessionStart(hookCtx)
+	c.hooks.SessionStart(c.turnContext())
 	if destroy.Async {
 		go func() {
 			result := destroy.Wait()

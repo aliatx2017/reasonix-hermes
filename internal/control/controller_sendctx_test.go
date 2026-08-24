@@ -71,6 +71,48 @@ func TestSendCtxHonorsCallerDeadline(t *testing.T) {
 	}
 }
 
+// A finished turn must not leave its cancelled context behind: /compact and the
+// SessionStart hook run off the turn goroutine and use it for real work, so a
+// stale one makes them fail the moment they start.
+func TestTurnContextIsUsableOnceTheTurnEnds(t *testing.T) {
+	sess := agent.NewSession("sys")
+	c := New(Options{Runner: appendingRunner{session: sess}})
+
+	if err := c.SendCtx(context.Background(), "a turn"); err != nil {
+		t.Fatalf("SendCtx = %v, want nil", err)
+	}
+	if err := c.turnContext().Err(); err != nil {
+		t.Fatalf("turnContext().Err() when idle = %v, want nil", err)
+	}
+}
+
+// While a turn is in flight, work started off the turn goroutine has to share
+// its context so Cancel reaches it.
+func TestTurnContextTracksTheRunningTurn(t *testing.T) {
+	sess := agent.NewSession("sys")
+	c := New(Options{Runner: appendingRunner{session: sess}})
+
+	release := make(chan struct{})
+	c.runGuarded(func(ctx context.Context) error {
+		<-release
+		return nil
+	})
+	waitRunning(t, c, true)
+
+	ctx := c.turnContext()
+	if ctx.Err() != nil {
+		t.Fatalf("turnContext().Err() mid-turn = %v, want nil", ctx.Err())
+	}
+	c.Cancel()
+	select {
+	case <-ctx.Done():
+	case <-time.After(2 * time.Second):
+		t.Fatal("turnContext() did not observe Cancel")
+	}
+	close(release)
+	waitRunning(t, c, false)
+}
+
 // runGuarded keeps its fire-and-forget contract for interactive frontends: the
 // outcome arrives as TurnDone, and a second call while busy is a no-op.
 func TestRunGuardedStaysAsynchronous(t *testing.T) {
