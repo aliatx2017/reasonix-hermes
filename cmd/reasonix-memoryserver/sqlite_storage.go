@@ -92,6 +92,9 @@ func (s *sqliteStorage) Load() ([]MemoryEntry, error) {
 	return entries, rows.Err()
 }
 
+// Save replaces the stored set with entries: rows absent from the slice are
+// deleted. Callers rely on that to make a purge durable — an upsert-only Save
+// would leave the purged row behind and resurrect it on the next Load.
 func (s *sqliteStorage) Save(entries []MemoryEntry) error {
 	tx, err := s.db.Begin()
 	if err != nil {
@@ -99,10 +102,58 @@ func (s *sqliteStorage) Save(entries []MemoryEntry) error {
 	}
 	defer func() { _ = tx.Rollback() }()
 
-	// Use INSERT OR REPLACE so each entry is its own atomic upsert.
-	// The id column has a PRIMARY KEY constraint — INSERT OR REPLACE
-	// deletes the old row and inserts the new one in a single step,
-	// avoiding the DELETE-all-then-reinsert race window.
+	if err := upsertTx(tx, entries); err != nil {
+		return err
+	}
+
+	keep := make(map[string]bool, len(entries))
+	for i := range entries {
+		keep[entries[i].ID] = true
+	}
+	stale, err := staleIDsTx(tx, keep)
+	if err != nil {
+		return err
+	}
+	if len(stale) > 0 {
+		del, err := tx.Prepare(`DELETE FROM memories WHERE id = ?`)
+		if err != nil {
+			return err
+		}
+		defer del.Close()
+		for _, id := range stale {
+			if _, err := del.Exec(id); err != nil {
+				return err
+			}
+		}
+	}
+	return tx.Commit()
+}
+
+// SaveDelta commits only the changed entries and leaves every other stored row
+// untouched, so appending one memory no longer rewrites the whole table. The
+// full set is unused here — that is the point of the incremental path.
+func (s *sqliteStorage) SaveDelta(_, changed []MemoryEntry) error {
+	if len(changed) == 0 {
+		return nil
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	if err := upsertTx(tx, changed); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// upsertTx writes entries as inserts-or-updates within tx. INSERT OR REPLACE
+// against the id PRIMARY KEY makes each entry its own atomic upsert, avoiding
+// the DELETE-all-then-reinsert race window.
+func upsertTx(tx *sql.Tx, entries []MemoryEntry) error {
+	if len(entries) == 0 {
+		return nil
+	}
 	stmt, err := tx.Prepare(`INSERT OR REPLACE INTO memories (id, session_id, content, tags, created_at, access_count, ttl_ns, expires_at, importance, vector, dense_vector) VALUES (?,?,?,?,?,?,?,?,?,?,?)`)
 	if err != nil {
 		return err
@@ -132,7 +183,29 @@ func (s *sqliteStorage) Save(entries []MemoryEntry) error {
 			return err
 		}
 	}
-	return tx.Commit()
+	return nil
+}
+
+// staleIDsTx returns the stored ids missing from keep. The result set is fully
+// drained before the caller deletes, so the read and the writes never interleave
+// on the same transaction.
+func staleIDsTx(tx *sql.Tx, keep map[string]bool) ([]string, error) {
+	rows, err := tx.Query(`SELECT id FROM memories`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var stale []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		if !keep[id] {
+			stale = append(stale, id)
+		}
+	}
+	return stale, rows.Err()
 }
 
 // Search performs a keyword search across content and tags using SQLite FTS-like LIKE matching.

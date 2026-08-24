@@ -106,6 +106,126 @@ func TestSQLiteStorage_Upsert(t *testing.T) {
 	}
 }
 
+func TestSQLiteStorage_SaveDropsMissingEntries(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	s, err := newSQLiteStorage(dir)
+	if err != nil {
+		t.Fatalf("newSQLiteStorage: %v", err)
+	}
+	defer s.Close()
+
+	now := time.Now().UTC().Truncate(time.Second)
+	both := []MemoryEntry{
+		{ID: "keep", Content: "keep me", CreatedAt: now, Importance: 0.5},
+		{ID: "drop", Content: "drop me", CreatedAt: now, Importance: 0.5},
+	}
+	if err := s.Save(both); err != nil {
+		t.Fatalf("Save both: %v", err)
+	}
+
+	// Save is a full replace, so omitting "drop" must delete its row rather
+	// than leave it behind to be resurrected by the next Load.
+	if err := s.Save(both[:1]); err != nil {
+		t.Fatalf("Save subset: %v", err)
+	}
+
+	loaded, err := s.Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if len(loaded) != 1 || loaded[0].ID != "keep" {
+		t.Errorf("after replacing set = %v, want [keep]", idsOf(loaded))
+	}
+}
+
+func TestSQLiteStorage_SaveDeltaLeavesOtherRowsAlone(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	s, err := newSQLiteStorage(dir)
+	if err != nil {
+		t.Fatalf("newSQLiteStorage: %v", err)
+	}
+	defer s.Close()
+
+	now := time.Now().UTC().Truncate(time.Second)
+	existing := []MemoryEntry{
+		{ID: "d1", Content: "first", CreatedAt: now, Importance: 0.5},
+		{ID: "d2", Content: "second", CreatedAt: now, Importance: 0.5},
+	}
+	if err := s.Save(existing); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	added := MemoryEntry{ID: "d3", Content: "third", CreatedAt: now, Importance: 0.5}
+	if err := s.SaveDelta(append(existing, added), []MemoryEntry{added}); err != nil {
+		t.Fatalf("SaveDelta: %v", err)
+	}
+
+	loaded, err := s.Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if len(loaded) != 3 {
+		t.Errorf("after delta = %v, want 3 entries", idsOf(loaded))
+	}
+
+	// A delta write must never be read as a full replace: passing only the new
+	// entry as `changed` leaves d1/d2 in place.
+	if err := s.SaveDelta(nil, nil); err != nil {
+		t.Errorf("SaveDelta with nothing changed: %v", err)
+	}
+	loaded, err = s.Load()
+	if err != nil {
+		t.Fatalf("Load after empty delta: %v", err)
+	}
+	if len(loaded) != 3 {
+		t.Errorf("empty delta changed the stored set: %v", idsOf(loaded))
+	}
+}
+
+func TestSQLiteStorage_TidyPurgeIsDurable(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	s, err := newSQLiteStorage(dir)
+	if err != nil {
+		t.Fatalf("newSQLiteStorage: %v", err)
+	}
+	store, err := NewMemoryStoreWithStorage(s, dir)
+	if err != nil {
+		t.Fatalf("NewMemoryStoreWithStorage: %v", err)
+	}
+
+	past := time.Now().Add(-2 * time.Hour)
+	store.entries = []MemoryEntry{
+		{ID: "expired", Content: "expired and unimportant", CreatedAt: past, ExpiresAt: past, Importance: 0},
+		{ID: "live", Content: "still good", CreatedAt: time.Now(), Importance: 0.5},
+	}
+	if err := store.save(); err != nil {
+		t.Fatalf("seed save: %v", err)
+	}
+
+	store.Tidy()
+	if err := s.Close(); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+
+	// Reopening is the part that used to fail: Tidy dropped the entry from the
+	// in-memory slice, but the row stayed in the table and came back here.
+	s2, err := newSQLiteStorage(dir)
+	if err != nil {
+		t.Fatalf("reopen: %v", err)
+	}
+	defer s2.Close()
+	loaded, err := s2.Load()
+	if err != nil {
+		t.Fatalf("Load after reopen: %v", err)
+	}
+	if len(loaded) != 1 || loaded[0].ID != "live" {
+		t.Errorf("purged entry survived a reload: got %v, want [live]", idsOf(loaded))
+	}
+}
+
 func TestSQLiteStorage_Search(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()

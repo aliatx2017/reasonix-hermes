@@ -70,7 +70,13 @@ func (e *MemoryEntry) Expired() bool { return !e.ExpiresAt.IsZero() && time.Now(
 // Storage abstracts persistence for MemoryStore.
 type Storage interface {
 	Load() ([]MemoryEntry, error)
+	// Save makes entries the complete stored set: anything previously stored
+	// and absent from the slice must be dropped, so a purge becomes durable.
 	Save(entries []MemoryEntry) error
+	// SaveDelta persists changed as inserts-or-updates without touching the
+	// other stored entries. all is the complete post-change set, for backends
+	// that can only rewrite wholesale.
+	SaveDelta(all, changed []MemoryEntry) error
 }
 
 // MemoryStore persists memories via a pluggable Storage backend.
@@ -179,6 +185,10 @@ func (fs *fileStorage) Save(entries []MemoryEntry) error {
 	return os.Rename(tmp, filepath.Join(fs.dir, "memories.json"))
 }
 
+// SaveDelta rewrites the whole document: a single JSON file cannot be updated in
+// place, so the incremental path collapses to a full write here.
+func (fs *fileStorage) SaveDelta(all, _ []MemoryEntry) error { return fs.Save(all) }
+
 // ── MemoryStore ────────────────────────────────────────────────────
 
 func NewMemoryStore(dir string) (*MemoryStore, error) {
@@ -274,8 +284,16 @@ func (ms *MemoryStore) load() error {
 	return nil
 }
 
+// save commits the in-memory set as the complete stored set, including any
+// entries removed since the last write. Use saveDelta for pure additions.
 func (ms *MemoryStore) save() error {
 	return ms.storage.Save(ms.entries)
+}
+
+// saveDelta commits just the given entries. Callers must not have removed
+// anything — a delta write cannot express a deletion.
+func (ms *MemoryStore) saveDelta(changed ...MemoryEntry) error {
+	return ms.storage.SaveDelta(ms.entries, changed)
 }
 
 // Tidy purges expired entries, applies deferred recall boosts, and persists.
@@ -366,7 +384,7 @@ func (ms *MemoryStore) Retain(sessionID, content string, tags []string) (*Memory
 	}
 
 	ms.entries = append(ms.entries, entry)
-	if err := ms.save(); err != nil {
+	if err := ms.saveDelta(entry); err != nil {
 		// Rollback
 		ms.entries = ms.entries[:len(ms.entries)-1]
 		return nil, fmt.Errorf("persist memory: %w", err)

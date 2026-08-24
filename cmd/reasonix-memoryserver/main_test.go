@@ -1984,3 +1984,6 @@ type alwaysFailStorage struct{}
 
 func (a *alwaysFailStorage) Load() ([]MemoryEntry, error) { return nil, nil }
 func (a *alwaysFailStorage) Save(_ []MemoryEntry) error   { return fmt.Errorf("disk full") }
+func (a *alwaysFailStorage) SaveDelta(_, _ []MemoryEntry) error {
+	return fmt.Errorf("disk full")
+}
