@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"reasonix/internal/boot"
 )
@@ -51,9 +50,6 @@ func run() error {
 		fmt.Printf("Turn %d...\n", i+1)
 		if err := ctrl.SendCtx(context.Background(), prompt); err != nil {
 			return fmt.Errorf("turn %d error: %w", i+1, err)
-		}
-		for ctrl.Running() {
-			time.Sleep(200 * time.Millisecond)
 		}
 		fmt.Printf("  done. (obs=%d)\n", len(lr.Observations()))
 	}

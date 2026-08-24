@@ -430,22 +430,26 @@ func (c *Controller) beginCheckpoint(input string) {
 
 // --- commands (frontend → controller) ---
 
-// runGuarded runs body on a background goroutine under a fresh cancellable
-// context, guarding against concurrent turns and emitting a TurnDone event when
-// it finishes (Err set on failure; nil also for a user Cancel). A no-op if a
-// turn is already in flight.
-func (c *Controller) runGuarded(body func(ctx context.Context) error) {
+// startGuarded runs body on a background goroutine under a fresh cancellable
+// context derived from parent, guarding against concurrent turns and emitting a
+// TurnDone event when it finishes (Err set on failure; nil also for a user
+// Cancel). It returns ErrTurnRunning if a turn is already in flight, otherwise a
+// buffered channel that receives that same error exactly once, so callers who
+// need the turn's outcome can wait for it without blocking the turn goroutine.
+func (c *Controller) startGuarded(parent context.Context, body func(ctx context.Context) error) (<-chan error, error) {
 	c.mu.Lock()
 	if c.running {
 		c.mu.Unlock()
-		return
+		return nil, ErrTurnRunning
 	}
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(parent)
 	c.cancel = cancel
 	c.runCtx = ctx
 	c.running = true
 	c.canceling = false
 	c.mu.Unlock()
+
+	done := make(chan error, 1)
 
 	c.autosaveWG.Add(1)
 	go func() {
@@ -462,17 +466,28 @@ func (c *Controller) runGuarded(body func(ctx context.Context) error) {
 				c.runCtx = nil
 				c.canceling = false
 				c.mu.Unlock()
-				c.sink.Emit(event.Event{Kind: event.TurnDone, Err: fmt.Errorf("internal error: %v", r)})
+				err := fmt.Errorf("internal error: %v", r)
+				c.sink.Emit(event.Event{Kind: event.TurnDone, Err: err})
+				done <- err
 			}
 		}()
-		err := body(ctx)
+		err := explainError(body(ctx))
 		c.mu.Lock()
 		c.running = false
 		c.cancel = nil
 		c.canceling = false
 		c.mu.Unlock()
-		c.sink.Emit(event.Event{Kind: event.TurnDone, Err: explainError(err)})
+		c.sink.Emit(event.Event{Kind: event.TurnDone, Err: err})
+		done <- err
 	}()
+	return done, nil
+}
+
+// runGuarded starts a turn and does not wait for it — the path interactive
+// frontends take, where the turn's outcome arrives as a TurnDone event. A no-op
+// if a turn is already in flight.
+func (c *Controller) runGuarded(body func(ctx context.Context) error) {
+	_, _ = c.startGuarded(context.Background(), body)
 }
 
 // Send starts a turn with an uncomposed message. The controller applies

@@ -49,6 +49,9 @@ type Result struct {
 }
 
 // Sender is the interface the scheduler uses to submit prompts to the agent.
+// Send is expected to block until the prompt has been handled and to report a
+// prompt it could not run — the scheduler records its return value as the task's
+// success, and ctx carries the per-task deadline.
 type Sender interface {
 	Send(ctx context.Context, text string) error
 }
@@ -126,7 +129,9 @@ func (s *Scheduler) Start(ctx context.Context) {
 // s.nextRun without racing this read (a concurrent map read+write is a fatal Go
 // panic, and RemoveTask's reslice would otherwise shift a live *Task pointer).
 // runTask then executes outside the lock so a slow Send never blocks task
-// management or Results().
+// management or Results(). Due tasks run one at a time: the agent runs a single
+// turn at a time, so dispatching them together would only make all but one fail.
+// A task that comes due meanwhile fires on the next tick after this one returns.
 func (s *Scheduler) fireDue(now time.Time) {
 	s.mu.Lock()
 	var due []Task

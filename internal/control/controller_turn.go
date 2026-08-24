@@ -10,10 +10,25 @@ import (
 	"reasonix/internal/config"
 )
 
-// SendCtx implements scheduler.Sender — delegates to Send for scheduled tasks.
-func (c *Controller) SendCtx(_ context.Context, text string) error {
-	c.Send(text)
-	return nil
+// SendCtx implements scheduler.Sender. Unlike Send it is synchronous and
+// reports failures: a task that arrives while another turn is in flight gets
+// ErrTurnRunning rather than being silently dropped, and ctx bounds the turn —
+// the caller's deadline cancels it and is returned.
+func (c *Controller) SendCtx(ctx context.Context, text string) error {
+	done, err := c.startGuarded(ctx, func(turnCtx context.Context) error {
+		return c.runGoalLoopWithRaw(turnCtx, text, text)
+	})
+	if err != nil {
+		return err
+	}
+	select {
+	case err := <-done:
+		return err
+	case <-ctx.Done():
+		// The turn's context is derived from ctx, so it is already unwinding;
+		// don't hold the caller past its own deadline waiting for it.
+		return ctx.Err()
+	}
 }
 
 func (c *Controller) ApplyProfile(name string) error {
