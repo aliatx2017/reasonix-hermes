@@ -330,13 +330,33 @@ func (l *Learner) Load(path string) error {
 		return nil // corrupt = clean slate
 	}
 	l.mu.Lock()
+	// A sidecar written under a larger config — or by an older build — can hold
+	// more than this Learner's caps allow. Trim on the way in so the ring-buffer
+	// invariant holds immediately, instead of being restored only after enough
+	// Observe calls have evicted the excess one entry at a time.
+	obs := state.Observations
+	if len(obs) > l.maxObs {
+		obs = obs[len(obs)-l.maxObs:] // keep the newest
+	}
+	l.observations = obs
+	if patCap := l.patternCap(); len(state.Patterns) > patCap {
+		state.Patterns = state.Patterns[:patCap]
+	}
 	l.patterns = state.Patterns
-	l.observations = state.Observations
 	if state.NextTurn > l.nextTurn {
 		l.nextTurn = state.NextTurn
 	}
 	l.mu.Unlock()
 	return nil
+}
+
+// patternCap is the ceiling on retained patterns. Must be called while holding
+// l.mu.
+func (l *Learner) patternCap() int {
+	if len(l.observations) == 0 {
+		return 20
+	}
+	return max(1, l.maxObs/10)
 }
 
 // Reset clears all observations and patterns.
@@ -397,10 +417,7 @@ func (l *Learner) detectPatterns() {
 
 	// Promoted patterns with sufficient confidence
 	l.patterns = l.patterns[:0]
-	patCap := 20
-	if len(l.observations) > 0 {
-		patCap = max(1, l.maxObs/10)
-	}
+	patCap := l.patternCap()
 
 	for key, count := range seqCounts {
 		if count < l.minConfidence {

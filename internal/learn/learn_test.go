@@ -1,6 +1,7 @@
 package learn
 
 import (
+	"fmt"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -414,5 +415,72 @@ func TestSaveLoad_ResumesTurnCounter(t *testing.T) {
 	}
 	if obs[2].Turn != 3 {
 		t.Errorf("resumed turn = %d, want 3", obs[2].Turn)
+	}
+}
+
+func TestLoadTrimsToCaps(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "learn.json")
+
+	// Write a sidecar that overflows a small Learner's caps, as one saved under
+	// a larger max_observations would.
+	big := New(Config{Enabled: true, MaxObservations: 2000})
+	for i := 0; i < 500; i++ {
+		big.Observe(fmt.Sprintf("task %d", i), []ToolCallInfo{{Name: "read_file", Success: true}}, "", "")
+	}
+	if err := big.Save(path); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	small := New(Config{Enabled: true, MaxObservations: 50})
+	if err := small.Load(path); err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	got := small.Observations()
+	if len(got) > 50 {
+		t.Errorf("loaded %d observations, want at most the 50-observation cap", len(got))
+	}
+	if len(got) != 50 {
+		t.Fatalf("loaded %d observations, want exactly 50", len(got))
+	}
+	// Trimming must keep the newest turns, not the oldest.
+	if got[len(got)-1].Turn != 500 {
+		t.Errorf("newest loaded turn = %d, want 500 (trim should drop the oldest)", got[len(got)-1].Turn)
+	}
+	if got[0].Turn != 451 {
+		t.Errorf("oldest loaded turn = %d, want 451", got[0].Turn)
+	}
+
+	// One more observation must not push the buffer past the cap.
+	small.Observe("after load", []ToolCallInfo{{Name: "read_file", Success: true}}, "", "")
+	if n := len(small.Observations()); n != 50 {
+		t.Errorf("after one Observe = %d observations, want the cap to hold at 50", n)
+	}
+}
+
+func TestLoadCapsPatterns(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "learn.json")
+
+	seed := New(Config{Enabled: true, MaxObservations: 200})
+	var patterns []Pattern
+	for i := 0; i < 100; i++ {
+		patterns = append(patterns, Pattern{Name: fmt.Sprintf("p%d", i), Confidence: 5})
+	}
+	seed.mu.Lock()
+	seed.patterns = patterns
+	seed.mu.Unlock()
+	if err := seed.Save(path); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	l := New(Config{Enabled: true, MaxObservations: 200})
+	if err := l.Load(path); err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	// No observations were persisted, so the cap is the flat 20.
+	if n := len(l.Patterns()); n != 20 {
+		t.Errorf("loaded %d patterns, want the 20-pattern cap", n)
 	}
 }
