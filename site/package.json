@@ -10,9 +10,9 @@
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.7.3",
-    "@fontsource-variable/jetbrains-mono": "^5.1.0",
-    "@fontsource-variable/outfit": "^5.1.0",
-    "astro": "^7.0.6"
+    "@fontsource-variable/jetbrains-mono": "^5.3.0",
+    "@fontsource-variable/outfit": "^5.3.0",
+    "astro": "^7.2.4"
   },
   "overrides": {
     "esbuild": "0.28.1"
