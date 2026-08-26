@@ -16,10 +16,10 @@ require (
 	fyne.io/systray v1.12.2
 	github.com/godbus/dbus/v5 v5.2.2
 	github.com/minio/selfupdate v0.6.0
-	github.com/wailsapp/wails/v2 v2.13.0
-	golang.org/x/mod v0.37.0
-	golang.org/x/sys v0.46.0
-	golang.org/x/text v0.39.0
+	github.com/wailsapp/wails/v2 v2.15.0
+	golang.org/x/mod v0.40.0
+	golang.org/x/sys v0.47.0
+	golang.org/x/text v0.41.0
 )
 
 require (
