@@ -104,10 +104,14 @@ func doRetain(url, key string, timeout time.Duration, p hookPayload) error {
 		content = fmt.Sprintf("%s: %s", tool, string(p.ToolInput))
 	}
 
-	req := jsonrpcRequest("hindsight_retain", map[string]any{
+	args := map[string]any{
 		"content": content,
 		"tags":    []string{"tool_use", tool},
-	})
+	}
+	if p.SessionID != "" {
+		args["session_id"] = p.SessionID
+	}
+	req := jsonrpcRequest("hindsight_retain", args)
 
 	body, err := json.Marshal(req)
 	if err != nil {
@@ -124,7 +128,6 @@ func doReflect(url, key string, timeout time.Duration, p hookPayload) error {
 
 	req := jsonrpcRequest("hindsight_reflect", map[string]any{
 		"session_id": session,
-		"query":      "session summary",
 	})
 
 	body, err := json.Marshal(req)

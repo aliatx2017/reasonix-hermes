@@ -201,7 +201,7 @@ func (s Store) Save(m Memory) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if err := os.WriteFile(path, []byte(render(m, name)), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(render(m, name)), 0o600); err != nil {
 		return "", err
 	}
 	if err := reindexIn(dir, name, m); err != nil {
@@ -450,7 +450,7 @@ func flushIndexIn(dir string, lines map[string]string) error {
 		b.WriteString(lines[n])
 		b.WriteString("\n")
 	}
-	return os.WriteFile(filepath.Join(dir, indexFile), []byte(b.String()), 0o644)
+	return os.WriteFile(filepath.Join(dir, indexFile), []byte(b.String()), 0o600)
 }
 
 // reindexIn rewrites the MEMORY.md line for name in the given directory,

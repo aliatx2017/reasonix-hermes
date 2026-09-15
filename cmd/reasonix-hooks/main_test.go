@@ -67,6 +67,66 @@ func TestRetain_ContentIncludesToolName(t *testing.T) {
 	}
 }
 
+func TestRetain_SessionIDPassedThrough(t *testing.T) {
+	var gotSessionID string
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req map[string]any
+		json.NewDecoder(r.Body).Decode(&req)
+		params := req["params"].(map[string]any)
+		args := params["arguments"].(map[string]any)
+		if v, ok := args["session_id"]; ok {
+			gotSessionID = v.(string)
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+
+	payload := hookPayload{ToolName: "run_skill", SessionID: "sess-42"}
+	doRetain(ts.URL, "", 5*time.Second, payload)
+
+	if gotSessionID != "sess-42" {
+		t.Errorf("session_id = %q, want 'sess-42'", gotSessionID)
+	}
+}
+
+func TestRetain_EmptySessionIDOmitted(t *testing.T) {
+	var gotArgs map[string]any
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req map[string]any
+		json.NewDecoder(r.Body).Decode(&req)
+		params := req["params"].(map[string]any)
+		gotArgs = params["arguments"].(map[string]any)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+
+	payload := hookPayload{ToolName: "run_skill"}
+	doRetain(ts.URL, "", 5*time.Second, payload)
+
+	if _, present := gotArgs["session_id"]; present {
+		t.Error("session_id should be omitted when empty, not sent as empty string")
+	}
+}
+
+func TestReflect_NoQueryParam(t *testing.T) {
+	var gotArgs map[string]any
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req map[string]any
+		json.NewDecoder(r.Body).Decode(&req)
+		params := req["params"].(map[string]any)
+		gotArgs = params["arguments"].(map[string]any)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+
+	payload := hookPayload{SessionID: "s1"}
+	doReflect(ts.URL, "", 5*time.Second, payload)
+
+	if _, present := gotArgs["query"]; present {
+		t.Error("reflect should not send a 'query' param — hindsight_reflect has no such field")
+	}
+}
+
 func TestReflect_SendsCorrectTool(t *testing.T) {
 	var gotTool, gotSession string
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

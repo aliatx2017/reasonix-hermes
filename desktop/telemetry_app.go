@@ -46,7 +46,7 @@ func installID() (string, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return "", err
 	}
-	if err := os.WriteFile(path, []byte(id+"\n"), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(id+"\n"), 0o600); err != nil {
 		return "", err
 	}
 	return id, nil

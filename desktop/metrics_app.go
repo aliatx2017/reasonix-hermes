@@ -399,7 +399,7 @@ func readCounters(path string) counters {
 
 func writeCounters(path string, c counters) {
 	if b, err := json.Marshal(c); err == nil {
-		_ = os.WriteFile(path, b, 0o644)
+		_ = os.WriteFile(path, b, 0o600)
 	}
 }
 

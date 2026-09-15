@@ -42,7 +42,7 @@ func AppendDoc(path, note string) error {
 	default:
 		out = strings.TrimRight(body, "\n") + "\n\n" + quickAddHeading + "\n\n" + bullet + "\n"
 	}
-	return os.WriteFile(path, []byte(out), 0o644)
+	return os.WriteFile(path, []byte(out), 0o600)
 }
 
 // writeDocFile overwrites path with body, creating the parent directory and
@@ -55,7 +55,7 @@ func writeDocFile(path, body string) error {
 		}
 	}
 	out := strings.TrimRight(body, "\n") + "\n"
-	return os.WriteFile(path, []byte(out), 0o644)
+	return os.WriteFile(path, []byte(out), 0o600)
 }
 
 // insertUnderHeading appends bullet to the end of the section started by heading
