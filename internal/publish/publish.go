@@ -229,12 +229,12 @@ func formatContent(text string) string {
 	return b.String()
 }
 
-// formatInline converts inline backticks to <code> spans.
+// formatInline converts inline backticks to <code> spans. Iterates by rune
+// to avoid splitting multi-byte UTF-8 characters.
 func formatInline(s string) string {
 	var b strings.Builder
 	inBacktick := false
-	for i := 0; i < len(s); i++ {
-		ch := s[i]
+	for _, ch := range s {
 		if ch == '`' {
 			if inBacktick {
 				b.WriteString("</code>")
@@ -244,7 +244,7 @@ func formatInline(s string) string {
 				inBacktick = true
 			}
 		} else {
-			b.WriteString(string(ch))
+			b.WriteRune(ch)
 		}
 	}
 	// Unclosed backtick — close it.

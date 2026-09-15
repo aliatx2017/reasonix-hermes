@@ -115,8 +115,15 @@ type CIFixAttempt struct {
 // BashFunc runs a shell command and returns its combined stdout+stderr.
 type BashFunc func(ctx context.Context, command string) (string, error)
 
+const (
+	maxCIFixFailures    = 10
+	maxCIFixConcurrency = 3
+)
+
 // CIFix runs a CI command, parses failures, and spawns one fix turn per
 // failing test/check. Each fix agent sees only its specific failure context.
+// At most maxCIFixFailures are processed, with maxCIFixConcurrency concurrent
+// workers, so model-driven output cannot create unbounded goroutines.
 func CIFix(ctx context.Context, runBash BashFunc, runTurn TurnFunc, ciCommand string) (*CIFixResult, error) {
 	ciOutput, err := runBash(ctx, ciCommand)
 	if err != nil {
@@ -127,23 +134,37 @@ func CIFix(ctx context.Context, runBash BashFunc, runTurn TurnFunc, ciCommand st
 		return &CIFixResult{Summary: "No CI failures detected in output."}, nil
 	}
 
-	r := &CIFixResult{FailuresFound: len(failures), Fixes: make([]CIFixAttempt, len(failures))}
-
-	var wg sync.WaitGroup
-	for i, failure := range failures {
-		wg.Add(1)
-		go func(idx int, f string) {
-			defer wg.Done()
-			out, err := runTurn(ctx,
-				fmt.Sprintf("The CI pipeline failed with this error. Fix the issue.\n\n"+
-					"CI Failure:\n%s\n\nFix the code so this test passes. Minimal, targeted changes only.", f))
-			r.Fixes[idx] = CIFixAttempt{
-				Failure: truncate(f, 200),
-				Output:  out,
-				Success: err == nil,
-			}
-		}(i, failure)
+	dropped := 0
+	if len(failures) > maxCIFixFailures {
+		dropped = len(failures) - maxCIFixFailures
+		failures = failures[:maxCIFixFailures]
 	}
+
+	r := &CIFixResult{FailuresFound: len(failures) + dropped, Fixes: make([]CIFixAttempt, len(failures))}
+
+	workers := min(maxCIFixConcurrency, len(failures))
+	queue := make(chan int)
+	var wg sync.WaitGroup
+	for w := 0; w < workers; w++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for idx := range queue {
+				out, err := runTurn(ctx,
+					fmt.Sprintf("The CI pipeline failed with this error. Fix the issue.\n\n"+
+						"CI Failure:\n%s\n\nFix the code so this test passes. Minimal, targeted changes only.", failures[idx]))
+				r.Fixes[idx] = CIFixAttempt{
+					Failure: truncate(failures[idx], 200),
+					Output:  out,
+					Success: err == nil,
+				}
+			}
+		}()
+	}
+	for i := range failures {
+		queue <- i
+	}
+	close(queue)
 	wg.Wait()
 
 	good := 0
@@ -152,7 +173,11 @@ func CIFix(ctx context.Context, runBash BashFunc, runTurn TurnFunc, ciCommand st
 			good++
 		}
 	}
-	r.Summary = fmt.Sprintf("%d CI failures found. %d/%d fix turns completed.", r.FailuresFound, good, len(r.Fixes))
+	summary := fmt.Sprintf("%d CI failures found. %d/%d fix turns completed.", r.FailuresFound, good, len(r.Fixes))
+	if dropped > 0 {
+		summary += fmt.Sprintf(" %d additional failure(s) skipped (cap %d).", dropped, maxCIFixFailures)
+	}
+	r.Summary = summary
 	return r, nil
 }
 
@@ -190,8 +215,12 @@ func parseCIFailures(output string) []string {
 }
 
 func truncate(s string, n int) string {
-	if len(s) <= n {
+	r := []rune(s)
+	if len(r) <= n {
 		return s
 	}
-	return s[:n-3] + "..."
+	if n <= 3 {
+		return string(r[:n])
+	}
+	return string(r[:n-3]) + "..."
 }

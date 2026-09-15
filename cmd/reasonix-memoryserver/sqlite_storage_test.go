@@ -1,10 +1,13 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 	"os"
 	"testing"
 	"time"
+
+	_ "modernc.org/sqlite"
 )
 
 func TestSQLiteStorage_RoundTrip(t *testing.T) {
@@ -413,8 +416,8 @@ func TestSQLiteStorage_LoadBadJSON(t *testing.T) {
 	}
 
 	// Insert a row with invalid JSON in tags and vector columns via raw SQL.
-	_, err = s.db.Exec(`INSERT INTO memories (id, session_id, content, tags, created_at, access_count, ttl_ns, expires_at, importance, vector, dense_vector) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		"bad1", "", "bad json entry", "not-json", "2024-01-01T00:00:00Z", 0, 0, "", 0.5, "not-json-either", "also-bad",
+	_, err = s.db.Exec(`INSERT INTO memories (id, session_id, content, tags, created_at, last_decay_at, access_count, ttl_ns, expires_at, importance, vector, dense_vector) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		"bad1", "", "bad json entry", "not-json", "2024-01-01T00:00:00Z", "", 0, 0, "", 0.5, "not-json-either", "also-bad",
 	)
 	if err != nil {
 		t.Fatalf("insert bad json row: %v", err)
@@ -440,6 +443,149 @@ func TestSQLiteStorage_LoadBadJSON(t *testing.T) {
 	}
 }
 
+func TestSQLiteStorage_LastDecayAtPersists(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	s, err := newSQLiteStorage(dir)
+	if err != nil {
+		t.Fatalf("newSQLiteStorage: %v", err)
+	}
+
+	decayTime := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	entry := MemoryEntry{
+		ID:          "decay1",
+		Content:     "test decay persistence",
+		CreatedAt:   time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC),
+		LastDecayAt: decayTime,
+		Importance:  0.7,
+	}
+	if err := s.Save([]MemoryEntry{entry}); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	loaded, err := s.Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if len(loaded) != 1 {
+		t.Fatalf("loaded %d entries, want 1", len(loaded))
+	}
+	if !loaded[0].LastDecayAt.Equal(decayTime) {
+		t.Errorf("LastDecayAt = %v, want %v", loaded[0].LastDecayAt, decayTime)
+	}
+}
+
+func TestSQLiteStorage_LastDecayAtSurvivesTidy(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	s, err := newSQLiteStorage(dir)
+	if err != nil {
+		t.Fatalf("newSQLiteStorage: %v", err)
+	}
+
+	store, err := NewMemoryStoreWithStorage(s, dir)
+	if err != nil {
+		t.Fatalf("NewMemoryStoreWithStorage: %v", err)
+	}
+
+	now := time.Now().UTC().Truncate(time.Second)
+	store.entries = []MemoryEntry{
+		{
+			ID:          "tidy1",
+			Content:     "should keep decay anchor",
+			CreatedAt:   now.Add(-48 * time.Hour),
+			LastDecayAt: now.Add(-24 * time.Hour),
+			ExpiresAt:   now.Add(72 * time.Hour),
+			Importance:  0.8,
+		},
+	}
+	if err := store.save(); err != nil {
+		t.Fatalf("seed save: %v", err)
+	}
+
+	store.Tidy()
+
+	// Reload from disk — LastDecayAt must have been updated by Tidy (to ~now)
+	// and that value must have been persisted.
+	s.Close()
+	s2, err := newSQLiteStorage(dir)
+	if err != nil {
+		t.Fatalf("reopen: %v", err)
+	}
+	defer s2.Close()
+	loaded, err := s2.Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if len(loaded) != 1 {
+		t.Fatalf("loaded %d, want 1", len(loaded))
+	}
+	// Tidy should have moved LastDecayAt forward from -24h to ~now.
+	if loaded[0].LastDecayAt.IsZero() {
+		t.Error("LastDecayAt is zero after Tidy+reload — column not persisted")
+	}
+	if loaded[0].LastDecayAt.Before(now.Add(-24 * time.Hour)) {
+		t.Errorf("LastDecayAt = %v, expected it to advance past %v", loaded[0].LastDecayAt, now.Add(-24*time.Hour))
+	}
+}
+
+func TestSQLiteStorage_MigrationAddsLastDecayAt(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+
+	// Create a database WITHOUT the last_decay_at column (simulating old schema).
+	dbPath := dir + "/memories.db"
+	db, err := openTestDB(dbPath)
+	if err != nil {
+		t.Fatalf("open test db: %v", err)
+	}
+	_, err = db.Exec(`
+		CREATE TABLE memories (
+			id          TEXT PRIMARY KEY,
+			session_id  TEXT NOT NULL DEFAULT '',
+			content     TEXT NOT NULL,
+			tags        TEXT NOT NULL DEFAULT '[]',
+			created_at  TEXT NOT NULL,
+			access_count INTEGER NOT NULL DEFAULT 0,
+			ttl_ns       INTEGER NOT NULL DEFAULT 0,
+			expires_at   TEXT NOT NULL DEFAULT '',
+			importance   REAL NOT NULL DEFAULT 0.5,
+			vector       TEXT NOT NULL DEFAULT '{}',
+			dense_vector TEXT NOT NULL DEFAULT ''
+		)`)
+	if err != nil {
+		t.Fatalf("create old schema: %v", err)
+	}
+	_, err = db.Exec(`INSERT INTO memories (id, content, created_at) VALUES ('old1', 'legacy entry', '2026-06-01T00:00:00Z')`)
+	if err != nil {
+		t.Fatalf("insert legacy row: %v", err)
+	}
+	db.Close()
+
+	// Open with newSQLiteStorage — should migrate without error.
+	s, err := newSQLiteStorage(dir)
+	if err != nil {
+		t.Fatalf("newSQLiteStorage on old db: %v", err)
+	}
+	defer s.Close()
+
+	loaded, err := s.Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if len(loaded) != 1 {
+		t.Fatalf("expected 1, got %d", len(loaded))
+	}
+	// LastDecayAt should be zero for a legacy row (empty string in DB).
+	if !loaded[0].LastDecayAt.IsZero() {
+		t.Errorf("LastDecayAt should be zero for migrated row, got %v", loaded[0].LastDecayAt)
+	}
+}
+
+func openTestDB(path string) (*sql.DB, error) {
+	return sql.Open("sqlite", path+"?_journal_mode=WAL&_busy_timeout=5000")
+}
+
 func TestSQLiteStorage_LoadBadTimestamp(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
@@ -447,8 +593,8 @@ func TestSQLiteStorage_LoadBadTimestamp(t *testing.T) {
 	if err != nil {
 		t.Fatalf("newSQLiteStorage: %v", err)
 	}
-	_, err = s.db.Exec(`INSERT INTO memories (id, session_id, content, tags, created_at, access_count, ttl_ns, expires_at, importance, vector, dense_vector) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		"ts1", "", "content", "[]", "not-a-time", 0, 0, "also-not-a-time", 0.5, "{}", "",
+	_, err = s.db.Exec(`INSERT INTO memories (id, session_id, content, tags, created_at, last_decay_at, access_count, ttl_ns, expires_at, importance, vector, dense_vector) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		"ts1", "", "content", "[]", "not-a-time", "", 0, 0, "also-not-a-time", 0.5, "{}", "",
 	)
 	if err != nil {
 		t.Fatalf("insert bad timestamp row: %v", err)

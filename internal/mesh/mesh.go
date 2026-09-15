@@ -65,14 +65,14 @@ type DelegationResult struct {
 
 type jsonrpcRequest struct {
 	JSONRPC string          `json:"jsonrpc"`
-	ID      int             `json:"id"`
+	ID      *int            `json:"id,omitempty"`
 	Method  string          `json:"method"`
 	Params  json.RawMessage `json:"params,omitempty"`
 }
 
 type jsonrpcResponse struct {
 	JSONRPC string          `json:"jsonrpc"`
-	ID      int             `json:"id"`
+	ID      *int            `json:"id,omitempty"`
 	Result  json.RawMessage `json:"result,omitempty"`
 	Error   *RPCError       `json:"error,omitempty"`
 }
@@ -383,9 +383,10 @@ func (m *Mesh) ping(ctx context.Context, peer *Peer) bool {
 }
 
 func (m *Mesh) call(ctx context.Context, peer *Peer, method string, params json.RawMessage) (json.RawMessage, error) {
+	id := int(m.reqID.Add(1))
 	reqBody := jsonrpcRequest{
 		JSONRPC: "2.0",
-		ID:      int(m.reqID.Add(1)),
+		ID:      &id,
 		Method:  method,
 		Params:  params,
 	}
@@ -433,9 +434,9 @@ func (m *Mesh) call(ctx context.Context, peer *Peer, method string, params json.
 func (m *Mesh) notify(ctx context.Context, peer *Peer, method string, params json.RawMessage) error {
 	reqBody := jsonrpcRequest{
 		JSONRPC: "2.0",
-		ID:      0, // notification: no id expected
-		Method:  method,
-		Params:  params,
+		// ID intentionally nil: JSON-RPC 2.0 notifications must omit the id field.
+		Method: method,
+		Params: params,
 	}
 	body, err := json.Marshal(reqBody)
 	if err != nil {

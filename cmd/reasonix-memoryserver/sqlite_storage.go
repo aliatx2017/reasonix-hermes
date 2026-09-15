@@ -36,6 +36,7 @@ func newSQLiteStorage(dir string) (*sqliteStorage, error) {
 			content     TEXT NOT NULL,
 			tags        TEXT NOT NULL DEFAULT '[]',
 			created_at  TEXT NOT NULL,
+			last_decay_at TEXT NOT NULL DEFAULT '',
 			access_count INTEGER NOT NULL DEFAULT 0,
 			ttl_ns       INTEGER NOT NULL DEFAULT 0,
 			expires_at   TEXT NOT NULL DEFAULT '',
@@ -52,11 +53,20 @@ func newSQLiteStorage(dir string) (*sqliteStorage, error) {
 		return nil, fmt.Errorf("create schema: %w", err)
 	}
 
+	// Migrate: add last_decay_at column to databases created before this fix.
+	// ALTER TABLE … ADD COLUMN is a no-op error when the column already exists
+	// (SQLite returns "duplicate column name"), so we ignore that specific case.
+	_, migErr := db.Exec(`ALTER TABLE memories ADD COLUMN last_decay_at TEXT NOT NULL DEFAULT ''`)
+	if migErr != nil && !strings.Contains(migErr.Error(), "duplicate column") {
+		db.Close()
+		return nil, fmt.Errorf("migrate schema: %w", migErr)
+	}
+
 	return &sqliteStorage{db: db}, nil
 }
 
 func (s *sqliteStorage) Load() ([]MemoryEntry, error) {
-	rows, err := s.db.Query(`SELECT id, session_id, content, tags, created_at, access_count, ttl_ns, expires_at, importance, vector, dense_vector FROM memories ORDER BY created_at`)
+	rows, err := s.db.Query(`SELECT id, session_id, content, tags, created_at, last_decay_at, access_count, ttl_ns, expires_at, importance, vector, dense_vector FROM memories ORDER BY created_at`)
 	if err != nil {
 		return nil, err
 	}
@@ -65,9 +75,9 @@ func (s *sqliteStorage) Load() ([]MemoryEntry, error) {
 	var entries []MemoryEntry
 	for rows.Next() {
 		var e MemoryEntry
-		var tagsJSON, createdAtStr, expiresAtStr, vectorJSON, denseVectorJSON string
+		var tagsJSON, createdAtStr, lastDecayAtStr, expiresAtStr, vectorJSON, denseVectorJSON string
 		if err := rows.Scan(&e.ID, &e.SessionID, &e.Content, &tagsJSON,
-			&createdAtStr, &e.AccessCount, &e.TTL, &expiresAtStr, &e.Importance, &vectorJSON, &denseVectorJSON); err != nil {
+			&createdAtStr, &lastDecayAtStr, &e.AccessCount, &e.TTL, &expiresAtStr, &e.Importance, &vectorJSON, &denseVectorJSON); err != nil {
 			return nil, err
 		}
 		if err := json.Unmarshal([]byte(tagsJSON), &e.Tags); err != nil {
@@ -83,6 +93,9 @@ func (s *sqliteStorage) Load() ([]MemoryEntry, error) {
 			e.CreatedAt = t
 		} else {
 			e.CreatedAt = time.Now()
+		}
+		if t, err := time.Parse(time.RFC3339, lastDecayAtStr); err == nil {
+			e.LastDecayAt = t
 		}
 		if t, err := time.Parse(time.RFC3339, expiresAtStr); err == nil {
 			e.ExpiresAt = t
@@ -154,7 +167,7 @@ func upsertTx(tx *sql.Tx, entries []MemoryEntry) error {
 	if len(entries) == 0 {
 		return nil
 	}
-	stmt, err := tx.Prepare(`INSERT OR REPLACE INTO memories (id, session_id, content, tags, created_at, access_count, ttl_ns, expires_at, importance, vector, dense_vector) VALUES (?,?,?,?,?,?,?,?,?,?,?)`)
+	stmt, err := tx.Prepare(`INSERT OR REPLACE INTO memories (id, session_id, content, tags, created_at, last_decay_at, access_count, ttl_ns, expires_at, importance, vector, dense_vector) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`)
 	if err != nil {
 		return err
 	}
@@ -174,12 +187,16 @@ func upsertTx(tx *sql.Tx, entries []MemoryEntry) error {
 			denseVectorJSON = []byte("[]")
 		}
 		createdAt := e.CreatedAt.Format(time.RFC3339)
+		lastDecayAt := ""
+		if !e.LastDecayAt.IsZero() {
+			lastDecayAt = e.LastDecayAt.Format(time.RFC3339)
+		}
 		expiresAt := ""
 		if !e.ExpiresAt.IsZero() {
 			expiresAt = e.ExpiresAt.Format(time.RFC3339)
 		}
 		if _, err := stmt.Exec(e.ID, e.SessionID, e.Content, string(tagsJSON),
-			createdAt, e.AccessCount, int64(e.TTL), expiresAt, e.Importance, string(vectorJSON), string(denseVectorJSON)); err != nil {
+			createdAt, lastDecayAt, e.AccessCount, int64(e.TTL), expiresAt, e.Importance, string(vectorJSON), string(denseVectorJSON)); err != nil {
 			return err
 		}
 	}
@@ -232,7 +249,7 @@ func (s *sqliteStorage) Search(query, sessionID string, tags []string, limit int
 		where = "WHERE " + strings.Join(conditions, " AND ")
 	}
 
-	q := fmt.Sprintf(`SELECT id, session_id, content, tags, created_at, access_count, ttl_ns, expires_at, importance, vector, dense_vector FROM memories %s ORDER BY importance DESC, created_at DESC LIMIT ?`, where)
+	q := fmt.Sprintf(`SELECT id, session_id, content, tags, created_at, last_decay_at, access_count, ttl_ns, expires_at, importance, vector, dense_vector FROM memories %s ORDER BY importance DESC, created_at DESC LIMIT ?`, where)
 	args = append(args, limit)
 
 	rows, err := s.db.Query(q, args...)
@@ -244,9 +261,9 @@ func (s *sqliteStorage) Search(query, sessionID string, tags []string, limit int
 	var entries []MemoryEntry
 	for rows.Next() {
 		var e MemoryEntry
-		var tagsJSON, createdAtStr, expiresAtStr, vectorJSON, denseVectorJSON string
+		var tagsJSON, createdAtStr, lastDecayAtStr, expiresAtStr, vectorJSON, denseVectorJSON string
 		if err := rows.Scan(&e.ID, &e.SessionID, &e.Content, &tagsJSON,
-			&createdAtStr, &e.AccessCount, &e.TTL, &expiresAtStr, &e.Importance, &vectorJSON, &denseVectorJSON); err != nil {
+			&createdAtStr, &lastDecayAtStr, &e.AccessCount, &e.TTL, &expiresAtStr, &e.Importance, &vectorJSON, &denseVectorJSON); err != nil {
 			return nil, err
 		}
 		if err := json.Unmarshal([]byte(tagsJSON), &e.Tags); err != nil {
@@ -262,6 +279,9 @@ func (s *sqliteStorage) Search(query, sessionID string, tags []string, limit int
 			e.CreatedAt = t
 		} else {
 			e.CreatedAt = time.Now()
+		}
+		if t, err := time.Parse(time.RFC3339, lastDecayAtStr); err == nil {
+			e.LastDecayAt = t
 		}
 		if t, err := time.Parse(time.RFC3339, expiresAtStr); err == nil {
 			e.ExpiresAt = t
