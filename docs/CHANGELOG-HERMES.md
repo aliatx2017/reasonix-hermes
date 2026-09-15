@@ -4,6 +4,25 @@ Key milestones in the Hermes fork since June 2026.
 
 ## Unreleased
 
+(nothing yet)
+
+## v1.12.2 (September 2026)
+
+### Session 2026-09-15 — codebase evaluation: 9 bugs fixed across 2 commits
+
+Systematic codebase evaluation across all custom packages. Build/vet/test all clean, race-clean. Two commits, one npm release.
+
+- **fix(memoryserver) `06bd692b`** — SQLite schema was missing the `last_decay_at` column. The `MemoryEntry.LastDecayAt` field (used by `Tidy()` to avoid double-decay) was never stored or loaded by the SQLite backend — every `Load()` reset it to zero, making `Tidy()` apply full cumulative decay from `CreatedAt` on every run instead of the intended incremental 1%/day. Added the column to the schema, an `ALTER TABLE` migration for existing databases, and 3 regression tests (round-trip, Tidy survival, migration from old schema).
+- **fix(publish) `06bd692b`** — `formatInline` iterated the string by byte index and converted individual bytes via `string(ch)`, breaking multi-byte UTF-8 characters. Switched to range-over-runes with `WriteRune`.
+- **fix(learn) `06bd692b`** — `truncate()` cut at byte offsets, potentially splitting multi-byte characters. Now uses `[]rune`.
+- **fix(orchestrate) `06bd692b`** — same byte-vs-rune truncation bug. Also: `CIFix` spawned one goroutine per parsed CI failure with no cap — now uses a 3-worker pool capped at 10 failures, matching `orchestrateTask`'s pattern.
+- **fix(mesh) `06bd692b`** — `notify()` sent `"id": 0` in JSON-RPC notifications. JSON-RPC 2.0 notifications must omit the `id` field entirely; sending it makes the message a request. Changed `jsonrpcRequest.ID` to `*int` with `omitempty`; `notify()` leaves it nil; `call()` sets the pointer.
+- **fix(hooks) `60ff0c35`** — `doRetain` never included `p.SessionID` in the `hindsight_retain` call, so all hook-retained memories landed with an empty `session_id` — invisible to session-scoped `Recall` and `Reflect` queries. Now passes `session_id` when non-empty. Two regression tests.
+- **fix(hooks) `60ff0c35`** — `doReflect` sent a `"query": "session summary"` param that `hindsight_reflect` doesn't accept (silently ignored). Removed. Regression test added.
+- **fix(desktop,memory) `60ff0c35`** — 7 more `0o644` → `0o600` sites missed by the P1-03 audit in h59: telemetry ID, metrics counters, hooks config, memory notes (quickadd × 2), memory doc, memory index.
+- **npm release**: `hermes-npm-v1.12.2` — 13 commits since v1.12.1 (5 deferred subsystem fixes from 2026-08-24 + 2 docs + 6 evaluation fixes from 2026-09-15). All bug-fixes, no features.
+- **Total**: 2 commits (`06bd692b`, `60ff0c35`), 13 files changed, 6 new regression tests. 1 npm release (7 packages, v1.12.2).
+
 ### Session 2026-08-24 — deferred subsystem sweep: memory durability, collab hygiene, orchestration bounds, learner caps, scheduled-task reporting
 
 Worked the five items the 2026-08-07 session surfaced but deferred. Each was re-verified against current code first, and each fix carries a regression test confirmed to fail without it. 6 commits, no release cut.

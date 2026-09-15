@@ -227,6 +227,18 @@ skills-hub/            17-skill community registry + static catalog site
  - **fix(control) `40c4bfcc`** (fifth item, completed in a follow-up session after the local tooling failure cleared): `SendCtx` discarded its ctx and always returned nil; `Send` → `runGuarded` returns silently when `c.running`, so a cron task firing mid-turn vanished while `runTask` recorded `Success: true, Summary: "task dispatched"` and the 10-min deadline bound nothing. Split `runGuarded` into `startGuarded(parent, body)` — same lifecycle (autosave, panic recovery, closing `TurnDone`), but the turn ctx derives from `parent`, it returns `ErrTurnRunning` instead of returning silently, and it hands back a buffered error channel. `runGuarded` is now the fire-and-forget wrapper; `SendCtx` waits on the channel. Both `SendCtx` callers wanted the synchronous form (`cmd/learner-live-test` dropped its `Running()` poll, which raced the turn goroutine). Due scheduler tasks now run serially — the agent runs one turn at a time, so parallel dispatch would only make all but one fail.
  - **fix(control) `a201870a`** (found while restructuring the above): the turn-completion path left `c.runCtx` pointing at the context it had just cancelled, though the field documents itself as "nil when idle" and both the panic path and `RunTurn` clear it. `/compact` and the `SessionStart` hook only nil-check it, so after any completed turn `/compact` handed `Compact` a cancelled ctx and failed immediately; both also read the field without `c.mu`, racing the turn goroutine's write. Cleared on completion; both readers go through the new `turnContext()`.
  - **Total**: 7 commits (`05d381bd`, `082acb6c`, `62e9778a`, `690992dc`, `29a8ce15`, `40c4bfcc`, `a201870a`), no release.
+- **2026-09-15 session** (codebase evaluation — 9 bugs, 2 commits, npm v1.12.2):
+ - Systematic codebase evaluation across all custom packages. Build/vet/test all clean, race-clean on affected packages.
+ - **fix(memoryserver) `06bd692b`**: SQLite schema missing `last_decay_at` column — every `Load()` reset `LastDecayAt` to zero, making `Tidy()` apply full cumulative decay from `CreatedAt` on every run instead of incremental 1%/day. Added column, `ALTER TABLE` migration for existing DBs, 3 regression tests.
+ - **fix(publish) `06bd692b`**: `formatInline` iterated by byte, breaking multi-byte UTF-8. Switched to rune iteration.
+ - **fix(learn) `06bd692b`**: `truncate()` cut at byte offsets → rune-aware.
+ - **fix(orchestrate) `06bd692b`**: same truncate fix + `CIFix` unbounded goroutines → 3-worker pool capped at 10 failures.
+ - **fix(mesh) `06bd692b`**: `notify()` sent `"id": 0` in JSON-RPC notifications. Must omit `id` entirely. `*int` with `omitempty`.
+ - **fix(hooks) `60ff0c35`**: `doRetain` never passed `session_id` — hook-retained memories orphaned from their session. 2 regression tests.
+ - **fix(hooks) `60ff0c35`**: `doReflect` sent dead `query` param. Removed. Regression test.
+ - **fix(desktop,memory) `60ff0c35`**: 7 more `0o644` → `0o600` sites missed by P1-03 (telemetry, metrics, hooks config, memory × 4).
+ - **npm release**: `hermes-npm-v1.12.2` — 13 commits since v1.12.1. All bug-fixes.
+ - **Total**: 2 commits (`06bd692b`, `60ff0c35`), 13 files changed, 6 new tests. 1 npm release (7 packages, v1.12.2).
 
 ## roach-code Multi-Provider Research
 
